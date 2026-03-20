@@ -1,0 +1,87 @@
+/* Card background styles for binderclient */
+div.card-bg-default {
+  background: #f7f4ee !important;
+  min-height: 210px !important;
+  height: 210px !important;
+  width: 230px !important;
+}
+div.card-bg-orange {
+  background: #ffe8cc !important;
+  min-height: 210px !important;
+  height: 210px !important;
+  width: 230px !important;
+}
+div.card-bg-blue {
+  background: #e8f3ff !important;
+  min-height: 210px !important;
+  height: 210px !important;
+  width: 230px !important;
+}
+div.card-bg-yellow {
+  background: #fff7cc !important;
+  min-height: 210px !important;
+  height: 210px !important;
+  width: 230px !important;
+}
+div.card-bg-gradient {
+  background: linear-gradient(90deg, #ffe8cc 50%, #e8f3ff 50%) !important;
+  min-height: 210px !important;
+  height: 210px !important;
+  width: 230px !important;
+}
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+:root {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Oculta overlays y botones de Pinterest (save, hover, etc) */
+[data-pin-hover],
+.pinit-overlay,
+.pinit-btn,
+.pinit-button,
+.pinterest,
+.PIN_1540845481844_button,
+.PIN_1540845481844,
+.PIN_1463569847,
+.PIN_1463569847_button,
+.PIN_1463569847_embed,
+.PIN_1463569847_iframe,
+.PIN_1463569847_save,
+.PIN_1463569847_savebutton,
+.PIN_1463569847_savebutton_iframe,
+.PIN_1463569847_savebutton_embed,
+.PIN_1463569847_savebutton_button,
+.PIN_1463569847_savebutton_overlay,
+.PIN_1463569847_savebutton_hover,
+.PIN_1463569847_savebutton_hover_overlay,
+.PIN_1463569847_savebutton_hover_button,
+.PIN_1463569847_savebutton_hover_embed,
+.PIN_1463569847_savebutton_hover_iframe {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  z-index: -9999 !important;
+}
