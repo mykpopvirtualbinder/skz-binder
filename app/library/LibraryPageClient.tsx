@@ -1,8 +1,9 @@
 "use client";
+import Footer from "../components/footer";
 import Header from "../components/header";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "@/lib/supabase";
 import WtsListingModal from "./WtsListingModal";
 import { Users, Disc3, Mic2, User, RotateCw, BookOpen, SlidersHorizontal, Layers, ChevronLeft, ChevronRight, Upload, Siren, Heart } from "lucide-react";/** * Tipos
  */
@@ -1690,7 +1691,7 @@ export default function LibraryPageClient() {
   };
 
   const [email, setEmail] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+const [userId, setUserId] = useState<string | null>(null);
   const sp = useSearchParams();
   const uParam = sp.get("u"); // ?u=...
   const viewingUserId = uParam ?? userId; // si no hay u=, eres tú
@@ -1819,42 +1820,41 @@ const loadAll = useCallback(async () => {
   setLoading(true);
   setError(null);
   setStatus("Leyendo sesión...");
-// 3. Cargar tus Bias seleccionados
-setStatus("Cargando tus favoritos..."); 
-const { data: userData, error: userErr } = await supabase.auth.getUser();
-if (userErr) {
-  setError(userErr.message);
-  setLoading(false);
-  return;
-}
 
-const user = userData.user;
-if (!user) {
-  setStatus("No hay sesión. Ve a /login");
-  setLoading(false);
-  return;
-}
+  // 1. Intentamos obtener el usuario de la sesión
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData?.user;
 
+  // Definimos quién es el dueño de la información que vamos a mostrar
+  // Prioridad: 1. El parámetro de URL (uParam) | 2. El usuario logueado (user.id) | 3. Nadie (null)
+  const targetUid = uParam ?? user?.id ?? null;
 
+  // 2. Si hay un usuario logueado, cargamos sus datos específicos
+  if (user) {
+    setEmail(user.email ?? null);
+    setUserId(user.id);
+    
+    setStatus("Cargando tus favoritos...");
+    const { data: biasData } = await supabase
+      .from("user_biases")
+      .select("member_id")
+      .eq("user_id", user.id);
 
-  setEmail(user.email ?? null);
-  setUserId(user.id);
-// Dentro de loadAll, tras setUserld(user.id)
-const { data: biasData, error: biasError } = await supabase
-  .from("user_biases")
-  .select("member_id")
-  .eq("user_id", user.id);
+    if (biasData) {
+      setMyBiasIds(biasData.map(b => Number(b.member_id)));
+    }
+  } else {
+    // Si no hay usuario logueado, limpiamos estados de sesión
+    setEmail(null);
+    setUserId(null);
+    setMyBiasIds([]);
+    if (!uParam) {
+      setStatus("Modo catálogo: inicia sesión para gestionar tu stock");
+    }
+  }
 
-if (biasError) {
-  console.error("Error cargando bias:", biasError.message);
-} else if (biasData) {
-  // Guardamos solo los números de los IDs
-  const ids = biasData.map(b => Number(b.member_id));
-  console.log("Bias detectados en DB:", ids);
-  setMyBiasIds(ids); 
-}
-    setStatus("Cargando items...");
-
+  // 3. Carga de Items (Público para todos)
+  setStatus("Cargando items...");
   const PAGE = 1000;
   let from = 0;
   const all: any[] = [];
@@ -1874,7 +1874,6 @@ if (biasError) {
 
     const batch = data ?? [];
     all.push(...batch);
-
     if (batch.length < PAGE) break;
     from += PAGE;
   }
@@ -1891,75 +1890,56 @@ if (biasError) {
   }));
 
   setItems(itemsData);
-  // 🔎 DEBUG: ¿llegan los items de ese álbum y cómo vienen las versiones?
-  const debugAlbumId = 62; // <-- pon aquí el album_id de tu Seasons Greetings (en tu screenshot es 62)
-  const subset = itemsData.filter((x) => x.album_id === debugAlbumId);
 
-  console.log("DEBUG itemsData total:", itemsData.length);
-  console.log("DEBUG subset album", debugAlbumId, "count:", subset.length);
-  console.log(
-    "DEBUG versions in subset:",
-    subset.reduce((acc: Record<string, number>, it) => {
-      const v = (it.version ?? "NULL").trim() || "EMPTY";
-      acc[v] = (acc[v] ?? 0) + 1;
-      return acc;
-    }, {})
-  );
-  setStatus("Cargando stock por estado...");
-  const invRes = await supabase
-    .from("user_item_statuses")
-    .select("id, user_id, item_id, status, qty")
-.eq("user_id", uParam ?? user.id);  if (invRes.error) {
-    setError(invRes.error.message);
-    setLoading(false);
-    return;
+  // 4. Carga de Inventario/Stock (Solo si hay un targetUid)
+  if (targetUid) {
+    setStatus("Cargando stock...");
+    const invRes = await supabase
+      .from("user_item_statuses")
+      .select("id, user_id, item_id, status, qty")
+      .eq("user_id", targetUid);
+
+    if (!invRes.error && invRes.data) {
+      rebuildInvMap(invRes.data as UserItemStatusRow[]);
+    }
+    
+    // Carga de qué cartas están ya en el binder
+    await loadPlacedAcrossBinder(targetUid);
   }
 
-  rebuildInvMap((invRes.data ?? []) as UserItemStatusRow[]);
-
-  const groupIds = Array.from(
-    new Set(
-      itemsData
-        .map((x) => Number(x.group_id))
-        .filter((n) => Number.isFinite(n))
-    )
-  );
-
-  const albumIds = Array.from(
-    new Set(
-      itemsData
-        .map((x) => Number(x.album_id))
-        .filter((n) => Number.isFinite(n))
-    )
-  );
+  // 5. Carga de nombres de Grupos y Álbumes (Público)
+  const groupIds = Array.from(new Set(itemsData.map(x => Number(x.group_id)).filter(n => Number.isFinite(n))));
+  const albumIds = Array.from(new Set(itemsData.map(x => Number(x.album_id)).filter(n => Number.isFinite(n))));
 
   if (groupIds.length > 0) {
     const gRes = await supabase.from("groups").select("id, name").in("id", groupIds);
-    if (!gRes.error) {
+    if (!gRes.error && gRes.data) {
       const map: Record<number, string> = {};
-      for (const g of (gRes.data ?? []) as GroupRow[]) map[g.id] = (g.name ?? `Grupo ${g.id}`).trim();
+      gRes.data.forEach((g: any) => { map[g.id] = (g.name ?? `Grupo ${g.id}`).trim(); });
       setGroupNameById(map);
     }
   }
 
   if (albumIds.length > 0) {
-const aRes = await supabase.from("albums").select("id, name, release_date").in("id", albumIds);    if (!aRes.error) {
+    const aRes = await supabase.from("albums").select("id, name, release_date").in("id", albumIds);
+    if (!aRes.error && aRes.data) {
       const map: Record<number, { name: string; release_date: string | null }> = {};
-for (const a of (aRes.data ?? []) as AlbumRow[]) {
-  map[a.id] = { name: (a.name ?? `Álbum ${a.id}`).trim(), release_date: a.release_date ?? null };
-}
-setAlbumById(map);
+      aRes.data.forEach((a: any) => {
+        map[a.id] = { name: (a.name ?? `Álbum ${a.id}`).trim(), release_date: a.release_date ?? null };
+      });
+      setAlbumById(map);
     }
   }
 
-await loadPlacedAcrossBinder(uParam ?? user.id);  setCardFace((prev) => {
+  // Inicializar caras de cartas
+  setCardFace((prev) => {
     const next = { ...prev };
-    for (const it of itemsData) if (!next[it.id]) next[it.id] = "front";
+    itemsData.forEach(it => { if (!next[it.id]) next[it.id] = "front"; });
     return next;
   });
+  
   setPageFace("front");
-
-  setStatus("Inventario listo ✅");
+  setStatus(user ? "Inventario listo ✅" : "Catálogo listo ✅");
   setLoading(false);
 }, [loadPlacedAcrossBinder, rebuildInvMap, uParam]);
 useEffect(() => {
@@ -2653,7 +2633,7 @@ return (
         style={{
           marginTop: 14,
           display: "grid",
-          gridTemplateColumns: "repeat(7, 120px)",
+       gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
           gap: 18,
           justifyContent: "center",
           alignItems: "start",
@@ -3151,58 +3131,7 @@ viewingUserId={viewingUserId}
           text-transform: uppercase;
         }
       `}</style>
-     <footer style={{ 
-  width: "100%", backgroundColor: "white", borderTop: "1px solid #F3DCE7", 
-  padding: "60px 80px 30px 80px", display: "flex", flexDirection: "column", 
-  gap: "40px", marginTop: "auto" 
-}}>
-  <div style={{ 
-    display: "grid", 
-    gridTemplateColumns: "1.5fr 1fr 1fr 1fr", 
-    gap: "40px", 
-    alignItems: "start" 
-  }}>
-    
-    {/* Columna 1: Branding */}
-    <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-      <span className="tan-font" style={{ color: "#b17eac", fontSize: "24px", letterSpacing: "1px" }}>
-        MY KPOP BINDER
-      </span>
-      <p style={{ fontSize: "14px", color: "#8C659C", fontWeight: 600, maxWidth: "250px", lineHeight: "1.5" }}>
-        Tu rincón digital para organizar, comprar y tradear tus photocards favoritas de la forma más eficiente.
-      </p>
-      <span style={{ fontSize: "12px", color: "#b17eac", fontWeight: 700, marginTop: "10px" }}>
-        © 2026 My Kpop Binder. Hecho por fans para fans.
-      </span>
-    </div>
-
-    {/* Columna 2: Legal */}
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      <span style={footerColumnTitle}>LEGAL</span>
-      <a href="/terms" style={footerLinkStyle}>Términos y Condiciones</a>
-      <a href="/terms#community" style={footerLinkStyle}>Normas de la Comunidad</a>
-      <a href="/terms#copyright" style={footerLinkStyle}>Aviso de Copyright</a>
-    </div>
-
-    {/* Columna 3: Marketplace */}
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      <span style={footerColumnTitle}>MARKETPLACE</span>
-      <a href="/market-rules" style={footerLinkStyle}>Reglas del Mercado</a>
-      <a href="/anti-scam" style={footerLinkStyle}>Política Anti-Fraude</a>
-      <a href="/privacy" style={footerLinkStyle}>Privacidad y Cookies</a>
-    </div>
-
-    {/* Columna 4: Soporte */}
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      <span style={footerColumnTitle}>SOPORTE</span>
-      <a href="/faq" style={footerLinkStyle}>Preguntas Frecuentes</a>
-      <a href="/report" style={{ ...footerLinkStyle, fontWeight: 900, textDecoration: "underline" }}>
-        Reportar Abuso (DSA)
-      </a>
-      <a href="mailto:info@mykpopbinder.com" style={footerLinkStyle}>info@mykpopbinder.com</a>
-    </div>
-  </div>
-</footer>
+    <Footer />
     </div>
   );
 }

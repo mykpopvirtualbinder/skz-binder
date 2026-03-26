@@ -51,3 +51,4 @@ node_modules
 *.mov
 *.mp4
 *.zip
+.env*.local

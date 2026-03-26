@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "@/lib/supabase";
 
 // 1. DICCIONARIO MAESTRO (La única fuente de verdad para nombres)
 const MASTER_MEMBER_MAP: Record<number, string[]> = {

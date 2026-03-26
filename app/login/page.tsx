@@ -1,54 +1,136 @@
 "use client";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Header from "../components/header";
+import Footer from "../components/footer";
+import { supabase } from "@/lib/supabase";
 
-import { useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+const inputStyle: React.CSSProperties = { 
+  width: "100%", 
+  padding: "12px", 
+  borderRadius: "12px", 
+  border: "1px solid #F3DCE7", 
+  outline: "none", 
+  fontSize: "14px", 
+  background: "#FFFDF5", 
+  textAlign: "center"
+};
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
   const [email, setEmail] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function signIn() {
-    if (!email) {
-      setMsg("Introduce un email válido");
-      return;
-    }
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
+  // Lógica para conectar el botón con Supabase
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    setMsg(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (error) {
+      alert("Error: " + error.message);
+      setLoading(false);
+    } else {
+      router.push("/me");
+    }
+  };
 
-    const { error } = await supabase.auth.signInWithOtp({
-  email,
-  options: {
-    emailRedirectTo: "http://localhost:3000/",
-  },
-});
+  const handleResetPassword = async () => {
+    const emailToReset = prompt("Introduce tu email para recuperar la contraseña:");
+    if (!emailToReset) return;
 
-    setLoading(false);
-    setMsg(error ? "Error: " + error.message : "Te he enviado un link al email ✉️");
-  }
+    if (typeof supabase !== "undefined") {
+      const { error } = await supabase.auth.resetPasswordForEmail(emailToReset, {
+        redirectTo: `${window.location.origin}/update-password`, 
+      });
+      if (error) alert("Error: " + error.message);
+      else alert("¡Email enviado! Revisa tu bandeja de entrada. ✨");
+    }
+  };
 
   return (
-    <div style={{ padding: 24, maxWidth: 360 }}>
-      <h1>Login</h1>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: "#FFFDF5" }}>
+      <Header />
+      <main style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" }}>
+        <div style={{ 
+          background: "white", 
+          padding: isMobile ? "30px 20px" : "40px", 
+          borderRadius: "30px", 
+          border: "1px solid #F3DCE7", 
+          width: "100%", 
+          maxWidth: "400px", 
+          textAlign: "center" 
+        }}>
+          
+          <h2 className="tan-font" style={{ color: "#8C659C", fontSize: isMobile ? "24px" : "30px", margin: "0 0 5px 0" }}>
+            ¡Annyeonghaseyo!
+          </h2>
+          <p style={{ color: "#b17eac", fontSize: "18px", fontWeight: 800, margin: "0 0 15px 0" }}>
+            안녕하세요
+          </p>
+          
+          {/* Vinculamos la función handleLogin aquí */}
+          <form 
+            onSubmit={handleLogin} 
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+          >
+            <input 
+              type="email" 
+              placeholder="Tu email" 
+              style={inputStyle} 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <input 
+              type="password" 
+              placeholder="Tu contraseña" 
+              style={inputStyle} 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            
+            <button type="submit" className="tan-font" disabled={loading} style={{ 
+              background: "#B17EAC", color: "white", border: "none", 
+              padding: "12px", borderRadius: "15px", marginTop: "10px",
+              fontSize: isMobile ? "16px" : "18px", cursor: "pointer",
+              boxShadow: "0 4px 10px rgba(177, 126, 172, 0.2)",
+              opacity: loading ? 0.7 : 1
+            }}>
+              {loading ? "CARGANDO..." : "INICIAR SESIÓN"}
+            </button>
+          </form>
 
-      <input
-        type="email"
-        placeholder="tu@email.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ width: "100%", padding: 10, marginTop: 12 }}
-      />
+          <p style={{ marginTop: "20px", fontSize: "13px", color: "#8C659C" }}>
+            ¿Aún no tienes cuenta? <br/>
+            <span 
+              onClick={() => router.push('/register')} 
+              style={{ color: "#B17EAC", fontWeight: 900, cursor: "pointer", textDecoration: "underline" }}
+            >
+              Regístrate aquí
+            </span>
+          </p>
 
-      <button
-        onClick={signIn}
-        disabled={loading}
-        style={{ width: "100%", padding: 10, marginTop: 12 }}
-      >
-        {loading ? "Enviando…" : "Enviar link"}
-      </button>
-
-      {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
+          <button 
+            type="button"
+            onClick={handleResetPassword}
+            style={{ fontSize: "12px", color: "#8C659C", background: "none", border: "none", cursor: "pointer", marginTop: "10px" }}
+          >
+            ¿Has olvidado tu contraseña?
+          </button>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 }

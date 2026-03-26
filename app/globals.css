@@ -1,87 +1,92 @@
-/* Card background styles for binderclient */
-div.card-bg-default {
-  background: #f7f4ee !important;
-  min-height: 210px !important;
-  height: 210px !important;
-  width: 230px !important;
-}
-div.card-bg-orange {
-  background: #ffe8cc !important;
-  min-height: 210px !important;
-  height: 210px !important;
-  width: 230px !important;
-}
-div.card-bg-blue {
-  background: #e8f3ff !important;
-  min-height: 210px !important;
-  height: 210px !important;
-  width: 230px !important;
-}
-div.card-bg-yellow {
-  background: #fff7cc !important;
-  min-height: 210px !important;
-  height: 210px !important;
-  width: 230px !important;
-}
-div.card-bg-gradient {
-  background: linear-gradient(90deg, #ffe8cc 50%, #e8f3ff 50%) !important;
-  min-height: 210px !important;
-  height: 210px !important;
-  width: 230px !important;
-}
+/* 1. ESTILOS DE CARTAS BINDER */
+div.card-bg-default { background: #f7f4ee !important; min-height: 210px !important; height: 210px !important; }
+div.card-bg-orange { background: #ffe8cc !important; min-height: 210px !important; height: 210px !important; }
+div.card-bg-blue { background: #e8f3ff !important; min-height: 210px !important; height: 210px !important; }
+div.card-bg-yellow { background: #fff7cc !important; min-height: 210px !important; height: 210px !important; }
+div.card-bg-gradient { background: linear-gradient(90deg, #ffe8cc 50%, #e8f3ff 50%) !important; min-height: 210px !important; height: 210px !important; }
+
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* FUENTE CORPORATIVA - TAN TANGKIWOOD */
+@font-face {
+  font-family: 'Tan-Font';
+  src: url('/fonts/tan-tangkiwood-regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
 }
 
-:root {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.tan-font {
+  font-family: 'Tan-Font', sans-serif !important;
+  text-transform: uppercase !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* FIX MÓVIL AGRESIVO */
+@media (max-width: 768px) {
+  header span.tan-font, 
+  header button.tan-font {
+    font-size: 11px !important;
+    padding: 4px 8px !important;
+  }
+
+  /* Botones de formularios (Login/Registro/Bias) */
+  main button.tan-font, 
+  .btn-principal-onboarding { 
+    width: 100% !important;
+    height: 48px !important;
+    font-size: 14px !important;
+    padding: 0 15px !important;
+  }
+
+
+  /* Botón ENTRAR específico */
+  header button.tan-font {
+    width: 80px !important;
+    height: 30px !important;
+    margin: 0 auto !important;
+  }
+
+  /* Títulos de Login/Registro */
+  h2.tan-font {
+    font-size: 24px !important;
+    line-height: 1.1 !important;
+  }
+
+  /* Botones de Formulario (Iniciar Sesión / Siguiente) */
+  main button.tan-font,
+  form button.tan-font {
+    width: 100% !important;
+    padding: 12px !important;
+    font-size: 15px !important;
+    height: 48px !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+
+  /* Animaciones flotantes */
+  .float-anim-1, .float-anim-2 {
+    transform: scale(0.6) !important;
+    margin: 5px !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* Oculta overlays y botones de Pinterest (save, hover, etc) */
-[data-pin-hover],
-.pinit-overlay,
-.pinit-btn,
-.pinit-button,
-.pinterest,
-.PIN_1540845481844_button,
-.PIN_1540845481844,
-.PIN_1463569847,
-.PIN_1463569847_button,
-.PIN_1463569847_embed,
-.PIN_1463569847_iframe,
-.PIN_1463569847_save,
-.PIN_1463569847_savebutton,
-.PIN_1463569847_savebutton_iframe,
-.PIN_1463569847_savebutton_embed,
-.PIN_1463569847_savebutton_button,
-.PIN_1463569847_savebutton_overlay,
-.PIN_1463569847_savebutton_hover,
-.PIN_1463569847_savebutton_hover_overlay,
-.PIN_1463569847_savebutton_hover_button,
-.PIN_1463569847_savebutton_hover_embed,
-.PIN_1463569847_savebutton_hover_iframe {
+/* 5. OCULTAR PINTEREST */
+[data-pin-hover], .pinit-overlay, .pinit-btn, .pinit-button {
   display: none !important;
   opacity: 0 !important;
   pointer-events: none !important;
   visibility: hidden !important;
-  z-index: -9999 !important;
+}
+/* Añade esto a tu archivo CSS principal */
+@media (max-width: 768px) {
+  /* Forzamos que cualquier contenedor de modal no supere el ancho de la pantalla */
+  div[style*="position: fixed"] > div {
+    width: 95% !important;
+    max-height: 85vh !important;
+    margin: 10px !important;
+    border-radius: 20px !important;
+  }
+  
+  /* Ajustamos textos que puedan ser muy grandes */
+  h1, h2 { font-size: 1.5rem !important; }
 }

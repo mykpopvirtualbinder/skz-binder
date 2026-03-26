@@ -1,9 +1,10 @@
   
 "use client";
+import Footer from "../components/footer";
 import Header from "../components/header";
 import { useState } from "react"; // 1. Asegúrate de tener useState importado
 import { useRouter, usePathname, useSearchParams } from "next/navigation"; // 2. Asegúrate de importar usePathname y useSearchParams
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "@/lib/supabase";
 import { 
   Trash2, Users, Disc3, PenLine, Mic2, User, Layers, 
     SlidersHorizontal, RotateCw, Undo2, Heart 
@@ -11,7 +12,7 @@ import {
 import WtsListingModal from "../library/WtsListingModal"
 import React, { useCallback, useEffect, useMemo, useRef} from "react";
 import type { CSSProperties } from "react";
-import { OnboardingForm } from "../me/components/OnboardingForm";
+import { OnboardingForm } from "../me/ui/OnboardingForm";
 import { useGlobal } from "../context/GlobalContext"
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
@@ -1094,9 +1095,9 @@ return (
 <div
   style={{
     marginTop: 12,
-    display: "flex",
-    gap: 12,
-    flexWrap: "wrap",
+   display: "grid",
+gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+gap: "12px",
     alignContent: "flex-start",
     alignItems: "stretch",
   }}
@@ -1104,7 +1105,7 @@ return (
   <div
     title="Añadir una PC personalizada (no está en el inventario)"
     style={{
-      width: 230,
+      width: "100%",
       minHeight: 210,
       display: "flex",
       flexDirection: "column",
@@ -1217,7 +1218,7 @@ const biasList = (userBiases || []).map(Number);
         key={it.id}
         title={tooltip}
         style={{
-          width: 230,
+          width: "100%",
           minHeight: 210,
           display: "flex",
           flexDirection: "column",
@@ -5423,71 +5424,74 @@ const movePcToPageFromCarousel = useCallback(
   },
   [binderPages, supabase, persistSlotStateForPage]
 );
-useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      setLoading(true);
-      setError(null);
+useEffect(() => { 
+    let cancelled = false; 
+    const run = async () => { 
+      setLoading(true); 
+      setError(null); 
       
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData.user) {
-        if (!cancelled) {
-          setError(userErr?.message || "No user");
-          setStatus("No hay sesión. Ve a /login");
-          setLoading(false);
-        }
-        return;
-      }
+      // 1. Obtenemos los datos del usuario desde Supabase
+      const { data: userData, error: userErr } = await supabase.auth.getUser(); 
+      
+      if (userErr || !userData.user) { 
+        if (!cancelled) { 
+          setError(userErr?.message || "No user"); 
+          setStatus("No hay sesión. Ve a /login"); 
+          setLoading(false); 
+        } 
+        return; 
+      } 
+      
+      const user = userData.user; 
+      
+      // 2. ASIGNACIÓN DEL ID (Esto quita el color rojo en el Onboarding)
+      if (!cancelled) { 
+        setEmail(user.email ?? null); 
+        setUserId(user.id); // <--- Esta línea es la que da valor a userId
+      } 
 
-      const user = userData.user;
-      if (!cancelled) {
-        setEmail(user.email ?? null);
-        setUserId(user.id);
+      // 3. Lógica para determinar qué Binder cargar
+      let bld = Number.isFinite(binderFromUrlNum) ? binderFromUrlNum : undefined; 
 
-        
-      }
+      if (!bld) { 
+        const binderRes = await supabase 
+          .from("binders") 
+          .select("id") 
+          .eq("user_id", user.id) 
+          .order("id", { ascending: false }) 
+          .limit(1); 
+        bld = binderRes.data?.[0]?.id; 
+      } 
 
-      let bld = Number.isFinite(binderFromUrlNum) ? binderFromUrlNum : undefined;
+      // Si el usuario no tiene binder, creamos uno por defecto
+      if (!bld && !cancelled) { 
+        const created = await supabase 
+          .from("binders") 
+          .insert({ user_id: user.id, title: "Mi Binder" }) 
+          .select("id") 
+          .single(); 
+        if (!created.error) bld = created.data.id; 
+      } 
 
-if (!bld) {
- const binderRes = await supabase
-  .from("binders")
-  .select("id")
-  .eq("user_id", user.id)
-  .order("id", { ascending: false })
-  .limit(1);
+      if (cancelled || !bld) return; 
+      setBinderId(bld); 
 
- bld = binderRes.data?.[0]?.id;
-}
+      /* Asegurar que exista al menos una página */ 
+      const pagesCheck = await supabase 
+        .from("binder_pages") 
+        .select("id, page_index, layout_type") 
+        .eq("binder_id", bld) 
+        .order("page_index", { ascending: true }); 
+      
+      if (pagesCheck.error) { 
+        if (!cancelled) { 
+          setError(pagesCheck.error.message); 
+          setLoading(false); 
+        } 
+        return; 
+      } 
 
-if (!bld && !cancelled) {
- const created = await supabase
-  .from("binders")
-  .insert({ user_id: user.id, title: "Mi Binder" })
-  .select("id")
-  .single();
-
- if (!created.error) bld = created.data.id;
-}
-
-if (cancelled || !bld) return;
-
-setBinderId(bld);
-
-/* ✅ NUEVO: asegurar que exista al menos una página */
-const pagesCheck = await supabase
- .from("binder_pages")
- .select("id, page_index, layout_type")
- .eq("binder_id", bld)
- .order("page_index", { ascending: true });
-
-if (pagesCheck.error) {
- if (!cancelled) {
-  setError(pagesCheck.error.message);
-  setLoading(false);
- }
- return;
-}
+      // ... resto del código de carga de slots y páginas (línea 2277 en adelante)
 
 if (!pagesCheck.data || pagesCheck.data.length === 0) {
  const createdFirstPage = await supabase
@@ -13209,6 +13213,7 @@ const border = isSelected ? "#8db8ff" : isHover ? "#cfdcff" : "#eee";
       maxWidth: 1120,
       display: "grid",
       gridTemplateColumns: "1fr auto 1fr",
+      flexWrap: "wrap",
       alignItems: "center",
       gap: 10,
     }}
@@ -13333,92 +13338,21 @@ const border = isSelected ? "#8db8ff" : isHover ? "#cfdcff" : "#eee";
 
 {showOnboarding && userId && (
   <OnboardingForm
-    userId={userId}
     onComplete={() => {
       setShowOnboarding(false);
       window.location.reload();
     }}
   />
 )}
+
 {/* ✅ AQUÍ ES DONDE DEBES PEGARLO: */}
-  {status && (
-    <div className="status-popup" aria-live="polite">
-      {status}
-    </div>
-  )}
+{status && (
+  <div className="status-popup" aria-live="polite">
+    {status}
+  </div>
+)}
       </div>
-    <footer style={{ 
-  width: "100%", 
-  backgroundColor: "white", 
-  borderTop: "1px solid #F3DCE7", 
-  padding: "50px 80px", // Más aire arriba y abajo
-  marginTop: "auto",
-  display: "flex",
-  flexDirection: "column",
-  gap: "40px"
-}}>
-  {/* FILA SUPERIOR: 3 COLUMNAS */}
-  <div style={{ 
-    display: "grid", 
-    gridTemplateColumns: "1.5fr 1fr 1fr 1fr", 
-    gap: "40px",
-    alignItems: "start"
-  }}>
-    
-    {/* Columna 1: Branding */}
-    <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-      <span className="tan-font" style={{ color: "#b17eac", fontSize: "24px", letterSpacing: "1px" }}>
-        MY KPOP BINDER
-      </span>
-      <p style={{ fontSize: "14px", color: "#8C659C", lineHeight: "1.5", maxWidth: "250px" }}>
-        Tu rincón digital para organizar, comprar y tradear tus photocards favoritas de la forma más eficiente.
-      </p>
-    </div>
-
-    {/* Columna 2: Legal (Terms, Community, Copyright) */}
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      <span style={footerLinkStyle}>LEGAL</span>
-      <a href="/terms" style={footerSubLinkStyle}>Términos y Condiciones</a>
-      <a href="/terms#community" style={footerSubLinkStyle}>Normas de la Comunidad</a> {/* [cite: 1682] */}
-      <a href="/terms#copyright" style={footerSubLinkStyle}>Aviso de Copyright</a> {/* [cite: 1693] */}
-    </div>
-
-    {/* Columna 3: Mercado (Marketplace, Scam Policy) */}
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      <span style={footerLinkStyle}>MARKETPLACE</span>
-      <a href="/market-rules" style={footerSubLinkStyle}>Reglas del Mercado</a>
-      <a href="/anti-scam" style={footerSubLinkStyle}>Política Anti-Fraude</a> {/* [cite: 1701] */}
-      <a href="/privacy" style={footerSubLinkStyle}>Privacidad y Cookies</a>
-    </div>
-
-    {/* Columna 4: Soporte y DSA */}
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      <span style={footerLinkStyle}>SOPORTE</span>
-      <a href="/faq" style={footerSubLinkStyle}>Preguntas Frecuentes</a>
-      {/* Sustituimos el ROJO por un rosa fuerte o subrayado sutil */}
-      <a href="/report" style={{ ...footerSubLinkStyle, fontWeight: 800, color: "#8C659C", textDecoration: "underline" }}>
-        Reportar Abuso (DSA)
-      </a> {/* [cite: 1712, 1724] */}
-      <a href="mailto:info@mykpopbinder.com" style={footerSubLinkStyle}>info@mykpopbinder.com</a>
-    </div>
-  </div>
-
-  {/* FILA INFERIOR: Copyright centrado o lateral */}
-  <div style={{ 
-    borderTop: "1px solid #FFF5FA", 
-    paddingTop: "20px", 
-    display: "flex", 
-    justifyContent: "space-between", 
-    alignItems: "center" 
-  }}>
-    <span style={{ fontSize: "12px", color: "#b17eac", fontWeight: 700 }}>
-      © {new Date().getFullYear()} My Kpop Binder. Hecho por fans para fans.
-    </span>
-    <div style={{ display: "flex", gap: "15px" }}>
-      {/* Aquí podrías poner iconos de redes sociales en el futuro */}
-    </div>
-  </div>
-</footer>
+   <Footer />
     </div>
   );
 }

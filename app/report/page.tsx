@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { User, AlertTriangle, ShieldCheck, Mail, FileWarning } from "lucide-react";
 import type { CSSProperties } from "react";
 import Header from "../components/header";
+import Footer from "../components/footer";
 // --- CONSTANTES DE ESTILO ---
 const menuBtnStyle: CSSProperties = { background: "transparent", border: "none", padding: "10px 14px", textAlign: "left", borderRadius: 10, cursor: "pointer", fontWeight: 900, color: "#8C659C", fontSize: 14 };
 const footerColumnTitle: CSSProperties = { fontSize: "13px", color: "#8C659C", fontWeight: 900, textTransform: "uppercase", marginBottom: "15px", display: "block" };
@@ -101,34 +102,7 @@ export default function ReportPage() {
 
       </main>
 
-      {/* FOOTER CORPORATIVO UNIFICADO */}
-      <footer style={{ width: "100%", backgroundColor: "white", borderTop: "1px solid #F3DCE7", padding: "60px 80px 30px 80px", display: "flex", flexDirection: "column", gap: "40px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr", gap: "40px", alignItems: "start" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-            <span className="tan-font" style={{ color: "#b17eac", fontSize: "24px", letterSpacing: "1px" }}>MY KPOP BINDER</span>
-            <p style={{ fontSize: "14px", color: "#8C659C", fontWeight: 600, maxWidth: "250px", lineHeight: "1.5" }}>Tu rincón digital para organizar y tradear tus photocards favoritas de la forma más eficiente.</p>
-            <span style={{ fontSize: "12px", color: "#b17eac", fontWeight: 700, marginTop: "10px" }}>© 2026 My Kpop Binder. Hecho por fans para fans.</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={footerColumnTitle}>LEGAL</span>
-            <a href="/terms" style={footerLinkStyle}>Términos y Condiciones</a>
-            <a href="/community-rules" style={footerLinkStyle}>Normas de la Comunidad</a>
-            <a href="/copyright" style={footerLinkStyle}>Aviso de Copyright</a>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={footerColumnTitle}>MARKETPLACE</span>
-            <a href="/market-rules" style={footerLinkStyle}>Reglas del Mercado</a>
-            <a href="/anti-scam" style={footerLinkStyle}>Política Anti-Fraude</a>
-            <a href="/privacy" style={footerLinkStyle}>Privacidad y Cookies</a>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={footerColumnTitle}>SOPORTE</span>
-            <a href="/faq" style={footerLinkStyle}>Preguntas Frecuentes</a>
-            <a href="/report" style={{ ...footerLinkStyle, fontWeight: 900, textDecoration: "underline" }}>Reportar Abuso (DSA)</a>
-            <a href="mailto:info@mykpopbinder.com" style={footerLinkStyle}>info@mykpopbinder.com</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
       <style jsx global>{`
         @font-face { font-family: 'TanTangkiwood'; src: url('/fonts/tan-tangkiwood-regular.otf') format('opentype'); }

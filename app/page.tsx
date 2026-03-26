@@ -2,8 +2,9 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "./lib/supabaseClient";
+import { supabase } from "./lib/supabase";
 import Header from "./components/header"; 
+import Footer from "./components/footer"; 
 import { Sparkles, ArrowRight, Library, ShoppingBag, ShieldCheck, Heart, Search, Repeat } from "lucide-react";
 import type { CSSProperties } from "react";
 
@@ -14,6 +15,15 @@ const footerColumnTitle: CSSProperties = { fontSize: "13px", color: "#8C659C", f
 const footerLinkStyle: CSSProperties = { fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px", display: "block" };
 
 export default function LandingPage() {
+  // Añade esto dentro de export default function LandingPage() {
+const [isMobile, setIsMobile] = React.useState(false);
+
+React.useEffect(() => {
+  const checkMobile = () => setIsMobile(window.innerWidth < 768);
+  checkMobile(); // Comprobar al cargar
+  window.addEventListener("resize", checkMobile);
+  return () => window.removeEventListener("resize", checkMobile);
+}, []);
   const router = useRouter();
 
   useEffect(() => {
@@ -39,13 +49,14 @@ export default function LandingPage() {
       <main style={{ flex: 1, display: "flex", flexDirection: "column", width: "100%" }}>
         
         {/* HERO */}
-        <section style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "80px 40px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "40px", minHeight: "75vh" }}>
+       <section style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "80px 20px", display: "flex", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "40px", minHeight: "75vh" }}>
+        
           <div style={{ flex: 1.2, display: "flex", flexDirection: "column", gap: "30px", zIndex: 10 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", background: "#ffd9e6", color: "#8C659C", padding: "10px 20px", borderRadius: "99px", fontWeight: 900, fontSize: "14px", width: "fit-content", border: "1px solid #F3C7DA" }}>
               <Sparkles size={18} /> La revolución del coleccionismo
             </div>
-            <h1 className="tan-font" style={{ fontSize: "85px", color: "#8C659C", lineHeight: "0.85", margin: 0, letterSpacing: "2px" }}>
-              ORGANIZA.<br/><span style={{ color: "#e2b86b", fontSize: "95px" }}>TRADEA.</span><br/>COMPLETA.
+            <h1 className="tan-font" style={{ fontSize: "40px", color: "#8C659C", lineHeight: "0.85", margin: 0, letterSpacing: "2px" }}>
+              ORGANIZA.<br/><span style={{ color: "#e2b86b", fontSize: "clamp(40px, 8vw, 95px)" }}>TRADEA.</span><br/>COMPLETA.
             </h1>
             <p style={{ fontSize: "18px", color: "#b17eac", fontWeight: 600, lineHeight: "1.6", maxWidth: "500px", margin: 0 }}>
               Únete a la plataforma definitiva para K-Pop stans. Gestiona tus binders digitales, sube tu wishlist y encuentra el intercambio perfecto sin miedo a scams.
@@ -59,23 +70,67 @@ export default function LandingPage() {
               </button>
             </div>
           </div>
-          <div style={{ flex: 1, position: "relative", height: "550px", display: "flex", justifyContent: "center", alignItems: "center" }}>
-            <div style={{ position: "absolute", width: "450px", height: "450px", background: "radial-gradient(circle, #ffd9e6 0%, rgba(255,217,230,0) 70%)", zIndex: 1 }}></div>
-            <div className="float-anim-1" style={{ position: "absolute", zIndex: 2, transform: "rotate(-12deg) translateX(-60px) translateY(20px)" }}>
-              <div style={{ width: "220px", height: "310px", backgroundColor: "#e2b86b", borderRadius: "18px", border: "6px solid white", boxShadow: "0 25px 50px rgba(0,0,0,0.1)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "white", padding: "20px", textAlign: "center" }}>
-                <Search size={40} strokeWidth={2.5} style={{ marginBottom: "15px" }} />
-                <span className="tan-font" style={{ fontSize: "28px", lineHeight: 1 }}>WISHLIST</span>
-                <span style={{ fontWeight: 800, fontSize: "14px", marginTop: "10px", opacity: 0.9 }}>Buscando...</span>
-              </div>
-            </div>
-            <div className="float-anim-2" style={{ position: "absolute", zIndex: 3, transform: "rotate(8deg) translateX(70px) translateY(-30px)" }}>
-              <div style={{ width: "240px", height: "340px", backgroundColor: "#8C659C", borderRadius: "18px", border: "6px solid white", boxShadow: "0 30px 60px rgba(140, 101, 156, 0.3)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "white", padding: "20px", textAlign: "center" }}>
-                <Repeat size={48} strokeWidth={2.5} style={{ marginBottom: "15px" }} />
-                <span className="tan-font" style={{ fontSize: "32px", lineHeight: 1 }}>WTT</span>
-                <span style={{ fontWeight: 800, fontSize: "14px", marginTop: "10px", background: "rgba(255,255,255,0.2)", padding: "4px 12px", borderRadius: "99px" }}>Match Encontrado!</span>
-              </div>
-            </div>
-          </div>
+        {/* Contenedor de las cartas */}
+<div style={{ 
+  flex: 1, 
+  position: "relative", 
+  height: isMobile ? "350px" : "550px", // Más bajito en móvil para que no empuje el resto
+  display: "flex", 
+  justifyContent: "center", 
+  alignItems: "center",
+  marginTop: isMobile ? "40px" : "0px"
+}}>
+  {/* El brillo rosa de fondo */}
+  <div style={{ 
+    position: "absolute", 
+    width: isMobile ? "250px" : "450px", 
+    height: isMobile ? "250px" : "450px", 
+    background: "radial-gradient(circle, #ffd9e6 0%, rgba(255,217,230,0) 70%)", 
+    zIndex: 1
+  }}></div>
+
+  {/* Carta 1: WISHLIST */}
+  <div className="float-anim-1" style={{ 
+    position: "absolute", 
+    zIndex: 2, 
+    transform: isMobile 
+      ? "rotate(-8deg) translateX(-40px)" // Menos desplazamiento para que no se salga
+      : "rotate(-12deg) translateX(-60px) translateY(20px)" 
+  }}>
+    <div style={{ 
+      width: isMobile ? "130px" : "220px", // Escala reducida en móvil
+      height: isMobile ? "180px" : "310px", 
+      backgroundColor: "#e2b86b", 
+      borderRadius: "18px", 
+      border: isMobile ? "3px solid white" : "6px solid white",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "white", padding: "10px", textAlign: "center" 
+    }}>
+      <Search size={isMobile ? 24 : 40} strokeWidth={2.5} />
+      <span className="tan-font" style={{ fontSize: isMobile ? "16px" : "28px", marginTop: "10px" }}>WISHLIST</span>
+    </div>
+  </div>
+
+  {/* Carta 2: WTT Match */}
+  <div className="float-anim-2" style={{ 
+    position: "absolute", 
+    zIndex: 3, 
+    transform: isMobile 
+      ? "rotate(6deg) translateX(50px)" 
+      : "rotate(8deg) translateX(70px) translateY(-30px)" 
+  }}>
+    <div style={{ 
+      width: isMobile ? "140px" : "240px", 
+      height: isMobile ? "200px" : "340px", 
+      backgroundColor: "#8C659C", 
+      borderRadius: "18px", 
+      border: isMobile ? "3px solid white" : "6px solid white", 
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "white", padding: "10px", textAlign: "center" 
+    }}>
+      <Repeat size={isMobile ? 28 : 48} strokeWidth={2.5} />
+      <span className="tan-font" style={{ fontSize: isMobile ? "18px" : "32px", marginTop: "10px" }}>WTT</span>
+    </div>
+  </div>
+</div>
         </section>
 
         {/* FEATURES */}
@@ -123,8 +178,8 @@ export default function LandingPage() {
       </main>
 
       {/* FOOTER */}
-      <footer style={{ width: "100%", backgroundColor: "white", borderTop: "1px solid #F3DCE7", padding: "60px 80px 30px 80px", display: "flex", flexDirection: "column", gap: "40px", marginTop: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr", gap: "40px", alignItems: "start" }}>
+      <footer style={{ width: "100%", backgroundColor: "white", borderTop: "1px solid #F3DCE7", padding: "40px 20px", display: "flex", flexDirection: "column", gap: "40px", marginTop: "auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "40px", alignItems: "start" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
             <span className="tan-font" style={{ color: "#b17eac", fontSize: "24px", letterSpacing: "1px" }}>MY KPOP BINDER</span>
             <p style={{ fontSize: "14px", color: "#8C659C", fontWeight: 600, maxWidth: "250px", lineHeight: "1.5" }}>Tu rincón digital para organizar, comprar y tradear tus photocards favoritas de la forma más eficiente.</p>
@@ -174,6 +229,32 @@ export default function LandingPage() {
           transform: translateY(-10px);
           box-shadow: 0 20px 40px rgba(140, 101, 156, 0.1) !important;
         }
+          @media (max-width: 768px) {
+  /* Forzar el título a un tamaño razonable */
+  .tan-font {
+    font-size: 42px !important;
+    line-height: 1.1 !important;
+  }
+  
+  /* Ajustar el Header para que no explote */
+  header {
+    padding: 10px !important;
+    flex-direction: column !important;
+  }
+  
+  header span.tan-font {
+    font-size: 16px !important;
+    padding: 5px !important;
+  }
+
+  /* Evitar que las cartas se salgan */
+  .float-anim-1, .float-anim-2 {
+    transform: scale(0.6) translateX(0) !important;
+    position: relative !important;
+    display: inline-block !important;
+    margin: 10px !important;
+  }
+}
       `}</style>
     </div>
   );

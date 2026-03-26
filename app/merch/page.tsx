@@ -1,5 +1,6 @@
 "use client";
 import Header from "../components/header";
+import Footer from "../components/footer";
 import React, { useState } from "react";
 import { 
   Search, 
@@ -177,34 +178,7 @@ export default function MerchPage() {
         </div>
       </main>
 
-      {/* FOOTER CORPORATIVO (4 COLUMNAS - Basado en tu Fan Zone) */}
-      <footer style={{ width: "100%", backgroundColor: "white", borderTop: "1px solid #F3DCE7", padding: "60px 80px 30px 80px", display: "flex", flexDirection: "column", gap: "40px", marginTop: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr", gap: "40px", alignItems: "start" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-            <span className="tan-font" style={{ color: "#b17eac", fontSize: "24px", letterSpacing: "1px" }}>MY KPOP BINDER</span>
-            <p style={{ fontSize: "14px", color: "#8C659C", fontWeight: 600, maxWidth: "250px", lineHeight: "1.5" }}>Tu rincón digital para organizar, comprar y tradear tus photocards favoritas de la forma más eficiente.</p>
-            <span style={{ fontSize: "12px", color: "#b17eac", fontWeight: 700, marginTop: "10px" }}>© 2026 My Kpop Binder. Hecho por fans para fans.</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: "13px", color: "#8C659C", fontWeight: 900, textTransform: "uppercase", marginBottom: "15px" }}>LEGAL</span>
-            <a href="/terms" style={{ fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px" }}>Términos y Condiciones</a>
-            <a href="/community-rules" style={{ fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px" }}>Normas de la Comunidad</a>
-            <a href="/copyright" style={{ fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px" }}>Aviso de Copyright</a>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: "13px", color: "#8C659C", fontWeight: 900, textTransform: "uppercase", marginBottom: "15px" }}>MARKETPLACE</span>
-            <a href="/market-rules" style={{ fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px" }}>Reglas del Mercado</a>
-            <a href="/anti-scam" style={{ fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px" }}>Política Anti-Fraude</a>
-            <a href="/privacy" style={{ fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px" }}>Privacidad y Cookies</a>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: "13px", color: "#8C659C", fontWeight: 900, textTransform: "uppercase", marginBottom: "15px" }}>SOPORTE</span>
-            <a href="/faq" style={{ fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px" }}>Preguntas Frecuentes</a>
-            <a href="/report" style={{ fontSize: "12px", color: "#b17eac", textDecoration: "underline", fontWeight: 900, marginBottom: "8px" }}>Reportar Abuso (DSA)</a>
-            <a href="mailto:info@mykpopbinder.com" style={{ fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px" }}>info@mykpopbinder.com</a>
-          </div>
-        </div>
-      </footer>
+     <Footer />
 
       {/* ESTILOS GLOBALES - Corregido para evitar advertencias de React */}
       <style dangerouslySetInnerHTML={{ __html: `
