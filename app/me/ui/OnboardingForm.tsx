@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/app/lib/supabase"; 
+// ... resto de importaciones
+import { supabase } from "@/lib/supabase";
 import { Check, Heart } from "lucide-react";
 import { useGlobal } from "@/app/context/GlobalContext";
 import { useRouter } from "next/navigation";

@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "./lib/supabase";
+import { supabase } from "@/lib/supabase";
 import Header from "./components/header"; 
 import Footer from "./components/footer"; 
 import { Sparkles, ArrowRight, Library, ShoppingBag, ShieldCheck, Heart, Search, Repeat } from "lucide-react";

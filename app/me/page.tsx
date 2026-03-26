@@ -5,13 +5,15 @@ import { supabase } from "@/lib/supabase";
 import Header from "../components/header";
 import Footer from "../components/footer";
 import {
-  Bell, BookOpen, Boxes, Heart, Home, MessageCircle, 
-  ShieldAlert, Sparkles, User, Settings, Minus, Camera, X, Wallet, TrendingUp
+  Bell, BookOpen, Boxes, Heart, Home, MessageCircle,
+  ShieldAlert, Sparkles, User, Settings, Minus, Camera, X, Wallet,
+  TrendingUp
 } from "lucide-react";
 import type { CSSProperties } from "react";
-import { useGlobal } from "../context/GlobalContext"; 
-// Antes era ../components/OnboardingForm
+import { useGlobal } from "../context/GlobalContext";
 import { OnboardingForm } from "./ui/OnboardingForm";
+
+// 1. DEFINICIÓN DE TIPOS (Para quitar los rojos de TabKey, Profile, etc.)
 type TabKey = "home" | "groups" | "fanzone" | "notices";
 
 type Profile = {
@@ -30,28 +32,33 @@ type WallPost = {
   authorAvatar?: string | null;
 };
 
-// Helpers para analíticas
-const unitTypeFromMember = (memberRaw: string | null | undefined) => {
-  const lower = String(memberRaw ?? "").toLowerCase().trim();
-  
-  // 1. Si pone OT8 o All, es grupal
-  if (/\bot8\b/.test(lower) || lower.includes("all") || lower === "varios") return "OT8";
-  
-  // 2. Separamos por espacios, comas, + o &
-  const parts = lower.split(/[\s,+/&]+/).filter(Boolean);
-  
-  // 3. Si al separar hay más de 1 persona (ej: "bang-chan" y "felix" = 2), ¡es una Unit!
-  if (parts.length > 1) return "Unit";
-  
-  return "Single";
+// 2. CONSTANTES Y ESTILOS (Para quitar los rojos de labelStyle, inputStyle, etc.)
+const AVG_PC_PRICE = 8;
+
+const inputStyle: CSSProperties = { 
+  width: "100%", 
+  padding: "12px 16px", 
+  borderRadius: "12px", 
+  border: "1px solid #F3C7DA", 
+  outline: "none", 
+  fontWeight: 600, 
+  color: "#2F2740", 
+  backgroundColor: "#FFFDF5" 
 };
 
-// PRECIO PROMEDIO DE MERCADO ESTIMADO (En el futuro vendrá de la BD)
-const AVG_PC_PRICE = 8; 
+const labelStyle: CSSProperties = { 
+  display: "block", 
+  marginBottom: "6px", 
+  fontSize: "12px", 
+  fontWeight: 900, 
+  color: "#8C659C", 
+  textTransform: "uppercase" 
+};
 
+// 3. LOGOS Y DATOS DE GRUPOS (Para KPOP_GROUPS y GROUP_ASSETS)
 const KPOP_GROUPS: Record<string, { logo: string, members: string[] }> = {
   "Stray Kids": {
-    logo: "/groups/straykids-logo.png", 
+    logo: "/groups/straykids-logo.png",
     members: ["Bang Chan", "Lee Know", "Changbin", "Hyunjin", "Han", "Felix", "Seungmin", "I.N"]
   },
   "ATEEZ": {
@@ -60,62 +67,63 @@ const KPOP_GROUPS: Record<string, { logo: string, members: string[] }> = {
   }
 };
 
-
-
-const inputStyle: CSSProperties = { width: "100%", padding: "12px 16px", borderRadius: "12px", border: "1px solid #F3C7DA", outline: "none", fontWeight: 600, color: "#2F2740", backgroundColor: "#FFFDF5" };
-const labelStyle: CSSProperties = { display: "block", marginBottom: "6px", fontSize: "12px", fontWeight: 900, color: "#8C659C", textTransform: "uppercase" };
-const footerLinkStyle: CSSProperties = { fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px", display: "block" };
-const footerColumnTitle: CSSProperties = { fontSize: "13px", color: "#8C659C", fontWeight: 900, textTransform: "uppercase", marginBottom: "15px", display: "block" };
-
-function tabStyle(active: boolean): CSSProperties {
-  return {
-    padding: "12px 20px", background: "transparent", border: "none",
-    borderBottom: active ? "3px solid #8C659C" : "3px solid transparent",
-    color: active ? "#8C659C" : "#b17eac", fontWeight: 900, fontSize: "14px",
-    cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
-    transition: "all 0.2s ease", textTransform: "uppercase"
-  };
-}
 const GROUP_ASSETS: Record<string, { logo: string, skzoo: string[], lights: string[], kawaii: string[] }> = {
   "stray-kids": {
     logo: "stray-kids-logo.png",
-    skzoo: ["wolfchan", "leebit", "dwaekki", "jiniret", "hanquokka", "bbokari", "puppym", "foxiny"],
+    skzoo: ["wolfchan", "hanquokka", "bbokari", "leebit", "dwaekki", "jiniret", "puppym", "foxiny"],
     lights: ["skz-v1", "skz-v2"],
-    kawaii: ["heart-pink", "star-yellow"] // Nombres de tus archivos en /kawaii/stray-kids/
-  },
-  // Añade otros grupos aquí siguiendo la misma estructura
+    kawaii: ["heart-pink", "star-yellow"]
+  }
 };
 
+// 4. FUNCIONES DE AYUDA
+const unitTypeFromMember = (memberRaw: string | null | undefined): "Single" | "Unit" | "OT8" => {
+  const lower = String(memberRaw ?? "").toLowerCase().trim();
+  if (/\bot8\b/.test(lower) || lower.includes("all") || lower === "varios") return "OT8";
+  const parts = lower.split(/[\s,+/&]+/).filter(Boolean);
+  if (parts.length > 1) return "Unit";
+  return "Single";
+};
 
-// Añade esto donde están los otros useState
-const [isMobile, setIsMobile] = useState(false);
+function tabStyle(active: boolean): CSSProperties {
+  return {
+    padding: "12px 20px",
+    background: "transparent",
+    border: "none",
+    borderBottom: active ? "3px solid #8C659C" : "3px solid transparent",
+    color: active ? "#8C659C" : "#b17eac",
+    fontWeight: 900,
+    fontSize: "14px",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    transition: "all 0.2s ease",
+    textTransform: "uppercase"
+  };
+}
 
-useEffect(() => {
-  const check = () => setIsMobile(window.innerWidth < 768);
-  check(); // Ejecuta al cargar
-  window.addEventListener("resize", check);
-  return () => window.removeEventListener("resize", check);
-}, []);
+
 export default function MePage() {
   const { refreshGlobal } = useGlobal();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // ESTADOS EXISTENTES
-  const [members, setMembers] = useState<any[]>([]);
-  const [groups, setGroups] = useState<any[]>([]);
-  
-  // AÑADE ESTO AQUÍ PARA QUITAR EL ROJO
+
+  // CONTROL DE MONTAJE Y RESPONSIVIDAD
+  const [isMounted, setIsMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
-  // ... continúa el código
-  // ESTADOS DEL SÚPER DASHBOARD
+
+  // ESTADOS RESTANTES (Agrúpalos todos aquí)
+  const [members, setMembers] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
   const [stats, setStats] = useState({ 
     have: 0, wtt: 0, wts: 0, wishlist: 0, estimatedValue: 0,
     byType: { Single: 0, Unit: 0, OT8: 0 } as Record<string, number>,
@@ -441,7 +449,16 @@ const handleDeleteAccount = async () => {
     persistFanStuff(favGroups, biasByGroup, next);
   };
 
-  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#8C659C", fontWeight: 900 }}>Cargando...</div>;
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#8C659C", fontWeight: 900 }}>
+        Cargando...
+      </div>
+    );
+  }
+
+  // Este es el seguro que evita que el servidor falle al intentar leer estados de React
+  if (!isMounted) return null; 
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#FFFDF5", display: "flex", flexDirection: "column", color: "#2F2740" }}>
@@ -602,12 +619,30 @@ padding: isMobile ? "0 15px" : "0 40px",
             </div>
           )}
 
-          {tab === "groups" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "24px" }}>Gestión de Bias</h2>
-                <input placeholder="Añadir grupo..." onKeyDown={(e) => { if (e.key === "Enter") { addGroup((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ""; } }} style={{ padding: "12px 20px", borderRadius: "99px", border: "1px solid #F3C7DA", outline: "none", fontWeight: 700 }} />
-              </div>
+         {tab === "groups" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div style={{ 
+              display: "flex", 
+              flexDirection: isMobile ? "column" : "row", // Se apila en vertical en móvil
+              justifyContent: "space-between", 
+              alignItems: "center", 
+              gap: "15px",
+              marginBottom: "10px" 
+            }}>
+              <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "24px", margin: 0 }}>Gestión de Bias</h2>
+              <input 
+                placeholder="Añadir grupo..." 
+                onKeyDown={(e) => { if (e.key === "Enter") { addGroup((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ""; } }} 
+                style={{ 
+                  padding: "12px 20px", 
+                  borderRadius: "99px", 
+                  border: "1px solid #F3C7DA", 
+                  outline: "none", 
+                  fontWeight: 700,
+                  width: isMobile ? "100%" : "auto" // Ocupa todo el ancho en móvil
+                }} 
+              />
+            </div>
               {favGroups.map((g) => {
                 const groupData = KPOP_GROUPS[g as keyof typeof KPOP_GROUPS];
                 const availableMembers = groupData?.members || [];
@@ -884,32 +919,32 @@ const groupMembers = members.filter((m: any) =>
                 </div>
               </div>
 
-             {/* ZONA PELIGROSA */}
-<div style={{ 
-  marginTop: "30px", 
-  padding: isMobile ? "0 15px" : "0 40px",
-  backgroundColor: "#FFF5F5", 
-  borderRadius: "16px", 
-  border: "1px solid #FFDADA" 
-}}>
-  <p style={{ ...labelStyle, color: "#FF6B6B" }}>Zona Peligrosa</p>
-  <button 
-    type="button" 
-    onClick={handleDeleteAccount} 
-    style={{ 
-      background: "none", 
-      border: "none", 
-      color: "#FF6B6B", 
-      textDecoration: "underline", 
-      fontWeight: 800, 
-      cursor: "pointer", 
-      fontSize: isMobile ? "11px" : "12px",
-      textAlign: "left"
-    }}
-  >
-    Cerrar cuenta definitivamente
-  </button>
-</div>
+          {/* ZONA PELIGROSA */}
+        <div style={{ 
+          marginTop: "30px", 
+          padding: isMobile ? "15px" : "20px", 
+          backgroundColor: "#FFF5F5", 
+          borderRadius: "16px", 
+          border: "1px solid #FFDADA" 
+        }}>
+          <p style={{ ...labelStyle, color: "#FF6B6B" }}>Zona Peligrosa</p>
+          <button 
+            type="button" 
+            onClick={handleDeleteAccount} 
+            style={{ 
+              background: "none", 
+              border: "none", 
+              color: "#FF6B6B", 
+              textDecoration: "underline", 
+              fontWeight: 800, 
+              cursor: "pointer", 
+              fontSize: isMobile ? "11px" : "12px",
+              textAlign: "left"
+            }}
+          >
+            Cerrar cuenta definitivamente
+          </button>
+        </div>
 
               <button type="submit" style={{ width: "100%", marginTop: "30px", background: "#8C659C", color: "white", border: "none", padding: "15px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}>
                 Guardar Cambios

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../components/header";
 import Footer from "../components/footer";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/lib/supabase";
 import { OnboardingForm } from "../me/ui/OnboardingForm";
 
 export default function RegisterPage() {
