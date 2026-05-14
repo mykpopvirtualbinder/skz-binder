@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   async rewrites() {
     return [
+      // 2026 SG JP: en disco la carpeta es `photo-card-set`; URLs viejas usan `photocard-set`.
+      {
+        source:
+          '/mock-pcs/groups/:group/photocards/seasons-greetings/japanese/2026-force/photocard-set/:path*',
+        destination:
+          '/mock-pcs/groups/:group/photocards/seasons-greetings/japanese/2026-force/photo-card-set/:path*',
+      },
       {
         source: '/mock-pcs/groups/:group/photocards/korean-albums/:path*',
         destination: '/mock-pcs/groups/:group/photocards/korean-album/:path*',

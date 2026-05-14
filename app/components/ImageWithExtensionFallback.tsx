@@ -23,6 +23,22 @@ function mockPc5starStemAliases(stem: string): string[] {
   return [normalized, stem];
 }
 
+/** Combina alias de stem (5-STAR, changbin en SG coreano, etc.). */
+function mockPcFileStemVariants(stem: string): string[] {
+  const acc: string[] = [];
+  const pushStem = (s: string) => {
+    if (s && !acc.includes(s)) acc.push(s);
+  };
+  for (const baseStem of mockPc5starStemAliases(stem)) {
+    pushStem(baseStem);
+    // Photocards SG coreano: ficheros `...-changbin`; datos antiguos `...-chang-bin`
+    if (/\/photocards\/seasons-greetings\/korean\//i.test(baseStem) && /-chang-bin$/i.test(baseStem)) {
+      pushStem(baseStem.replace(/-chang-bin$/i, "-changbin"));
+    }
+  }
+  return acc;
+}
+
 function buildCandidates(src: string | undefined, fallbackSrc?: string): string[] {
   const rawBase = String(src || "").trim();
   const base = encodeMockPcPathUrl(rawBase);
@@ -41,6 +57,22 @@ function buildCandidates(src: string | undefined, fallbackSrc?: string): string[
     if (v.includes("/japanese-album/")) vars.push(v.replace("/japanese-album/", "/japanese-albums/"));
     if (v.includes("/taiwanese-albums/")) vars.push(v.replace("/taiwanese-albums/", "/taiwanese-album/"));
     if (v.includes("/taiwanese-album/")) vars.push(v.replace("/taiwanese-album/", "/taiwanese-albums/"));
+    if (v.includes("/seasons-greetings/japanese/2026-force/photocard-set/")) {
+      vars.push(
+        v.replace(
+          "/seasons-greetings/japanese/2026-force/photocard-set/",
+          "/seasons-greetings/japanese/2026-force/photo-card-set/",
+        ),
+      );
+    }
+    if (v.includes("/seasons-greetings/japanese/2026-force/photo-card-set/")) {
+      vars.push(
+        v.replace(
+          "/seasons-greetings/japanese/2026-force/photo-card-set/",
+          "/seasons-greetings/japanese/2026-force/photocard-set/",
+        ),
+      );
+    }
     return vars;
   };
   /** Exact URL, path aliases, otras extensiones de imagen y mayúsculas/minúsculas (p. ej. .JPG en Linux). */
@@ -48,7 +80,7 @@ function buildCandidates(src: string | undefined, fallbackSrc?: string): string[
     pathVariants(v).forEach(pushUnique);
     const se = splitPcImageStemExt(v);
     if (!se) return;
-    const stems = mockPc5starStemAliases(se.stem);
+    const stems = mockPcFileStemVariants(se.stem);
     const ordered = [se.extLower, ...PC_IMAGE_EXTENSIONS.filter((e) => e !== se.extLower)];
     for (const stem of stems) {
       for (const alt of ordered) {
