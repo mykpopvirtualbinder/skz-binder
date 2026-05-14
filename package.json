@@ -2,19 +2,36 @@
   "name": "skz-binder",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run build:mock-pcs-manifest && npm run build:avatar-manifest && npm run build:cursors",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:mock-pcs-manifest": "node scripts/build-mock-pcs-manifest.mjs",
+    "build:merch-albums-catalog": "tsx scripts/build-merch-albums-catalog.ts",
+    "merch:albums-to-sql": "tsx scripts/build-merch-albums-catalog.ts",
+    "build:avatar-manifest": "node scripts/build-avatar-assets-manifest.mjs",
+    "build:cursors": "node scripts/build-theme-cursors.mjs",
+    "verify:mock-pcs-csv": "node scripts/verify-mock-pc-urls-from-csv.mjs"
   },
   "dependencies": {
+    "@google/genai": "^1.50.0",
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.100.0",
     "dotenv": "^17.2.3",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
+    "next-intl": "^4.9.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-pageflip": "^2.0.3",
+    "resend": "^6.10.0",
+    "sharp": "^0.34.5",
+    "stripe": "^17.7.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -24,6 +41,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
