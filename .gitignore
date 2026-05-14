@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Not covered by `.env*` (no leading dot)
+env.local
 
 # vercel
 .vercel
