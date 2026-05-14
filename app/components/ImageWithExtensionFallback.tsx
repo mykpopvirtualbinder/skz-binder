@@ -12,6 +12,17 @@ function extUpperVariant(alt: string): string {
   return alt.toUpperCase();
 }
 
+/**
+ * Algunas filas en Supabase usan `007-5star-front-seungmin` mientras en `public/mock-pcs/.../5star/b/`
+ * el fichero es `007-front-seungmin` (como en `items_import.csv`). Prueba primero el stem normalizado.
+ */
+function mockPc5starStemAliases(stem: string): string[] {
+  if (!/\/mock-pcs\//i.test(stem) || !/\/5star\//i.test(stem)) return [stem];
+  const normalized = stem.replace(/(\d{3})-5star-front-/gi, "$1-front-");
+  if (normalized === stem) return [stem];
+  return [normalized, stem];
+}
+
 function buildCandidates(src: string | undefined, fallbackSrc?: string): string[] {
   const rawBase = String(src || "").trim();
   const base = encodeMockPcPathUrl(rawBase);
@@ -37,10 +48,13 @@ function buildCandidates(src: string | undefined, fallbackSrc?: string): string[
     pathVariants(v).forEach(pushUnique);
     const se = splitPcImageStemExt(v);
     if (!se) return;
+    const stems = mockPc5starStemAliases(se.stem);
     const ordered = [se.extLower, ...PC_IMAGE_EXTENSIONS.filter((e) => e !== se.extLower)];
-    for (const alt of ordered) {
-      pathVariants(`${se.stem}.${alt}`).forEach(pushUnique);
-      pathVariants(`${se.stem}.${extUpperVariant(alt)}`).forEach(pushUnique);
+    for (const stem of stems) {
+      for (const alt of ordered) {
+        pathVariants(`${stem}.${alt}`).forEach(pushUnique);
+        pathVariants(`${stem}.${extUpperVariant(alt)}`).forEach(pushUnique);
+      }
     }
   };
   if (!base) return normFallback ? [normFallback] : [];
