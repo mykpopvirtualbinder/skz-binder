@@ -4,6 +4,7 @@ import Footer from "../components/footer";
 import Header from "../components/header";
 import AdRailLayout from "../components/AdRailLayout";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
+import { resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import localFont from "next/font/local";
 import { useGlobal } from "../context/GlobalContext";
 import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
@@ -1804,7 +1805,7 @@ function LibraryContent() {
     const [colabData, setColabData] = useState<{ asunto: string; email: string; mensaje: string; adjunto: string }>({ asunto: "", email: "", mensaje: "", adjunto: "" });
     const [sendingColab, setSendingColab] = useState(false);
     const [showColabModal, setShowColabModal] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<string>("");
   const router = useRouter();
@@ -2009,16 +2010,26 @@ const loadAll = useCallback(async () => {
     from += PAGE;
   }
 
-  const itemsData: ItemRow[] = all.map((r: ItemRow) => ({
+  const itemsData: ItemRow[] = all.map((r: ItemRow) => {
+    const front =
+      typeof r.image_url === "string" && r.image_url.trim()
+        ? resolveMockPcImageUrl(r.image_url.trim())
+        : null;
+    const back =
+      typeof r.back_image_url === "string" && r.back_image_url.trim()
+        ? resolveMockPcImageUrl(r.back_image_url.trim())
+        : null;
+    return {
     id: Number(r.id),
     name: r.name ?? null,
-    image_url: (typeof r.image_url === "string" ? r.image_url.trim() : "") || null,
-    back_image_url: (typeof r.back_image_url === "string" ? r.back_image_url.trim() : "") || null,
+    image_url: front || null,
+    back_image_url: back || null,
     group_id: Number.isFinite(Number(r.group_id)) ? Number(r.group_id) : null,
     album_id: Number.isFinite(Number(r.album_id)) ? Number(r.album_id) : null,
     version: r.version ?? null,
     member: r.member ?? null,
-  }));
+  };
+  });
 
   setItems(itemsData);
 
@@ -2969,7 +2980,9 @@ const commitStockForItem = useCallback(
             </div>
           )}
 
-          <div className="library-cards-grid"
+          <div
+            key={`lib-grid-${fGroup}-${fAlbum}-${fVersion}-${fMember}-${fUnit}-${currentPage}`}
+            className="library-cards-grid"
             style={{
               marginTop: 14,
               display: "grid",
