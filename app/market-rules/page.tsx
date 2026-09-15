@@ -1,35 +1,34 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { User, ShoppingBag, Truck, AlertCircle, RefreshCw, Mail } from "lucide-react";
-import type { CSSProperties } from "react";
-import Header from "../components/header";
+import React from "react";
+import { ShoppingBag, Truck, AlertCircle, RefreshCw, Mail } from "lucide-react";
+import { useGlobal } from "../context/GlobalContext";
+
 import Footer from "../components/footer";
-// --- ESTILOS CORPORATIVOS ---
-const menuBtnStyle: CSSProperties = { background: "transparent", border: "none", padding: "10px 14px", textAlign: "left", borderRadius: 10, cursor: "pointer", fontWeight: 900, color: "#8C659C", fontSize: 14 };
-const footerColumnTitle: CSSProperties = { fontSize: "13px", color: "#8C659C", fontWeight: 900, textTransform: "uppercase", marginBottom: "15px", display: "block" };
-const footerLinkStyle: CSSProperties = { fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px", display: "block" };
 
 export default function MarketRulesPage() {
-  const router = useRouter();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const { t } = useGlobal(); // 👈 Inicializamos traducciones
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#FFFDF5", display: "flex", flexDirection: "column", color: "#2F2740" }}>
+    <div style={{ 
+      minHeight: "100vh", 
+      backgroundColor: "var(--bg-main)", 
+      display: "flex", 
+      flexDirection: "column", 
+      color: "var(--text-main)",
+      transition: "background-color 0.3s ease" 
+    }}>
       
-      <Header />
-
-      {/* CONTENIDO PRINCIPAL EDITORIAL */}
-      <main style={{ width: "100%", maxWidth: "900px", margin: "80px auto", padding: "0 40px", flex: 1 }}>
+      <main className="legal-page" style={{ width: "100%", maxWidth: "900px", margin: "24px auto", padding: "0 40px", flex: 1 }}>
         
         {/* TITULAR GIGANTE */}
         <div style={{ marginBottom: "60px" }}>
-          <h1 className="tan-font" style={{ color: "#8C659C", fontSize: "64px", lineHeight: "0.8", margin: 0 }}>
-            MARKET<br /><span style={{ fontSize: "40px" }}>RULES</span>
+          <h1 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "64px", lineHeight: "0.8", margin: 0 }}>
+            {t("market_rules.title_1")}<br />
+            <span style={{ fontSize: "40px" }}>{t("market_rules.title_2")}</span>
           </h1>
-          <p style={{ color: "#b17eac", fontWeight: 700, fontSize: "14px", marginTop: "20px", letterSpacing: "2px", textTransform: "uppercase" }}>
-            Normas de convivencia para un mercado mágico
+          <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "14px", marginTop: "20px", letterSpacing: "2px", textTransform: "uppercase" }}>
+            {t("market_rules.subtitle")}
           </p>
         </div>
 
@@ -37,76 +36,85 @@ export default function MarketRulesPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "50px" }}>
           
           <section>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <ShoppingBag size={20}/> 1. COMPRAVENTA (WTS)
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <ShoppingBag size={20}/> {t("market_rules.wts_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              My Kpop Binder actúa únicamente como un intermediario tecnológico para facilitar el contacto entre fans. Es fundamental mantener la transparencia en cada trato.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {t('market_rules.wts_desc')}
             </p>
             <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
-                <div style={{ paddingLeft: "20px", borderLeft: "2px solid #F3C7DA" }}>
-                   <p style={{ fontWeight: 800, color: "#8C659C", margin: 0 }}>GESTIÓN DE PAGOS</p>
-                   <p style={{ fontSize: "14px", color: "#666", margin: 0 }}>Se realizan de forma externa o mediante pasarelas seguras. La plataforma puede aplicar comisiones técnicas por el servicio.</p>
+                <div style={{ paddingLeft: "20px", borderLeft: "2px solid var(--color-border)" }}>
+                   <p style={{ fontWeight: 800, color: "var(--color-primary)", margin: 0 }}>
+                     {t("market_rules.wts_payments")}
+                   </p>
+                   <p style={{ fontSize: "14px", color: "var(--text-muted)", margin: 0 }}>
+                     {t('market_rules.wts_payments_desc')}
+                   </p>
                 </div>
-                <div style={{ paddingLeft: "20px", borderLeft: "2px solid #F3C7DA" }}>
-                   <p style={{ fontWeight: 800, color: "#8C659C", margin: 0 }}>DESCRIPCIÓN FIEL</p>
-                   <p style={{ fontSize: "14px", color: "#666", margin: 0 }}>El vendedor debe indicar claramente el estado de la carta: daños, arañazos o marcas de fabricación.</p>
+                <div style={{ paddingLeft: "20px", borderLeft: "2px solid var(--color-border)" }}>
+                   <p style={{ fontWeight: 800, color: "var(--color-primary)", margin: 0 }}>
+                     {t("market_rules.wts_faithful")}
+                   </p>
+                   <p style={{ fontSize: "14px", color: "var(--text-muted)", margin: 0 }}>
+                     {t('market_rules.wts_faithful_desc')}
+                   </p>
                 </div>
             </div>
           </section>
 
           <section>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <RefreshCw size={20}/> 2. INTERCAMBIOS (WTT)
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <RefreshCw size={20}/> {t("market_rules.wtt_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              Los intercambios son acuerdos directos entre usuari@s. Para tu seguridad, recomendamos pedir siempre vídeos de comprobación (proofs) del estado de las photocards antes de cerrar el acuerdo.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {t('market_rules.wtt_desc')}
             </p>
           </section>
 
           <section>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <Truck size={20}/> 3. ENVÍOS Y LOGÍSTICA
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <Truck size={20}/> {t("market_rules.shipping_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              Tanto el empaquetado como el transporte físico son responsabilidad exclusiva de l@s usuari@s involucrad@s. My Kpop Binder no se hace responsable de pérdidas por parte de empresas de mensajería o discrepancias tras el envío.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {t('market_rules.shipping_desc')}
             </p>
           </section>
 
-          <section style={{ backgroundColor: "#FFF9FB", padding: "40px", borderRadius: "24px", border: "1px solid #F3DCE7" }}>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <AlertCircle size={20}/> 4. SEGURIDAD
+          <section style={{ backgroundColor: "var(--bg-soft)", padding: "40px", borderRadius: "24px", border: "1px solid var(--color-border)" }}>
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <AlertCircle size={20}/> {t("market_rules.security_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              Cualquier intento de fraude, venta de falsificaciones o engaño resultará en la expulsión inmediata de la comunidad. Velamos por un entorno seguro para tod@s.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {t('market_rules.security_desc')}
             </p>
           </section>
         </div>
 
         {/* FIRMA FINAL CON SOBRECITO */}
         <div style={{ marginTop: "80px", textAlign: "center", paddingBottom: "40px" }}>
-          <p style={{ color: "#b17eac", fontWeight: 700, fontSize: "13px", letterSpacing: "1px", marginBottom: "20px", textTransform: "uppercase" }}>
-            ¿Dudas sobre una transacción?
+          <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "13px", letterSpacing: "1px", marginBottom: "20px", textTransform: "uppercase" }}>
+            {t("market_rules.doubts")}
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div style={{ height: "1px", flex: 1, backgroundColor: "#F3C7DA" }}></div>
+            <div style={{ height: "1px", flex: 1, backgroundColor: "var(--color-border)" }}></div>
             <a 
               href="mailto:info@mykpopbinder.com" 
+              className="tan-font"
               style={{ 
-                display: "flex", alignItems: "center", gap: "10px", color: "#8C659C", 
-                textDecoration: "none", fontWeight: 900, fontSize: "13px", letterSpacing: "1px" 
+                display: "flex", alignItems: "center", gap: "10px", color: "var(--color-primary)", 
+                textDecoration: "none", fontWeight: 900, fontSize: "14px", letterSpacing: "1px" 
               }}
             >
               <Mail size={18} strokeWidth={2.5} />
               <span>INFO@MYKPOPBINDER.COM</span>
             </a>
-            <div style={{ height: "1px", flex: 1, backgroundColor: "#F3C7DA" }}></div>
+            <div style={{ height: "1px", flex: 1, backgroundColor: "var(--color-border)" }}></div>
           </div>
         </div>
 
       </main>
 
-    <Footer />
+      <Footer />
 
       <style jsx global>{`
         @font-face { font-family: 'TanTangkiwood'; src: url('/fonts/tan-tangkiwood-regular.otf') format('opentype'); }

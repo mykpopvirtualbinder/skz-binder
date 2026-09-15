@@ -1,109 +1,122 @@
 "use client";
-import Footer from "../components/footer"; // SIN LLAVES {}
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { User, Copyright, Camera, Scale, Mail, Info } from "lucide-react";
-import type { CSSProperties } from "react";
-import Header from "../components/header";
 
-// --- ESTILOS CORPORATIVOS UNIFICADOS ---
-const menuBtnStyle: CSSProperties = { background: "transparent", border: "none", padding: "10px 14px", textAlign: "left", borderRadius: 10, cursor: "pointer", fontWeight: 900, color: "#8C659C", fontSize: 14 };
-const footerColumnTitle: CSSProperties = { fontSize: "13px", color: "#8C659C", fontWeight: 900, textTransform: "uppercase", marginBottom: "15px", display: "block" };
-const footerLinkStyle: CSSProperties = { fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px", display: "block" };
+import React, { useState, useEffect } from "react";
+import { Copyright, Camera, Scale, Mail, Info } from "lucide-react";
+import Footer from "../components/footer";
+import { useGlobal } from "../context/GlobalContext";
 
 export default function CopyrightPage() {
-  const router = useRouter();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const { profile, t } = useGlobal(); // Añadimos profile para reactividad del tema
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#FFFDF5", display: "flex", flexDirection: "column", color: "#2F2740" }}>
+    <div style={{ 
+      minHeight: "100vh", 
+      backgroundColor: "var(--bg-main)", 
+      display: "flex", 
+      flexDirection: "column", 
+      color: "var(--text-main)",
+      transition: "background-color 0.3s ease" 
+    }}>
       
-     <Header />
-
-      {/* CONTENIDO PRINCIPAL EDITORIAL */}
-      <main style={{ width: "100%", maxWidth: "900px", margin: "80px auto", padding: "0 40px", flex: 1 }}>
+      <main className="legal-page" style={{ width: "100%", maxWidth: "900px", margin: "24px auto", padding: "0 40px", flex: 1 }}>
         
         {/* TITULAR GIGANTE */}
         <div style={{ marginBottom: "60px" }}>
-          <h1 className="tan-font" style={{ color: "#8C659C", fontSize: "64px", lineHeight: "0.8", margin: 0 }}>
-            COPYRIGHT<br /><span style={{ fontSize: "40px" }}>& INTELLECTUAL PROPERTY</span>
+          <h1 className="tan-font" style={{ color: "var(--color-primary)", fontSize: isMobile ? "48px" : "64px", lineHeight: "0.8", margin: 0 }}>
+            {t("copyright.title_part1")}<br />
+            <span style={{ fontSize: isMobile ? "32px" : "40px" }}>
+              {t("copyright.title_part2")}
+            </span>
           </h1>
-          <p style={{ color: "#b17eac", fontWeight: 700, fontSize: "14px", marginTop: "20px", letterSpacing: "2px", textTransform: "uppercase" }}>
-            Respetando los derechos de creadores y agencias
+          <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "14px", marginTop: "20px", letterSpacing: "2px", textTransform: "uppercase" }}>
+            {t("copyright.subtitle")}
           </p>
-          <p style={{ color: "#8C659C", fontWeight: 800, fontSize: "13px", marginTop: "10px" }}>Última actualización: 17/3/2026</p>
+          <p style={{ color: "var(--color-primary)", fontWeight: 800, fontSize: "13px", marginTop: "10px" }}>
+            {t("copyright.last_updated")}
+          </p>
         </div>
 
         {/* SECCIONES EDITORIALES */}
         <div style={{ display: "flex", flexDirection: "column", gap: "50px" }}>
           
           <section>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <Copyright size={20}/> 1. PROPIEDAD DEL CONTENIDO
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <Copyright size={20}/> {t("copyright.section1_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              Todas las imágenes, logotipos y material gráfico relacionado con los artistas y grupos de K-Pop que aparecen en My Kpop Binder pertenecen a sus respectivos propietarios legales y agencias discográficas. Su uso en esta plataforma es meramente informativo y de catalogación para la comunidad de coleccionistas.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {t("copyright.section1_text")}
             </p>
           </section>
 
           <section>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <Camera size={20}/> 2. CONTENIDO GENERADO POR USUARI@S
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <Camera size={20}/> {t("copyright.section2_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              L@s usuari@s que suben fotografías de sus propias photocards o personalizan sus binders digitales conservan los derechos sobre sus composiciones fotográficas, pero garantizan que dicho contenido no infringe los derechos de terceros ni tiene fines comerciales ilícitos.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {t("copyright.section2_text")}
             </p>
           </section>
 
           <section>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <Scale size={20}/> 3. USO LEGÍTIMO (FAIR USE)
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <Scale size={20}/> {t("copyright.section3_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              El uso de miniaturas de photocards y nombres de álbumes se realiza bajo el principio de <strong>Uso Legítimo</strong>, con el fin de identificar, organizar y facilitar el intercambio privado entre fans, sin intención de suplantar la comercialización oficial de las agencias.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {t("copyright.section3_text")}
             </p>
           </section>
 
-          <section style={{ backgroundColor: "#FFF9FB", padding: "40px", borderRadius: "24px", border: "1px solid #F3DCE7" }}>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <Info size={20}/> RETIRADA DE CONTENIDO
+          <section style={{ backgroundColor: "var(--bg-soft)", padding: "40px", borderRadius: "24px", border: "1px solid var(--color-border)" }}>
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <Info size={20}/> {t("copyright.section4_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              Si eres titular de derechos de autor y consideras que algún contenido en nuestra plataforma infringe tu propiedad intelectual, My Kpop Binder actuará con diligencia para revisar y, si procede, retirar dicho material.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {t("copyright.section4_text")}
             </p>
           </section>
         </div>
 
         {/* CIERRE CON SOBRECITO */}
         <div style={{ marginTop: "80px", textAlign: "center", paddingBottom: "40px" }}>
-          <p style={{ color: "#b17eac", fontWeight: 700, fontSize: "13px", letterSpacing: "1px", marginBottom: "20px", textTransform: "uppercase" }}>
-            ¿Eres titular de derechos y quieres contactarnos?
+          <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "13px", letterSpacing: "1px", marginBottom: "20px", textTransform: "uppercase" }}>
+            {t("copyright.contact_prompt")}
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div style={{ height: "1px", flex: 1, backgroundColor: "#F3C7DA" }}></div>
+            <div style={{ height: "1px", flex: 1, backgroundColor: "var(--color-border)" }}></div>
             <a 
               href="mailto:info@mykpopbinder.com" 
+              className="tan-font"
               style={{ 
-                display: "flex", alignItems: "center", gap: "10px", color: "#8C659C", 
-                textDecoration: "none", fontWeight: 900, fontSize: "13px", letterSpacing: "1px" 
+                display: "flex", alignItems: "center", gap: "10px", color: "var(--color-primary)", 
+                textDecoration: "none", fontWeight: 900, fontSize: "14px", letterSpacing: "1px",
+                transition: "opacity 0.2s"
               }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = "0.7"}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
             >
               <Mail size={18} strokeWidth={2.5} />
-              <span>INFO@MYKPOPBINDER.COM</span>
+              <span>{t("common.contact_admin")}</span>
             </a>
-            <div style={{ height: "1px", flex: 1, backgroundColor: "#F3C7DA" }}></div>
+            <div style={{ height: "1px", flex: 1, backgroundColor: "var(--color-border)" }}></div>
           </div>
         </div>
 
       </main>
 
-    
+      <Footer />
 
       <style jsx global>{`
         @font-face { font-family: 'TanTangkiwood'; src: url('/fonts/tan-tangkiwood-regular.otf') format('opentype'); }
         .tan-font { font-family: 'TanTangkiwood', sans-serif !important; }
       `}</style>
-       <Footer />
     </div>
   );
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-
+import { MessageSquare } from "lucide-react"; // Importamos el icono para el comentario
+import { useGlobal } from "../context/GlobalContext";
+import { getCurrencyOptions } from "./currencyOptions";
 type WtsListingModalProps = {
   open: boolean;
   itemId: number | null;
@@ -53,29 +55,33 @@ const countryList = [
   { code: "CL", name: "Chile", flag: "🇨🇱" },
   { code: "ZA", name: "South Africa", flag: "🇿🇦" },
 ];
-
 const inputStyle: React.CSSProperties = {
-  height: 36,
-  padding: "6px 10px",
+  height: 38,
+  padding: "6px 12px",
   borderRadius: 10,
-  border: "1px solid #FFD9E6",
-  background: "#FFF5FA",
+  border: "1px solid var(--color-border)",
+  background: "var(--bg-main)",
   fontSize: 13,
-  color: "#8C659C",
+  color: "var(--text-main)",
+  width: "100%",
+  boxSizing: "border-box",
+  outline: "none"
 };
 
 const labelStyle: React.CSSProperties = {
   fontSize: 12,
-  color: "#8C659C",
+  color: "var(--color-primary)",
   fontWeight: 900,
+  marginBottom: 4,
+  display: "block"
 };
 
 const softPinkBtnStyle: React.CSSProperties = {
   padding: "8px 12px",
   borderRadius: 10,
-  border: "1px solid #F7A8D8",
-  background: "#FFF5FA",
-  color: "#8C659C",
+  border: "1px solid var(--color-border)",
+  background: "var(--bg-soft)",
+  color: "var(--color-primary)",
   cursor: "pointer",
   fontWeight: 900,
 };
@@ -83,42 +89,12 @@ const softPinkBtnStyle: React.CSSProperties = {
 const whitePinkBtnStyle: React.CSSProperties = {
   padding: "8px 12px",
   borderRadius: 10,
-  border: "1px solid #F7A8D8",
-  background: "white",
-  color: "#8C659C",
+  border: "1px solid var(--color-border)",
+  background: "var(--bg-card)",
+  color: "var(--color-primary)",
   cursor: "pointer",
   fontWeight: 900,
 };
-
-/* ---------- MONEDAS ---------- */
-
-const currencyOptions = [
-  { code: "EUR", label: "€ Euro - EUR" },
-  { code: "USD", label: "$ US Dollar - USD" },
-  { code: "GBP", label: "£ British Pound - GBP" },
-  { code: "JPY", label: "¥ Japanese Yen - JPY" },
-  { code: "KRW", label: "₩ Korean Won - KRW" },
-  { code: "CNY", label: "¥ Chinese Yuan - CNY" },
-  { code: "AUD", label: "$ Australian Dollar - AUD" },
-  { code: "CAD", label: "$ Canadian Dollar - CAD" },
-  { code: "CHF", label: "CHF Swiss Franc - CHF" },
-  { code: "SEK", label: "kr Swedish Krona - SEK" },
-  { code: "NOK", label: "kr Norwegian Krone - NOK" },
-  { code: "DKK", label: "kr Danish Krone - DKK" },
-  { code: "SGD", label: "$ Singapore Dollar - SGD" },
-  { code: "HKD", label: "$ Hong Kong Dollar - HKD" },
-  { code: "NZD", label: "$ New Zealand Dollar - NZD" },
-  { code: "BRL", label: "R$ Brazilian Real - BRL" },
-  { code: "MXN", label: "$ Mexican Peso - MXN" },
-  { code: "INR", label: "₹ Indian Rupee - INR" },
-  { code: "THB", label: "฿ Thai Baht - THB" },
-  { code: "VND", label: "₫ Vietnamese Dong - VND" },
-  { code: "IDR", label: "Rp Indonesian Rupiah - IDR" },
-  { code: "MYR", label: "RM Malaysian Ringgit - MYR" },
-  { code: "PHP", label: "₱ Philippine Peso - PHP" },
-  { code: "TRY", label: "₺ Turkish Lira - TRY" },
-  { code: "ZAR", label: "R South African Rand - ZAR" },
-];
 
 const countryOptions = countryList.map((c) => ({
   code: c.code,
@@ -133,10 +109,26 @@ export default function WtsListingModal({
   onClose,
   onSaved,
 }: WtsListingModalProps) {
+  const { t, profile } = useGlobal();
+  const currencyOptions = useMemo(
+    () =>
+      getCurrencyOptions(profile?.language ?? "es").map((currency) => ({
+        code: currency.code,
+        label: `${currency.symbol} ${currency.name} - ${currency.code}`,
+      })),
+    [profile?.language],
+  );
+  
   const [price, setPrice] = useState("");
+  // ... el resto de tus estados e useEffects
   const [currencyCode, setCurrencyCode] = useState("EUR");
-  const [currencyInput, setCurrencyInput] = useState("€ Euro - EUR");
+  const [currencyInput, setCurrencyInput] = useState("");
   const [originCountry, setOriginCountry] = useState("");
+  
+  // NUEVOS CAMPOS
+  const [shippingTo, setShippingTo] = useState("Worldwide");
+  const [negotiable, setNegotiable] = useState(false);
+  const [comment, setComment] = useState("");
 
   useEffect(() => {
     if (!open || itemId == null) return;
@@ -144,16 +136,24 @@ export default function WtsListingModal({
     const p = localStorage.getItem(`binder:price:${itemId}`) ?? "";
     const savedCode = localStorage.getItem(`binder:wtsCurrency:${itemId}`) ?? "EUR";
     const o = localStorage.getItem(`binder:wtsOrigin:${itemId}`) ?? "";
+    
+    // Cargar nuevos campos si existen
+    const s = localStorage.getItem(`binder:shipping:${itemId}`) ?? "Worldwide";
+    const n = localStorage.getItem(`binder:negotiable:${itemId}`) === "true";
+    const c = localStorage.getItem(`binder:comment:${itemId}`) ?? "";
 
     setPrice(p);
     setCurrencyCode(savedCode);
 
     const prettyCurrency =
-      currencyOptions.find((c) => c.code === savedCode)?.label ?? "€ Euro - EUR";
+      currencyOptions.find((c) => c.code === savedCode)?.label ?? savedCode;
     setCurrencyInput(prettyCurrency);
 
     setOriginCountry(o);
-  }, [open, itemId]);
+    setShippingTo(s);
+    setNegotiable(n);
+    setComment(c);
+  }, [open, itemId, currencyOptions]);
 
   const canSave = useMemo(() => {
     return itemId != null && price.trim() !== "";
@@ -182,12 +182,15 @@ export default function WtsListingModal({
   const save = () => {
     if (!canSave || itemId == null) return;
 
-    // ✅ TU PRECIO
+    // ✅ GUARDAR DATOS ANTIGUOS
     localStorage.setItem(`binder:price:${itemId}`, price.trim());
     localStorage.setItem(`binder:wtsCurrency:${itemId}`, currencyCode);
-
-    // ✅ PAÍS DE ENVÍO
     localStorage.setItem(`binder:wtsOrigin:${itemId}`, originCountry);
+    
+    // ✅ GUARDAR NUEVOS CAMPOS
+    localStorage.setItem(`binder:shipping:${itemId}`, shippingTo);
+    localStorage.setItem(`binder:negotiable:${itemId}`, String(negotiable));
+    localStorage.setItem(`binder:comment:${itemId}`, comment.trim());
 
     // ❌ NO tocar binder:market:${itemId}
     onSaved?.();
@@ -202,7 +205,9 @@ export default function WtsListingModal({
         onClose();
       }
 
-      if (e.key === "Enter") {
+      // Si el usuario está escribiendo en el textarea, no disparamos el enter
+      const target = e.target as HTMLElement;
+      if (e.key === "Enter" && target.tagName.toLowerCase() !== 'textarea') {
         e.preventDefault();
         save();
       }
@@ -210,7 +215,7 @@ export default function WtsListingModal({
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, canSave, price, currencyCode, originCountry, itemId, onClose, onSaved]);
+  }, [open, canSave, price, currencyCode, originCountry, shippingTo, negotiable, comment, itemId, onClose, onSaved]);
 
   if (!open) return null;
 
@@ -219,124 +224,206 @@ export default function WtsListingModal({
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 999999,
-      }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        style={{
-          width: 420,
-          borderRadius: 18,
-          overflow: "hidden",
-          background: "#F7F4EE",
-          border: "1px solid #F3DCE7",
-        }}
-      >
-        <div
-          style={{
-            background: "#FFD9E6",
-            padding: "12px 16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <img src="/branding/logo.png" alt="" style={{ height: 26 }} />
-            <div style={{ fontWeight: 950, color: "#8C659C" }}>
-              Publicar venta (WTS)
-            </div>
-          </div>
+   <div
+  className="wts-modal-overlay"
+  style={{
+    position: "fixed",
+    inset: 0,
+    background: "var(--overlay-strong)", // Un poco más oscuro para que resalte el modal
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 999999,
+    padding: "20px",
+    backdropFilter: "blur(4px)" // Efecto desenfoque muy moderno
+  }}
+  onMouseDown={(e) => {
+    if (e.target === e.currentTarget) onClose();
+  }}
+>
+  <div
+    className="wts-modal-shell"
+    style={{
+      width: "100%",
+      maxWidth: 460,
+      borderRadius: 24,
+      overflow: "hidden",
+      background: "var(--bg-card)",       // Fondo del modal dinámico
+      border: "1px solid var(--color-border)",
+      maxHeight: "90vh",
+      display: "flex",
+      flexDirection: "column",
+      boxShadow: "0 20px 40px var(--shadow-card)"
+    }}
+  >
+       <div
+  className="wts-modal-header"
+  style={{
+    background: "var(--bg-soft)", // Antes var(--bg-soft)
+    padding: "12px 16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexShrink: 0,
+    borderBottom: "1px solid var(--color-border)"
+  }}
+>
+  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+    <img src="/branding/logo.png" alt="" style={{ height: 26 }} />
+    <div style={{ fontWeight: 950, color: "var(--color-primary)", fontSize: "18px" }}>
+      {t('wts_listing.header_title')}
+    </div>
+  </div>
 
-          <button style={whitePinkBtnStyle} onClick={onClose}>
+          <button style={{...whitePinkBtnStyle, padding: "4px 8px"}} onClick={onClose}>
             ✕
           </button>
         </div>
 
         <div
+          className="wts-modal-body"
           style={{
-            padding: 16,
+            padding: "20px 20px",
             display: "grid",
-            gap: 12,
+            gap: 16,
+            overflowY: "auto",
+            flex: 1
           }}
         >
-          <div>
-            <div style={labelStyle}>Precio</div>
-            <input
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              style={inputStyle}
-              placeholder="Ej: 8"
-            />
+          {/* FILA 1: Precio y Moneda */}
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={labelStyle}>{t("wts_listing.price_label")}</div>
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                style={inputStyle}
+                placeholder={t("wts_listing.price_placeholder")}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={labelStyle}>{t("wts_listing.currency_label")}</div>
+              <input
+                list="binder-currency-list"
+                value={currencyInput}
+                onChange={(e) => handleCurrencyChange(e.target.value)}
+                style={inputStyle}
+                placeholder={t("wts_listing.currency_placeholder")}
+              />
+              <datalist id="binder-currency-list">
+                {currencyOptions.map((c) => (
+                  <option key={c.code} value={c.label} />
+                ))}
+              </datalist>
+            </div>
           </div>
 
-          <div>
-            <div style={labelStyle}>Moneda</div>
-            <input
-              list="binder-currency-list"
-              value={currencyInput}
-              onChange={(e) => handleCurrencyChange(e.target.value)}
-              style={inputStyle}
-              placeholder="€ Euro - EUR"
-            />
-            <datalist id="binder-currency-list">
-              {currencyOptions.map((c) => (
-                <option key={c.code} value={c.label} />
-              ))}
-            </datalist>
+          {/* FILA 2: Origen y Envío */}
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={labelStyle}>{t("wts_listing.origin_country_label")}</div>
+              <input
+                list="binder-country-list"
+                value={originCountry}
+                onChange={(e) => setShipFrom(e.target.value)}
+                placeholder={t("wts_listing.origin_country_placeholder")}
+                style={inputStyle}
+              />
+              <datalist id="binder-country-list">
+                {countryOptions.map((c) => (
+                  <option key={c.code} value={c.label} />
+                ))}
+              </datalist>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={labelStyle}>{t("wts_listing.shipping_to_label")}</div>
+              <select 
+                value={shippingTo} 
+                onChange={(e) => setShippingTo(e.target.value)} 
+                style={{...inputStyle, WebkitAppearance: "none"}}
+              >
+                <option value="Worldwide">{t("wts_listing.shipping_options.worldwide")}</option>
+                <option value="EU">{t("wts_listing.shipping_options.eu")}</option>
+                <option value="USA">{t("wts_listing.shipping_options.usa")}</option>
+                <option value="National">{t("wts_listing.shipping_options.national")}</option>
+              </select>
+            </div>
           </div>
 
-          <div>
-            <div style={labelStyle}>País de origen del envío</div>
-            <input
-              list="binder-country-list"
-              value={originCountry}
-              onChange={(e) => setShipFrom(e.target.value)}
-              placeholder="Spain 🇪🇸"
-              style={inputStyle}
-            />
-            <datalist id="binder-country-list">
-              {countryOptions.map((c) => (
-                <option key={c.code} value={c.label} />
-              ))}
-            </datalist>
-          </div>
+         {/* CHECKBOX NEGOCIABLE */}
+<label style={{ 
+  display: "flex", alignItems: "center", gap: "10px", 
+  background: "var(--bg-main)", padding: "12px", borderRadius: "12px", 
+  border: "1px solid var(--color-border)", cursor: "pointer" 
+}}>
+  <input 
+    type="checkbox" 
+    checked={negotiable} 
+    onChange={(e) => setNegotiable(e.target.checked)} 
+    style={{ width: "18px", height: "18px", accentColor: "var(--color-primary)" }} 
+  />
+  <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--color-primary)" }}>
+    {t("wts_listing.negotiable_label")}
+  </span>
+</label>
+
+         {/* COMENTARIO */}
+<div>
+  <div style={{...labelStyle, display: "flex", alignItems: "center", gap: "6px"}}>
+    <MessageSquare size={14} /> {t("wts_listing.comment_label")}
+  </div>
+  <textarea 
+    placeholder={t("wts_listing.comment_placeholder")} 
+    rows={3} 
+    value={comment} 
+    onChange={(e) => setComment(e.target.value)} 
+    style={{ 
+      ...inputStyle, 
+      height: "auto", 
+      resize: "none", 
+      padding: "10px",
+      fontFamily: "inherit"
+    }} 
+  />
+  <div style={{ fontSize: "10px", color: "var(--text-muted)", textAlign: "right", marginTop: "4px", fontWeight: 700 }}>
+    {t("wts_listing.comment_limit")}
+  </div>
+</div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 8,
-            padding: 12,
-            borderTop: "1px solid #F3DCE7",
-          }}
-        >
-          <button style={whitePinkBtnStyle} onClick={onClose}>
-            Cancelar
-          </button>
+       <div
+  className="wts-modal-footer"
+  style={{
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
+    padding: "14px 20px",
+    borderTop: "1px solid var(--color-border)",
+    background: "var(--bg-card)",
+    flexShrink: 0
+  }}
+>
+  <button style={{...whitePinkBtnStyle, padding: "10px 16px"}} onClick={onClose}>
+    {t("wts_listing.btn_cancel")}
+  </button>
 
-          <button
-            style={{
-              ...softPinkBtnStyle,
-              opacity: canSave ? 1 : 0.6,
-              cursor: canSave ? "pointer" : "not-allowed",
-            }}
-            onClick={save}
-          >
-            Guardar
-          </button>
-        </div>
+  <button
+    style={{
+      ...softPinkBtnStyle,
+      background: canSave ? "var(--color-primary)" : "var(--bg-soft)",
+      color: canSave ? "white" : "var(--text-muted)",
+      border: "none",
+      padding: "10px 20px",
+      opacity: canSave ? 1 : 0.6,
+      cursor: canSave ? "pointer" : "not-allowed",
+      boxShadow: canSave ? "0 4px 15px var(--shadow-card)" : "none"
+    }}
+    onClick={save}
+  >
+    {t("wts_listing.btn_submit")}
+  </button>
+</div>
       </div>
     </div>
   );

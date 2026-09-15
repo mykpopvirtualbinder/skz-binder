@@ -1,0 +1,23 @@
+---
+description: Al crear o migrar tablas Supabase en public — GRANT Data API + RLS
+globs: scripts/**/*.sql
+alwaysApply: false
+---
+
+# Tablas Supabase nuevas
+
+Cuando añadas `CREATE TABLE` en `scripts/` o migraciones:
+
+1. Activa **RLS** y políticas en la misma migración.
+2. Añade **GRANT** explícitos para `anon` / `authenticated` según `scripts/SUPABASE_DATA_API.md`.
+3. Registra la tabla en `scripts/supabase-data-api-grants.sql` y en la lista de `scripts/supabase-verify-data-api-grants.sql`.
+4. No uses solo `GRANT ALL` a `anon` salvo tablas de catálogo público.
+
+Plantilla mínima:
+
+```sql
+GRANT SELECT ON TABLE public.<tabla> TO anon, authenticated;  -- quitar anon si no es público
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.<tabla> TO authenticated;
+```
+
+`service_role` en rutas API admin/webhook no sustituye GRANTs del cliente si la app usa `supabase.from()` en el navegador.

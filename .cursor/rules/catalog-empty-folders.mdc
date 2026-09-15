@@ -1,0 +1,28 @@
+---
+description: Carpetas de catálogo vacías deben salir en filtros y mostrar el empty state colaborativo
+alwaysApply: true
+---
+
+# Carpetas de catálogo vacías
+
+Toda carpeta real bajo `public/mock-pcs/groups/<grupo>/` (álbumes, seasons greetings, events, memberships, collabs, photocards, pobs, inclusions, portadas-album, y las que se creen después) debe aparecer en los filtros de Ediciones, Biblioteca e Inclusiones.
+
+Si la carpeta no tiene imágenes ni filas de catálogo, al seleccionarla se muestra el empty state colaborativo (`ContributeEmptyState`: «Estamos trabajando en ello» + modal **¡Aporta un Grupo!** + 100 K-oins). Nunca un «no hay resultados» genérico.
+
+## Cómo se mantiene solo
+
+El índice sale de un **walk en vivo** (`scanFolderTreeCatalog` → `GET /api/folder-tree-catalog`). No hay lista fija de álbumes/tipos. Una carpeta nueva vacía entra sola en el próximo fetch.
+
+Saltar junk: `templates`, `silvia*`, `.DS_Store`, `desktop.ini`.
+
+## Qué no hacer
+
+```tsx
+// ❌ BAD: ocultar vacíos o hardcodear títulos
+if (!images.length) skipFolder();
+if (album === "this-&-that") return <p>{t("library.no_results")}</p>;
+
+// ✅ GOOD: la carpeta entra en el índice; 0 ítems + filtro de esa carpeta → ContributeEmptyState
+```
+
+Al tocar filtros o empty states, reutiliza el árbol; no sustituyas este flujo por un mensaje genérico.

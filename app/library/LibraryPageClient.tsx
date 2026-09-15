@@ -5,9 +5,16 @@ import Header from "../components/header";
 import AdRailLayout from "../components/AdRailLayout";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
 import { resolveMockPcImageUrl } from "@/lib/mock-pc-url";
-import localFont from "next/font/local";
+
 import { useGlobal } from "../context/GlobalContext";
-import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
+import {
+  formatCollectionOptionLabel,
+  strayKidsAlbumOrderIndex,
+  isSeasonsGreetings,
+  extractCollectionYear,
+  isNonAlbumCollectionTitle,
+  collectionOptionDedupeKey,
+} from "@/lib/collection-filters";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { avisarFavoritos } from "@/lib/avisos";
 import { supabase } from "@/lib/supabase";
@@ -15,6 +22,20 @@ import { marketRefUsdStorageKey } from "@/lib/market-reference-keys";
 import { getCurrencyOptions } from "./currencyOptions";
 import WtsListingModal from "./WtsListingModal";
 import WttListingModal from "./WttListingModal";
+import ContributeEmptyState from "../components/ContributeEmptyState";
+import {
+  compactFolderKey,
+  findFolderAlbumByFilterKey,
+  folderAlbumFilterKey,
+  folderAlbumMatchesTitle,
+  folderIsLibraryInclusionsCollection,
+  folderIsLibraryPhotocardsCollection,
+  folderMatchesLibraryGroup,
+  folderVersionMatches,
+  mergeVersionLabels,
+  type FolderTreeAlbum,
+  type FolderTreeCatalog,
+} from "@/lib/folder-tree-catalog-shared";
 import {
   Users,
   Disc3,
@@ -33,6 +54,7 @@ import {
   Sparkles,
   Handshake,
   Search,
+  Gift,
 } from "lucide-react";
 const filterLabelStyle: React.CSSProperties = {
   fontSize: 12,
@@ -47,7 +69,9 @@ const filterLabelStyle: React.CSSProperties = {
 
 import {
   CSSProperties,
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -66,9 +90,18 @@ type ItemRow = {
   back_image_url: string | null;
   group_id: number | null;
   album_id: number | null;
+  type?: string | null;
   version: string | null;
   member: string | null;
 };
+
+export type LibraryCatalog = "photocards" | "inclusions";
+
+const LibraryCatalogContext = createContext<LibraryCatalog>("photocards");
+
+function useLibraryCatalog() {
+  return useContext(LibraryCatalogContext);
+}
 
 function formatPcPriceDisplay(val: number | null | undefined): string {
   if (val == null || !Number.isFinite(val)) return "—";
@@ -86,11 +119,7 @@ type UserItemStatusRow = {
 type GroupRow = { id: number; name: string | null };
 type AlbumRow = { id: number; name: string | null; release_date: string | null };
 
-const tanTangkiwood = localFont({
-  src: "../../public/fonts/tan-tangkiwood-regular.otf",
-  display: "swap",
-  variable: "--font-tan-tangkiwood",
-});
+// Font is loaded globally via @font-face in globals.css — no localFont needed
 
 function emptyCounts(): StatusCounts {
   return { have: 0, wtt: 0, wts: 0, on_its_way: 0, wish: 0 };
@@ -121,15 +150,16 @@ function totalOwnedQtyFromCounts(counts: StatusCounts) {
   return counts.have + counts.wtt + counts.wts + counts.on_its_way;
 }
 
-function formatTooltipLines(counts: StatusCounts, inBinder: number) {
-  return [
+function formatTooltipLines(counts: StatusCounts, inBinder: number, hideBinder = false) {
+  const lines = [
     `Tengo: ${counts.have}`,
     `WTT: ${counts.wtt}`,
     `WTS: ${counts.wts}`,
     `On the way: ${counts.on_its_way}`,
     `Wishlist: ${counts.wish}`,
-    `En Binder: ${inBinder}`,
   ];
+  if (!hideBinder) lines.push(`En Binder: ${inBinder}`);
+  return lines;
 }
 
 function normText(s: string) {
@@ -230,6 +260,13 @@ function unitTypeFromMember(memberRaw: string | null): "single" | "unit" | "ot8"
   if (lower.includes("+")) return "unit";
   if (lower.split(/\s+/).length > 1) return "unit";
   return "single";
+}
+
+function pobKindFromItem(it: Pick<ItemRow, "type" | "image_url">): "regular" | "pob" {
+  const typeRaw = String(it.type ?? "").trim().toLowerCase();
+  const urlRaw = String(it.image_url ?? "").toLowerCase();
+  if (typeRaw.includes("pob") || urlRaw.includes("/pobs/")) return "pob";
+  return "regular";
 }
 function toNiceTitle(s: string) {
   const t = (s ?? "").trim();
@@ -332,26 +369,52 @@ function prettySlugTitle(s: string) {
     .join(" ");
 }
 function prettyAlbumDisplay(s: string | null) {
-  const raw = (s ?? "").trim();
+  let raw = (s ?? "").trim();
   if (!raw) return "—";
+
+  try { raw = decodeURIComponent(raw); } catch {}
+
+  // Seasons Greetings: "2022-room-mates", "skz2020-seasons-greetings", "seasons-greetings-2024-..."
+  const sgPrefixed = raw.match(/^(?:seasons[- _]greetings[- _])(\d{4})([- _].+)?$/i);
+  const sgBareYear = raw.match(/^(\d{4})([- _].+)?$/);
+  const sgSkz = raw.match(/^skz(\d{4})[- _]seasons[- _]greetings$/i);
+  const sgMatch = sgPrefixed || sgBareYear || sgSkz;
+  if (sgMatch) {
+    const year = sgMatch[1];
+    let rest = (sgMatch[2] || "").replace(/^[-_ ]+/, "").replace(/[-_]+/g, " ").trim();
+    if (sgSkz) rest = "";
+    const subtitle = rest
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+    return subtitle
+      ? `Season's Greetings ${year} - ${subtitle}`
+      : `Season's Greetings ${year}`;
+  }
 
   const spaced = raw.replace(/[-_]+/g, " ").trim();
   const words = spaced.split(/\s+/).filter(Boolean);
 
   return words
     .map((w) => {
-      // SKZ + año: skz2024 -> SKZ2024
       const m = w.match(/^skz(\d+)?$/i);
       if (m) return `SKZ${m[1] ?? ""}`;
 
-      // OT8, etc si algún día lo usas en álbum
       if (w.toLowerCase() === "ot8") return "OT8";
 
-      // Default title-case
       return w.length ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w;
     })
     .join(" ");
 }
+
+function libraryAlbumDedupeKey(
+  album: { name: string; release_date: string | null } | undefined,
+): string {
+  if (!album) return "";
+  return collectionOptionDedupeKey(prettyAlbumDisplay(album.name), album.release_date);
+}
+
 function MetaRow({
   icon,
   label,
@@ -617,6 +680,7 @@ function LibraryItemCard({
   onCommitStock,
   onOpen,
   disableEdits,
+  hideBinder,
   t,
 }: {
   item: ItemRow;
@@ -631,13 +695,14 @@ function LibraryItemCard({
   onCommitStock: (next: Record<PersistStatus, number>) => Promise<void>;
   onOpen: () => void;
   disableEdits?: boolean;
+  hideBinder?: boolean;
   t: (k: string) => string;
 }) {
  
   const [hover, setHover] = useState(false);
   const total = totalOwnedQtyFromCounts(counts);
   const available = total > 0 ? 1 : 0;
-  const tooltipLines = formatTooltipLines(counts, inBinder);
+  const tooltipLines = formatTooltipLines(counts, inBinder, hideBinder);
   const searchParams = useSearchParams();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -727,8 +792,12 @@ function LibraryItemCard({
       On the way: <b>{counts.on_its_way}</b>
       <br />
       Wishlist: <b>{counts.wish}</b>
-      <br />
-      {t("library.in_binder")}: <b>{inBinder}</b>
+      {!hideBinder && (
+        <>
+          <br />
+          {t("library.in_binder")}: <b>{inBinder}</b>
+        </>
+      )}
     </div>
   </div>
 ) : (
@@ -897,7 +966,7 @@ function LibraryItemCard({
           >
             i
           </button>
-          {inBinder > 0 && <PinBadge t={t} />}
+          {!hideBinder && inBinder > 0 && <PinBadge t={t} />}
         </div>
       </div>
 
@@ -922,6 +991,7 @@ function ItemModal({
   t,
   onAlert,
   uiLang = "es",
+  hideBinder,
 }: {
   item: ItemRow;
   counts: StatusCounts;
@@ -941,6 +1011,7 @@ function ItemModal({
   t: (k: string) => string;
   onAlert?: (title: string, message: string) => void;
   uiLang?: string;
+  hideBinder?: boolean;
 }) {
   const [face, setFace] = useState<"front" | "back">("front");
   const [rot, setRot] = useState(0);
@@ -1225,7 +1296,7 @@ function ItemModal({
             <div style={{ fontSize: 20, fontWeight: 950, color: "var(--color-primary)", whiteSpace: "pre-line", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis" }}>
               {title}
             </div>
-            {inBinder > 0 && <PinBadge t={t} />}
+            {!hideBinder && inBinder > 0 && <PinBadge t={t} />}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
@@ -1763,6 +1834,7 @@ function ItemModal({
 
 function LibraryContent() {
   const { t, showAlert, profile } = useGlobal();
+  const catalog = useLibraryCatalog();
             // Declaración correcta de viewingUserId tras userId
           // --- ESTADOS Y REFS FALTANTES ---
           const [openItemId, setOpenItemId] = useState<number | null>(null);
@@ -1776,10 +1848,11 @@ function LibraryContent() {
         // --- ESTADOS DE FILTRO Y BÚSQUEDA ---
         const [fStatus, setFStatus] = useState<StatusFilter>("all");
         const [fGroup, setFGroup] = useState<number | "all">("all");
-        const [fAlbum, setFAlbum] = useState<number | "all">("all");
+        const [fAlbum, setFAlbum] = useState<number | "all" | string>("all");
         const [fVersion, setFVersion] = useState<string | "all">("all");
         const [fMember, setFMember] = useState<string | "all">("all");
         const [fUnit, setFUnit] = useState<UnitFilter>("all");
+        const [fPobKind, setFPobKind] = useState<"all" | "regular" | "pob">("all");
         const [q, setQ] = useState("");
         const [isMobileViewport, setIsMobileViewport] = useState(false);
         const [viewportWidth, setViewportWidth] = useState(1280);
@@ -1793,8 +1866,9 @@ function LibraryContent() {
       // viewingUserId debe estar disponible en el render
       const viewingUserId = userId;
       const [items, setItems] = useState<ItemRow[]>([]);
+      const [folderTree, setFolderTree] = useState<FolderTreeCatalog>({ albums: [] });
       const [groupNameById, setGroupNameById] = useState<Record<number, string>>({});
-      const [albumById, setAlbumById] = useState<Record<number, { name: string; release_date: string | null }>>({});
+      const [albumById, setAlbumById] = useState<Record<number, { name: string; release_date: string | null; group_id: number | null }>>({});
       const [cardFace, setCardFace] = useState<Record<number, "front" | "back">>({});
       const [pageFace, setPageFace] = useState<"front" | "back">("front");
       const [openInfoById, setOpenInfoById] = useState<Record<number, boolean>>({});
@@ -1994,7 +2068,7 @@ const loadAll = useCallback(async () => {
   while (true) {
     const { data, error } = await supabase
       .from("items")
-      .select("id, name, image_url, back_image_url, group_id, album_id, version, member")
+      .select("id, name, image_url, back_image_url, group_id, album_id, type, version, member")
       .order("id", { ascending: true })
       .range(from, from + PAGE - 1);
 
@@ -2010,7 +2084,13 @@ const loadAll = useCallback(async () => {
     from += PAGE;
   }
 
-  const itemsData: ItemRow[] = all.map((r: ItemRow) => {
+  const itemsData: ItemRow[] = [];
+  for (const r of all as ItemRow[]) {
+    const typeRaw = String(r.type ?? "").trim().toLowerCase();
+    const frontRaw = String(r.image_url ?? "").toLowerCase();
+    const isInclusion = typeRaw.startsWith("inclusions") || frontRaw.includes("/inclusions/");
+    if (catalog === "photocards" && isInclusion) continue;
+    if (catalog === "inclusions" && !isInclusion) continue;
     const front =
       typeof r.image_url === "string" && r.image_url.trim()
         ? resolveMockPcImageUrl(r.image_url.trim())
@@ -2019,17 +2099,18 @@ const loadAll = useCallback(async () => {
       typeof r.back_image_url === "string" && r.back_image_url.trim()
         ? resolveMockPcImageUrl(r.back_image_url.trim())
         : null;
-    return {
-    id: Number(r.id),
-    name: r.name ?? null,
-    image_url: front || null,
-    back_image_url: back || null,
-    group_id: Number.isFinite(Number(r.group_id)) ? Number(r.group_id) : null,
-    album_id: Number.isFinite(Number(r.album_id)) ? Number(r.album_id) : null,
-    version: r.version ?? null,
-    member: r.member ?? null,
-  };
-  });
+    itemsData.push({
+      id: Number(r.id),
+      name: r.name ?? null,
+      image_url: front || null,
+      back_image_url: back || null,
+      group_id: Number.isFinite(Number(r.group_id)) ? Number(r.group_id) : null,
+      album_id: Number.isFinite(Number(r.album_id)) ? Number(r.album_id) : null,
+      version: r.version ?? null,
+      member: r.member ?? null,
+      type: r.type ?? null,
+    });
+  }
 
   setItems(itemsData);
 
@@ -2051,7 +2132,6 @@ const loadAll = useCallback(async () => {
 
   // 5. Carga de nombres de Grupos y Álbumes (Público)
   const groupIds = Array.from(new Set(itemsData.map(x => Number(x.group_id)).filter(n => Number.isFinite(n))));
-  const albumIds = Array.from(new Set(itemsData.map(x => Number(x.album_id)).filter(n => Number.isFinite(n))));
 
   if (groupIds.length > 0) {
     const gRes = await supabase.from("groups").select("id, name").in("id", groupIds);
@@ -2062,12 +2142,16 @@ const loadAll = useCallback(async () => {
     }
   }
 
-  if (albumIds.length > 0) {
-    const aRes = await supabase.from("albums").select("id, name, release_date").in("id", albumIds);
+  {
+    const aRes = await supabase.from("albums").select("id, name, release_date, group_id");
     if (!aRes.error && aRes.data) {
-      const map: Record<number, { name: string; release_date: string | null }> = {};
+      const map: Record<number, { name: string; release_date: string | null; group_id: number | null }> = {};
       aRes.data.forEach((a: any) => {
-        map[a.id] = { name: (a.name ?? `Álbum ${a.id}`).trim(), release_date: a.release_date ?? null };
+        map[a.id] = {
+          name: (a.name ?? `Álbum ${a.id}`).trim(),
+          release_date: a.release_date ?? null,
+          group_id: Number.isFinite(Number(a.group_id)) ? Number(a.group_id) : null,
+        };
       });
       setAlbumById(map);
     }
@@ -2082,8 +2166,17 @@ const loadAll = useCallback(async () => {
   
   setPageFace("front");
   setStatus(user ? "Inventario listo ✅" : "Catálogo listo ✅");
+  try {
+    const treeRes = await fetch("/api/folder-tree-catalog", { cache: "no-store" });
+    if (treeRes.ok) {
+      const tree = (await treeRes.json()) as FolderTreeCatalog;
+      if (tree && Array.isArray(tree.albums)) setFolderTree(tree);
+    }
+  } catch {
+    /* catálogo de carpetas opcional */
+  }
   setLoading(false);
-}, [loadPlacedAcrossBinder, rebuildInvMap, uParam]);
+}, [loadPlacedAcrossBinder, rebuildInvMap, uParam, catalog]);
 useEffect(() => {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   loadAll().catch((e: any) => {
@@ -2120,16 +2213,68 @@ const flipWholePage = useCallback(() => {
   });
 }, [pageFace, items]);
 const opts = useMemo(
-  () => ({ fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, q }),
-  [fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, q]
+  () => ({ fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, fPobKind, q }),
+  [fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, fPobKind, q]
 );
+
+const fAlbumMatchingIds = useMemo(() => {
+  if (fAlbum === "all") return "all" as const;
+  if (typeof fAlbum === "string") return new Set<number>();
+  const selectedKey = libraryAlbumDedupeKey(albumById[fAlbum]);
+  const ids = new Set<number>([fAlbum]);
+  if (!selectedKey) return ids;
+  for (const [idStr, album] of Object.entries(albumById)) {
+    const id = Number(idStr);
+    if (!Number.isFinite(id) || id <= 0) continue;
+    if (libraryAlbumDedupeKey(album) === selectedKey) ids.add(id);
+  }
+  return ids;
+}, [fAlbum, albumById]);
+
+function itemBelongsToFolderAlbum(it: ItemRow, folder: FolderTreeAlbum): boolean {
+  const albumName = it.album_id != null ? albumById[it.album_id]?.name ?? "" : "";
+  if (albumName && folderAlbumMatchesTitle(folder, albumName)) return true;
+  const raw = String(it.image_url || "").split("?")[0];
+  let url = raw.toLowerCase();
+  try {
+    url = decodeURIComponent(raw).toLowerCase();
+  } catch {
+    /* keep raw */
+  }
+  const urlKey = compactFolderKey(url);
+  const titleKey = compactFolderKey(folder.album_title);
+  const slugKey = compactFolderKey(folder.album_slug);
+  const inPath = Boolean((titleKey && urlKey.includes(titleKey)) || (slugKey && urlKey.includes(slugKey)));
+  if (!inPath) return false;
+  if (folder.source === "events") return url.includes("/events/");
+  if (folder.source === "memberships") return url.includes("/memberships/");
+  if (folder.source === "collabs") return url.includes("/collabs/");
+  if (folder.source === "seasons-greetings") {
+    return url.includes("seasons-greetings") || url.includes("/others/");
+  }
+  if (folder.source === "other") return true;
+  return url.includes("/albums/") || url.includes("/album/");
+}
+
+function itemMatchesAlbumFilter(it: ItemRow, selected: number | "all" | string) {
+  if (selected === "all") return true;
+  if (typeof selected === "string") {
+    const folder = findFolderAlbumByFilterKey(folderTree, selected);
+    if (!folder) return false;
+    return itemBelongsToFolderAlbum(it, folder);
+  }
+  if (it.album_id == null) return false;
+  if (fAlbumMatchingIds === "all") return it.album_id === selected;
+  return fAlbumMatchingIds.has(it.album_id);
+}
+
 function matchesForOptions(
   it: ItemRow,
   counts: StatusCounts,
   opts: {
     fStatus: StatusFilter;
     fGroup: number | "all";
-    fAlbum: number | "all";
+    fAlbum: number | "all" | string;
   }
 ) {
   // STATUS
@@ -2145,7 +2290,7 @@ function matchesForOptions(
   if (opts.fGroup !== "all" && (it.group_id ?? null) !== opts.fGroup) return false;
 
   // ALBUM
-  if (opts.fAlbum !== "all" && (it.album_id ?? null) !== opts.fAlbum) return false;
+  if (!itemMatchesAlbumFilter(it, opts.fAlbum)) return false;
 
   return true;
 }
@@ -2157,11 +2302,11 @@ const universeForMember = useMemo(() => {
     if (!matchesForOptions(it, counts, { fStatus, fGroup, fAlbum })) return false;
 
     // version (solo si está seleccionada)
-    if (fVersion !== "all" && String(it.version ?? "") !== String(fVersion)) return false;
+    if (fVersion !== "all" && !folderVersionMatches(it.version, fVersion)) return false;
 
     return true;
   });
-}, [items, invByItem, fStatus, fGroup, fAlbum, fVersion]);
+}, [items, invByItem, fStatus, fGroup, fAlbum, fAlbumMatchingIds, fVersion, folderTree]);
 
 const universeForGroup = useMemo(() => {
   return items.filter((it) =>
@@ -2170,16 +2315,17 @@ const universeForGroup = useMemo(() => {
 }, [items, invByItem, fStatus]);
 
 const universeForAlbum = useMemo(() => {
-  return items.filter((it) =>
-    matchesForOptions(it, invByItem[it.id] ?? emptyCounts(), { fStatus, fGroup, fAlbum: "all" })
-  );
-}, [items, invByItem, fStatus, fGroup]);
+  return items.filter((it) => {
+    if (fGroup !== "all" && (it.group_id ?? null) !== fGroup) return false;
+    return true;
+  });
+}, [items, fGroup]);
 
 const universeForVersion = useMemo(() => {
   return items.filter((it) =>
     matchesForOptions(it, invByItem[it.id] ?? emptyCounts(), { fStatus, fGroup, fAlbum })
   );
-}, [items, invByItem, fStatus, fGroup, fAlbum]);
+}, [items, invByItem, fStatus, fGroup, fAlbum, fAlbumMatchingIds, folderTree]);
 
 const groupOptions = useMemo(() => {
   const s = new Set<number>();
@@ -2191,43 +2337,146 @@ const groupOptions = useMemo(() => {
 }, [universeForGroup]);
 
 const albumOptions = useMemo(() => {
-  const s = new Set<number>();
+  const idsFromItems = new Set<number>();
   for (const it of universeForAlbum) {
     const n = Number(it.album_id);
-    if (Number.isFinite(n) && n > 0) s.add(n);
+    if (Number.isFinite(n) && n > 0) idsFromItems.add(n);
   }
 
-  const ids = Array.from(s);
+  const allKnownAlbumIds = Object.keys(albumById)
+    .map((k) => Number(k))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .filter((id) => !isNonAlbumCollectionTitle(String(albumById[id]?.name ?? "")));
 
-  const sorted = sortCollectionEntries(
-    ids.map((id) => ({
-      id,
-      name: albumById[id]?.name ?? "",
-      releaseDate: albumById[id]?.release_date ?? null,
-    })),
-    {
-      groupName:
-        fGroup === "all" ? null : groupNameById[fGroup] ?? null,
-    },
-  );
-  return sorted.map((x) => x.id);
+  const ids =
+    fGroup === "all"
+      ? allKnownAlbumIds
+      : allKnownAlbumIds.filter((id) => albumById[id]?.group_id === fGroup || idsFromItems.has(id));
+
+  const sortedIds = [...ids].sort((aId, bId) => {
+    const aName = albumById[aId]?.name ?? "";
+    const bName = albumById[bId]?.name ?? "";
+    const aRelease = albumById[aId]?.release_date ?? null;
+    const bRelease = albumById[bId]?.release_date ?? null;
+
+    const aSG = isSeasonsGreetings(aName);
+    const bSG = isSeasonsGreetings(bName);
+    if (aSG !== bSG) return aSG ? 1 : -1; // SG always at the end
+
+    if (!aSG && !bSG) {
+      const ai = strayKidsAlbumOrderIndex(aName);
+      const bi = strayKidsAlbumOrderIndex(bName);
+      if (ai != null && bi != null && ai !== bi) return ai - bi;
+      if (ai != null && bi == null) return -1;
+      if (ai == null && bi != null) return 1;
+    }
+
+    if (aSG && bSG) {
+      const ay = extractCollectionYear(aName, aRelease);
+      const by = extractCollectionYear(bName, bRelease);
+      if (ay != null && by != null && ay !== by) return ay - by;
+      if (ay != null && by == null) return -1;
+      if (ay == null && by != null) return 1;
+    }
+
+    const ad = aRelease ? new Date(aRelease).getTime() : Number.POSITIVE_INFINITY;
+    const bd = bRelease ? new Date(bRelease).getTime() : Number.POSITIVE_INFINITY;
+    if (ad !== bd) return ad - bd;
+
+    return String(aName).localeCompare(String(bName), "es", { sensitivity: "base", numeric: true });
+  });
+
+  const seen = new Set<string>();
+  return sortedIds.filter((id) => {
+    const key = libraryAlbumDedupeKey(albumById[id]) || `id:${id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }, [universeForAlbum, albumById, fGroup, groupNameById]);
+
+const folderAlbumOptions = useMemo(() => {
+  const groupName = fGroup === "all" ? null : groupNameById[fGroup] ?? null;
+  const albumOptionIdSet = new Set(albumOptions);
+  const covered = new Set<string>();
+  for (const id of albumOptions) {
+    const name = albumById[id]?.name ?? "";
+    const k = compactFolderKey(name);
+    if (k) covered.add(k);
+    const dk = collectionOptionDedupeKey(prettyAlbumDisplay(name), albumById[id]?.release_date ?? null);
+    if (dk) covered.add(dk);
+  }
+  const extra: FolderTreeAlbum[] = [];
+  for (const f of folderTree.albums) {
+    if (!folderMatchesLibraryGroup(f, groupName)) continue;
+    if (catalog === "inclusions" && !folderIsLibraryInclusionsCollection(f)) continue;
+    if (catalog === "photocards" && !folderIsLibraryPhotocardsCollection(f)) continue;
+    const titleKey = compactFolderKey(f.album_title);
+    const slugKey = compactFolderKey(f.album_slug);
+    const dedupeKey = collectionOptionDedupeKey(f.album_title);
+    if ((titleKey && covered.has(titleKey)) || (slugKey && covered.has(slugKey)) || (dedupeKey && covered.has(dedupeKey))) {
+      continue;
+    }
+    const coveredByVisibleAlbum = Object.entries(albumById).some(([idStr, a]) => {
+      const id = Number(idStr);
+      if (!albumOptionIdSet.has(id)) return false;
+      if (fGroup !== "all" && a.group_id !== fGroup) return false;
+      return folderAlbumMatchesTitle(f, a.name);
+    });
+    if (coveredByVisibleAlbum) continue;
+    extra.push(f);
+  }
+  extra.sort((a, b) => {
+    const ai = strayKidsAlbumOrderIndex(a.album_title);
+    const bi = strayKidsAlbumOrderIndex(b.album_title);
+    if (ai != null && bi != null && ai !== bi) return ai - bi;
+    return a.album_title.localeCompare(b.album_title, "es", { sensitivity: "base", numeric: true });
+  });
+  return extra;
+}, [folderTree, albumOptions, albumById, fGroup, groupNameById, catalog]);
+
 useEffect(() => {
   if (fAlbum === "all") return;
+  if (typeof fAlbum === "string") {
+    if (!folderAlbumOptions.some((f) => folderAlbumFilterKey(f) === fAlbum)) setFAlbum("all");
+    return;
+  }
   if (!albumOptions.includes(fAlbum)) setFAlbum("all");
-}, [albumOptions, fAlbum]);
+}, [albumOptions, folderAlbumOptions, fAlbum]);
+
+const selectedFolderAlbums = useMemo(() => {
+  const groupName = fGroup === "all" ? null : groupNameById[fGroup] ?? null;
+  if (typeof fAlbum === "string" && fAlbum !== "all") {
+    const hit = findFolderAlbumByFilterKey(folderTree, fAlbum);
+    return hit && folderMatchesLibraryGroup(hit, groupName) ? [hit] : [];
+  }
+  if (typeof fAlbum === "number") {
+    const name = albumById[fAlbum]?.name ?? "";
+    return folderTree.albums.filter(
+      (f) => folderMatchesLibraryGroup(f, groupName) && folderAlbumMatchesTitle(f, name),
+    );
+  }
+  return [];
+}, [fAlbum, folderTree, fGroup, groupNameById, albumById]);
+
 const versionOptions = useMemo(() => {
   const s = new Set<string>();
   for (const it of universeForVersion) {
+    if (fPobKind !== "all" && pobKindFromItem(it) !== fPobKind) continue;
     const v = (it.version ?? "").trim();
     if (v) s.add(v);
   }
-  
-  return Array.from(s).sort((a, b) => a.localeCompare(b, "es"));
-}, [universeForVersion]);
+  const fromFolders = selectedFolderAlbums.flatMap((f) => {
+    if (catalog === "inclusions") return f.inclusionVersions;
+    if (fPobKind === "pob") return f.pobVersions;
+    if (fPobKind === "regular") return f.photocardsVersions;
+    return [...f.photocardsVersions, ...f.pobVersions];
+  });
+  return mergeVersionLabels(Array.from(s), fromFolders);
+}, [universeForVersion, fPobKind, selectedFolderAlbums, catalog]);
 useEffect(() => {
   if (fVersion === "all") return;
-  if (!versionOptions.includes(String(fVersion))) setFVersion("all");
+  if (!versionOptions.some((v) => folderVersionMatches(v, fVersion))) setFVersion("all");
 }, [versionOptions, fVersion]);
 // ===== MIEMBROS (8 fijos, pero dependientes del resto de filtros) =====
 const memberOptionsFixed = useMemo(
@@ -2264,13 +2513,14 @@ const memberOptions = useMemo(() => {
 function matchesAllExcept(
   it: ItemRow,
   counts: StatusCounts,
-skip: "status" | "group" | "album" | "version" | "member" | "unit" | "q",  opts: {
+skip: "status" | "group" | "album" | "version" | "member" | "unit" | "pobKind" | "q",  opts: {
     fStatus: StatusFilter;
     fGroup: number | "all";
-    fAlbum: number | "all";
+    fAlbum: number | "all" | string;
     fVersion: string | "all";
     fMember: string | "all";
-    fUnit: UnitFilter;   // 👈 añade esto
+    fUnit: UnitFilter;
+    fPobKind: "all" | "regular" | "pob";
     q: string;
   }
 ) {
@@ -2287,10 +2537,10 @@ skip: "status" | "group" | "album" | "version" | "member" | "unit" | "q",  opts:
   if (skip !== "group" && opts.fGroup !== "all" && (it.group_id ?? null) !== opts.fGroup) return false;
 
   // ALBUM
-  if (skip !== "album" && opts.fAlbum !== "all" && (it.album_id ?? null) !== opts.fAlbum) return false;
+  if (skip !== "album" && !itemMatchesAlbumFilter(it, opts.fAlbum)) return false;
 
   // VERSION
-  if (skip !== "version" && opts.fVersion !== "all" && String(it.version ?? "") !== String(opts.fVersion)) return false;
+  if (skip !== "version" && opts.fVersion !== "all" && !folderVersionMatches(it.version, opts.fVersion)) return false;
 
     // MEMBER (1 de los 8, pero debe incluir duos/ot8)
   if (skip !== "member" && opts.fMember !== "all") {
@@ -2301,6 +2551,9 @@ skip: "status" | "group" | "album" | "version" | "member" | "unit" | "q",  opts:
 if (skip !== "unit" && opts.fUnit !== "all") {
   const ut = unitTypeFromMember(it.member);
   if (ut !== opts.fUnit) return false;
+}
+if (skip !== "pobKind" && opts.fPobKind !== "all") {
+  if (pobKindFromItem(it) !== opts.fPobKind) return false;
 }
   // SEARCH
   if (skip !== "q") {
@@ -2325,8 +2578,8 @@ const filtered = useMemo(() => {
     }
 
     if (fGroup !== "all" && (it.group_id ?? null) !== fGroup) return false;
-    if (fAlbum !== "all" && (it.album_id ?? null) !== fAlbum) return false;
-    if (fVersion !== "all" && String(it.version ?? "") !== String(fVersion)) return false;
+    if (!itemMatchesAlbumFilter(it, fAlbum)) return false;
+    if (fVersion !== "all" && !folderVersionMatches(it.version, fVersion)) return false;
 
     if (fMember !== "all") {
       if (!memberMatches(it.member, fMember)) return false;
@@ -2336,19 +2589,62 @@ const filtered = useMemo(() => {
   const ut = unitTypeFromMember(it.member);
   if (ut !== fUnit) return false;
 }
+    if (fPobKind !== "all") {
+      if (pobKindFromItem(it) !== fPobKind) return false;
+    }
 
     return matchesQuery(it, q);
   });
-}, [items, invByItem, q, fStatus, fGroup, fAlbum, fVersion, fMember, fUnit]);
+}, [items, invByItem, q, fStatus, fGroup, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, folderTree]);
+
+  const showContributeEmpty = useMemo(() => {
+    if (filtered.length > 0) return false;
+    if (q.trim()) return false;
+    if (fStatus !== "all") return false;
+    if (fMember !== "all" || fUnit !== "all") return false;
+    if (fAlbum === "all") return false;
+    return true;
+  }, [filtered.length, q, fStatus, fMember, fUnit, fAlbum]);
+
+  const contributeFolderLabel = useMemo(() => {
+    const albumLabel =
+      typeof fAlbum === "string"
+        ? formatCollectionOptionLabel(
+            prettyAlbumDisplay(findFolderAlbumByFilterKey(folderTree, fAlbum)?.album_title ?? ""),
+          )
+        : typeof fAlbum === "number"
+          ? formatCollectionOptionLabel(prettyAlbumDisplay(albumById[fAlbum]?.name ?? ""), albumById[fAlbum]?.release_date ?? null)
+          : "";
+    const versionLabel = fVersion !== "all" ? prettyVersionLabel(fVersion) : "";
+    const pobLabel =
+      catalog === "photocards" && fPobKind !== "all"
+        ? fPobKind === "pob"
+          ? t("library.filters.pob")
+          : t("library.filters.regular")
+        : "";
+    return [albumLabel, pobLabel, versionLabel].filter(Boolean).join(" · ");
+  }, [fAlbum, fVersion, fPobKind, folderTree, albumById, catalog, t]);
+
+  const openColabModal = (prefillFolder = false) => {
+    setColabData((d) => ({
+      ...d,
+      email: email ?? d.email,
+      asunto:
+        prefillFolder && contributeFolderLabel
+          ? t("common.contribute_empty_subject").replace("{{folder}}", contributeFolderLabel)
+          : d.asunto,
+    }));
+    setShowColabModal(true);
+  };
  // Resetea a la página 1 cada vez que cambias un filtro o buscas algo
   useEffect(() => {
     setCurrentPage(1);
-  }, [fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, q]);
+  }, [fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, fPobKind, q]);
 useEffect(() => {
   if (typeof window === "undefined") return;
   const syncViewport = () => {
     setViewportWidth(window.innerWidth);
-    const mobile = window.innerWidth <= 1024;
+    const mobile = window.innerWidth <= 1023;
     setIsMobileViewport(mobile);
     if (!mobile) setShowFiltersPanel(false);
   };
@@ -2744,9 +3040,9 @@ const commitStockForItem = useCallback(
   };
   return (
     <div
-      className={tanTangkiwood.variable}
+      className="library-root"
       style={{
-        minHeight: "100vh",
+        minHeight: catalog === "inclusions" ? undefined : "100vh",
         backgroundColor: "var(--bg-main)",
         display: "flex",
         flexDirection: "column",
@@ -2754,7 +3050,7 @@ const commitStockForItem = useCallback(
     >
       <AdRailLayout section="library">
       {/* CUERPO DE LA LIBRERIA (Con márgenes laterales preparados para publicidad) */}
-      <div ref={libraryShellRef} className="library-shell" style={{ padding: "24px 40px", display: "flex", justifyContent: "center", flex: 1, width: "100%" }}>
+      <div ref={libraryShellRef} className="library-shell" style={{ padding: catalog === "inclusions" ? "8px 40px 24px" : "24px 40px", display: "flex", justifyContent: "center", flex: 1, width: "100%" }}>
         <WtsListingModal
           open={wtsListingModalOpen}
           itemId={wtsListingItemId}
@@ -2789,9 +3085,17 @@ const commitStockForItem = useCallback(
           {error && <div style={{ color: "crimson", textAlign: "center", fontWeight: 900 }}>{t("common.error")}: {error}</div>}
           {loading && <div style={{ marginTop: 10, color: "var(--text-muted)" }}>{t("common.loading")}...</div>}
 
-          <div className="library-filters-grid"
+          {isMobileViewport && showFiltersPanel && (
+            <button
+              type="button"
+              className="mobile-sheet-backdrop"
+              aria-label={t("common.close") || "Cerrar"}
+              onClick={() => setShowFiltersPanel(false)}
+            />
+          )}
+          <div
+            className={`library-filters-grid${showFiltersPanel ? " library-filters-grid--open" : ""}`}
             style={{
-              display: showFiltersPanel ? "grid" : "none",
               gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
               gap: 12,
               background: "var(--bg-soft)",
@@ -2800,6 +3104,19 @@ const commitStockForItem = useCallback(
               border: "1px solid var(--color-border)",
             }}
           >
+            {isMobileViewport && (
+            <div className="mobile-filter-sheet-head">
+              <strong>{t("common.filters") || "Filtros"}</strong>
+              <button
+                type="button"
+                onClick={() => setShowFiltersPanel(false)}
+                style={{ border: "none", background: "transparent", color: "var(--text-main)", cursor: "pointer", padding: 6, display: "inline-flex" }}
+                aria-label={t("common.close") || "Cerrar"}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Layers size={13} /> {t("binders.picker.status") || "Estado"}</label>
               <select value={fStatus} onChange={(e) => setFStatus(e.target.value as StatusFilter)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
@@ -2824,13 +3141,34 @@ const commitStockForItem = useCallback(
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Disc3 size={13} /> {t("binders.picker.collection") || "Colección / Era"}</label>
-              <select value={fAlbum === "all" ? "all" : String(fAlbum)} onChange={(e) => setFAlbum(e.target.value === "all" ? "all" : Number(e.target.value))} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
+              <select value={fAlbum === "all" ? "all" : String(fAlbum)} onChange={(e) => {
+                const v = e.target.value;
+                if (v === "all") setFAlbum("all");
+                else if (v.startsWith("folder:")) setFAlbum(v);
+                else setFAlbum(Number(v));
+              }} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
                 <option value="all">{allLabel}</option>
                 {albumOptions.map((aid) => (
                   <option key={aid} value={String(aid)}>{formatCollectionOptionLabel(prettyAlbumDisplay(albumById[aid]?.name ?? `Álbum ${aid}`), albumById[aid]?.release_date ?? null)}</option>
                 ))}
+                {folderAlbumOptions.map((f) => (
+                  <option key={folderAlbumFilterKey(f)} value={folderAlbumFilterKey(f)}>
+                    {formatCollectionOptionLabel(prettyAlbumDisplay(f.album_title))}
+                  </option>
+                ))}
               </select>
             </div>
+
+            {catalog === "photocards" && (
+            <div className="library-filter-field" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={filterLabelStyle}><Gift size={13} /> {t("library.filters.pob_kind")}</label>
+              <select value={fPobKind} onChange={(e) => setFPobKind(e.target.value as "all" | "regular" | "pob")} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
+                <option value="all">{allLabel}</option>
+                <option value="regular">{t("library.filters.regular")}</option>
+                <option value="pob">{t("library.filters.pob")}</option>
+              </select>
+            </div>
+            )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Layers size={13} /> {t("binders.picker.version") || "Versión"}</label>
@@ -2864,12 +3202,16 @@ const commitStockForItem = useCallback(
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Search size={13} /> {t("common.search") || "Buscar"}</label>
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder={t("binders.picker.search_placeholder") || "Buscar por nombre o id..."}
-                style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}
-              />
+              <div style={{ position: "relative" }}>
+                <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
+                <input
+                  type="search"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder={t("binders.picker.search_placeholder") || "Buscar por nombre o id..."}
+                  style={{ padding: "8px 10px 8px 32px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}
+                />
+              </div>
             </div>
           </div>
 
@@ -2883,15 +3225,27 @@ const commitStockForItem = useCallback(
               marginTop: 10,
             }}
           >
+            {/* Barra de búsqueda siempre visible */}
+            <div style={{ position: "relative", flex: "1 1 180px", maxWidth: 340, minWidth: 0 }}>
+              <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
+              <input
+                type="search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={t("binders.picker.search_placeholder") || "Buscar por nombre o id..."}
+                style={{ padding: "8px 10px 8px 32px", borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", width: "100%", height: 42, boxShadow: "0 4px 12px var(--shadow-card)" }}
+              />
+            </div>
             <button
               type="button"
               onClick={() => setShowFiltersPanel((v) => !v)}
               className="library-mobile-filters-toggle"
               title={showFiltersPanel ? (t("common.close") || "Cerrar") : (t("common.filters") || "Filtros")}
+              aria-expanded={showFiltersPanel}
               style={{
                 width: 42,
                 height: 42,
-                display: "inline-flex",
+                display: isMobileViewport ? "inline-flex" : "none",
                 alignItems: "center",
                 justifyContent: "center",
                 border: "1px solid var(--color-border)",
@@ -2904,15 +3258,10 @@ const commitStockForItem = useCallback(
             >
               <SlidersHorizontal size={16} />
             </button>
+            {catalog === "photocards" && (
             <button
               type="button"
-              onClick={() => {
-                setColabData((d) => ({
-                  ...d,
-                  email: email ?? d.email,
-                }));
-                setShowColabModal(true);
-              }}
+              onClick={() => openColabModal(false)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -2931,6 +3280,7 @@ const commitStockForItem = useCallback(
               <Handshake size={18} strokeWidth={2.2} aria-hidden />
               {t("library.colab_button")}
             </button>
+            )}
           </div>
 
           {totalPages > 1 && (
@@ -2981,7 +3331,7 @@ const commitStockForItem = useCallback(
           )}
 
           <div
-            key={`lib-grid-${fGroup}-${fAlbum}-${fVersion}-${fMember}-${fUnit}-${currentPage}`}
+            key={`lib-grid-${fGroup}-${fAlbum}-${fVersion}-${fMember}-${fUnit}-${fPobKind}-${currentPage}`}
             className="library-cards-grid"
             style={{
               marginTop: 14,
@@ -3043,6 +3393,7 @@ const commitStockForItem = useCallback(
                     }}
                     onCommitStock={(next) => commitStockForItem(it.id, next)}
                     onOpen={() => setOpenItemId(it.id)}
+                    hideBinder={catalog === "inclusions"}
                     t={t}
                   />
                 </div>
@@ -3135,6 +3486,7 @@ return (
     item={it}
     counts={counts}
     inBinder={inBinder}
+    hideBinder={catalog === "inclusions"}
     groupName={groupName}
     albumName={albumName}
     wttOfferItems={wttOfferItems}
@@ -3377,9 +3729,13 @@ return (
       )}
 
      {!loading && filtered.length === 0 && (
+            showContributeEmpty ? (
+              <ContributeEmptyState t={t} onOpenColab={() => openColabModal(true)} />
+            ) : (
             <div style={{ marginTop: 10, color: "var(--text-muted)" }}>
               {t('library.no_results')}
             </div>
+            )
           )}
 
       {showColabModal && (
@@ -3508,11 +3864,19 @@ return (
         }
       `}</style>
       </AdRailLayout>
-      <Footer />
+      {catalog !== "inclusions" && <Footer />}
     </div>
   );
 }
-export default function LibraryPageClient() {
-  return <LibraryContent />;
+export default function LibraryPageClient({
+  catalog = "photocards",
+}: {
+  catalog?: LibraryCatalog;
+}) {
+  return (
+    <LibraryCatalogContext.Provider value={catalog}>
+      <LibraryContent />
+    </LibraryCatalogContext.Provider>
+  );
 }
 

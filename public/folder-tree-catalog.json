@@ -1,0 +1,1436 @@
+{
+  "albums": [
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "all-in",
+      "album_title": "All IN",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "regular",
+        "c",
+        "b",
+        "a",
+        "pop-ups"
+      ],
+      "pobVersions": [
+        "tower-records",
+        "tower-record-lucky-draw",
+        "japan-fan-club-online-lottery",
+        "hmv"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "circus",
+      "album_title": "Circus",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "photocards",
+        "fan-club-unit",
+        "fan-club",
+        "c",
+        "b",
+        "a",
+        "pop-ups"
+      ],
+      "pobVersions": [
+        "tower-records"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "hollow",
+      "album_title": "Hollow",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": false,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [
+        "fan-club",
+        "regular"
+      ],
+      "photocardsVersions": [],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "scars",
+      "album_title": "Scars",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "photocards",
+        "regular",
+        "fan-club-benefit",
+        "fan-club",
+        "c",
+        "b",
+        "a",
+        "pop-ups"
+      ],
+      "pobVersions": [
+        "tower-records-clear-card",
+        "tower-record-lucky-draw-polaroid",
+        "streaming-event",
+        "sony-music-clear-photo-frame",
+        "fan-club-benefit"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "skz2020",
+      "album_title": "Skz2020",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "photocards",
+        "pop-ups",
+        "skz2020-pc-calendar"
+      ],
+      "pobVersions": [
+        "pobs"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "social-path",
+      "album_title": "Social Path",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": false,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [
+        "digipack",
+        "regular"
+      ],
+      "photocardsVersions": [],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "the-sound",
+      "album_title": "The Sound",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": false,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [
+        "fan-club",
+        "regular"
+      ],
+      "photocardsVersions": [],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "top",
+      "album_title": "Top",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "photocards",
+        "pop-ups",
+        "high-five-event-hi-touch-event"
+      ],
+      "pobVersions": [
+        "tower-records",
+        "sony-music-shop-japan"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "5star",
+      "album_title": "5star",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "digipack",
+        "regular"
+      ],
+      "photocardsVersions": [
+        "preorder-digipack",
+        "digipack",
+        "c",
+        "b",
+        "a"
+      ],
+      "pobVersions": [
+        "pobs"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "ate",
+      "album_title": "Ate",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "accordion",
+        "regular"
+      ],
+      "photocardsVersions": [
+        "unit-chk-chk-ver",
+        "unit-boom-ver",
+        "nemo-set-b-ver",
+        "nemo-set-a-ver",
+        "nemo-b-ver",
+        "nemo-a-ver",
+        "letter-ver",
+        "chk-chk-ver",
+        "boom-ver",
+        "ate-ver",
+        "acordeon-ver",
+        "acordeon-pob-ver"
+      ],
+      "pobVersions": [
+        "pobs"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "christmas-evel",
+      "album_title": "Christmas Evel",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": false,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "nice",
+        "naughty",
+        "limited",
+        "holo"
+      ],
+      "pobVersions": [
+        "yes24",
+        "withdrama",
+        "tower-records-postcard",
+        "synnara",
+        "subk-shop-vc",
+        "subk-shop",
+        "soundwave-ld",
+        "soundwave",
+        "sony-postcard",
+        "music-plant",
+        "interpark",
+        "hottracks",
+        "aladin"
+      ],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "cle-1-miroh",
+      "album_title": "Cle 1 Miroh",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "red-board",
+        "purple-board",
+        "miroh",
+        "logo",
+        "limited",
+        "black-board"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "cle-2-yellow-wood",
+      "album_title": "Cle 2 Yellow Wood",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "yellow-border",
+        "outside",
+        "limited",
+        "inside",
+        "concept",
+        "black-border"
+      ],
+      "pobVersions": [
+        "mmt"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "cle-levanter",
+      "album_title": "Cle Levanter",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "selfie",
+        "name",
+        "limited",
+        "levanter-tittle",
+        "grey-border",
+        "blue-border"
+      ],
+      "pobVersions": [
+        "soundwave"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "do-it",
+      "album_title": "DO IT",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "accordion",
+        "regular"
+      ],
+      "photocardsVersions": [
+        "unit-ver",
+        "unit-pob-ver",
+        "plataform-ver",
+        "plataform-set",
+        "plataform-pob-ver",
+        "lenticular-rosa",
+        "lenticular-negra",
+        "it-ver",
+        "do-ver",
+        "acordeon-ver",
+        "acordeon-pob-ver"
+      ],
+      "pobVersions": [
+        "pobs"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "go-live",
+      "album_title": "GO Live",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "on-track-uniform",
+        "limited",
+        "double-sided-orange",
+        "double-sided-on-track",
+        "b",
+        "a"
+      ],
+      "pobVersions": [
+        "with-fans-fs",
+        "with-fans",
+        "tower-records",
+        "subk-shop",
+        "soundwave",
+        "polaroid"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "hop",
+      "album_title": "Hop",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "accordion",
+        "regular"
+      ],
+      "photocardsVersions": [
+        "unit-skzhop",
+        "unit-hiptape",
+        "trading-skzhop",
+        "trading-hiptape",
+        "pob-acordeon",
+        "nemo-ver",
+        "nemo-set",
+        "hiptape-limited-ver",
+        "acordeon-ver",
+        "acordeon-monochrome",
+        "Double-sided-ver"
+      ],
+      "pobVersions": [
+        "pobs"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "i-am-not",
+      "album_title": "I AM Not",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "unit",
+        "selfie",
+        "baby"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "i-am-who",
+      "album_title": "I AM Who",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "yellow-border",
+        "white-border",
+        "drawing",
+        "concept",
+        "black-border"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "i-am-you",
+      "album_title": "I AM You",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "unit",
+        "polaroid",
+        "pob",
+        "pink-border",
+        "name",
+        "handwriting"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "in-life",
+      "album_title": "IN Life",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "unit",
+        "double-sided-jacket",
+        "double-sided-hanbok",
+        "concept"
+      ],
+      "pobVersions": [
+        "withfans-fs-3",
+        "withfans-fs-1-2",
+        "withdrama-standard",
+        "withdrama-limited",
+        "subk-shop-fs",
+        "subk-shop",
+        "soundwave-gacha",
+        "soundwave",
+        "mmt",
+        "mecina",
+        "apple-music"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "karma",
+      "album_title": "Karma",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "accordion",
+        "regular",
+        "skzoo",
+        "vinyl"
+      ],
+      "photocardsVersions": [
+        "skzoo-ver",
+        "skzoo-set",
+        "skzoo-pob",
+        "karma-ver",
+        "karma-unit-ver",
+        "karma-set",
+        "hooray-double",
+        "compact-ver",
+        "ceremony-double",
+        "accordion-ver",
+        "accordion-pob-ver"
+      ],
+      "pobVersions": [
+        "pobs"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "maxident",
+      "album_title": "Maxident",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "paper-case",
+        "regular"
+      ],
+      "photocardsVersions": [
+        "t-crush",
+        "preorder-polaroid",
+        "preorder-paper-case",
+        "paper-case",
+        "heart",
+        "go"
+      ],
+      "pobVersions": [
+        "yes24",
+        "wtihmuu",
+        "withfans-polaroid",
+        "withfans",
+        "tower-records",
+        "target",
+        "starriver-vc-2",
+        "starriver-vc-1",
+        "starriver",
+        "soundwave-offline-ld-2",
+        "soundwave-offline-ld-1",
+        "soundwave-offline",
+        "soundwave-ld-r2-2",
+        "soundwave-ld-r2-1",
+        "soundwave-ld-r1-2",
+        "soundwave-ld-r1-1",
+        "soundwave",
+        "sony-2",
+        "sony-1",
+        "shopee",
+        "namil",
+        "music-plant",
+        "music-korea",
+        "mmt-vc",
+        "makestar",
+        "lotte-duty-free",
+        "ktown4u",
+        "kmstation-polaroid",
+        "kmstation",
+        "jypshop",
+        "bdm",
+        "barnes-&-noble",
+        "apple-music",
+        "aladin"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "mixtape",
+      "album_title": "Mixtape",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "selfie",
+        "name",
+        "limited"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "noeasy",
+      "album_title": "Noeasy",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "jewel-case",
+        "regular"
+      ],
+      "photocardsVersions": [
+        "limited",
+        "jewel-case-frame-preorder",
+        "jewel-case",
+        "frame-preorder",
+        "double-sided",
+        "d",
+        "c",
+        "b",
+        "a"
+      ],
+      "pobVersions": [
+        "withfans-fs-3",
+        "withfans-fs-2",
+        "withfans-fs-1",
+        "withdrama",
+        "tower-records-1",
+        "tower-record-2",
+        "subk-shop-fs",
+        "subk-shop",
+        "soundwave-ld-2-wolfgang-ver",
+        "soundwave-ld-2-unit-ver",
+        "soundwave-ld-1-the-view-ver",
+        "soundwave-ld-1-domino-ver",
+        "soundwave",
+        "shopee",
+        "postcards",
+        "postcards/yes24",
+        "yes24",
+        "postcards/synnara",
+        "synnara",
+        "postcards/soundwave-ld-photo-film",
+        "soundwave-ld-photo-film",
+        "postcards/kyobo-hottracks",
+        "kyobo-hottracks",
+        "postcards/interpark",
+        "interpark",
+        "mmt-fs",
+        "mecina-2",
+        "mecina",
+        "makestar",
+        "apple-music",
+        "aladin"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "oddinary",
+      "album_title": "Oddinary",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "jewel-case",
+        "regular"
+      ],
+      "photocardsVersions": [
+        "unit",
+        "unit/red",
+        "red",
+        "unit/blue",
+        "blue",
+        "unit/black",
+        "black",
+        "scanning",
+        "mask-off",
+        "jewel-case",
+        "id",
+        "frankenstein"
+      ],
+      "pobVersions": [
+        "yes24-postcard",
+        "withfans-vc-2",
+        "withfans-vc-1",
+        "withdrama",
+        "tower-records",
+        "target",
+        "synnara",
+        "subk-vc",
+        "soundwave-ld-r2-2",
+        "soundwave-ld-r2-1",
+        "soundwave-ld-r1-2",
+        "soundwave-ld-r1-1",
+        "soundwave-ld-polaroid",
+        "soundwave-draw-event",
+        "soundwave",
+        "shopee-vc",
+        "music-plant",
+        "mmt",
+        "makestar",
+        "ktown4u",
+        "interpark",
+        "hottracks",
+        "apple-music",
+        "aladin"
+      ],
+      "inclusionVersions": [
+        "mini-poster"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "rock-star",
+      "album_title": "Rock Star",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "postcard",
+        "regular"
+      ],
+      "photocardsVersions": [
+        "headliner",
+        "accordion-pob",
+        "accordion",
+        "Unit",
+        "Nemo",
+        "Film-photocard-set-pob",
+        "Double-sided",
+        "Concept"
+      ],
+      "pobVersions": [
+        "pobs"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "this-&-that",
+      "album_title": "This & That",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [
+        "truck-ver-unit",
+        "truck-ver",
+        "this-ver-unit",
+        "this-ver",
+        "that-ver-unit",
+        "that-ver",
+        "lp-ver",
+        "fans-album-platform-set",
+        "fans-album-platform-lenticular",
+        "fans-album-platform",
+        "&-ver-pob",
+        "&-ver"
+      ],
+      "pobVersions": [
+        "withmuu",
+        "walmart",
+        "tower-records",
+        "target",
+        "soundwave-ld-w2-2",
+        "soundwave-ld-w2-1",
+        "soundwave-ld-w1-2",
+        "soundwave-ld-w1-1",
+        "music-plant",
+        "music-korea",
+        "kpop-nara",
+        "hmv-b-ld",
+        "hmv-a-LD",
+        "hmv-a",
+        "bdm",
+        "barnes-&-noble",
+        "apple-music",
+        "aladin"
+      ],
+      "inclusionVersions": [
+        "truck-ver",
+        "truck-ver/2-cut-photo",
+        "2-cut-photo",
+        "this-ver",
+        "this-ver/unit-postcard",
+        "unit-postcard",
+        "this-ver/mini-postcard-set",
+        "mini-postcard-set",
+        "this-ver/magnetic-sticker",
+        "magnetic-sticker",
+        "this-ver/id-card",
+        "id-card",
+        "that-ver",
+        "that-ver/unit-postcard",
+        "that-ver/mini-postcard-set",
+        "that-ver/magnetic-sticker",
+        "that-ver/id-card",
+        "&-ver",
+        "&-ver/id-photo",
+        "id-photo"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "taiwan",
+      "album_slug": "i-am-not",
+      "album_title": "I AM Not",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": false,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "taiwan",
+      "album_slug": "i-am-you",
+      "album_title": "I AM You",
+      "source": "albums",
+      "hasPortadas": true,
+      "hasPhotocards": false,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [
+        "regular"
+      ],
+      "photocardsVersions": [],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "events-fan-meetings",
+      "album_title": "Fan Meetings",
+      "source": "events",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "events-fan-meetings"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "events-pop-ups-karma-pop-ups",
+      "album_title": "Karma Pop Ups",
+      "source": "events",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "events-pop-ups-karma-pop-ups"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "events-pop-ups-this-&-that-pop-ups",
+      "album_title": "This & That Pop Ups",
+      "source": "events",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "pop-up-seoul-1",
+        "pop-up-japan-1",
+        "pop-up-japan-1/trading-card-case",
+        "trading-card-case",
+        "pop-up-japan-1/trading-card",
+        "trading-card",
+        "pop-up-japan-1/towel-holder",
+        "towel-holder",
+        "pop-up-japan-1/skoo-scrunchie",
+        "skoo-scrunchie",
+        "pop-up-japan-1/shoulder-pouch",
+        "shoulder-pouch",
+        "pop-up-japan-1/profile-card",
+        "profile-card",
+        "pop-up-japan-1/photo-face-towel",
+        "photo-face-towel",
+        "pop-up-japan-1/multi-strap",
+        "multi-strap",
+        "pop-up-japan-1/multi-pouch",
+        "multi-pouch",
+        "pop-up-japan-1/muffler-towel",
+        "muffler-towel",
+        "pop-up-japan-1/member-t-shirt",
+        "member-t-shirt",
+        "pop-up-japan-1/key-holder",
+        "key-holder",
+        "pop-up-japan-1/image-picket-case",
+        "image-picket-case",
+        "pop-up-japan-1/image-picket",
+        "image-picket",
+        "pop-up-japan-1/face-key-ring",
+        "face-key-ring",
+        "pop-up-japan-1/earrings",
+        "earrings",
+        "pop-up-japan-1/carabiner-pouch",
+        "carabiner-pouch",
+        "pop-up-japan-1/badges",
+        "badges",
+        "pop-up-japan-1/acrylic-stand",
+        "acrylic-stand",
+        "pop-up-japan-1/3-piece-badge-designed-by-skz",
+        "3-piece-badge-designed-by-skz"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "events-tours-stray-kids-world-tour-run-it-in",
+      "album_title": "Stray Kids World Tour Run IT IN",
+      "source": "events",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "seoul",
+        "seoul/trading-card-b",
+        "trading-card-b",
+        "seoul/trading-card-a",
+        "trading-card-a",
+        "seoul/skzoo-secret-wind-up-plush-ver",
+        "skzoo-secret-wind-up-plush-ver",
+        "seoul/skzoo-secret-plush-micro-ver",
+        "skzoo-secret-plush-micro-ver",
+        "seoul/skzoo-secret-clicker-keyring-ver",
+        "skzoo-secret-clicker-keyring-ver",
+        "seoul/skzoo-plush-mini-picket-keyring-ver",
+        "skzoo-plush-mini-picket-keyring-ver",
+        "seoul/skzoo-plush-in-tasy-outfit-ver",
+        "skzoo-plush-in-tasy-outfit-ver",
+        "seoul/skzoo-plush-door-bell-keyring-ver",
+        "skzoo-plush-door-bell-keyring-ver",
+        "seoul/skzoo-plush-dancing-ver-",
+        "skzoo-plush-dancing-ver-",
+        "seoul/skzoo-plush-cross-bag-ver",
+        "skzoo-plush-cross-bag-ver",
+        "seoul/skzoo-mini-backpack-keyring-ver",
+        "skzoo-mini-backpack-keyring-ver",
+        "seoul/skzoo-hair-clip-ver",
+        "skzoo-hair-clip-ver",
+        "seoul/skzoo-fleece-hoodie-zip-up-ver",
+        "skzoo-fleece-hoodie-zip-up-ver",
+        "seoul/skzoo-figure-pen",
+        "skzoo-figure-pen",
+        "seoul/image-picket-ver",
+        "image-picket-ver",
+        "japan",
+        "japan/merch",
+        "merch"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "collabs-brands-nacific",
+      "album_title": "Nacific",
+      "source": "collabs",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "collabs-brands-nacific"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "collabs-magazines",
+      "album_title": "Magazines",
+      "source": "collabs",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "collabs-magazines"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "memberships-japan",
+      "album_title": "Memberships Japan",
+      "source": "memberships",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "memberships-japan"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "memberships-korean",
+      "album_title": "Memberships Korean",
+      "source": "memberships",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": false,
+      "hasInclusions": false,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "memberships-korean"
+      ],
+      "pobVersions": [],
+      "inclusionVersions": []
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "2023-s318",
+      "album_title": "2023 S318",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "photocards",
+        "pop-ups"
+      ],
+      "pobVersions": [
+        "pobs"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "2024-airful-japan",
+      "album_title": "2024 Airful Japan",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "photocards",
+        "pop-ups"
+      ],
+      "pobVersions": [
+        "lucky-card"
+      ],
+      "inclusionVersions": [
+        "mini-calendar",
+        "book-mark",
+        "4-frame-photo-card-fanclub-only"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "2025-your-hero",
+      "album_title": "2025 Your Hero",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "photocards",
+        "pop-ups"
+      ],
+      "pobVersions": [
+        "pobs"
+      ],
+      "inclusionVersions": [
+        "sticker-set",
+        "poster-set",
+        "postcard-set",
+        "id"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "japan",
+      "album_slug": "2026-force",
+      "album_title": "2026 Force",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "photo-card-set",
+        "photocard-set"
+      ],
+      "pobVersions": [
+        "pob-sony-music-shop",
+        "pob-jyp-japan-online-store",
+        "photo-card-fanclub-only"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "2021",
+      "album_title": "2021",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "photocards"
+      ],
+      "pobVersions": [
+        "polaroid-pob"
+      ],
+      "inclusionVersions": [
+        "postcard-ver",
+        "postcard-unit-ver",
+        "book-mark-set"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "2022-room-mates",
+      "album_title": "2022 Room Mates",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "room-mates",
+        "garden"
+      ],
+      "pobVersions": [
+        "pob-polaroids-unit",
+        "pob-polaroids"
+      ],
+      "inclusionVersions": [
+        "inclusions"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "2023-szks-mini-world",
+      "album_title": "2023 Szks Mini World ",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "set",
+        "selfie"
+      ],
+      "pobVersions": [
+        "yellow-polaroid-pob",
+        "white-polaroid-pob"
+      ],
+      "inclusionVersions": [
+        "standing-paper",
+        "calendar-poster",
+        "4-cut-photo-set"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "2024-perfect-day",
+      "album_title": "2024 Perfect Day",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "polaroid",
+        "heart-ver"
+      ],
+      "pobVersions": [
+        "pob-with-mu-u",
+        "pob-soundwave",
+        "pob-jyp-shop",
+        "pob-applemusic"
+      ],
+      "inclusionVersions": [
+        "mini-poster-unit",
+        "garland-set"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "2025-the-street-kids",
+      "album_title": "2025 The Street Kids",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "photocards"
+      ],
+      "pobVersions": [
+        "pob-yes24",
+        "pob-with-mu-u",
+        "pob-tower-records",
+        "pob-soundwave",
+        "pob-postcards-aladdin",
+        "pob-postcard-applemusic",
+        "pob-polaroid-ktown4u",
+        "pob-panca",
+        "pob-music-korea",
+        "pob-ktown4u",
+        "pob-kmstation",
+        "pob-jyp-shop",
+        "pob-apple-music",
+        "pob-aladin"
+      ],
+      "inclusionVersions": [
+        "mini-poster",
+        "message-card",
+        "id-photos"
+      ]
+    },
+    {
+      "group_slug": "stray-kids",
+      "region": "korea",
+      "album_slug": "2026-starlight-super-club",
+      "album_title": "2026 Starlight Super Club",
+      "source": "seasons-greetings",
+      "hasPortadas": false,
+      "hasPhotocards": true,
+      "hasPobs": true,
+      "hasInclusions": true,
+      "portadasKinds": [],
+      "photocardsVersions": [
+        "set",
+        "polaroid"
+      ],
+      "pobVersions": [
+        "pob-yes24",
+        "pob-with-mu-u",
+        "pob-musickorea",
+        "pob-music-plant",
+        "pob-makestar",
+        "pob-ktown4u",
+        "pob-kpop-toguether",
+        "pob-fansshop",
+        "pob-applemusic"
+      ],
+      "inclusionVersions": [
+        "mini-poster",
+        "message-card",
+        "id-photos"
+      ]
+    }
+  ]
+}

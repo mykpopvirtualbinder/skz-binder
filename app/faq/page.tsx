@@ -1,71 +1,64 @@
 "use client";
+
+import React, { useState } from "react";
+import { Plus, Minus, Mail } from "lucide-react";
 import Footer from "../components/footer";
-import React, { CSSProperties, useState } from "react";
-import { useRouter } from "next/navigation";
-import { User, Plus, Minus, Mail } from "lucide-react";
-import Header from "../components/header";
+import { useGlobal } from "../context/GlobalContext";
 
 export default function FAQPage() {
-  const router = useRouter();
+  const { t } = useGlobal();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const toggleFAQ = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
   };
 
-  const faqs = [
-    {
-      q: "¿Qué significan las siglas WTS, WTT y OTW?",
-      a: "Son términos estándar en el coleccionismo: WTS (Want To Sell) para venta; WTT (Want To Trade) para intercambio; y OTW (On The Way) para cartas compradas en camino."
-    },
-    {
-      q: "¿Cómo añado una carta que no está en la base de datos?",
-      a: "Utiliza la función 'PC Personalizada'. Podrás subir tus propias fotos y completar los detalles manualmente para que tu binder luzca perfecto."
-    },
-    {
-      q: "¿Es seguro comprar en el Market?",
-      a: "My Kpop Binder facilita la conexión entre usuari@s. Recuerda que el envío y el estado de la carta son responsabilidad del vendedor; recomendamos siempre pedir pruebas de vídeo."
-    },
-    {
-      q: "¿Qué ventajas tiene el plan Premium?",
-      a: "Desbloquea binders ilimitados, formatos de cuadrícula exclusivos (como el 1x1 gigante) y diseños de portadas premium para tu colección."
-    },
-    {
-      q: "¿Cómo marco a mis 'Bias' para que aparezca el corazón?",
-      a: "Configura tus favorit@s en la sección 'Me'. Una vez elegidos, sus cartas brillarán con un corazón rosa automáticamente en todo el sitio."
-    }
-  ];
-
-  // --- ESTILOS COMPARTIDOS (COHERENCIA TOTAL) ---
-  const menuBtnStyle: CSSProperties = { background: "transparent", border: "none", padding: "10px 14px", textAlign: "left", borderRadius: 10, cursor: "pointer", fontWeight: 900, color: "#8C659C", fontSize: 14 };
-  const footerColumnTitle: CSSProperties = { fontSize: "13px", color: "#8C659C", fontWeight: 900, textTransform: "uppercase", marginBottom: "15px", display: "block" };
-  const footerLinkStyle: CSSProperties = { fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px", display: "block" };
+  const translatedItems = t("faq.items") as any;
+  const translatedQuestions = t("faq.questions") as any;
+  const faqs = Array.isArray(translatedItems)
+    ? translatedItems
+    : (translatedQuestions && typeof translatedQuestions === "object"
+        ? Object.keys(translatedQuestions)
+            .filter((key) => /^q\d+$/.test(key))
+            .sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
+            .map((qKey) => {
+              const idx = qKey.slice(1);
+              return {
+                q: translatedQuestions[qKey],
+                a: translatedQuestions[`a${idx}`] || "",
+              };
+            })
+        : []);
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#FFFDF5", display: "flex", flexDirection: "column", color: "#2F2740" }}>
+    <div style={{ 
+      minHeight: "100vh", 
+      backgroundColor: "var(--bg-main)", 
+      display: "flex", 
+      flexDirection: "column", 
+      color: "var(--text-main)",
+      transition: "background-color 0.3s ease" 
+    }}>
       
-     <Header />
-
-      {/* CONTENIDO PRINCIPAL EDITORIAL */}
-      <main style={{ width: "100%", maxWidth: "900px", margin: "80px auto", padding: "0 40px", flex: 1 }}>
+      <main className="legal-page" style={{ width: "100%", maxWidth: "900px", margin: "24px auto 40px auto", padding: "0 40px", flex: 1 }}>
         
         {/* TÍTULO */}
         <div style={{ marginBottom: "60px" }}>
-          <h1 className="tan-font" style={{ color: "#8C659C", fontSize: "64px", lineHeight: "0.8", margin: 0 }}>
-            HELP<br /><span style={{ fontSize: "40px" }}>& RESOURCES</span>
+          <h1 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "64px", lineHeight: "0.8", margin: 0 }}>
+            {t("faq.title_part1")}<br />
+            <span style={{ fontSize: "40px" }}>{t("faq.title_part2")}</span>
           </h1>
-          <p style={{ color: "#b17eac", fontWeight: 700, fontSize: "14px", marginTop: "20px", letterSpacing: "2px", textTransform: "uppercase" }}>
-            Guía esencial para tod@s l@s coleccionistas
+          <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "14px", marginTop: "20px", letterSpacing: "2px", textTransform: "uppercase" }}>
+            {t("faq.subtitle")}
           </p>
         </div>
 
-        {/* LISTA DE PREGUNTAS (LETRA 16PX) */}
+        {/* LISTA DE PREGUNTAS */}
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {faqs.map((faq, index) => {
+          {Array.isArray(faqs) && faqs.map((faq: any, index: number) => {
             const isOpen = openIndex === index;
             return (
-              <div key={index} style={{ borderBottom: "1px solid #F3DCE7" }}>
+              <div key={index} style={{ borderBottom: "1px solid var(--color-border)" }}>
                 <button 
                   onClick={() => toggleFAQ(index)} 
                   style={{ 
@@ -74,20 +67,24 @@ export default function FAQPage() {
                   }}
                 >
                   <span style={{ 
-                    fontWeight: 800, color: isOpen ? "#8C659C" : "#2F2740", 
-                    fontSize: "16px", transition: "color 0.2s ease" 
+                    fontWeight: 800, color: isOpen ? "var(--color-primary)" : "var(--text-main)", 
+                    fontSize: "16px", transition: "color 0.2s ease", paddingRight: "20px"
                   }}>
                     {faq.q}
                   </span>
-                  {isOpen ? <Minus size={16} color="#8C659C" /> : <Plus size={16} color="#b17eac" />}
+                  <div style={{ flexShrink: 0 }}>
+                    {isOpen ? <Minus size={18} color="var(--color-primary)" /> : <Plus size={18} color="var(--text-muted)" />}
+                  </div>
                 </button>
                 
                 <div style={{ 
-                  maxHeight: isOpen ? "200px" : "0", opacity: isOpen ? 1 : 0,
-                  transition: "all 0.4s ease-in-out", paddingBottom: isOpen ? "28px" : "0",
+                  maxHeight: isOpen ? "300px" : "0", 
+                  opacity: isOpen ? 1 : 0,
+                  transition: "all 0.4s ease-in-out", 
+                  paddingBottom: isOpen ? "28px" : "0",
                   overflow: "hidden"
                 }}>
-                  <p style={{ color: "#666", fontSize: "14px", lineHeight: "1.8", maxWidth: "650px", margin: 0 }}>
+                  <p style={{ color: "var(--text-muted)", fontSize: "15px", lineHeight: "1.8", maxWidth: "700px", margin: 0 }}>
                     {faq.a}
                   </p>
                 </div>
@@ -98,28 +95,29 @@ export default function FAQPage() {
 
         {/* CIERRE CON SOBRECITO */}
         <div style={{ marginTop: "80px", textAlign: "center", paddingBottom: "40px" }}>
-          <p style={{ color: "#b17eac", fontWeight: 700, fontSize: "13px", letterSpacing: "1px", marginBottom: "20px", textTransform: "uppercase" }}>
-            ¿Tienes alguna otra duda?
+          <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "13px", letterSpacing: "1px", marginBottom: "20px", textTransform: "uppercase" }}>
+            {t("faq.contact_prompt")}
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div style={{ height: "1px", flex: 1, backgroundColor: "#F3DCE7" }}></div>
+            <div style={{ height: "1px", flex: 1, backgroundColor: "var(--color-border)" }}></div>
             <a 
               href="mailto:info@mykpopbinder.com" 
+              className="tan-font"
               style={{ 
-                display: "flex", alignItems: "center", gap: "10px", color: "#8C659C", 
-                textDecoration: "none", fontWeight: 900, fontSize: "13px", letterSpacing: "1px" 
+                display: "flex", alignItems: "center", gap: "10px", color: "var(--color-primary)", 
+                textDecoration: "none", fontWeight: 900, fontSize: "14px", letterSpacing: "1px" 
               }}
             >
               <Mail size={18} strokeWidth={2.5} />
               <span>INFO@MYKPOPBINDER.COM</span>
             </a>
-            <div style={{ height: "1px", flex: 1, backgroundColor: "#F3DCE7" }}></div>
+            <div style={{ height: "1px", flex: 1, backgroundColor: "var(--color-border)" }}></div>
           </div>
         </div>
 
       </main>
 
-     <Footer />
+      <Footer />
 
       <style jsx global>{`
         @font-face { font-family: 'TanTangkiwood'; src: url('/fonts/tan-tangkiwood-regular.otf') format('opentype'); }

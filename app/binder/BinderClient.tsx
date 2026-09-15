@@ -1,26 +1,37 @@
   
 "use client";
 import Footer from "../components/footer";
-import Header from "../components/header";
+import { avisarFavoritos } from "@/lib/avisos";
 import { useState } from "react"; // 1. Asegúrate de tener useState importado
+
 import { useRouter, usePathname, useSearchParams } from "next/navigation"; // 2. Asegúrate de importar usePathname y useSearchParams
 import { supabase } from "@/lib/supabase";
+import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { 
-  Trash2, Users, Disc3, PenLine, Mic2, User, Layers, 
-    SlidersHorizontal, RotateCw, Undo2, Heart 
+  Trash2, ChevronLeft, ChevronRight, Users, Disc3, PenLine, Mic2, User, Layers, 
+    SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart 
 } from "lucide-react";
 import WtsListingModal from "../library/WtsListingModal"
+import WttListingModal from "../library/WttListingModal"
+import { getCurrencyOptions } from "../library/currencyOptions"
 import React, { useCallback, useEffect, useMemo, useRef} from "react";
 import type { CSSProperties } from "react";
 import { OnboardingForm } from "../me/ui/OnboardingForm";
 import { useGlobal } from "../context/GlobalContext"
+import VirtualBinder from "../components/VirtualBinder";
+import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
+import { BINDER_ACCENT_SWATCHES } from "@/lib/binder-color-swatches";
+import { marketRefUsdStorageKey } from "@/lib/market-reference-keys";
+import { getLayoutUnlockCost, unlockKeyForLayout } from "@/lib/theme-unlocks";
+import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
+import { PC_IMAGE_FILENAME_EXT_RE } from "@/lib/pc-image-extensions";
+
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
 // ✅ back por defecto (/mock-pcs/groups/default-back.png)
 const DEFAULT_BACK_URL = "/mock-pcs/groups/default-back.png";
 // ...existing code...
-  "data:image/svg+xml;charset=utf-8," +
-  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>');
+// Traducciones
 
 const TRANSPARENT_DRAG_IMG =
   "data:image/svg+xml;charset=utf-8," +
@@ -41,7 +52,7 @@ type StatusKey = "have" | "wtt" | "wts" | "on_its_way" | "wish";
 
 const footerSubLinkStyle: CSSProperties = { 
   fontSize: "12px", 
-  color: "#b17eac", // Rosa oscuro
+  color: "var(--text-muted)", // Rosa oscuro
   textDecoration: "none",
   fontWeight: 500
 };
@@ -63,41 +74,44 @@ const emptyCounts = (): StatusCounts => ({
 });
 
 function formatTooltipLines(
- itemId: number,
- counts: StatusCounts,
- placedCount: number,
- availableCount: number
+  itemId: number,
+  counts: StatusCounts,
+  placedCount: number,
+  availableCount: number
 ) {
- const wishExclusive = Number(counts.wish ?? 0) > 0;
+  const wishExclusive = Number(counts.wish ?? 0) > 0;
+  const have = wishExclusive ? 0 : Number(counts.have ?? 0);
+  const wtt = wishExclusive ? 0 : Number(counts.wtt ?? 0);
+  const wts = wishExclusive ? 0 : Number(counts.wts ?? 0);
+  const otw = wishExclusive ? 0 : Number(counts.on_its_way ?? 0);
+  const wish = wishExclusive ? 1 : Number(counts.wish ?? 0);
 
- const have = wishExclusive ? 0 : Number(counts.have ?? 0);
- const wtt = wishExclusive ? 0 : Number(counts.wtt ?? 0);
- const wts = wishExclusive ? 0 : Number(counts.wts ?? 0);
- const otw = wishExclusive ? 0 : Number(counts.on_its_way ?? 0);
- const wish = wishExclusive ? 1 : Number(counts.wish ?? 0);
-
- return [
-  `ID: ${itemId}`,
-  `Tengo: ${have}`,
-  `WTT: ${wtt}`,
-  `WTS: ${wts}`,
-  `On the way: ${otw}`,
-  `Wishlist: ${wish}`,
-  `En binder: ${placedCount}`,
-  `Disponibles: ${availableCount}`,
- ];
+  return [
+    `ID: ${itemId}`,
+    `Tengo: ${have}`,
+    `WTT: ${wtt}`,
+    `WTS: ${wts}`,
+    `En camino: ${otw}`,
+    `Wishlist: ${wish}`,
+    `En Binder: ${placedCount}`,
+    `Disponibles: ${availableCount}`
+  ].join('\n');
 }
 function statusColors(counts: StatusCounts) {
   // OTW: Azul pastel brillante
-  if ((counts.on_its_way ?? 0) > 0) return { key: "otw", border: "#A7D4FF", bg: "#F0F7FF" }; 
+  if ((counts.on_its_way ?? 0) > 0) return { key: "otw", border: "var(--state-info-border)", bg: "var(--state-info-bg)" }; 
   // WISH: Amarillo pastel brillante
-  if ((counts.wish ?? 0) > 0) return { key: "wish", border: "#FDE9B4", bg: "#FFFDF5" }; 
+  if ((counts.wish ?? 0) > 0) return { key: "wish", border: "var(--state-warning-border)", bg: "var(--bg-main)" }; 
   // WTT: Rosa brillante
-  if ((counts.wtt ?? 0) > 0) return { key: "wtt", border: "#fdcbe9", bg: "#FFF5FA" }; 
+  if ((counts.wtt ?? 0) > 0) return { key: "wtt", border: "var(--color-border)", bg: "var(--bg-soft)" }; 
   // HAVE: Verde menta brillante
-  if ((counts.have ?? 0) > 0) return { key: "have", border: "#A7E3B8", bg: "#F2FAF6" }; 
+  if ((counts.have ?? 0) > 0) return { key: "have", border: "var(--state-success-border)", bg: "var(--state-success-bg)" }; 
 
-  return { key: "", border: "#E2E2E2", bg: "white" };
+  return {
+    key: "",
+    border: "var(--binder-slot-status-empty-border)",
+    bg: "var(--binder-slot-status-empty-bg)",
+  };
 }
 
 function stockTotalOf(counts: StatusCounts) {
@@ -109,16 +123,16 @@ function stockTotalOf(counts: StatusCounts) {
 }
 function dominantBadge(counts: StatusCounts) {
   if (counts.on_its_way > 0)
-    return { key: "on_its_way", label: "OTW", bg: "#e8f3ff", border: "#9cc8ff" };
+    return { key: "on_its_way", label: "OTW", bg: "var(--state-info-bg)", border: "var(--state-info-border)" };
   if (counts.wish > 0)
-    return { key: "wish", label: "WISH", bg: "#fff7cc", border: "#f1d86a" };
+    return { key: "wish", label: "WISH", bg: "var(--state-warning-bg)", border: "var(--state-warning-border)" };
   if (counts.wtt > 0)
-    return { key: "wtt", label: "WTT", bg: "#f3e8ff", border: "#c9a7ff" };
+    return { key: "wtt", label: "WTT", bg: "var(--bg-soft)", border: "var(--color-secondary)" };
   if (counts.wts > 0)
-    return { key: "wts", label: "WTS", bg: "#f2f2f2", border: "#ddd" };
+    return { key: "wts", label: "WTS", bg: "var(--state-disabled-bg)", border: "var(--state-disabled-border)" };
   if (counts.have > 0)
-    return { key: "have", label: "HAVE", bg: "#e8fff0", border: "#9fe0b5" };
-  return { key: null, label: "", bg: "#fff", border: "#eee" };
+    return { key: "have", label: "HAVE", bg: "var(--state-success-bg)", border: "var(--state-success-border)" };
+  return { key: null, label: "", bg: "var(--bg-card)", border: "var(--state-disabled-border)" };
 }
 
 const normText = (s: string | number | null | undefined) =>
@@ -149,11 +163,24 @@ const isPcBias = (
   return selectedBiasMembers.some((bias) => memberMatches(rawMember, bias));
 };
 
+
 const unitTypeFromMember = (memberRaw: string | null | undefined): "single" | "unit" | "ot8" => {
-  const lower = String(memberRaw ?? "").toLowerCase().trim();
-  if (/\bot8\b/.test(lower)) return "ot8";
-  if (lower.includes("+")) return "unit";
-  if (lower.split(/\s+/).length > 1) return "unit";
+  let lower = String(memberRaw ?? "").toLowerCase().trim();
+  
+  if (!lower || lower === "-") return "single";
+  if (/\bot8\b/.test(lower) || lower.includes("all")) return "ot8";
+  
+  // Si tiene los símbolos explícitos de unión, es unit directo
+  if (lower.includes("+") || lower.includes("/") || lower.includes("&") || lower.includes(",")) return "unit";
+
+  // EL TRUCO MAGISTRAL: Unimos los nombres compuestos para que no cuenten como dos personas distintas
+  lower = lower.replace(/\blee know\b/g, "leeknow");
+  lower = lower.replace(/\bbang chan\b/g, "bangchan");
+  lower = lower.replace(/\bi\.?n\b/g, "in"); // Cubre tanto "i n" como "i.n"
+
+  // Ahora sí, si al separar por espacios hay más de 1 palabra, es Unit garantizado (ej: "hyunjin changbin")
+  if (lower.split(/\s+/).filter(Boolean).length > 1) return "unit";
+
   return "single";
 };
 
@@ -272,39 +299,41 @@ const matchesQuery = (it: PickerItem, query: string) => {
 };
 const pickerLabelStyle: CSSProperties = {
  fontSize: 12,
- color: "#8C659C",
+ color: "var(--color-primary)",
  fontWeight: 900,
  display: "flex",
  alignItems: "center",
  gap: 6,
+ lineHeight: 1.2,
+ flexWrap: "wrap",
 };
 
 const pickerControlStyle: CSSProperties = {
  padding: "8px 10px",
  borderRadius: 10,
- border: "1px solid #F3DCE7",
+ border: "1px solid var(--color-border)",
  minWidth: 170,
- background: "white",
- color: "#2F2740",
- boxShadow: "0 4px 12px rgba(247,168,216,0.08)",
+ background: "var(--bg-card)",
+ color: "var(--text-main)",
+ boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 8%, transparent)",
 };
 
 const pickerSearchStyle: CSSProperties = {
  padding: "8px 10px",
  borderRadius: 10,
- border: "1px solid #F3DCE7",
+ border: "1px solid var(--color-border)",
  minWidth: 220,
- background: "white",
- color: "#2F2740",
- boxShadow: "0 4px 12px rgba(247,168,216,0.08)",
+ background: "var(--bg-card)",
+ color: "var(--text-main)",
+ boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 8%, transparent)",
 };
 
 const pickerShellStyle: CSSProperties = {
- background: "#FFFDF5",
- border: "1px solid #F3DCE7",
+ background: "var(--bg-main)",
+ border: "1px solid var(--color-border)",
  borderRadius: 20,
  overflow: "hidden",
- boxShadow: "0 18px 44px rgba(140,101,156,0.10)",
+ boxShadow: "0 18px 44px color-mix(in srgb, var(--color-primary) 10%, transparent)",
  height: "100%",
  display: "flex",
  flexDirection: "column",
@@ -317,8 +346,8 @@ const pickerHeaderStyle: CSSProperties = {
  justifyContent: "space-between",
  gap: 12,
  padding: "12px 16px",
- borderBottom: "1px solid #F3C7DA",
- background: "#FFD9E6",
+ borderBottom: "1px solid var(--color-border)",
+ background: "var(--bg-soft)",
 };
 
 const pickerTitleWrapStyle: CSSProperties = {
@@ -329,7 +358,7 @@ const pickerTitleWrapStyle: CSSProperties = {
 };
 
 const pickerTitleStyle: CSSProperties = {
- color: "#8C659C",
+ color: "var(--color-primary)",
  fontWeight: 950,
  fontSize: 20,
  letterSpacing: 0.2,
@@ -338,7 +367,7 @@ const pickerTitleStyle: CSSProperties = {
 
 const pickerSectionStyle: CSSProperties = {
  padding: 16,
- background: "#FFFDF5",
+ background: "var(--bg-main)",
  display: "flex",
  flexDirection: "column",
  gap: 12,
@@ -351,12 +380,12 @@ const pickBtnStyle: CSSProperties = {
  width: "100%",
  padding: "9px 12px",
  borderRadius: 12,
- border: "1px solid #F7A8D8",
- background: "#FFF5FA",
- color: "#8C659C",
+ border: "1px solid var(--color-primary)",
+ background: "var(--bg-soft)",
+ color: "var(--color-primary)",
  cursor: "pointer",
  fontWeight: 900,
- boxShadow: "0 4px 12px rgba(247,168,216,0.14)",
+ boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 14%, transparent)",
  transition: "all 0.15s ease",
 };
 type LayoutType =
@@ -374,7 +403,8 @@ type LayoutType =
   | "sp_1x2"
   | "sp_1x3"
   | "sp_1x4"
-  | "sp_1x1";
+  | "sp_1x1"
+  | "separator";
 
 type LayoutDef = {
   key: LayoutType;
@@ -401,6 +431,7 @@ const LAYOUTS: LayoutDef[] = [
   { key: "sp_1x3", label: "Special 1x3", cols: 1, rows: 3, slots: 3, size: "special" },
   { key: "sp_1x4", label: "Special 1x4", cols: 1, rows: 4, slots: 4, size: "special" },
   { key: "sp_1x1", label: "Special 1x1", cols: 1, rows: 1, slots: 1, size: "special" },
+  { key: "separator", label: "Separador", cols: 1, rows: 1, slots: 1, size: "special" },
 ];
 
 const LAYOUT_KEYS = new Set(LAYOUTS.map((l) => l.key));
@@ -412,27 +443,33 @@ const defFor = (key: LayoutType): LayoutDef => LAYOUTS.find((l) => l.key === key
 
 const getExtrasCount = (_key: LayoutType) => 0;
 
+// Página 9 del PDF
 function ItemPicker({
   userId,
   binderId,
+  binderTitle,
   placedByItem,
   invByItem,
   loadInvForIds,
   refreshTick,
-  userBiases, // <--- AÑADE ESTO
+  userBiases,
   onPick,
   onClose,
+  isMobile, // ✅ AÑADE ESTA LÍNEA AQUÍ
 }: {
   userId: string;
   binderId: number;
+  binderTitle: string;
   placedByItem: Record<number, any>;
   invByItem: Record<number, any>;
   loadInvForIds: (ids: number[]) => Promise<void>;
   refreshTick: number;
-  userBiases: number[]; // <--- AÑADE ESTO
+  userBiases: number[];
   onPick: (itemId: number) => void;
   onClose: () => void;
+  isMobile: boolean; // ✅ Y ESTA LÍNEA TAMBIÉN
 }) {
+  const { t } = useGlobal(); // ✅ AÑADE ESTA LÍNEA AQUÍ
  const DUMMY_PICK_ID = -1;
 
   const [loading, setLoading] = useState(true);
@@ -467,10 +504,11 @@ useEffect(() => {
 
 const ids = Array.from(new Set((invRes.data ?? []).map(r => r.item_id)));
 
+// Localiza esto en la función run() del ItemPicker
+// Elimina la parte que dice .in("id", ids)
 const itemsRes = await supabase
   .from("items")
- .select("id, name, image_url, back_image_url, group_id, album_id, version_id, version, member_id, member") 
-  .in("id", ids)
+  .select("id, name, image_url, back_image_url, group_id, album_id, version_id, version, member_id, member")
   .order("id", { ascending: true });
 
 const rawItems = (itemsRes.data ?? []) as PickerItem[];
@@ -585,15 +623,17 @@ const mid = toNum(it.member_id) ?? undefined;
   };
    });
 
-   if (!cancelled) {
-    setItems(enrichedItems);
-    setGroups((gRes.data ?? []).map((r) => ({ id: r.id, name: r.name })));
-    setAlbums((aRes.data ?? []).map((r) => ({
-     id: r.id,
-     name: r.name,
-     release_date: (r as any).release_date ?? null,
-    })));
-   }
+ if (!cancelled) {
+  setItems(enrichedItems);
+  setGroups((gRes.data ?? []).map((r) => ({ id: r.id, name: r.name })));
+  setAlbums((aRes.data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    release_date: (r as any).release_date ?? null,
+  })));
+  // ✅ Añade esto aquí dentro también por seguridad:
+  setLoading(false); 
+}
   } catch (e: any) {
    if (!cancelled) {
     setErr(e?.message ?? "Error cargando el picker");
@@ -635,13 +675,10 @@ const albumOptions = useMemo(() => {
       name,
       release_date: albums.find((a) => a.id === id)?.release_date ?? null,
     }));
-    return entries.sort((a, b) => {
-      const da = a.release_date ? new Date(a.release_date).getTime() : Number.POSITIVE_INFINITY;
-      const db = b.release_date ? new Date(b.release_date).getTime() : Number.POSITIVE_INFINITY;
-      if (da !== db) return da - db;
-      return a.name.localeCompare(b.name, "es");
-    });
-  }, [items, group, albums]);
+    const selectedGroupName =
+      group === "" ? null : groups.find((g) => g.id === group)?.name ?? null;
+    return sortCollectionEntries(entries, { groupName: selectedGroupName });
+  }, [items, group, albums, groups]);
 
   const versionOptions = useMemo(() => {
     const set = new Set<string>();
@@ -718,48 +755,62 @@ const albumOptions = useMemo(() => {
   }, []);
 
   const filtered = useMemo(() => {
-    console.log("Prueba Bias - IDs Favoritos:", userBiases, "Primer item del picker:", items[0]?.member_id);
+    // Log para verificar que los datos llegan al filtro
+    console.log("Picker Debug Total items:", items.length, "User Biases:", userBiases);
 
     return items.filter((it) => {
       const counts = invByItem[it.id] ?? emptyCounts();
-      const have = Number(counts.have ?? 0);
-      const wtt = Number(counts.wtt ?? 0);
-      const wts = Number(counts.wts ?? 0);
-      const otw = Number(counts.on_its_way ?? 0);
-      const wish = Number(counts.wish ?? 0);
 
-      const hasDeclaredStockOrWish =
-        have > 0 || wtt > 0 || wts > 0 || otw > 0 || wish > 0;
+      // 1. REGLA DE ORO: Si ya está en el binder, no la mostramos en el picker
       const inBinder = !!placedByItem[it.id];
-
-      if (!hasDeclaredStockOrWish) return false;
       if (inBinder) return false;
+
+      // 👇 AÑADIDO: REGLA DE PLATA: Si no tiene stock NI está en la wishlist, ¡fuera de aquí!
+      const totalStock = Number(counts.have ?? 0) + Number(counts.wtt ?? 0) + Number(counts.wts ?? 0) + Number(counts.on_its_way ?? 0);
+      const inWishlist = Number(counts.wish ?? 0) > 0;
+      if (totalStock <= 0 && !inWishlist) return false;
+      // 👆 HASTA AQUÍ
+
+      // 2. FILTRO DE ESTADO (Solo si el usuario elige uno explícitamente)
       if (statusFilter) {
-        if ((counts[statusFilter] ?? 0) <= 0) return false;
+        const val = Number(counts[statusFilter] ?? 0);
+        if (val <= 0) return false;
       }
+
+      // 3. FILTROS DE CATEGORÍA
       if (group !== "" && (it.group_id ?? null) !== group) return false;
+      // ... el resto de tus filtros siguen exactamente igual hacia abajo ...
       if (album !== "" && (it.album_id ?? null) !== album) return false;
+      
       if (version !== "") {
         const vLabel = (it.version_name_display ?? it.version_name ?? "").trim();
         if (vLabel !== version) return false;
       }
+      
       if (member !== "" && !memberMatches(it.member ?? it.member_name, member)) return false;
 
-      if (onlyBiases) {
-        if (it.member_id != null && userBiases.includes(Number(it.member_id))) {
-          return matchesQuery(it, q);
-        }
-
-        const rawMember = it.member ?? it.member_name ?? "";
-        const biasMatchByName = userBiases.some((biasId) => {
-          const biasSlug = biasSlugById[Number(biasId)];
-          if (!biasSlug) return false;
-          return memberMatches(rawMember, biasSlug);
-        });
-
-        if (!biasMatchByName) return false;
+      // 4. FILTRO DE TIPO (Unit/Single/OT8)
+      if (unitFilter !== "all") {
+        const textToCheck = it.member || it.member_name || it.name || "";
+        const ut = unitTypeFromMember(textToCheck);
+        if (ut !== unitFilter) return false;
       }
 
+      // 5. FILTRO DE SOLO MIS BIAS (Aquí es donde estaba el error)
+      if (onlyBiases) {
+        // DEFINIMOS biasList AQUÍ PARA QUE NO DE ERROR 
+        const biasList = (userBiases || []).map(Number); 
+        const rawMember = it.member ?? it.member_name ?? "";
+        
+        const isMyBias = (it.member_id != null && biasList.includes(Number(it.member_id))) ||
+                        biasList.some((biasId) => {
+                          const biasSlug = biasSlugById[Number(biasId)];
+                          return biasSlug ? memberMatches(rawMember, biasSlug) : false;
+                        });
+        if (!isMyBias) return false;
+      }
+
+      // 6. BUSQUEDA POR TEXTO (Nombre o ID)
       return matchesQuery(it, q);
     });
   }, [
@@ -782,21 +833,21 @@ const albumOptions = useMemo(() => {
  width: "100%",
  padding: "9px 12px",
  borderRadius: 12,
- border: "1px solid #F7A8D8",
- background: "#FFF5FA",
- color: "#8C659C",
+ border: "1px solid var(--color-primary)",
+ background: "var(--bg-soft)",
+ color: "var(--color-primary)",
  cursor: "pointer",
  fontWeight: 900,
- boxShadow: "0 4px 12px rgba(247,168,216,0.14)",
+ boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 14%, transparent)",
  transition: "all 0.15s ease",
 };
 
 const pickerShellStyle: CSSProperties = {
- background: "#FFFDF5",
- border: "1px solid #F3DCE7",
+ background: "var(--bg-main)",
+ border: "1px solid var(--color-border)",
  borderRadius: 20,
  overflow: "hidden",
- boxShadow: "0 18px 44px rgba(140,101,156,0.10)",
+ boxShadow: "0 18px 44px color-mix(in srgb, var(--color-primary) 10%, transparent)",
  height: "100%",
  display: "flex",
  flexDirection: "column",
@@ -809,8 +860,8 @@ const pickerHeaderStyle: CSSProperties = {
  justifyContent: "space-between",
  gap: 12,
  padding: "12px 16px",
- borderBottom: "1px solid #F3C7DA",
- background: "#FFD9E6",
+ borderBottom: "1px solid var(--color-border)",
+ background: "var(--bg-soft)",
 };
 
 const pickerTitleWrapStyle: CSSProperties = {
@@ -821,7 +872,7 @@ const pickerTitleWrapStyle: CSSProperties = {
 };
 
 const pickerTitleStyle: CSSProperties = {
- color: "#8C659C",
+ color: "var(--color-primary)",
  fontWeight: 950,
  fontSize: 20,
  letterSpacing: 0.2,
@@ -830,7 +881,7 @@ const pickerTitleStyle: CSSProperties = {
 
 const pickerSectionStyle: CSSProperties = {
  padding: 16,
- background: "#FFFDF5",
+ background: "var(--bg-main)",
  display: "flex",
  flexDirection: "column",
  gap: 12,
@@ -840,31 +891,33 @@ const pickerSectionStyle: CSSProperties = {
 
 const pickerLabelStyle: CSSProperties = {
  fontSize: 12,
- color: "#8C659C",
+ color: "var(--color-primary)",
  fontWeight: 900,
  display: "flex",
  alignItems: "center",
  gap: 6,
+ lineHeight: 1.2,
+ flexWrap: "wrap",
 };
 
 const pickerControlStyle: CSSProperties = {
  padding: "8px 10px",
  borderRadius: 10,
- border: "1px solid #F3DCE7",
+ border: "1px solid var(--color-border)",
  minWidth: 170,
- background: "white",
- color: "#2F2740",
- boxShadow: "0 4px 12px rgba(247,168,216,0.08)",
+ background: "var(--bg-card)",
+ color: "var(--text-main)",
+ boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 8%, transparent)",
 };
 
 const pickerSearchStyle: CSSProperties = {
  padding: "8px 10px",
  borderRadius: 10,
- border: "1px solid #F3DCE7",
+ border: "1px solid var(--color-border)",
  minWidth: 220,
- background: "white",
- color: "#2F2740",
- boxShadow: "0 4px 12px rgba(247,168,216,0.08)",
+ background: "var(--bg-card)",
+ color: "var(--text-main)",
+ boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 8%, transparent)",
 };
 
 /* NUEVOS ESTILOS PARA FIJAR FILTROS Y HACER SCROLL EN PCS */
@@ -874,10 +927,11 @@ const pickerFiltersWrapStyle: CSSProperties = {
 };
 
 const pickerGridScrollStyle: CSSProperties = {
- flex: 1,
- minHeight: 0,
- overflowY: "auto",
- paddingRight: 6,
+  flex: 1,
+  minHeight: 0,
+  overflowY: "auto", // Habilita el scroll
+  WebkitOverflowScrolling: "touch", // Suavidad en iPhone
+  paddingRight: 6,
 };
 
 return (
@@ -886,31 +940,31 @@ return (
   <div style={pickerTitleWrapStyle}>
     <img
       src="/branding/logo.png"
-      alt="My Kpop Binder Logo"
+      alt={t('header.logo_alt')}
       draggable={false}
       style={{ height: 42, width: "auto", objectFit: "contain", flexShrink: 0 }}
     />
-    <div style={pickerTitleStyle}>Elegir photocard</div>
+<div style={pickerTitleStyle}>{binderTitle}</div> 
   </div>
 
   <button
     type="button"
     onClick={onClose}
-    title="Cerrar"
+    title={t('common.close')}
     style={{
       width: 36,
       height: 36,
       borderRadius: 10,
-      border: "1px solid #F3C7DA",
-      background: "white",
-      color: "#8C659C",
+      border: "1px solid var(--color-border)",
+      background: "var(--bg-card)",
+      color: "var(--color-primary)",
       fontWeight: 900,
       fontSize: 18,
       cursor: "pointer",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      boxShadow: "0 3px 10px rgba(0,0,0,0.06)",
+      boxShadow: "0 3px 10px color-mix(in srgb, var(--text-main) 6%, transparent)",
     }}
   >
     ✕
@@ -922,32 +976,31 @@ return (
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={pickerLabelStyle}>
-            <SlidersHorizontal size={14} strokeWidth={2.4} /> Estado
+            <SlidersHorizontal size={14} strokeWidth={2.4} /> {t('binders.picker.status')}
           </label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter((e.target.value || "") as "" | StatusKey)}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", ...pickerControlStyle, minWidth: 180 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)", ...pickerControlStyle, minWidth: 180 }}
           >
-            <option value="">(todos)</option>
-            <option value="have">Tengo</option>
-            <option value="wtt">WTT</option>
-            <option value="wts">WTS</option>
-            <option value="on_its_way">On its way</option>
-            <option value="wish">Wishlist</option>
+            <option value="">{t('binders.picker.all_masculine')}</option>
+<option value="have">{t('binders.statuses.have')}</option>            <option value="wtt">{t('binders.statuses.wtt')}</option>
+            <option value="wts">{t('binders.statuses.wts')}</option>
+            <option value="on_its_way">{t('binders.statuses.otw')}</option>
+            <option value="wish">{t('binders.statuses.wishlist')}</option>
           </select>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={pickerLabelStyle}>
-            <Users size={14} strokeWidth={2.4} /> Grupo
+            <Users size={14} strokeWidth={2.4} /> {t('binders.picker.group')}
           </label>
           <select
             value={group}
             onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : "")}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", ...pickerControlStyle, minWidth: 180 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)", ...pickerControlStyle, minWidth: 180 }}
           >
-            <option value="">(todos)</option>
+            <option value="">{t('binders.picker.all_masculine')}</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
@@ -958,17 +1011,17 @@ return (
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={pickerLabelStyle}>
-            <Disc3 size={14} strokeWidth={2.4} /> Álbum
+            <Disc3 size={14} strokeWidth={2.4} /> {t('binders.picker.collection') || "Colección / Era"}
           </label>
           <select
             value={album}
             onChange={(e) => setAlbumId(e.target.value ? Number(e.target.value) : "")}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", ...pickerControlStyle, minWidth: 180 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)", ...pickerControlStyle, minWidth: 180 }}
           >
-            <option value="">(todos)</option>
+            <option value="">{t('binders.picker.all_masculine')}</option>
             {albumOptions.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.name}
+                {formatCollectionOptionLabel(a.name, a.release_date)}
               </option>
             ))}
           </select>
@@ -976,14 +1029,14 @@ return (
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={pickerLabelStyle}>
-            <Mic2 size={14} strokeWidth={2.4} /> Versión
+            <Mic2 size={14} strokeWidth={2.4} /> {t('binders.picker.version')}
           </label>
           <select
             value={version}
             onChange={(e) => setVersionId(e.target.value || "")}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", ...pickerControlStyle, minWidth: 160 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)", ...pickerControlStyle, minWidth: 160 }}
           >
-            <option value="">(todas)</option>
+            <option value="">{t('binders.picker.all_feminine')}</option>
             {versionOptions.map((v) => (
               <option key={v} value={v}>
                 {v}
@@ -994,30 +1047,30 @@ return (
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={pickerLabelStyle}>
-            <Layers size={14} strokeWidth={2.4} /> Tipo
+            <Layers size={14} strokeWidth={2.4} /> {t('binders.picker.type')}
           </label>
           <select
             value={unitFilter}
             onChange={(e) => setUnitFilter(e.target.value as UnitFilter)}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", ...pickerControlStyle, minWidth: 140 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)", ...pickerControlStyle, minWidth: 140 }}
           >
-            <option value="all">(todos)</option>
-            <option value="single">Selfie</option>
-            <option value="unit">Unit</option>
+            <option value="all">{t('binders.picker.all_masculine')}</option>
+            <option value="single">{t('binders.picker.type_selfie')}</option>
+            <option value="unit">{t('binders.picker.type_unit')}</option>
             <option value="ot8">OT8</option>
           </select>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={pickerLabelStyle}>
-            <User size={14} strokeWidth={2.4} /> Miembro
+            <User size={14} strokeWidth={2.4} /> {t('binders.picker.member')}
           </label>
           <select
             value={member}
             onChange={(e) => setMemberId(e.target.value || "")}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", ...pickerControlStyle, minWidth: 140 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)", ...pickerControlStyle, minWidth: 140 }}
           >
-            <option value="">(todos)</option>
+            <option value="">{t('binders.picker.all_masculine')}</option>
             {memberOptions.map((m) => (
               <option key={m.value} value={m.value}>
                 {m.label}
@@ -1045,11 +1098,11 @@ return (
 
                     borderRadius: 10,
 
-                    border: onlyBiases ? "1px solid #F7A8D8" : "1px solid #ddd",
+                    border: onlyBiases ? "1px solid var(--color-primary)" : "1px solid var(--state-disabled-border)",
 
-                    background: onlyBiases ? "#FFF5FA" : "#fff",
+                    background: onlyBiases ? "var(--bg-soft)" : "var(--bg-card)",
 
-                    color: onlyBiases ? "#8C659C" : "#666",
+                    color: onlyBiases ? "var(--color-primary)" : "var(--text-muted)",
 
                     fontWeight: 900,
 
@@ -1081,7 +1134,7 @@ return (
          <input
   value={q}
   onChange={(e) => setQ(e.target.value)}
-  placeholder="Buscar por nombre o id…"
+  placeholder={t('binders.picker.search_placeholder')}
   style={{ ...pickerSearchStyle, width: "100%" }}
 />
                </div>
@@ -1089,356 +1142,263 @@ return (
       </div>
 
     <div style={pickerGridScrollStyle}>
-      {loading && <div style={{ color: "#666" }}>Cargando… </div>}
-      {err && <div style={{ color: "crimson" }}>Error: {err}</div>}
+{loading && <div style={{ color: "var(--text-muted)" }}>{t('common.loading')}</div>}      {err && <div style={{ color: "crimson" }}>Error: {err}</div>}
 
 <div
   style={{
     marginTop: 12,
-   display: "grid",
-gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-gap: "12px",
+    display: "grid",
+    // ✅ Móvil: 1 columna completa | Desktop: auto-relleno de mínimo 300px
+    gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(300px, 1fr))",
+    gap: isMobile ? "12px" : "16px",
     alignContent: "flex-start",
-    alignItems: "stretch",
+    paddingBottom: 40
   }}
 >
+  {/* TARJETA PC PERSONALIZADA MEJORADA */}
   <div
-    title="Añadir una PC personalizada (no está en el inventario)"
+    title={t('binders.picker.add_custom')}
     style={{
       width: "100%",
-      minHeight: 210,
+      minHeight: isMobile ? 180 : 210,
       display: "flex",
       flexDirection: "column",
-      border: "1.5px solid #d4e3fb",
-      borderRadius: 14,
+      border: "2.5px dashed var(--color-accent-blue)", // Borde más visible
+      borderRadius: 16,
       padding: 12,
-      background: "#f4f7ff",
+      background: "var(--state-info-bg)",
       position: "relative",
+      justifyContent: "space-between",
+      boxShadow: "0 4px 12px color-mix(in srgb, var(--color-accent-blue) 15%, transparent)"
     }}
   >
-    <div style={{ display: "flex", gap: 12, flex: 1, alignItems: "flex-start" }}>
-      <div
-        style={{
-          width: 66,
-          height: 120,
-          borderRadius: 14,
-          border: "2px dashed #8db8ff",
-          background: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 18,
-          color: "#8db8ff",
-          fontWeight: 900,
-          flex: "0 0 auto",
-        }}
-      >
-        +
-      </div>
-
-      <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          textAlign: "left",
-          display: "flex",
-          flexDirection: "column",
-          paddingTop: 2,
-        }}
-      >
-        <div style={{ fontWeight: 950, color: "#232336", lineHeight: 1.2 }}>
+    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      <div style={{
+        width: isMobile ? 40 : 50, 
+        height: isMobile ? 60 : 75, 
+        borderRadius: 8, border: "2px dashed var(--color-accent-blue)",
+        background: "var(--bg-card)", display: "flex", alignItems: "center",
+        justifyContent: "center", fontSize: 20, color: "var(--color-accent-blue)", fontWeight: 900
+      }}>+</div>
+      <div style={{ flex: 1, textAlign: "left" }}>
+        <div style={{ fontWeight: 950, color: "var(--text-main)", fontSize: isMobile ? 12 : 14, lineHeight: 1.2 }}>
           PC personalizada
         </div>
-        <div style={{ marginTop: 6, fontSize: 11, color: "#666", lineHeight: 1.35 }}>
-          Añade esta carta a tu binder y haz clic en ella para subir tus imágenes y escribir los detalles.
-        </div>
+        {!isMobile && (
+          <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4, lineHeight: 1.3 }}>
+            Crea tu propia carta con foto y texto.
+          </div>
+        )}
       </div>
     </div>
-
-    <div
+    
+    <button 
+      type="button" 
+      onClick={() => onPick(DUMMY_PICK_ID)} 
       style={{
+        ...pickBtnStyle,
         marginTop: 8,
-        marginBottom: 2,
-        fontSize: 12,
-        color: "transparent",
-        userSelect: "none",
+        padding: "8px",
+        fontSize: "11px"
       }}
     >
-      -
-    </div>
-
-    <button type="button" onClick={() => onPick(DUMMY_PICK_ID)} style={pickBtnStyle}>
-      Añadir
-    </button>
+      {t("binders.picker.add_custom")}
+   </button>
   </div>
 
+  {/* MAPEADO DE CARTAS DISPONIBLES DENTRO DEL GRID */}
+  {/* El console.log debe ir dentro de llaves para ejecutarse en JSX */}
+  {(() => {
+      console.log("Items en el picker:", items.length, "Filtrados:", filtered.length);
+      return null;
+  })()}
+ 
   {filtered.map((it) => {
-    const counts = invByItem[it.id] ?? emptyCounts();
+    // ... resto de tu lógica de stock y estados [cite: 429, 436]
+  // --- 1. LÓGICA DE STOCK Y ESTADOS ---
+  const counts = invByItem[it.id] ?? emptyCounts();
+  const rawHave = Number(counts.have ?? 0);
+  const rawWtt = Number(counts.wtt ?? 0);
+  const rawWts = Number(counts.wts ?? 0);
+  const rawOtw = Number(counts.on_its_way ?? 0);
+  const rawWish = Number(counts.wish ?? 0);
 
-    const rawHave = Number(counts.have ?? 0);
-    const rawWtt = Number(counts.wtt ?? 0);
-    const rawWts = Number(counts.wts ?? 0);
-    const rawOtw = Number(counts.on_its_way ?? 0);
-    const rawWish = Number(counts.wish ?? 0);
+  const wishFlag = rawWish > 0;
+  const have = wishFlag ? 0 : rawHave;
+  const wtt = wishFlag ? 0 : rawWtt;
+  const wts = wishFlag ? 0 : rawWts;
+  const otw = wishFlag ? 0 : rawOtw;
 
-    const wishFlag = rawWish > 0;
+  const stockTotal = have + wtt + wts + otw;
+  const basePlaceable = wishFlag ? 1 : stockTotal > 0 ? stockTotal : 0;
+  const placedCount = placedByItem[it.id] ? 1 : 0;
+  
+  // ✅ Definición de availableCount
+  const availableCount = Math.max(0, basePlaceable - placedCount);
+  // ✅ Definición de disabled
+  const disabled = availableCount <= 0;
+  // ✅ Definición de st (colores de estado)
+  const st = statusColors(counts);
 
-    const have = wishFlag ? 0 : rawHave;
-    const wtt = wishFlag ? 0 : rawWtt;
-    const wts = wishFlag ? 0 : rawWts;
-    const otw = wishFlag ? 0 : rawOtw;
+  // --- 2. LÓGICA DE BIAS ---
+  const biasList = (userBiases || []).map(Number);
+  const rawMember = it.member ?? it.member_name ?? "";
+  const lowerMember = String(rawMember).toLowerCase().trim();
+  const isMyBias = (it.member_id != null && biasList.includes(Number(it.member_id))) ||
+                  /\bot8\b/.test(lowerMember) ||
+                  biasList.some((biasId) => {
+                    const biasSlug = biasSlugById[Number(biasId)];
+                    return biasSlug ? memberMatches(rawMember, biasSlug) : false;
+                  });
 
-    const stockTotal = have + wtt + wts + otw;
-    const basePlaceable = wishFlag ? 1 : stockTotal > 0 ? stockTotal : 0;
+  // --- 3. DISEÑO VISUAL ANCHO ---
+  return (
+  <div
+    key={it.id}
+    style={{
+      width: "100%",
+      minHeight: isMobile ? 120 : 140, // Altura adaptada [cite: 3410]
+      display: "flex",
+      flexDirection: "column",
+      backgroundColor: "var(--bg-card)",
+      borderRadius: 20,
+      border: `2px solid ${st.border}`,
+      padding: isMobile ? "10px 12px" : "15px 20px", // Padding dinámico [cite: 3411]
+      boxShadow: "0 6px 18px color-mix(in srgb, var(--text-main) 4%, transparent)",
+      justifyContent: "space-between",
+      position: "relative",
+      transition: "all 0.25s ease-out",
+    }}
+  >
+    <div style={{ display: "flex", gap: isMobile ? 10 : 20, alignItems: "center", flex: 1 }}>
+      
+      {/* FOTO */}
+      <div style={{ 
+        width: isMobile ? 65 : 85, // Un poco más pequeña en móvil para dar aire al texto [cite: 3414]
+        aspectRatio: "1 / 1.4", 
+        borderRadius: 12, 
+        border: "1px solid var(--state-disabled-bg)", 
+        overflow: "hidden", 
+        flexShrink: 0,
+        position: "relative" 
+      }}>
+        <ImageWithExtensionFallback
+          src={it.image_url ?? "/mock-pcs/groups/not-available.png"}
+          alt=""
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+        {isMyBias && (
+          <div style={{ position: "absolute", left: 4, bottom: 4, zIndex: 3 }}>
+            <Heart size={isMobile ? 12 : 16} fill="var(--color-primary)" color="var(--color-primary)" strokeWidth={0} />
+          </div>
+        )}
+      </div>
 
-    const placedCount = placedByItem[it.id] ? 1 : 0;
-    const availableCount = Math.max(0, basePlaceable - placedCount);
+      {/* TEXTO: Quitamos el 'nowrap' para permitir 2 líneas */}
+      <div style={{ textAlign: "left", flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ 
+          fontWeight: 950, 
+          color: "var(--text-main)", 
+          fontSize: isMobile ? 14 : 16, 
+          marginBottom: 2, 
+          lineHeight: 1.1,
+          display: "-webkit-box",
+          WebkitLineClamp: 2, // Permite 2 líneas para el nombre si es necesario
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden"
+        }}>
+          {prettyMemberLabel(it.member ?? it.member_name ?? "") || it.name || `Item ${it.id}`}
+        </div>
 
-    const lines = formatTooltipLines(it.id, counts, placedCount, availableCount);
-    const tooltip = lines.join("\n");
-    const disabled = availableCount <= 0;
-    const st = statusColors(counts);
+        <div style={{ fontSize: isMobile ? 10 : 12, color: "var(--text-muted)", lineHeight: 1.3 }}>
+          <div style={{ marginBottom: 1 }}><b style={{ color: "var(--color-primary)" }}>{t("binders.picker.group")}:</b> {it.group_name}</div>
+          
+          {/* Álbum en 2 líneas */}
+          <div style={{ 
+            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", 
+            overflow: "hidden", textOverflow: "ellipsis" 
+          }}>
+            <b style={{ color: "var(--color-primary)" }}>{t("binders.picker.album")}:</b> {it.album_name}
+          </div>
 
-    // 1. Obtenemos la lista de IDs del cerebro global
-const biasList = (userBiases || []).map(Number);
-    const rawMember = it.member ?? it.member_name ?? "";
-    const lowerMember = String(rawMember).toLowerCase().trim();
+          {/* Versión en 2 líneas */}
+          <div style={{ 
+            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", 
+            overflow: "hidden", textOverflow: "ellipsis" 
+          }}>
+            <b style={{ color: "var(--color-primary)" }}>{t("binders.picker.version")}:</b> {it.version_name_display ?? it.version ?? "—"}
+          </div>
+        </div>
 
-    const isMyBias =
-      (it.member_id != null && biasList.includes(Number(it.member_id))) ||
-      /\bot8\b/.test(lowerMember) ||
-      biasList.some((biasId) => {
-        const biasSlug = biasSlugById[Number(biasId)];
-        if (!biasSlug) return false;
-        return memberMatches(rawMember, biasSlug);
-      });
+       {/* BADGES */}
+            <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {rawHave > 0 && (
+                <span style={{ background: "var(--state-success-bg)", border: "1px solid var(--state-success-border)", color: "var(--state-success-fg)", fontSize: 10, fontWeight: 900, padding: "2px 6px", borderRadius: 6 }}>
+                  {t("binders.statuses.have")}: {rawHave}
+                </span>
+              )}
+              {rawWtt > 0 && (
+                <span style={{ background: "var(--bg-soft)", border: "1px solid var(--color-secondary)", color: "var(--color-primary)", fontSize: 10, fontWeight: 900, padding: "2px 6px", borderRadius: 6 }}>
+                  WTT: {rawWtt}
+                </span>
+              )}
+              {rawWts > 0 && (
+                <span style={{ background: "var(--state-disabled-bg)", border: "1px solid var(--state-disabled-border)", color: "var(--text-muted)", fontSize: 10, fontWeight: 900, padding: "2px 6px", borderRadius: 6 }}>
+                  WTS: {rawWts}
+                </span>
+              )}
+              {rawOtw > 0 && ( // Ojo, usamos el rawOtw con cero que tienes definido en tu código
+                <span style={{ background: "var(--state-info-bg)", border: "1px solid var(--state-info-border)", color: "var(--state-info-fg)", fontSize: 10, fontWeight: 900, padding: "2px 6px", borderRadius: 6 }}>
+                  OTW: {rawOtw}
+                </span>
+              )}
+              {rawWish > 0 && (
+                <span style={{ background: "var(--state-warning-bg)", border: "1px solid var(--state-warning-border)", color: "var(--state-warning-fg)", fontSize: 10, fontWeight: 900, padding: "2px 6px", borderRadius: 6 }}>
+                  WISH
+                </span>
+              )}
+            </div>
+      </div>
+    </div>
 
-    return (
-      <div
-        key={it.id}
-        title={tooltip}
+    {/* PIE DE CARTA */}
+    <div style={{ 
+      marginTop: 8, 
+      borderTop: "1px solid var(--bg-main)", 
+      paddingTop: 8, 
+      display: "flex", 
+      alignItems: "center", 
+      justifyContent: "space-between" 
+    }}>
+      <div style={{ fontSize: isMobile ? 10 : 12, fontWeight: 950, color: "var(--text-main)" }}>
+        {t("binders.item_info.stock")}: {availableCount}
+      </div>
+      <button
+        type="button"
+        onClick={() => onPick(it.id)}
+        disabled={disabled}
         style={{
-          width: "100%",
-          minHeight: 210,
-          display: "flex",
-          flexDirection: "column",
-          position: "relative",
-          border: `1.5px solid ${
-            st.key === "wish"
-              ? st.border.replace("0.9", "0.3")
-              : st.border.replace("0.8", "0.15").replace("0.7", "0.1")
-          }`,
-          borderRadius: 14,
-          padding: 12,
-          backgroundColor: "#F2F2F2",
-          boxShadow: `0 2px 8px rgba(0,0,0,0.02)`,
-          transition: "all 0.25s ease-out",
-        }}
-        onMouseEnter={(e) => {
-          if (disabled) return;
-          e.currentTarget.style.transform = "translateY(-4px)";
-          e.currentTarget.style.borderColor = st.border;
-          e.currentTarget.style.boxShadow = `0 8px 20px ${st.border
-            .replace("0.8", "0.3")
-            .replace("0.7", "0.3")}`;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.borderColor = st.border
-            .replace("0.8", "0.2")
-            .replace("0.7", "0.15")
-            .replace("0.6", "0.1");
-          e.currentTarget.style.boxShadow = `0 2px 8px rgba(0,0,0,0.02)`;
+          background: disabled ? "var(--state-disabled-bg)" : "var(--bg-soft)",
+          color: disabled ? "var(--state-disabled-fg)" : "var(--color-primary)",
+          border: `1px solid ${disabled ? "var(--state-disabled-border)" : "var(--color-primary)"}`,
+          borderRadius: 8,
+          padding: isMobile ? "4px 10px" : "6px 20px",
+          fontSize: isMobile ? "11px" : "13px",
+          fontWeight: 900,
+          cursor: disabled ? "not-allowed" : "pointer",
         }}
       >
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flex: 1 }}>
-          <div
-            style={{
-              width: 66,
-              height: 120,
-              borderRadius: 14,
-              border: "1px solid #e7e7ef",
-              overflow: "hidden",
-              background: "transparent",
-              flex: "0 0 auto",
-              position: "relative",
-            }}
-          >
-            <img
-              src={it.image_url ?? "/mock-pcs/groupsui/not-available.png"}
-              alt=""
-              draggable={false}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-
-            {isMyBias && (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 4,
-                  bottom: 4,
-                  zIndex: 3,
-                  width: 18,
-                  height: 18,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  pointerEvents: "none",
-                  filter: "drop-shadow(0 1px 2px rgba(255,255,255,0.9))",
-                }}
-              >
-                <Heart size={14} fill="#F7A8D8" color="#F7A8D8" strokeWidth={0} />
-              </div>
-            )}
-          </div>
-
-          <div style={{ textAlign: "left", display: "flex", flexDirection: "column", paddingTop: 2 }}>
-            <div style={{ fontWeight: 950, color: "#232336", lineHeight: 1.2 }}>
-              {(() => {
-                const memberLabel = prettyMemberLabel(it.member ?? it.member_name ?? "");
-                const fallbackLabel = (it.name ?? "").trim();
-                const title = memberLabel || fallbackLabel || `Item ${it.id}`;
-                const parts = String(title).split(" + ").map((x) => x.trim()).filter(Boolean);
-
-                return (
-                  <div style={{ lineHeight: 1.15 }}>
-                    <div>{parts[0]}</div>
-                    {parts.length > 1 && <div>{parts.slice(1).join(" + ")}</div>}
-                  </div>
-                );
-              })()}
-            </div>
-
-            <div style={{ marginTop: 6, fontSize: 11, color: "#666", lineHeight: 1.35 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontWeight: 900, color: "#70708a" }}>Grupo:</span>
-                <span style={{ fontWeight: 800, color: "#232336" }}>
-                  {(it.group_name ?? "—").trim() || "—"}
-                </span>
-              </div>
-
-              <div style={{ marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontWeight: 900, color: "#70708a" }}>Álbum:</span>
-                <span style={{ fontWeight: 800, color: "#232336" }}>
-                  {(it.album_name ?? "—").trim() || "—"}
-                </span>
-              </div>
-
-              <div style={{ marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontWeight: 900, color: "#70708a" }}>Versión:</span>
-                <span style={{ fontWeight: 800, color: "#232336" }}>
-                  {(it.version_name_display ?? it.version_name ?? "—").trim() || "—"}
-                </span>
-              </div>
-
-              {(() => {
-                const badges =
-                  counts.wish > 0
-                    ? [{ key: "wish", label: "WISH", bg: "#fff7cc", border: "#f1d86a" }]
-                    : [
-                        counts.have > 0
-                          ? { key: "have", label: `HAVE ${counts.have}`, bg: "#e8fff0", border: "#9fe0b5" }
-                          : null,
-                        counts.wtt > 0
-                          ? { key: "wtt", label: `WTT ${counts.wtt}`, bg: "#f3e8ff", border: "#c9a7ff" }
-                          : null,
-                        counts.wts > 0
-                          ? { key: "wts", label: `WTS ${counts.wts}`, bg: "#f2f2f2", border: "#ddd" }
-                          : null,
-                        counts.on_its_way > 0
-                          ? {
-                              key: "on_its_way",
-                              label: `OTW ${counts.on_its_way}`,
-                              bg: "#e8f3ff",
-                              border: "#9cc8ff",
-                            }
-                          : null,
-                      ].filter(Boolean) as Array<{
-                        key: string;
-                        label: string;
-                        bg: string;
-                        border: string;
-                      }>;
-
-                const compact = badges.length >= 4;
-                const ultraCompact = badges.length >= 5;
-
-                return (
-                  <div
-                    style={{
-                      marginTop: 6,
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 4,
-                      minHeight: 42,
-                      alignContent: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {badges.map((b) => (
-                      <span
-                        key={b.key}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          maxWidth: "100%",
-                          fontSize: ultraCompact ? 9 : compact ? 10 : 11,
-                          lineHeight: 1,
-                          padding: ultraCompact ? "2px 5px" : compact ? "2px 6px" : "3px 8px",
-                          borderRadius: 999,
-                          border: `1px solid ${b.border}`,
-                          backgroundColor: b.bg,
-                          color: "#333",
-                          fontWeight: 900,
-                          letterSpacing: 0.15,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {b.label}
-                      </span>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: 8,
-            marginBottom: 2,
-            fontSize: 12,
-            fontWeight: 900,
-            color: "#3b4a66",
-            textAlign: "center",
-            letterSpacing: 0.2,
-          }}
-        >
-          Disponibles: {availableCount}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onPick(it.id)}
-          disabled={disabled}
-          style={{
-            ...pickBtnStyle,
-            cursor: disabled ? "not-allowed" : "pointer",
-            background: disabled ? "#f4f4f4" : pickBtnStyle.background,
-          }}
-        >
-          {disabled ? "No disponible" : "Elegir"}
-        </button>
-      </div>
-    );
-         })}
-      </div>
+        {disabled ? t("binders.picker.not_available") : t("binders.picker.select_button")}
+      </button>
+    </div>
+  </div>
+);
+})}
+</div>
 
       {!loading && !err && filtered.length === 0 && (
-        <div style={{ marginTop: 10, color: "#777" }}>
-          No hay resultados para este filtro.
+        <div style={{ marginTop: 10, color: "var(--text-muted)" }}>
+          {t("binders.picker.no_results")}
         </div>
       )}
     </div>
@@ -1460,6 +1420,7 @@ type SlotItem = {
   custom_text?: string | null;
   custom_image_url?: string | null;
   custom_back_image_url?: string | null;
+  custom_color?: string | null;
 };
 const DUMMY_ITEM_ID = 999999; // id "virtual" para la PC custom (no necesita existir en DB si usamos localStorage)
 
@@ -1579,6 +1540,8 @@ type UndoSnapshot = {
   allPageSlots: Record<
         number,
         Array<{
+            is_wanted(is_wanted: any): unknown;
+            member_id: null;
             slot_index: number;
             item_id: number | null;
             face: "front" | "back";
@@ -1636,7 +1599,7 @@ const skzooImgStyle: CSSProperties = {
  width: "100%",
  height: "100%",
  objectFit: "contain",
- filter: "drop-shadow(2px 2px 3px rgba(0,0,0,0.3))",
+ filter: "drop-shadow(2px 2px 3px var(--overlay-soft))",
  userSelect: "none",
 };
 const menuBtnStyle: CSSProperties = { 
@@ -1647,13 +1610,13 @@ const menuBtnStyle: CSSProperties = {
   borderRadius: 10, 
   cursor: "pointer", 
   fontWeight: 900, 
-  color: "#8C659C", 
+  color: "var(--color-primary)", 
   fontSize: 14 
 };
 
 const footerColumnTitle: CSSProperties = { 
   fontSize: "13px", 
-  color: "#8C659C", 
+  color: "var(--color-primary)", 
   fontWeight: 900, 
   textTransform: "uppercase", 
   marginBottom: "15px", 
@@ -1662,257 +1625,269 @@ const footerColumnTitle: CSSProperties = {
 
 const footerLinkStyle: CSSProperties = { 
   fontSize: "12px", 
-  color: "#b17eac", 
+  color: "var(--text-muted)", 
   textDecoration: "none", 
   fontWeight: 500, 
   marginBottom: "8px", 
   display: "block" 
 };
-export default function BinderClient() { 
+export default function BinderClient() {
+  // 1. Hooks de Next al principio
+  const router = useRouter(); 
+  const pathname = usePathname(); 
+  const searchParams = useSearchParams(); 
+const { userBiases, checkIsBias, profile, showAlert, showConfirm, t, refreshGlobal } = useGlobal();
+  const binderFxCurrencyOptions = useMemo(
+    () => getCurrencyOptions(profile?.language ?? "es"),
+    [profile?.language],
+  );
+
+ // 1. ESTADOS BÁSICOS Y DE USUARIO
+  const [loading, setLoading] = useState(true); 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const router = useRouter();
-  
-  const pathname = usePathname();
-  // Estado para forzar el remount del preview
-  const [showPreview, setShowPreview] = useState(true);
-  // 1. Pon esta función fuera para que no de error
-function memberMatches(rawMember: string, biasSlug: string): boolean {
-  if (!rawMember || !biasSlug) return false;
-  
-  // Normalización: minúsculas y quitar puntos/guiones
-  const member = rawMember.toLowerCase().replace(/[.\-_]/g, " ").trim();
-  const bias = biasSlug.toLowerCase().replace(/[.\-_]/g, " ").trim();
-  
-  // Regla de oro para I.N (8)
-  if (bias === "in" || bias === "i n") {
-    // Busca la palabra "in" aislada o el nombre real "jeongin"
-    return /\bin\b/i.test(member) || member.includes("jeongin");
-  }
+const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
+  const [binderColor, setBinderColor] = useState<string>("var(--color-primary)");
+  const [coverUrl, setCoverUrl] = useState<string | null>(null); 
+  const [email, setEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  // --- LIMITES INTELIGENTES ---
+  const [userPlan, setUserPlan] = useState("free");
+  const [extraPages, setExtraPages] = useState(0);
+  const [extraSeparators, setExtraSeparators] = useState(0);
 
-  // Para el resto (Bang Chan, etc.), usamos límites de palabra para evitar falsos positivos
-  const regex = new RegExp(`\\b${bias}\\b`, "i");
-  return regex.test(member);
-}
- const topBtnStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "10px 16px",
-  borderRadius: 999,
-  border: "1px solid #F7A8D8", // Borde rosa
-  background: "white",
-  color: "#8C659C",            // Texto púrpura del logo
-  fontWeight: 900,
-  fontSize: 14,
-  cursor: "pointer",
-  textDecoration: "none",
-  boxShadow: "0 4px 12px rgba(247, 168, 216, 0.15)", // Sombra rosada muy sutil
-  transition: "all 0.2s ease"
-};
-const softPinkBtnStyle: CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid #F7A8D8",
-  background: "#FFF5FA",
-  color: "#8C659C",
-  cursor: "pointer",
-  fontWeight: 900,
-  boxShadow: "0 4px 12px rgba(247,168,216,0.14)",
-  transition: "all 0.15s ease",
-};
-
-const whitePinkBtnStyle: CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 10,
-  border: "1px solid #F7A8D8",
-  background: "white",
-  color: "#8C659C",
-  cursor: "pointer",
-  fontWeight: 900,
-  boxShadow: "0 4px 12px rgba(247,168,216,0.10)",
-  transition: "all 0.15s ease",
-};
-
-const tradeInputStyle: CSSProperties = {
-  height: 34,
-  padding: "6px 10px",
-  borderRadius: 10,
-  border: "1px solid #F3DCE7",
-  background: "white",
-  fontSize: 13,
-  color: "#2F2740",
-};
-
-const tradeLabelStyle: CSSProperties = {
-  fontSize: 12,
-  color: "#8C659C",
-  fontWeight: 900,
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-};
-
-const tradeMutedTextStyle: CSSProperties = {
-  fontSize: 12,
-  color: "#70708a",
-  fontWeight: 900,
-};
- const [skzooQuery, setSkzooQuery] = useState("");
- const [cursorQuery, setCursorQuery] = useState("");
-const [favorites, setFavorites] = useState<string[]>(() => {
-  if (typeof window === "undefined") return [];
-  try {
-    const saved = localStorage.getItem("binder:favorite-cursors");
-    return saved ? JSON.parse(saved) : [];
-  } catch { return []; }
-});
-
-
-// Función corregida para evitar el error de tipado
-const toggleFavorite = (e: React.MouseEvent, id: string) => {
-  e.stopPropagation();
-  setFavorites((prev) => {
-    const isFav = prev.includes(id);
-    const next = isFav ? prev.filter((itemId) => itemId !== id) : [...prev, id];
-    localStorage.setItem("binder:favorite-cursors", JSON.stringify(next));
-    return next;
-  });
-};
-// Handler for confirming photocard deletion in modal
-const handleConfirmDeletePC = async () => {
-  setShowPreview(false);
-
-  if (modalSlotIndex == null || pageId == null) return;
-
-  const assigned = slotItems[modalSlotIndex] ?? null;
-
-  const result = await persistSlotState(modalSlotIndex, { kind: "empty" }, 0, false);
-  if (!result.ok) {
-    setStatus("Error eliminando photocard: " + (result.error || "desconocido"));
-    setError(result.error || "Error eliminando photocard");
-    setTimeout(() => setShowPreview(true), 100);
-    return;
-  }
-
-  setSlotItems((prev) => {
-    const next = { ...prev };
-    delete next[modalSlotIndex];
-    return next;
-  });
-
-  setSlotRot((prev) => {
-    const next = { ...prev };
-    delete next[modalSlotIndex];
-    return next;
-  });
-
-  setSlotFlipH((prev) => {
-    const next = { ...prev };
-    delete next[modalSlotIndex];
-    return next;
-  });
-
-  setSlotFace((prev) => {
-    const next = { ...prev };
-    delete next[modalSlotIndex];
-    return next;
-  });
-
-  setSlotCustom((prev) => {
-    const next = { ...prev };
-    delete next[modalSlotIndex];
-    return next;
-  });
-
-  setSlotZoom((prev) => {
-    const next = { ...prev };
-    delete next[modalSlotIndex];
-    return next;
-  });
-setRefreshTick((t) => t + 1); 
-  await loadPageThumbs(); 
-  setTimeout(() => setShowPreview(true), 100); 
-  closeItemModal(); 
+  const MAX_ALLOWED_PAGES = (userPlan === 'anual' ? 60 : userPlan === 'mensual' ? 30 : 12) + extraPages;
+  const MAX_ALLOWED_SEPARATORS = (userPlan === 'anual' ? 30 : userPlan === 'mensual' ? 15 : 5) + extraSeparators;
  
- // LIBERA LA PC PARA EL PICKER: Actualiza el contador local de cartas colocadas
-  if (assigned && assigned.id != null) {
-    setPlacedByItem((prev) => {
-      const next = { ...prev };
-      const currentCount = next[assigned.id] ?? 0;
-      if (currentCount > 1) {
-        next[assigned.id] = currentCount - 1;
-      } else {
-        delete next[assigned.id];
-      }
-      return next;
-    });
-  };
 
-  // ✅ borrar la miniatura exacta del slot
-  setPageThumbs((prev) => {
-    const next = { ...prev };
-    if (!next[pageId]) return next;
-
-    const thumbs = { ...next[pageId] };
-    delete thumbs[modalSlotIndex];
-
-    if (Object.keys(thumbs).length === 0) {
-      delete next[pageId];
-    } else {
-      next[pageId] = thumbs;
-    }
-
-    return next;
-  });
-
-  setRefreshTick((t) => t + 1);
-  await loadPageThumbs();
-
-  setTimeout(() => setShowPreview(true), 100);
-  closeItemModal();
-};
-  // Duplicate declaration removed. The function 'closeItemModal' is already defined above.
-
-  const searchParams = useSearchParams();
-
-  // ...
- const binderFromUrl = searchParams.get("binder");
-const binderFromUrlNum = binderFromUrl ? Number(binderFromUrl) : NaN;
- const [email, setEmail] = useState<string | null>(null);
-
-const [userId, setUserId] = useState<string | null>(null);
-
-const [loading, setLoading] = useState(true);
-const { userBiases, checkIsBias } = useGlobal();
-
-
-  const [status, setStatus] = useState("Cargando binder...");
-  useEffect(() => {
-  
-    const timer = setTimeout(() => {
-      setStatus("");
-    }, 3000); 
-    return () => clearTimeout(timer);
-  });
-const [showOnboarding, setShowOnboarding] = useState(false); // ✅ Esto ya lo tienes, solo asegúrate de no borrarlo
+  const isAdmin = isAdminTeamEmail((profile as { email?: string | null } | null)?.email);
+  const [isMobile, setIsMobile] = useState(false); // ✅ Única declaración
+  const [status, setStatus] = useState("");         // ✅ Única declaración
   const [error, setError] = useState<string | null>(null);
+
+  // 2. PARÁMETROS DE URL Y PREVIEW
+  const binderFromUrl = searchParams.get("binderId");
+  const binderFromUrlNum = binderFromUrl ? Number(binderFromUrl) : NaN;
+  const isViewMode = searchParams.get("view") === "true"; 
+  const [previewBinderOpen, setPreviewBinderOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+
+  // 3. ESTADOS DEL BINDER Y PÁGINAS
   const [binderId, setBinderId] = useState<number | null>(null);
   const [pageId, setPageId] = useState<number | null>(null);
-
   const [pagesCount, setPagesCount] = useState<number>(0);
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [binderPages, setBinderPages] = useState<
     Array<{ id: number; page_index: number; layout_type: LayoutType }>
   >([]);
   const [pagesOpen, setPagesOpen] = useState(false);
-// ✅ Thumbs (para carrusel)
-// (removed duplicate declaration of pageThumbs)
-const [refreshTick, setRefreshTick] = useState(0);
-const [buyPagesOpen, setBuyPagesOpen] = useState(false);
-const [isShifting, setIsShifting] = useState(false);
-const [hoverSeam, setHoverSeam] = useState<number | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [buyPagesOpen, setBuyPagesOpen] = useState(false);
+  const [buySeparatorsOpen, setBuySeparatorsOpen] = useState(false);
+  const [isShifting, setIsShifting] = useState(false);
+  const [hoverSeam, setHoverSeam] = useState<number | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
+  // 4. EFECTOS (Separados y en orden correcto)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setStatus("");
+    }, 3000); 
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  useEffect(() => {
+    if (isViewMode && !loading && binderPages.length > 0) {
+      setPreviewBinderOpen(true);
+    }
+  }, [isViewMode, loading, binderPages.length]);
+
+  // 5. FUNCIONES AUXILIARES
+  function memberMatches(rawMember: string, biasSlug: string): boolean {
+    if (!rawMember || !biasSlug) return false;
+    const member = rawMember.toLowerCase().replace(/[.\-_]/g, " ").trim();
+    const bias = biasSlug.toLowerCase().replace(/[.\-_]/g, " ").trim();
+    if (bias === "in" || bias === "i n") {
+      return /\bin\b/i.test(member) || member.includes("jeongin");
+    }
+    const regex = new RegExp(`\\b${bias}\\b`, "i");
+    return regex.test(member);
+  }
+
+  // 6. ESTILOS DE BOTONES
+  const topBtnStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 16px",
+    borderRadius: 999,
+    border: "1px solid var(--binder-btn-outline-border)",
+    background: "var(--binder-btn-outline-bg)",
+    color: "var(--binder-btn-outline-fg)",
+    fontWeight: 900,
+    fontSize: 14,
+    cursor: "pointer",
+    textDecoration: "none",
+    boxShadow: "var(--binder-btn-outline-shadow)",
+    transition: "all 0.2s ease"
+  };
+
+  const softPinkBtnStyle: CSSProperties = {
+    padding: "8px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--color-primary)",
+    background: "var(--bg-soft)",
+    color: "var(--color-primary)",
+    cursor: "pointer",
+    fontWeight: 900,
+    boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 14%, transparent)",
+    transition: "all 0.15s ease",
+  };
+
+  const whitePinkBtnStyle: CSSProperties = {
+    padding: "8px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--color-primary)",
+    background: "var(--bg-card)",
+    color: "var(--color-primary)",
+    cursor: "pointer",
+    fontWeight: 900,
+    boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 10%, transparent)",
+    transition: "all 0.15s ease",
+  };
+
+  const tradeInputStyle: CSSProperties = {
+    height: 34,
+    padding: "6px 10px",
+    borderRadius: 10,
+    border: "1px solid var(--color-border)",
+    background: "var(--bg-card)",
+    fontSize: 13,
+    color: "var(--text-main)",
+  };
+
+  const tradeLabelStyle: CSSProperties = {
+    fontSize: 12,
+    color: "var(--color-primary)",
+    fontWeight: 900,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  };
+
+  const tradeMutedTextStyle: CSSProperties = {
+    fontSize: 12,
+    color: "var(--text-muted)",
+    fontWeight: 900,
+  };
+
+  const [skzooQuery, setSkzooQuery] = useState("");
+  const [cursorQuery, setCursorQuery] = useState("");
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem("binder:favorite-cursors");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  const toggleFavorite = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setFavorites((prev) => {
+      const isFav = prev.includes(id);
+      const next = isFav ? prev.filter((itemId) => itemId !== id) : [...prev, id];
+      localStorage.setItem("binder:favorite-cursors", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // 7. LÓGICA DE ELIMINACIÓN Y MINIATURAS
+  const handleConfirmDeletePC = async () => {
+    setShowPreview(false);
+    if (modalSlotIndex == null || pageId == null) return;
+    const assigned = slotItems[modalSlotIndex] ?? null;
+
+    const result = await persistSlotState(modalSlotIndex, { kind: "empty" }, 0, false);
+    if (!result.ok) {
+      setStatus("Error eliminando photocard: " + (result.error || "desconocido"));
+      setError(result.error || "Error eliminando photocard");
+      setTimeout(() => setShowPreview(true), 100);
+      return;
+    }
+
+    setSlotItems((prev) => {
+      const next = { ...prev };
+      delete next[modalSlotIndex];
+      return next;
+    });
+
+    setSlotRot((prev) => {
+      const next = { ...prev };
+      delete next[modalSlotIndex];
+      return next;
+    });
+
+    setSlotFlipH((prev) => {
+      const next = { ...prev };
+      delete next[modalSlotIndex];
+      return next;
+    });
+
+    setSlotFace((prev) => {
+      const next = { ...prev };
+      delete next[modalSlotIndex];
+      return next;
+    });
+
+    setSlotCustom((prev) => {
+      const next = { ...prev };
+      delete next[modalSlotIndex];
+      return next;
+    });
+
+    setSlotZoom((prev) => {
+      const next = { ...prev };
+      delete next[modalSlotIndex];
+      return next;
+    });
+
+    if (assigned && assigned.id != null) {
+      setPlacedByItem((prev) => {
+        const next = { ...prev };
+        const currentCount = next[assigned.id] ?? 0;
+        if (currentCount > 1) {
+          next[assigned.id] = currentCount - 1;
+        } else {
+          delete next[assigned.id];
+        }
+        return next;
+      });
+    };
+
+    setPageThumbs((prev) => {
+      const next = { ...prev };
+      if (!next[pageId]) return next;
+      const thumbs = { ...next[pageId] };
+      delete thumbs[modalSlotIndex];
+      if (Object.keys(thumbs).length === 0) {
+        delete next[pageId];
+      } else {
+        next[pageId] = thumbs;
+      }
+      return next;
+    });
+
+    setRefreshTick((t) => t + 1);
+    await loadPageThumbs();
+    setTimeout(() => setShowPreview(true), 100);
+    closeItemModal();
+  };
 // Estructura preparada para el futuro
 const CURSOR_GROUPS = [
   {
@@ -1953,23 +1928,33 @@ const modalUndoStackRef = useRef<ModalUndoSnapshot[]>([]);
 const backAllBtnRef = useRef<HTMLButtonElement | null>(null);
 const [wtsListingItemId, setWtsListingItemId] = useState<number | null>(null);
 const [wtsListingModalOpen, setWtsListingModalOpen] = useState(false);
-
+// 👇 NUEVOS ESTADOS PARA WTT 👇
+              const [wttListingItemId, setWttListingItemId] =
+useState<number | null>(null);
+const [wttListingModalOpen,
+setWttListingModalOpen] = useState(false);
+const [resumeWttListingAfterLegacyPicker, setResumeWttListingAfterLegacyPicker] =
+useState(false);
 // ✅ Precio (localStorage por itemId)
-const [priceByItem, setPriceByItem] = useState<Record<number, string>>({});
-const [currencyByItem, setCurrencyByItem] = useState<Record<number, string>>({});
-const [marketByItem, setMarketByItem] = useState<Record<number, string>>({});
+const [priceByItem, setPriceByItem] = useState<Record<number,
+string>>({});
+const [currencyByItem, setCurrencyByItem] =
+useState<Record<number, string>>({});
+const [marketByItem, setMarketByItem] =
+useState<Record<number, string>>({});
 // ✅ Moneda del precio WTS (independiente del selector de conversión)
-const [wtsCurrencyByItem, setWtsCurrencyByItem] = useState<Record<number, string>>({});
+const [wtsCurrencyByItem, setWtsCurrencyByItem] =
+useState<Record<number, string>>({});
 // ✅ Notas (localStorage por itemId)
-const [notesByItem, setNotesByItem] = useState<Record<number, string>>({});
-
+const [notesByItem, setNotesByItem] = useState<Record<number,
+string>>({});
 // ✅ Keys + LS helpers (DEBEN ir antes de handleWtsListingSaved)
-  const priceKey = useCallback((itemId: number) => `binder:price:${itemId}`, []);
-  const currencyKey = useCallback((itemId: number) => `binder:currency:${itemId}`, []);
-  const marketKey = useCallback((itemId: number) => `binder:market:${itemId}`, []);
-  const wtsCurrencyKey = useCallback((itemId: number) => `binder:wtsCurrency:${itemId}`, []);
+const priceKey = useCallback((itemId: number) => `binder:price:${itemId}`, []);
+const currencyKey = useCallback((itemId: number) => `binder:currency:${itemId}`, []);
+const marketKey = useCallback((itemId: number) => `binder:market:${itemId}`, []);
+const wtsCurrencyKey = useCallback((itemId: number) => `binder:wtsCurrency:${itemId}`, []);
 const notesKey = useCallback((itemId: number) => `binder:notes:${itemId}`, []);
-
+const wttMessageKey = useCallback((itemId: number) => `binder:wttMessage:${itemId}`, []);
 const readLS = useCallback((k: string) => {
   try {
     return localStorage.getItem(k) ?? "";
@@ -1977,10 +1962,14 @@ const readLS = useCallback((k: string) => {
     return "";
   }
 }, []);
-
 const writeLS = useCallback((k: string, v: string) => {
   try {
-    localStorage.setItem(k, v);
+    const cleanValue = String(v ?? "");
+    if (cleanValue.trim()) {
+      localStorage.setItem(k, cleanValue);
+    } else {
+      localStorage.removeItem(k);
+    }
   } catch {}
 }, []);
 
@@ -2015,7 +2004,7 @@ const ensurePriceMarketLoaded = useCallback(
       return { ...prev, [itemId]: v || "EUR" };
     });
 
-    setMarketByItem((prev) => {
+   setMarketByItem((prev) => {
       const has = Object.prototype.hasOwnProperty.call(prev, itemId);
       const cur = has ? String((prev as any)[itemId] ?? "") : "";
       if (has && cur.trim() !== "") return prev;
@@ -2034,54 +2023,68 @@ const ensurePriceMarketLoaded = useCallback(
     });
   },
   [readLS, priceKey, currencyKey, wtsCurrencyKey, marketKey, notesKey]
-
 );
 
 const handleWtsListingSaved = useCallback(async () => {
- if (!userId) return;
- if (wtsListingItemId == null) return;
- const itemId = wtsListingItemId;
+  if (!userId || wtsListingItemId == null) return;
+  const itemId = wtsListingItemId;
 
- await pushModalUndoSnapshot(itemId);
+  await pushModalUndoSnapshot(itemId);
 
- // 1⃣ Asegurar WTS en base de datos
- const up = await supabase
-  .from("user_item_statuses")
-  .upsert(
-   [{ user_id: userId, item_id: itemId, status: "wts", qty: 1 }] as any,
-   { onConflict: "user_id,item_id,status" }
-  );
- if (!up.error) {
-  setInvByItem((prev) => {
-   const current = prev?.[itemId] ?? emptyCounts();
-   return {
+  // 1. Obtener y limpiar el valor del precio
+  const rawPrice = readLS(priceKey(itemId));
+  const cleanPrice = rawPrice ? parseFloat(String(rawPrice).replace(',', '.')) : null;
+  
+  // 2. Obtener valores con defaults seguros (incluyendo los nuevos campos)
+  const currencyValue = readLS(wtsCurrencyKey(itemId)) || "EUR";
+  const countryValue = readLS(marketKey(itemId)) || "España";
+  
+  // NUEVOS CAMPOS: Leemos con un localStorage directo porque son exclusivos del modal
+  const shippingValue = localStorage.getItem(`binder:shipping:${itemId}`) || "Worldwide";
+  const negotiableValue = localStorage.getItem(`binder:negotiable:${itemId}`) === "true";
+  const commentValue = localStorage.getItem(`binder:comment:${itemId}`) || "";
+
+  console.log("Intentando guardar anuncio:", { itemId, cleanPrice, currencyValue, countryValue, shippingValue, negotiableValue, commentValue });
+
+  // 3. Upsert a Supabase con todos los campos nuevos
+  const { error: upError } = await supabase
+    .from("user_item_statuses")
+    .upsert(
+      [{ 
+        user_id: userId, 
+        item_id: itemId, 
+        status: "wts", 
+        qty: 1,
+        price: cleanPrice,
+        currency: currencyValue,
+        origin_country: countryValue,
+        shipping_to: shippingValue,
+        wts_negotiable: negotiableValue,
+        market_comment: commentValue
+      }] as any, 
+      { onConflict: "user_id,item_id,status" }
+    );
+
+  if (upError) {
+    console.error("Error de Supabase:", upError);
+    setError("No se pudo guardar: " + upError.message);
+    return;
+  }
+
+  // 4. Si no hay error, actualizamos la UI local
+  setInvByItem((prev) => ({
     ...prev,
-    [itemId]: { ...current, wts: 1 },
-   };
-  });
- }
+    [itemId]: { ...(prev?.[itemId] ?? emptyCounts()), wts: 1 },
+  }));
 
- // 2⃣ Refrescar precio desde localStorage
- const latestPrice = readLS(priceKey(itemId));
- const latestWtsCur = readLS(wtsCurrencyKey(itemId)) || "EUR";
- setPriceByItem((p) => ({ ...p, [itemId]: latestPrice }));
- setWtsCurrencyByItem((p) => ({ ...p, [itemId]: latestWtsCur }));
- setCurrencyByItem((p) => ({ ...p, [itemId]: latestWtsCur }));
+  setPriceByItem((p) => ({ ...p, [itemId]: String(cleanPrice || "") }));
+  setMarketByItem((p) => ({ ...p, [itemId]: countryValue }));
 
- // 3⃣ Asegurar carga perezosa si no estaba
- ensurePriceMarketLoaded(itemId);
+  setWtsListingModalOpen(false); // ✅ Cierre forzado tras éxito
+  setStatus("¡Anuncio publicado en el Market!");
+  await avisarFavoritos(userId, 'market_id', wtsListingItemId);
 
- // 4⃣ Cerrar modal
- setWtsListingModalOpen(false);
-}, [
- userId,
- wtsListingItemId,
- supabase,
- readLS,
- priceKey,
- wtsCurrencyKey,
- ensurePriceMarketLoaded,
-]);
+}, [userId, wtsListingItemId, supabase, readLS, priceKey, wtsCurrencyKey, marketKey, pushModalUndoSnapshot, emptyCounts]);
 
 // ---------------------
 // Drag UI (páginas)
@@ -2092,8 +2095,6 @@ const openWtsListingModal = useCallback((itemId: number) => {
 }, []);
 
 const [modalItemId, setModalItemId] = useState<number | null>(null);
-// ✅ Handler cuando se guarda el modal “Publicar venta”
-
 
   const [modalSlotIndex, setModalSlotIndex] = useState<number | null>(null);
   const [modalAssignedStable, setModalAssignedStable] = useState<SlotItem | null>(null);
@@ -2147,7 +2148,16 @@ const getFxRate = useCallback(
       setFxPairRate((p) => ({ ...p, [key]: 1 }));
       return 1;
     }
-
+// Bloqueo de scroll del body cuando hay modales abiertos
+// Solo bloquear el scroll del body si hay algún modal abierto, pero nunca hacer scrollTo(0,0)
+useEffect(() => {
+  const isAnyModalOpen = itemModalOpen || pagesOpen || wttOfferOpen || wttWantOpen || buyPagesOpen || stockModalOpen || wtsListingModalOpen;
+  if (isAnyModalOpen) {
+    document.body.style.overflow = "hidden";
+  } else {
+    document.body.style.overflow = "";
+  }
+}, [itemModalOpen, pagesOpen, wttOfferOpen, wttWantOpen, buyPagesOpen, stockModalOpen, wtsListingModalOpen]);
     // cache
     const cached = fxPairRate[key];
     if (Number.isFinite(cached) && cached > 0) return cached;
@@ -2448,6 +2458,16 @@ async function doModalUndo(): Promise<void> {
 
 
   const [pageReorderBusy, setPageReorderBusy] = useState(false);
+
+
+
+
+
+
+
+
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedForDeletion, setSelectedForDeletion] = useState<number[]>([]);
   const [draggingPageId, setDraggingPageId] = useState<number | null>(null);
 const [dragOverPageId, setDragOverPageId] = useState<number | null>(null);
 const [isPageDragging, setIsPageDragging] = useState(false);
@@ -2481,6 +2501,7 @@ const [isPageDragging, setIsPageDragging] = useState(false);
   const wttOfferScrollRef = useRef<HTMLDivElement | null>(null);
 const wttOfferScrollSnapshotRef = useRef<{ top: number; left: number } | null>(null);
   const [wttOfferGroup, setWttOfferGroup] = useState<number | "">("");
+  const [showWttFilters, setShowWttFilters] = useState(false);
   const [wttOfferAlbum, setWttOfferAlbum] = useState<number | "">("");
   const [wttOfferVersion, setWttOfferVersion] = useState<string>("");
   const [wttOfferMember, setWttOfferMember] = useState<string>("");
@@ -2496,8 +2517,9 @@ const wttOfferScrollSnapshotRef = useRef<{ top: number; left: number } | null>(n
   const [wttWantAlbumNames, setWttWantAlbumNames] = useState<Record<number, string>>({});
   const [wttWantAlbumRelease, setWttWantAlbumRelease] = useState<Record<number, string | null>>({});
   const [slotFace, setSlotFace] = useState<Record<number, "front" | "back">>({});
-  const wttSearchRef = React.useRef<HTMLInputElement | null>(null);
-  const wttGridRef = React.useRef<HTMLDivElement | null>(null);
+ const wttSearchRef = React.useRef<HTMLInputElement | null>(null);
+const wttWantScrollRef = React.useRef<HTMLDivElement | null>(null);
+const wttWantScrollSnapshotRef = React.useRef<{ top: number; left: number } | null>(null);
 
  
 
@@ -2535,7 +2557,15 @@ useEffect(() => {
       return [] as number[];
     }
   }, []);
+const closeLegacyWttPicker = useCallback(() => {
+  setWttWantOpen(false);
 
+  if (resumeWttListingAfterLegacyPicker) {
+    setStockModalOpen(true);
+    setWttListingModalOpen(true);
+    setResumeWttListingAfterLegacyPicker(false);
+  }
+}, [resumeWttListingAfterLegacyPicker]);
   const writeWttWanted = useCallback((itemId: number, ids: number[]) => {
     try {
       if (!ids.length) {
@@ -2591,50 +2621,151 @@ useEffect(() => {
   );
 
  useEffect(() => {
-  if (!wttOfferOpen) return;
-  requestAnimationFrame(() => wttOfferQRef.current?.focus());
+ if (!wttOfferOpen) return;
+ requestAnimationFrame(() => wttOfferQRef.current?.focus());
 }, [wttOfferOpen]);
+
+// ✅ REPARADO: Snapshot de scroll para el modal "Mis trades (WTT Offer)"
 React.useLayoutEffect(() => {
   const snap = wttOfferScrollSnapshotRef.current;
   const el = wttOfferScrollRef.current;
   if (!snap || !el) return;
 
+  // Restauración inmediata
   el.scrollTop = snap.top;
   el.scrollLeft = snap.left;
 
-  wttOfferScrollSnapshotRef.current = null;
+  // Refuerzo en el siguiente frame para asegurar la posición tras el pintado de React
+  requestAnimationFrame(() => {
+    const el2 = wttOfferScrollRef.current;
+    if (!el2) return;
+    el2.scrollTop = snap.top;
+    el2.scrollLeft = snap.left;
+    wttOfferScrollSnapshotRef.current = null;
+  });
 }, [wttOfferDraft]);
+
+// ✅ MANTENER: Snapshot de scroll para el modal "Busco en WTT (WTT Want)"
+React.useLayoutEffect(() => {
+  const snap = wttWantScrollSnapshotRef.current;
+  const el = wttWantScrollRef.current;
+  if (!snap || !el) return;
+
+  el.scrollTop = snap.top;
+  el.scrollLeft = snap.left;
+
+  requestAnimationFrame(() => {
+    const el2 = wttWantScrollRef.current;
+    if (!el2) return;
+    el2.scrollTop = snap.top;
+    el2.scrollLeft = snap.left;
+    wttWantScrollSnapshotRef.current = null;
+  });
+}, [wttWantDraft]);
+
 const saveWttWantDraft = useCallback(async () => {
-  if (wttWantForId == null) return;
+  if (wttWantForId == null || !userId) return;
+  
   await pushModalUndoSnapshot(wttWantForId);
+
+  // 1. Guardamos localmente (como ya hacías)
   setWttWantedByItem((prev) => ({ ...prev, [wttWantForId]: wttWantDraft }));
   writeWttWanted(wttWantForId, wttWantDraft);
-  setWttWantOpen(false);
-}, [wttWantForId, wttWantDraft, writeWttWanted, pushModalUndoSnapshot]);
 
-const saveWttOfferDraft = useCallback(async () => {
-  if (wttOfferForId == null) return;
-  await pushModalUndoSnapshot(wttOfferForId);
+  // 2. RECUPERAMOS EL PAÍS (para que el anuncio en Market no salga NULL)
+  const countryValue = localStorage.getItem(`binder:market:${wttWantForId}`) || "España";
+  const commentValue = localStorage.getItem(`binder:wttMessage:${wttWantForId}`) || ""; // 👈 AÑADE ESTO
 
-  const qty = Number.isFinite(wttOfferQtyDraft)
-    ? Math.max(0, Math.floor(wttOfferQtyDraft))
-    : 0;
+  // 3. SUBIMOS A SUPABASE: Guardamos el estado WTT y la lista de IDs que busca
+  const { error } = await supabase
+    .from("user_item_statuses")
+    .upsert([{
+      user_id: userId,
+      item_id: wttWantForId,
+      status: "wtt",
+      qty: 1,
+      origin_country: countryValue,
+      wtt_ids: wttWantDraft,
+      market_comment: commentValue // 👈 AÑADE ESTO
+    }] as any, { onConflict: "user_id,item_id,status" });
 
-  const nextIds = qty > 0 ? wttOfferDraft : [];
-// Sustituye o añade antes de setWttOfferOpen(false):
-setStatus("¡Stock de WTT actualizado! 🔄");
-  setWttOfferByItem((prev) => ({ ...prev, [wttOfferForId]: nextIds }));
-  writeWttOffer(wttOfferForId, qty, nextIds);
-  await persistWttQty(wttOfferForId, qty);
-  setWttOfferOpen(false);
-}, [
-  wttOfferForId,
-  wttOfferDraft,
-  wttOfferQtyDraft,
-  writeWttOffer,
-  persistWttQty,
-  pushModalUndoSnapshot,
-]);
+  if (!error) {
+    closeLegacyWttPicker();
+if (resumeWttListingAfterLegacyPicker) {
+  setStockModalOpen(true);
+  setWttListingModalOpen(true);
+  setResumeWttListingAfterLegacyPicker(false);
+}
+    setStatus("¡Anuncio de intercambio publicado!");
+    await avisarFavoritos(userId, 'market_id', wttWantForId);
+    
+  } else {
+    console.error("Error subiendo WTT:", error.message);
+  }
+}, [wttWantForId, wttWantDraft, userId, supabase, writeWttWanted, pushModalUndoSnapshot]);
+const savewttOfferDraft = useCallback(async () => {
+    if (wttOfferForId == null || !userId) {
+      setWttOfferOpen(false);
+      return;
+    }
+
+    try {
+      // Forzamos mínimo 1 si hay cartas seleccionadas
+      const qty = wttOfferDraft.length > 0 ? Math.max(1, wttOfferQtyDraft) : 0;
+      const nextIds = qty > 0 ? wttOfferDraft : [];
+
+      // 1. Guardamos localmente
+      setWttOfferByItem((prev) => ({ ...prev, [wttOfferForId]: nextIds }));
+      setWttOfferQtyByItem((prev) => ({ ...prev, [wttOfferForId]: qty }));
+      writeWttOffer(wttOfferForId, qty, nextIds);
+
+     // 2. Subimos a Supabase
+  const countryValue = localStorage.getItem(`binder:market:${wttOfferForId}`) || "España";
+  const commentValue = localStorage.getItem(`binder:wttMessage:${wttOfferForId}`) || ""; // 👈 ATRAPAMOS EL COMENTARIO
+
+  if (qty > 0) {
+    await supabase
+      .from("user_item_statuses")
+      .upsert([{
+        user_id: userId,
+        item_id: wttOfferForId,
+        status: "wtt",
+        qty: qty,
+        origin_country: countryValue,
+        wtt_ids: nextIds,
+        market_comment: commentValue // 👈 LO SUBIMOS A LA BD
+      }] as any, { onConflict: "user_id,item_id,status" });
+          
+        setInvByItem((prev: any) => ({
+          ...prev,
+          [wttOfferForId]: { ...(prev?.[wttOfferForId] ?? emptyCounts()), wtt: qty },
+          
+        }));
+        setStatus("¡Anuncio de intercambio publicado con éxito! ✅");
+        await avisarFavoritos(userId, 'market_id', wttOfferForId);
+       
+      } else {
+        await supabase
+          .from("user_item_statuses")
+          .delete()
+          .eq("user_id", userId)
+          .eq("item_id", wttOfferForId)
+          .eq("status", "wtt");
+          
+        setInvByItem((prev: any) => ({
+          ...prev,
+          [wttOfferForId]: { ...(prev?.[wttOfferForId] ?? emptyCounts()), wtt: 0 },
+        }));
+      }
+    } catch (error) {
+      console.error("Error guardando WTT:", error);
+    } finally {
+      // ✅ ESTO GARANTIZA QUE EL MODAL SE CIERRE SIEMPRE
+      setWttOfferOpen(false);
+    }
+  }, [wttOfferForId, wttOfferDraft, wttOfferQtyDraft, writeWttOffer, userId, supabase, emptyCounts]);
+
+ 
 
 useEffect(() => {
   if (!wttOfferOpen) return;
@@ -2665,47 +2796,39 @@ useEffect(() => {
 
       e.preventDefault();
       e.stopPropagation();
-      void saveWttOfferDraft();
+      savewttOfferDraft(); // ✅ AHORA SÍ: Guarda al presionar Enter
     }
   };
 
   window.addEventListener("keydown", onKeyDown);
   return () => window.removeEventListener("keydown", onKeyDown);
-}, [wttOfferOpen, wttOfferDraft, saveWttOfferDraft]);
+
+}, [wttOfferOpen, wttOfferDraft, setWttOfferDraft, savewttOfferDraft]);
+
+
+
+
+  useEffect(() => {
+ if (wttWantForId == null) return;
+ if (wttWantedByItem[wttWantForId]?.length) return;
+ const stored = readWttWanted(wttWantForId);
+ if (stored.length) {
+ setWttWantedByItem((prev) => ({ ...prev, [wttWantForId]: stored }));
+ }
+}, [wttWantForId, wttWantedByItem, readWttWanted]);
 
 useEffect(() => {
-  if (modalItemId == null) return;
-  const wttStock = wttOfferQtyByItem[modalItemId] ?? readWttOffer(modalItemId).qty ?? 0;
-  if (wttStock > 0) return;
-  const hasSelection = (wttOfferByItem[modalItemId]?.length ?? 0) > 0;
-  const hasQty = (wttOfferQtyByItem[modalItemId] ?? 0) > 0;
-  if (!hasSelection && !hasQty) return;
-  setWttOfferByItem((prev) => ({ ...prev, [modalItemId]: [] }));
-  setWttOfferQtyByItem((prev) => ({ ...prev, [modalItemId]: 0 }));
-  writeWttOffer(modalItemId, 0, []);
-}, [modalItemId, wttOfferByItem, wttOfferQtyByItem, readWttOffer, writeWttOffer]);
+ if (!wttWantOpen) return;
+ requestAnimationFrame(() => {
+ wttSearchRef.current?.focus();
+ });
+}, [wttWantOpen]);
 
 
-  useEffect(() => {
-    if (wttWantForId == null) return;
-    if (wttWantedByItem[wttWantForId]?.length) return;
-    const stored = readWttWanted(wttWantForId);
-    if (stored.length) {
-      setWttWantedByItem((prev) => ({ ...prev, [wttWantForId]: stored }));
-    }
-  }, [wttWantForId, wttWantedByItem, readWttWanted]);
 
-
-  useEffect(() => {
-    if (!wttWantOpen) return;
-    requestAnimationFrame(() => {
-      wttSearchRef.current?.focus();
-    });
-  }, [wttWantOpen, wttWantQ]);
-
-  useEffect(() => {
-    if (!wttWantCatalog.length) return;
-    const gIds = Array.from(
+useEffect(() => {
+ if (!wttWantCatalog.length) return;
+ const gIds = Array.from(
       new Set(wttWantCatalog.map((i) => i.group_id).filter((x): x is number => typeof x === "number"))
     );
     const aIds = Array.from(
@@ -3094,38 +3217,33 @@ const triggerBiasHearts = useCallback((pcId: number) => {
 // ✅ NUEVO: el modal se gobierna con un booleano estable
 const [itemModalOpen, setItemModalOpen] = React.useState(false);
 
-useEffect(() => {
-  if (!itemModalOpen && !wttOfferOpen) return;
-  if (wttWantCatalogReady) return;
-  let cancelled = false;
-  const run = async () => {
-    setWttWantLoading(true);
-    const res = await supabase
-      .from("items")
-      .select("id, name, image_url, group_id, album_id, version, member")
-      .order("id", { ascending: true })
-      .range(0, 9999);
-    if (cancelled) return;
-    if (!res.error) {
-      const list: WttCarouselItem[] = (res.data ?? []).map((r: any) => ({
-        id: Number(r.id),
-        name: r.name ?? undefined,
-        image_url: r.image_url ?? undefined,
-        group_id: typeof r.group_id === "number" ? r.group_id : undefined,
-        album_id: typeof r.album_id === "number" ? r.album_id : undefined,
-        version: r.version ?? undefined,
-        member: r.member ?? undefined,
-      }));
-      setWttWantCatalog(list);
-      setWttWantCatalogReady(true);
-    }
-    setWttWantLoading(false);
-  };
-  run();
-  return () => {
-    cancelled = true;
-  };
-}, [itemModalOpen, wttOfferOpen, wttWantCatalogReady, supabase]);
+useEffect(() => { 
+    // Forzamos la carga si cualquiera de estos modales se abre
+    if (!itemModalOpen && !wttOfferOpen && !wttWantOpen) return; 
+    if (wttWantCatalogReady && wttWantCatalog.length > 0) return; 
+
+    const run = async () => {
+      setWttWantLoading(true);
+      const res = await supabase.from("items").select("id, name, image_url, group_id, album_id, version, member").order("id", { ascending: true });
+      if (!res.error && res.data) {
+        const list = res.data.map((r: any) => ({
+          id: Number(r.id),
+          name: r.name,
+          image_url: r.image_url,
+          group_id: r.group_id,
+          album_id: r.album_id,
+          version: r.version,
+          member: r.member
+        }));
+        setWttWantCatalog(list);
+        setWttWantCatalogReady(true);
+      }
+      setWttWantLoading(false);
+    };
+    void run();
+
+
+  }, [itemModalOpen, wttOfferOpen, wttWantOpen, supabase]); // Dependencias críticas
 // ✅ Para “contar” las explosiones de corazones por PC
 const [biasHeartBursts, setBiasHeartBursts] = useState<Record<number, number>>({});
 
@@ -3259,12 +3377,24 @@ return name;
     [groupNameById, albumNameById, versionNameById, memberNameById]
   );
   const MAX_FREE_PAGES = 12;
-const canAddPage = binderPages.length < MAX_FREE_PAGES;
+const MAX_FREE_SEPARATORS = 5;
+
+// Filtramos para contar independientemente
+const realPagesCount = binderPages.filter(p => p.layout_type !== 'separator').length;
+const separatorsCount = binderPages.filter(p => p.layout_type === 'separator').length;
+
+// El "canAddPage" original ya no lo usaremos directamente, pero lo dejamos por si acaso
+const canAddPage = realPagesCount < MAX_FREE_PAGES;
 const goToPurchasePages = () => {
-  router.push("/pricing#pages"); // cambia esta ruta/ancla por la tuya real
+  router.push("/shop"); // cambia esta ruta/ancla por la tuya real
 };
-const totalPages = Math.max(binderPages.length, 1);
-const pageLabel = `${currentPageIndex + 1}/${totalPages}`;
+const standardPages = binderPages.filter(p => p.layout_type !== 'separator');
+const totalPages = Math.max(standardPages.length, 1);
+const currentPageInStandard = standardPages.findIndex(p => p.id === pageId) + 1;
+
+const pageLabel = layout === 'separator' 
+  ? `SEPARADOR (${binderPages.filter(p => p.layout_type === 'separator').findIndex(p => p.id === pageId) + 1}/5)`
+  : `${currentPageInStandard > 0 ? currentPageInStandard : 1}/${totalPages}`;
 
 // ✅ Narrow para ItemPicker (evita rojos TS)
 const pickerUserId = typeof userId === "string" && userId.trim() ? userId : null;
@@ -3272,9 +3402,29 @@ const pickerBinderId = typeof binderId === "number" ? binderId : null;
 
 const [applyAll, setApplyAll] = useState<boolean>(false);
 const [layoutHover, setLayoutHover] = useState<LayoutType | null>(null);
+const [unlockedLayouts, setUnlockedLayouts] = useState<Set<string>>(new Set());
 const [pickingSlot, setPickingSlot] = useState<number | null>(null);
 const layoutBoxRef = useRef<HTMLDivElement | null>(null);
 const [layoutOpen, setLayoutOpen] = useState(false);
+
+useEffect(() => {
+  const loadLayoutUnlocks = async () => {
+    if (!profile?.id) {
+      setUnlockedLayouts(new Set());
+      return;
+    }
+    const { data } = await supabase
+      .from("user_vip_unlocks")
+      .select("unlock_key")
+      .eq("user_id", profile.id);
+    const keys = (data || [])
+      .map((r: any) => String(r.unlock_key || ""))
+      .filter((k: string) => k.startsWith("layout:"))
+      .map((k: string) => k.replace(/^layout:/, ""));
+    setUnlockedLayouts(new Set(keys));
+  };
+  void loadLayoutUnlocks();
+}, [profile?.id]);
 
 useEffect(() => {
  if (pickingSlot == null) return;
@@ -3291,26 +3441,127 @@ useEffect(() => {
 
 // Thumbs (para carrusel)
 // ---------------------
+// Página 73 del PDF
 type ThumbMeta = {
   url: string | null;
-  itemId: number | null; // <--- Ahora con 'I' mayúscula
+  back_image_url?: string | null; // 👈 ¡AÑADE ESTA LÍNEA!
+  itemId: number | null;
   isCustom: boolean;
+  // ... resto igual
   isWanted: boolean;
+  custom_text?: string | null;  // 👈 AÑADE ESTA LÍNEA
+  custom_color?: string | null; // 👈 AÑADE ESTA LÍNEA
   member: string | null;
   name: string | null;
   have: number;
   wtt: number;
   wts: number;
-  onItsWay: number; // <--- Asegúrate que sea 'Its' con 'I'
+  onItsWay: number;
   wish: number;
   stockTotal: number;
+  // ✅ AÑADE ESTAS DOS LÍNEAS PARA QUITAR EL ERROR:
+  rot: number;
+  flipH: boolean;
 };
 
 type PageThumbsMap = Record<number, Record<number, ThumbMeta>>;
 // pageId -> slotIndex -> meta
 const [pageThumbs, setPageThumbs] = useState<PageThumbsMap>({});
 // ... (tus refs/estados anteriores)
+// --- LÓGICA DE NAVEGACIÓN DEL MODAL (ANTERIOR / SIGUIENTE) ---
 
+  // 1. Generamos una lista lineal de todos los slots ocupados (o custom) ordenados por página y luego por índice de slot
+  const orderedOccupiedSlots = useMemo(() => {
+    const list: Array<{ pageId: number; slotIndex: number }> = [];
+    
+    // Iteramos por las páginas en orden
+    const orderedPages = [...binderPages].sort((a, b) => a.page_index - b.page_index);
+    
+    for (const page of orderedPages) {
+      const thumbsForPage = pageThumbs[page.id];
+      if (!thumbsForPage) continue;
+      
+      // Obtenemos los índices de slot ocupados en esta página, ordenados
+      const slotIndices = Object.keys(thumbsForPage)
+        .map(Number)
+        .filter(idx => !isNaN(idx))
+        .sort((a, b) => a - b);
+        
+      for (const slotIdx of slotIndices) {
+        list.push({ pageId: page.id, slotIndex: slotIdx });
+      }
+    }
+    return list;
+  }, [binderPages, pageThumbs]);
+
+  // 2. Encontramos el índice actual en esa lista lineal
+  const currentModalListIndex = useMemo(() => {
+    if (!itemModalOpen || pageId === null || modalSlotIndex === null) return -1;
+    return orderedOccupiedSlots.findIndex(
+      (s) => s.pageId === pageId && s.slotIndex === modalSlotIndex
+    );
+  }, [itemModalOpen, pageId, modalSlotIndex, orderedOccupiedSlots]);
+
+  const canPrevModal = currentModalListIndex > 0;
+  const canNextModal = currentModalListIndex >= 0 && currentModalListIndex < orderedOccupiedSlots.length - 1;
+
+  // 3. Funciones para navegar
+  const handleModalPrev = useCallback(() => {
+    if (!canPrevModal) return;
+    const prevSlot = orderedOccupiedSlots[currentModalListIndex - 1];
+    
+    // Si la carta está en otra página, cambiamos de página
+    if (prevSlot.pageId !== pageId) {
+      const newPageIndex = binderPages.findIndex(p => p.id === prevSlot.pageId);
+      if (newPageIndex >= 0) setCurrentPageIndex(newPageIndex);
+      setPageId(prevSlot.pageId);
+    }
+    
+    // Necesitamos obtener la info de la carta asignada en ese slot
+    // Como pageThumbs tiene la información, la reconstruimos para el modal
+    const meta = pageThumbs[prevSlot.pageId]?.[prevSlot.slotIndex];
+    if (meta) {
+        const fakeAssigned = {
+            id: meta.itemId ?? -1,
+            is_custom: meta.isCustom,
+            custom_text: meta.custom_text,
+            custom_image_url: meta.url !== "/mock-pcs/groups/not-available.png" && meta.isCustom ? meta.url : null,
+            custom_back_image_url: meta.back_image_url,
+            member_id: (meta as any).member_id,
+            is_wanted: meta.isWanted,
+            custom_color: meta.custom_color
+        };
+        openItemModal(prevSlot.slotIndex, fakeAssigned);
+    }
+  }, [canPrevModal, currentModalListIndex, orderedOccupiedSlots, pageId, binderPages, pageThumbs]);
+
+  const handleModalNext = useCallback(() => {
+    if (!canNextModal) return;
+    const nextSlot = orderedOccupiedSlots[currentModalListIndex + 1];
+    
+    // Si la carta está en otra página, cambiamos de página
+    if (nextSlot.pageId !== pageId) {
+       const newPageIndex = binderPages.findIndex(p => p.id === nextSlot.pageId);
+       if (newPageIndex >= 0) setCurrentPageIndex(newPageIndex);
+       setPageId(nextSlot.pageId);
+    }
+    
+    // Reconstruimos la carta asignada para el modal
+    const meta = pageThumbs[nextSlot.pageId]?.[nextSlot.slotIndex];
+    if (meta) {
+        const fakeAssigned = {
+            id: meta.itemId ?? -1,
+            is_custom: meta.isCustom,
+            custom_text: meta.custom_text,
+            custom_image_url: meta.url !== "/mock-pcs/groups/not-available.png" && meta.isCustom ? meta.url : null,
+            custom_back_image_url: meta.back_image_url,
+            member_id: (meta as any).member_id,
+            is_wanted: meta.isWanted,
+            custom_color: meta.custom_color
+        };
+        openItemModal(nextSlot.slotIndex, fakeAssigned);
+    }
+  }, [canNextModal, currentModalListIndex, orderedOccupiedSlots, pageId, binderPages, pageThumbs]);
 const lastPageDragRef = useRef<PageDragPayload | null>(null);
 
 // ✅ para NO cerrar el modal mientras arrastras
@@ -3319,26 +3570,38 @@ const pageDraggingRef = useRef(false);
 // ✅ para pintar el hueco de drop (animación)
 const [pageDragFromId, setPageDragFromId] = useState<number | null>(null);
 const [pageDragOverId, setPageDragOverId] = useState<number | null>(null);
+  const [modalPageDragFromId, setModalPageDragFromId] = useState<number | null>(null);
 
+  const [modalPageDragOverId, setModalPageDragOverId] = useState<number | null>(null);
+// --- NUEVOS ESTADOS PARA DRAG MANUAL EN MÓVIL ---
+// Almacena las coordenadas (x, y) del toque actual
+const [touchPosition, setTouchPosition] = useState<{ x: number; y: number } | null>(null);
+// Almacena el ID de la página que se está moviendo visualmente
+const [movingPageId, setMovingPageId] = useState<number | null>(null);
+// Referencia para guardar la posición inicial del toque y calcular el desplazamiento
+const touchStartRef = useRef<{ x: number; y: number; pageId: number } | null>(null);
 // ... (lo siguiente que tengas)
-
+const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+const isLongPressActive = useRef(false);
+// Dentro de BinderClient, con los demás useState
+const [mobileMoveSourceId, setMobileMoveSourceId] = useState<number | null>(null);
 
 const loadPageThumbs = useCallback(async () => {
     if (!binderPages?.length) return;
     const pageIds = binderPages.map((p) => p.id).filter((x) => Number.isFinite(x));
     if (pageIds.length === 0) return;
 
-    // 1. Pedimos los slots SOLO con las columnas que existen de verdad
-    // (Hemos quitado 'face' y 'custom_back_image_url' para evitar el crash de Supabase)
-    const slotsRes = await supabase
-      .from("page_slots")
-      .select("page_id, slot_index, item_id, is_wanted, is_custom, custom_image_url, rot, flip_h")
-      .in("page_id", pageIds);
+    // ✅ SEGURO: Solo pedimos columnas que existen físicamente en la tabla 'page_slots'
+   const slotsRes = await supabase
+  .from("page_slots")
+  // 👇 AÑADE custom_back_image_url AQUÍ:
+.select("page_id, slot_index, item_id, is_wanted, is_custom, custom_text, custom_image_url, custom_back_image_url, rot, flip_h, custom_color")  .in("page_id", pageIds);
 
     if (slotsRes.error) {
-  console.error("Error cargando carrusel:", slotsRes.error.message || slotsRes.error);
-  return;
-}
+      console.error("Error cargando carrusel:", slotsRes.error.message || slotsRes.error);
+      return;
+    }
+    // ... resto de la lógica de procesamiento
     const slotRows = (slotsRes.data ?? []) as any[];
 
     // 2. Pedimos los datos de las PCs
@@ -3346,10 +3609,11 @@ const loadPageThumbs = useCallback(async () => {
     
     let itemsData: any[] = [];
     if (itemIds.length > 0) {
-      const itemsRes = await supabase
-        .from("items")
-        .select("id, image_url, name, member")
-        .in("id", itemIds);
+     const itemsRes = await supabase
+  .from("items")
+  // 👇 AÑADE back_image_url AQUÍ:
+  .select("id, image_url, back_image_url, name, member")
+  .in("id", itemIds);
       if (!itemsRes.error) itemsData = itemsRes.data ?? [];
     }
 
@@ -3384,34 +3648,42 @@ const loadPageThumbs = useCallback(async () => {
     // 4. Construimos el mapa final (Page -> Slot -> Datos)
     const next: PageThumbsMap = {};
 
-    for (const r of slotRows) {
-      const pid = Number(r.page_id);
-      const sid = Number(r.slot_index);
-      if (!next[pid]) next[pid] = {};
+   // Página 75-76 del PDF (Dentro de loadPageThumbs)
+for (const r of slotRows) {
+  const pid = Number(r.page_id);
+  const sid = Number(r.slot_index);
+  if (!next[pid]) next[pid] = {};
 
-      const itemData = itemsData.find(i => Number(i.id) === Number(r.item_id));
-      
-      let url = "";
-      if (r.is_custom) {
-        url = r.custom_image_url ?? "";
-      } else {
-        url = itemData?.image_url ?? "";
-      }
+  const itemData = itemsData.find(i => Number(i.id) === Number(r.item_id));
+  let url = r.is_custom ? (r.custom_image_url ?? "") : (itemData?.image_url ?? "");
 
-      const counts = countsByItem[Number(r.item_id)] ?? emptyCounts();
-      const stockTotal = Number(counts.have) + Number(counts.wtt) + Number(counts.wts) + Number(counts.on_its_way);
+  const counts = countsByItem[Number(r.item_id)] ?? emptyCounts();
+  const stockTotal = Number(counts.have) + Number(counts.wtt) + Number(counts.wts) + Number(counts.on_its_way);
 
-      next[pid][sid] = {
-        url: url || "/mock-pcs/groupsui/not-available.png",
-        itemId: r.item_id,
-        isCustom: !!r.is_custom,
-        isWanted: !!r.is_wanted,
-        member: itemData?.member ?? null,
-        name: itemData?.name ?? null,
-        have: counts.have, wtt: counts.wtt, wts: counts.wts, onItsWay: counts.on_its_way, wish: counts.wish,
-        stockTotal,
-      };
-    }
+ // Página 75 del PDF (Paso 4 de loadPageThumbs)
+next[pid][sid] = {
+  url: url || "/mock-pcs/groups/not-available.png",
+  // 👇 AÑADE ESTA LÍNEA PARA GUARDAR LA TRASERA
+  back_image_url: r.is_custom ? (r.custom_back_image_url ?? null) : (itemData?.back_image_url ?? null),
+  itemId: r.item_id,
+  isCustom: !!r.is_custom,
+  // ... resto igual
+  isWanted: !!r.is_wanted,
+  member: itemData?.member ?? null,
+name: r.is_custom ? (r.custom_text || (itemData?.name ?? null)) : (itemData?.name ?? null),
+               custom_text: r.custom_text ?? null, // 👈 AÑADIDO
+               custom_color: r.custom_color ?? null, // 👈 AÑADIDO
+  have: counts.have, 
+  wtt: counts.wtt, 
+  wts: counts.wts,
+  onItsWay: counts.on_its_way, 
+  wish: counts.wish,
+  stockTotal,
+  // ✅ TypeScript ya no marcará rojo aquí:
+  rot: r.rot ?? 0,
+  flipH: !!r.flip_h
+};
+}
 
     setPageThumbs(next);
   }, [binderPages, supabase, refreshTick, userId]);
@@ -3661,17 +3933,7 @@ useEffect(() => {
     return invByItem[modalItemId]?.wtt ?? 0;
   }, [modalItemId, wttOfferQtyByItem, readWttOffer, invByItem]);
 
-  useEffect(() => {
-    if (modalItemId == null) return;
-    const localQty = wttOfferQtyByItem[modalItemId] ?? readWttOffer(modalItemId).qty ?? 0;
-    if (localQty > 0) return;
-    const dbQty = invByItem[modalItemId]?.wtt ?? 0;
-    if (dbQty <= 0) return;
-
-    const ids = wttOfferByItem[modalItemId] ?? readWttOffer(modalItemId).ids;
-    setWttOfferQtyByItem((prev) => ({ ...prev, [modalItemId]: dbQty }));
-    writeWttOffer(modalItemId, dbQty, ids ?? []);
-  }, [modalItemId, invByItem, readWttOffer, wttOfferByItem, wttOfferQtyByItem, writeWttOffer]);
+  
 type PersistSlotPayload =
   | { kind: "empty" }
   | { kind: "real"; itemId: number; custom_text?: null; custom_image_url?: null }
@@ -3728,14 +3990,14 @@ async function persistSlotStateForPage(
   }
 
   const up = await supabase
-    .from("page_slots")
-    .upsert(
-      {
-        ...base,
-        item_id: null,
-        is_custom: true,
-        custom_text: payload.custom_text ?? "",
-        custom_image_url: payload.custom_image_url ?? null,
+  .from("page_slots")
+  .upsert({
+    ...base,
+    item_id: null,
+    is_custom: true,
+    custom_text: payload.custom_text ?? "",
+    custom_image_url: payload.custom_image_url ?? null,
+    custom_color: (payload as any).custom_color ?? null, // 👈 AÑADIDO
       },
       { onConflict: "page_id,slot_index" }
     );
@@ -3801,6 +4063,7 @@ const persistSlotState = useCallback(
           is_custom: true,
           custom_text: payload.custom_text ?? "",
           custom_image_url: payload.custom_image_url ?? null,
+          custom_color: (payload as any).custom_color ?? null,
         },
         { onConflict: "page_id,slot_index" }
       );
@@ -4062,16 +4325,17 @@ const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
     if (!pageId) return { ok: false, error: "No pageId" };
 
    const upserts: Array<{
- page_id: number;
- slot_index: number;
- item_id: number | null;
- member_id: number | null;
- rot: number;
- flip_h: boolean;
- is_custom: boolean;
- custom_text: string | null;
- custom_image_url: string | null;
-}> = [];
+    page_id: number;
+    slot_index: number;
+    item_id: number | null;
+    member_id: number | null;
+    rot: number;
+    flip_h: boolean;
+    is_custom: boolean;
+    custom_text: string | null;
+    custom_image_url: string | null;
+    custom_color?: string | null; // 👈 AÑADE ESTA LÍNEA AQUÍ
+  }> = [];
 
     const deletes: number[] = [];
 
@@ -4102,10 +4366,11 @@ member_id: (it as any).member_id != null ? Number((it as any).member_id) : null,
  flip_h: Boolean(st.flip),
  // ✅ custom fields
  is_custom: isCustom,
- custom_text: isCustom ? ((it as any).custom_text ?? "") : null,
- custom_image_url: isCustom ? ((it as any).custom_image_url ?? null) : null,
-});
- }
+  custom_text: isCustom ? ((it as any).custom_text ?? "") : null,
+                 custom_image_url: isCustom ? ((it as any).custom_image_url ?? null) : null,
+                 custom_color: isCustom ? ((it as any).custom_color ?? null) : null, // 👈 AÑADE ESTA LÍNEA
+               });
+             }
     // 1) borra SOLO los slots realmente vacíos
     if (deletes.length > 0) {
       const del = await supabase
@@ -4576,10 +4841,10 @@ setShiftFx({ kind: "close", at: atSlot, steps, tick: Date.now() });
     [pageId, isShifting, layoutDef.slots, slotItems, slotRot, slotFlipH, slotFace, applyShiftState, persistSlotsBulk]
   );
 
- const LayoutMiniPreview = ({
+const LayoutMiniPreview = ({
   layoutKey,
   size = "carousel",
-  thumbs,
+  thumbs, // 👈 Fuente de verdad
   refreshTick,
   pageWidth,
   pageHeight,
@@ -4591,354 +4856,191 @@ setShiftFx({ kind: "close", at: atSlot, steps, tick: Date.now() });
   pageWidth?: number;
   pageHeight?: number;
 }) => {
-    // Si no hay miniaturas, renderiza un div vacío con el mismo tamaño y estilos
-    if (!thumbs || Object.keys(thumbs).length === 0) {
-      const def = defFor(layoutKey);
-      const extras = getExtrasCount(layoutKey);
-      const baseCount = def.slots - extras;
-      const cols = def.cols;
-      const preset =
-  size === "modal"
-    ? { maxW: 850, maxH: 650, padding: 10 } // Aumentamos el contenedor para que la escala sea mayor
-    : size === "picker"
-    ? { maxW: 110, maxH: 76, padding: 4 }
-    : { maxW: 84, maxH: 60, padding: 4 };
-      const { slotW, slotH, gap: previewGap, rowGap: previewRowGap } = getSlotDimsForLayout(def);
-      const baseRows = Math.ceil(baseCount / cols);
-      const rowW = cols * slotW + (cols - 1) * previewGap;
-      const naturalW = rowW;
-      const naturalH =
-        baseRows * slotH +
-        (baseRows - 1) * previewRowGap +
-        (extras > 0 ? previewRowGap + slotH : 0);
-      const scale = Math.min(preset.maxW / naturalW, preset.maxH / naturalH, 1);
-      const baseSlotsArr = Array.from({ length: baseCount }, (_, i) => i + 1);
-      const extraSlotsArr =
-        extras > 0 ? Array.from({ length: extras }, (_, i) => baseCount + 1 + i) : [];
-      const rows = Array.from({ length: baseRows }, (_, r) =>
-        baseSlotsArr.slice(r * cols, (r + 1) * cols)
-      );
-      return (
-        <div
-          style={{
-            width: preset.maxW,
-            height: preset.maxH,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            overflow: "hidden",
-          }}
-          aria-hidden="true"
-        >
-          <div
-            style={{
-              transform: `scale(${scale})`,
-              transformOrigin: "center",
-              padding: preset.padding,
-            }}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: previewRowGap }}>
-              {rows.map((rowSlots, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    width: rowW,
-                    display: "flex",
-                    gap: previewGap,
-                    justifyContent: rowSlots.length < cols ? "center" : "flex-start",
-                  }}
-                >
-                  {rowSlots.map((s) => (
-                    <div
-                      key={s}
-                      style={{
-                        width: slotW,
-                        height: slotH,
-                        borderRadius: 10,
-                        border: "1px solid #ddd",
-                        background: "#fafafa",
-                        overflow: "hidden",
-                        position: "relative",
-                      }}
-                    />
-                  ))}
-                </div>
-              ))}
-              {extras > 0 && (
-                <div
-                  style={{
-                    width: rowW,
-                    display: "flex",
-                    justifyContent: "center",
-                    gap: previewGap,
-                  }}
-                >
-                  {extraSlotsArr.map((s) => (
-                    <div
-                      key={s}
-                      style={{
-                        width: slotW,
-                        height: slotH,
-                        borderRadius: 10,
-                        border: "1px solid #f1d86a",
-                        background: "#fff7cc",
-                        overflow: "hidden",
-                        position: "relative",
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-      const def = defFor(layoutKey);
+  const def = defFor(layoutKey);
+  const thumbMap = thumbs ?? {}; // 👈 Usamos thumbs, no una carga interna
   const extras = getExtrasCount(layoutKey);
   const baseCount = def.slots - extras;
   const cols = def.cols;
 
-  const preset =
-  size === "modal"
-    ? { maxW: 850, maxH: 650, padding: 10 } // Aumentamos el contenedor para que la escala sea mayor
-    : size === "picker"
-    ? { maxW: 110, maxH: 76, padding: 4 }
-    : { maxW: 84, maxH: 60, padding: 4 };
+  const preset = size === "modal"
+  ? { maxW: 220, maxH: 310, padding: 10 } // 👈 ¡Corregido! Antes era 850x650
+  : size === "picker"
+  ? { maxW: 110, maxH: 76, padding: 4 }
+  : { maxW: 80, maxH: 114, padding: 0 };
 
   const { slotW, slotH, gap: previewGap, rowGap: previewRowGap } = getSlotDimsForLayout(def);
-
   const baseRows = Math.ceil(baseCount / cols);
   const rowW = cols * slotW + (cols - 1) * previewGap;
   const naturalW = rowW;
-  const naturalH =
-    baseRows * slotH +
-    (baseRows - 1) * previewRowGap +
-    (extras > 0 ? previewRowGap + slotH : 0);
-
+  const naturalH = baseRows * slotH + (baseRows - 1) * previewRowGap + (extras > 0 ? previewRowGap + slotH : 0);
+  
   const scale = Math.min(preset.maxW / naturalW, preset.maxH / naturalH, 1);
-
   const baseSlotsArr = Array.from({ length: baseCount }, (_, i) => i + 1);
-  const extraSlotsArr =
-    extras > 0 ? Array.from({ length: extras }, (_, i) => baseCount + 1 + i) : [];
+  const extraSlotsArr = extras > 0 ? Array.from({ length: extras }, (_, i) => baseCount + 1 + i) : [];
+  const rows = Array.from({ length: baseRows }, (_, r) => baseSlotsArr.slice(r * cols, (r + 1) * cols));
+  
 
-  const rows = Array.from({ length: baseRows }, (_, r) =>
-    baseSlotsArr.slice(r * cols, (r + 1) * cols)
-  );
+// Página 101 del PDF (Dentro de LayoutMiniPreview)
+const Cell = ({ isExtra, meta }: { isExtra?: boolean; meta?: any }) => { 
+  const url = meta?.url ?? "";
+  const counts: StatusCounts = {
+    have: Number(meta?.have ?? 0),
+    wtt: Number(meta?.wtt ?? 0),
+    wts: Number(meta?.wts ?? 0),
+    on_its_way: Number(meta?.onItsWay ?? 0),
+    wish: Number(meta?.wish ?? 0),
+  };
 
-  const thumbMap = thumbs ?? {};
+  const st = statusColors(counts);
+  const wish = Number(meta?.wish ?? 0) > 0;
+  const otw = Number(meta?.onItsWay ?? 0) > 0;
+  
+  const isBias = meta?.itemId ? checkIsBias(meta.itemId, meta.member || meta.name || "") : false;
+  const extraCount = Number(meta?.stockTotal ?? 0) > 1 ? Number(meta?.stockTotal ?? 0) - 1 : 0;
+  const badgeFont = size === "modal" ? 10 : size === "picker" ? 8 : 7;
+  const badgePad = size === "modal" ? "2px 6px" : "1px 5px";
 
-  const Cell = ({ isExtra, meta }: { isExtra?: boolean; meta?: ThumbMeta }) => {
-    const url = meta?.url ?? "";
+  // ✅ Capturamos la rotación y flip guardados [cite: 1531]
+  const rot = meta?.rot ?? 0;
+  const flip = meta?.flipH ?? false;
 
-    const counts: StatusCounts = {
-      have: Number(meta?.have ?? 0),
-      wtt: Number(meta?.wtt ?? 0),
-      wts: Number(meta?.wts ?? 0),
-      on_its_way: Number(meta?.onItsWay ?? 0),
-      wish: Number(meta?.wish ?? 0),
-    };
+  // ✅ Nueva lógica: detectamos si el slot debe estar en horizontal (90º o 270º)
+  const isHorizontal = rot % 180 !== 0;
 
-    const st = statusColors(counts);
-    
-    const wish = Number(meta?.wish ?? 0) > 0;
-    const otw = Number(meta?.onItsWay ?? 0) > 0;
-    const extraCount =
-      Number(meta?.stockTotal ?? 0) > 1 ? Number(meta?.stockTotal ?? 0) - 1 : 0;
-
-    const badgeFont = size === "modal" ? 10 : size === "picker" ? 8 : 7;
-    const badgePad = size === "modal" ? "2px 6px" : "1px 5px";
-
-    return (
-      <div
-        style={{
-          width: slotW,
+  return ( 
+    <div 
+    key={refreshTick} // 👈 Esto fuerza a React a destruir y recrear la miniatura
+    style={{ 
+      // ✅ Si es horizontal, intercambiamos los valores de slotW y slotH [cite: 938, 955]
+      width: isHorizontal ? slotH : slotW, 
+      height: isHorizontal ? slotW : slotH, 
+      borderRadius: 10, 
+      border: `1.5px solid ${st.border}`, 
+      background: st.bg, 
+      overflow: "hidden", 
+      position: "relative", 
+      boxShadow: extraCount > 0 ? `0 8px 18px ${st.border}55` : `0 3px 10px ${st.border}22`, 
+      transition: "all .2s ease",
+      // Añadimos centrado para que la rotación interna no desfase la imagen
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }}> 
+      {url ? ( 
+        <div style={{ 
+          // La imagen interna siempre mantiene el tamaño base rectangular [cite: 933]
+          width: slotW, 
           height: slotH,
-          borderRadius: 10,
-          border: `1.5px solid ${st.border}`,
-          background: st.bg,
-          overflow: "hidden",
-          position: "relative",
-          boxShadow:
-            extraCount > 0
-              ? `0 8px 18px ${st.border}55`
-              : `0 3px 10px ${st.border}22`,
-          transition: "all .2s ease",
-        }}
-      >
-  {url ? (
-  meta?.isWanted ? (
-    <div style={{ width: "100%", height: "100%", transform: "scale(1.1)" }}>
-      <WesternWantedFrame 
-        name={prettyText(meta?.member || meta?.name || "")} 
-        variant="slot"
-      >
-        <img src={url} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      </WesternWantedFrame>
-    </div>
-  ) : (
-    <img
-      src={url}
-      alt=""
-      draggable={false}
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        display: "block",
-        borderRadius: 8,
-      }}
-    />
-  )
-) : null}
+          // ✅ Aplicamos rotación y volteo [cite: 1530]
+          transform: `rotate(${rot}deg) scaleX(${flip ? -1 : 1})`,
+          transition: "transform 0.2s ease",
+          flexShrink: 0
+        }}>
+          {meta?.isWanted ? ( 
+            <WesternWantedFrame name={prettyText(meta?.member || meta?.name || "")} variant="slot"> 
+              <img src={url} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> 
+            </WesternWantedFrame> 
+          ) : ( 
+            <img src={url} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> 
+          )}
+        </div>
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            background: isExtra ? "var(--state-warning-bg)" : "var(--binder-mini-empty-bg)",
+          }}
+        />
+      )}
+
+ 
 
 
+        {/* ✅ CORAZÓN DE BIAS (Pág. 27 del PDF) */}
+        {isBias && (
+          <div style={{
+            position: "absolute",
+            left: size === "modal" ? 4 : 2,
+            bottom: size === "modal" ? 4 : 2,
+            zIndex: 10,
+            display: "flex",
+            filter: "drop-shadow(0 1px 2px color-mix(in srgb, var(--bg-card) 90%, transparent))"
+          }}>
+            <Heart size={size === "modal" ? 14 : 10} fill="var(--color-primary)" color="var(--color-primary)" strokeWidth={0} />
+          </div>
+        )}
 
-        {wish ? (
-          <span
-            style={{
-              position: "absolute",
-              top: 4,
-              left: 4,
-              padding: badgePad,
-              borderRadius: 999,
-              border: "1px solid #f1d86a",
-              background: "rgba(255,247,204,0.96)",
-              color: "#7a5a00",
-              fontWeight: 900,
-              fontSize: badgeFont,
-              lineHeight: 1,
-              boxShadow: "0 2px 6px rgba(241,216,106,0.28)",
-              letterSpacing: 0.2,
-            }}
-          >
-            WISH
-          </span>
-        ) : null}
-
-        {!wish && otw ? (
-          <span
-            style={{
-              position: "absolute",
-              top: 4,
-              left: 4,
-              padding: badgePad,
-              borderRadius: 999,
-              border: "1px solid #9cc8ff",
-              background: "rgba(232,243,255,0.96)",
-              color: "#2d5b96",
-              fontWeight: 900,
-              fontSize: badgeFont,
-              lineHeight: 1,
-              boxShadow: "0 2px 6px rgba(156,200,255,0.28)",
-              letterSpacing: 0.2,
-            }}
-          >
-            OTW
-          </span>
-        ) : null}
-
-        {!wish && extraCount > 0 ? (
-          <span
-            style={{
-              position: "absolute",
-              right: 4,
-              bottom: 4,
-              minWidth: size === "modal" ? 22 : 18,
-              height: size === "modal" ? 22 : 18,
-              padding: size === "modal" ? "0 6px" : "0 5px",
-              borderRadius: 999,
-              border: "1px solid #ffb870",
-              background: "rgba(255,232,204,0.96)",
-              color: "#8a4d00",
-              fontWeight: 950,
-              fontSize: badgeFont,
-              lineHeight: size === "modal" ? "20px" : "16px",
-              textAlign: "center",
-              boxShadow: "0 2px 6px rgba(255,184,112,0.28)",
-            }}
-          >
-            +{extraCount}
-          </span>
-        ) : null}
+        {wish && (
+          <span style={{ position: "absolute", top: 4, left: 4, padding: badgePad, borderRadius: 999, border: "1px solid var(--state-warning-border)", background: "color-mix(in srgb, var(--state-warning-bg) 96%, transparent)", color: "var(--state-warning-fg)", fontWeight: 900, fontSize: badgeFont, lineHeight: 1 }}>WISH</span>
+        )}
+        {!wish && otw && (
+          <span style={{ position: "absolute", top: 4, left: 4, padding: badgePad, borderRadius: 999, border: "1px solid var(--state-info-border)", background: "color-mix(in srgb, var(--state-info-bg) 96%, transparent)", color: "var(--state-info-fg)", fontWeight: 900, fontSize: badgeFont, lineHeight: 1 }}>OTW</span>
+        )}
+        {!wish && extraCount > 0 && (
+          <span style={{ position: "absolute", right: 4, bottom: 4, minWidth: size === "modal" ? 22 : 18, height: size === "modal" ? 22 : 18, padding: size === "modal" ? "0 6px" : "0 5px", borderRadius: 999, border: "1px solid var(--state-warning-border)", background: "color-mix(in srgb, var(--state-warning-bg) 85%, var(--state-warning-border) 15%)", color: "var(--state-warning-fg)", fontWeight: 950, fontSize: badgeFont, lineHeight: size === "modal" ? "20px" : "16px", textAlign: "center" }}>+{extraCount}</span>
+        )}
       </div>
     );
   };
 
-  return (
-    <div
-      style={{
-        width: preset.maxW,
-        height: preset.maxH,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-      aria-hidden="true"
-    >
-      <div
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "center",
-          padding: preset.padding,
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: previewRowGap }}>
-          {rows.map((rowSlots, idx) => (
-            <div
-              key={idx}
-              style={{
-                width: rowW,
-                display: "flex",
-                gap: previewGap,
-                justifyContent: rowSlots.length < cols ? "center" : "flex-start",
-              }}
-            >
-              {rowSlots.map((s) => (
-                <Cell key={s} meta={thumbMap[s]} />
-              ))}
-            </div>
-          ))}
+ 
+   // Página 103 del PDF (Final de LayoutMiniPreview)
 
-          {extras > 0 && (
-            <div
-              style={{
-                width: rowW,
-                display: "flex",
-                justifyContent: "center",
-                gap: previewGap,
-              }}
-            >
-              {extraSlotsArr.map((s) => (
-                <Cell key={s} isExtra meta={thumbMap[s]} />
-              ))}
-            </div>
-          )}
+  return ( 
+    <div 
+      style={{ 
+        width: preset.maxW, 
+        height: preset.maxH, 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center", 
+        overflow: "hidden" 
+      }} 
+      aria-hidden="true"
+      key={refreshTick} // 👈 PEGA ESTO AQUÍ: Es la "llave" que fuerza la actualización simultánea
+    > 
+      <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", padding: preset.padding }}> 
+        <div style={{ display: "flex", flexDirection: "column", gap: previewRowGap }}> 
+          {rows.map((rowSlots, idx) => ( 
+            <div key={idx} style={{ 
+              width: rowW, 
+              display: "flex", 
+              gap: previewGap, 
+              justifyContent: rowSlots.length < cols ? "center" : "flex-start",
+              alignItems: "center", // ✅ Asegúrate de que esto esté para evitar el efecto cuadrado
+              minHeight: slotH     // ✅ Y esto también
+            }}> 
+              {rowSlots.map((s) => ( 
+                <Cell key={s} meta={thumbMap[s]} /> 
+              ))} 
+            </div> 
+          ))}
         </div>
       </div>
     </div>
   );
 };
- const PageThumb = ({
-  pageId,
-  layoutKey,
-  active,
-  onClick,
-  title,
-  size = "carousel",
-  pageNumber,
-  draggable = false,
-  onDragStart,
-  onDrop,
-  onDragOver,
-  onDragEnd,
-  onDragLeave,
-  showPageNumber = true,
-  onDeletePage,
-  refreshTick,
-  pageWidth, // <-- nuevo
-  pageHeight, // <-- nuevo
+ const PageThumb = ({ 
+  pageId, 
+  layoutKey, 
+  active, 
+  onClick, 
+  title, 
+  size = "carousel", 
+  pageNumber, 
+  draggable = false, 
+  onDragStart, 
+  onDragEnter,
+  onDrop, 
+  onDragOver, 
+  onDragEnd, 
+  onDragLeave, 
+  showPageNumber = true, 
+  onDeletePage, 
+  refreshTick, 
+  pageWidth,
+  pageHeight,
 }: {
   pageId: number;
   layoutKey: LayoutType;
@@ -4949,6 +5051,7 @@ setShiftFx({ kind: "close", at: atSlot, steps, tick: Date.now() });
   pageNumber?: number;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnter?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -4956,8 +5059,8 @@ setShiftFx({ kind: "close", at: atSlot, steps, tick: Date.now() });
   showPageNumber?: boolean;
   onDeletePage?: (pageId: number) => void;
   refreshTick: number;
-  pageWidth?: number; // <-- nuevo
-  pageHeight?: number; // <-- nuevo
+  pageWidth?: number;
+  pageHeight?: number;
 }) => {
 
   const def = defFor(layoutKey);
@@ -4971,28 +5074,36 @@ const thumbMap = pageThumbs[pageId] ?? {};
 const ex = getExtrasCount(layoutKey);
 const baseCount = total - ex;
 
-  return (
-    <div
-      style={{
-        borderRadius: 12,
-        border: active ? "2px solid #D1E9FF" : "1px solid #ddd",
-        background: active ? "#F0F7FF" : "white",
-        cursor: "pointer",
-        padding: 8,
-        position: "relative",
-        transition: "all 140ms ease",
-      }}
-      onClick={onClick}
-      title={title}
-      draggable={draggable}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      onDragEnd={(e: React.DragEvent<HTMLDivElement>) => onDragEnd?.(e)}
-      className={`pageThumb pageThumb--${size}`}
-      data-refresh-tick={refreshTick}
-    >
+ return ( 
+  <div 
+    style={{ 
+      borderRadius: 12, 
+      border: active
+        ? "2px solid var(--state-info-border)"
+        : "1px solid var(--binder-thumb-idle-border)", 
+      background: active
+        ? "var(--state-info-bg)"
+        : "var(--binder-thumb-idle-bg)", 
+      cursor: "pointer", 
+      padding: 8, 
+      position: "relative", 
+      transition: "all 140ms ease", 
+      boxShadow: active
+        ? "0 0 18px var(--binder-thumb-active-glow)"
+        : "var(--binder-thumb-idle-shadow)",
+    }} 
+    onClick={onClick} 
+    title={title} 
+    draggable={draggable} 
+    onDragStart={onDragStart}
+    onDragEnter={onDragEnter}
+    onDragOver={onDragOver} 
+    onDragLeave={onDragLeave} 
+    onDrop={onDrop} 
+    onDragEnd={(e: React.DragEvent<HTMLDivElement>) => onDragEnd?.(e)} 
+    className={`pageThumb pageThumb--${size}`} 
+    data-refresh-tick={refreshTick} 
+  >
 {showPageNumber && typeof pageNumber === "number" ? (
   <div className="pageNumBadge" aria-hidden="true">
     {pageNumber}
@@ -5003,7 +5114,7 @@ const baseCount = total - ex;
   <button
     type="button"
     className="pageDeleteBtn iconDangerHover"
-    title="Eliminar página"
+    title={t('binders.actions.delete')}
     onClick={(e) => {
       e.stopPropagation();
       onDeletePage(pageId);
@@ -5025,14 +5136,15 @@ const baseCount = total - ex;
     aspectRatio: "1 / 1",
   }}
 >
- <LayoutMiniPreview
-    layoutKey={layoutKey}
-    size={size === "modal" ? "modal" : "carousel"}
-    thumbs={thumbMap}
-    refreshTick={refreshTick}
-    pageWidth={pageWidth}
-    pageHeight={pageHeight}
-  />
+
+<LayoutMiniPreview 
+  layoutKey={layoutKey} 
+  thumbs={thumbMap} // 👈 Cambia 'thumbMap=' por 'thumbs='
+  size={size === "modal" ? "modal" : "carousel"} 
+  refreshTick={refreshTick} 
+  pageWidth={pageWidth} 
+  pageHeight={pageHeight} 
+/>
 </div>
 {showPageNumber && typeof pageNumber === "number" ? (
   <div className="pageNumBadge" aria-hidden="true">
@@ -5043,56 +5155,118 @@ const baseCount = total - ex;
   );
 };
 
-  // ✅ FIX REORDER: 2 pasos para evitar colisión de page_index
-  const persistPageOrder = useCallback(
-  async (nextPages: Array<{ id: number; page_index: number; layout_type: LayoutType }>) => {
-    if (!binderId) return { ok: false, error: "No binderId" };
-    if (pageReorderBusy) return { ok: false, error: "Busy" };
+ const persistPageOrder = useCallback(
+    async (nextPages: Array<{ id: number; page_index: number; layout_type: LayoutType }>) => {
+      if (!binderId) return { ok: false, error: "No binderId" };
+      if (pageReorderBusy) return { ok: false, error: "Busy" };
+      setPageReorderBusy(true);
 
-    setPageReorderBusy(true);
+      try {
+        // Hacemos las actualizaciones UNA A UNA (secuencial) para no saturar la base de datos
+        // Fase 1: Mover a zona segura temporal (índices 10000+)
+        for (let i = 0; i < nextPages.length; i++) {
+          const { error } = await supabase
+            .from("binder_pages")
+            .update({ page_index: 10000 + i })
+            .eq("id", nextPages[i].id);
+          if (error) throw error;
+        }
 
-    // Fase 1: mueve todo a índices “seguros” (1000+idx) para evitar colisiones
-    const phase1 = await Promise.all(
-      nextPages.map((p, idx) =>
-        supabase
-          .from("binder_pages")
-          .update({ page_index: 1000 + idx })
-          .eq("id", p.id)
-      )
-    );
+        // Fase 2: Aplicar el índice real y definitivo
+        for (let i = 0; i < nextPages.length; i++) {
+          const { error } = await supabase
+            .from("binder_pages")
+            .update({ page_index: i })
+            .eq("id", nextPages[i].id);
+          if (error) throw error;
+        }
 
-    const err1 = phase1.find((r) => r.error)?.error;
-    if (err1) {
-      setPageReorderBusy(false);
-      return { ok: false, error: err1.message };
-    }
+        const normalized = nextPages.map((p, idx) => ({ ...p, page_index: idx }));
+        setBinderPages(normalized);
+        setPagesCount(normalized.length);
+        setPageReorderBusy(false);
+        return { ok: true, error: null as string | null };
 
-    // Fase 2: aplica índices finales (0..n-1)
-    const phase2 = await Promise.all(
-      nextPages.map((p, idx) =>
-        supabase
-          .from("binder_pages")
-          .update({ page_index: idx })
-          .eq("id", p.id)
-      )
-    );
+      } catch (err: any) {
+        setPageReorderBusy(false);
+        return { ok: false, error: err.message || "Error al reordenar las páginas" };
+      }
+    },
+    [binderId, pageReorderBusy]
+  );
+const deleteMultiplePages = useCallback(async () => {
 
-    const err2 = phase2.find((r) => r.error)?.error;
-    if (err2) {
-      setPageReorderBusy(false);
-      return { ok: false, error: err2.message };
-    }
+if (!binderId || selectedForDeletion.length === 0) return;
 
-    const normalized = nextPages.map((p, idx) => ({ ...p, page_index: idx }));
-setBinderPages(normalized);
-setPagesCount(normalized.length);
-setPageReorderBusy(false);
-return { ok: true, error: null as string | null };
-},
-[binderId, pageReorderBusy]
-);
+if (loading || pageReorderBusy) return;
 
-const readAllPageSlotsSnapshot = useCallback(async () => {
+  const totalPages = binderPages.length;
+  if (totalPages - selectedForDeletion.length < 1) {
+    setError("Debes dejar al menos una página en el binder.");
+    setStatus("Acción no permitida");
+    return;
+  }
+
+  const ok = await showConfirm(
+    t("common.confirm"),
+    `¿Seguro que quieres borrar estas ${selectedForDeletion.length} páginas? Se perderán las cartas colocadas en ellas.`,
+  );
+  if (!ok) return;
+
+  setLoading(true);
+  setError(null);
+  setStatus(`Borrando ${selectedForDeletion.length} páginas...`);
+
+  // 1. Borramos las cartas de esas páginas
+  const delSlots = await supabase.from("page_slots").delete().in("page_id", selectedForDeletion);
+  if (delSlots.error) {
+    setError(delSlots.error.message);
+    setLoading(false);
+    return;
+  }
+
+  // 2. Borramos las páginas
+  const delPages = await supabase.from("binder_pages").delete().in("id", selectedForDeletion);
+  if (delPages.error) {
+    setError(delPages.error.message);
+    setLoading(false);
+    return;
+  }
+
+  // 3. Recargamos las páginas que quedan y las reordenamos
+  const fresh = await supabase
+    .from("binder_pages")
+    .select("id, page_index, layout_type")
+    .eq("binder_id", binderId)
+    .order("page_index", { ascending: true });
+
+  if (fresh.error) {
+    setError(fresh.error.message);
+    setLoading(false);
+    return;
+  }
+
+  const remaining = (fresh.data ?? []).map((p: any) => ({
+    id: Number(p.id),
+    page_index: typeof p.page_index === "number" ? p.page_index : 0,
+    layout_type: p.layout_type as LayoutType,
+  }));
+
+  const reorder = await persistPageOrder(remaining);
+  if (!reorder.ok) {
+    setError(reorder.error || "Error reindexando páginas");
+  }
+
+  setPagesCount(remaining.length);
+  setCurrentPageIndex((prev) => Math.min(prev, Math.max(0, remaining.length - 1)));
+  setRefreshTick((t) => t + 1);
+  setStatus("Páginas borradas ✅ ");
+  
+  setDeleteMode(false);
+  setSelectedForDeletion([]);
+  setLoading(false);
+ }, [binderId, loading, pageReorderBusy, selectedForDeletion, binderPages.length, persistPageOrder]);
+const readAllPageSlotsSnapshot = useCallback(async () => { 
   const grouped: Record<
     number,
     Array<{
@@ -5105,96 +5279,77 @@ const readAllPageSlotsSnapshot = useCallback(async () => {
       custom_text?: string | null;
       custom_image_url?: string | null;
       custom_back_image_url?: string | null;
+      member_id?: number | null;
+      is_wanted?: boolean | null;
+      custom_color?: string | null; // 👈 AÑADE ESTA LÍNEA AQUÍ
     }>
   > = {};
+  if (!binderId) return grouped; 
 
-  if (!binderId) return grouped;
+  const pagesRes = await supabase 
+  .from("binder_pages") 
+  .select("id") 
+  .eq("binder_id", binderId); 
+  
+  if (pagesRes.error) return grouped; 
 
-  // 1) Leer de BD TODOS los slots de TODAS las páginas del binder
-  const pagesRes = await supabase
-    .from("binder_pages")
-    .select("id")
-    .eq("binder_id", binderId);
+  const allPageIds = (pagesRes.data ?? []) 
+  .map((p: any) => Number(p.id)) 
+  .filter((n: number) => Number.isFinite(n)); 
 
-  if (pagesRes.error) {
-    console.error("Error leyendo páginas para undo snapshot:", pagesRes.error.message);
-    return grouped;
-  }
+  if (allPageIds.length > 0) { 
+  const slotsRes = await supabase
+  .from("page_slots")
+  // AÑADIDO is_wanted al select
+.select("slot_index, item_id, rot, flip_h, is_custom, custom_text, custom_image_url, custom_back_image_url, member_id, is_wanted, custom_color")  .eq("page_id", pageId);
 
-  const allPageIds = (pagesRes.data ?? [])
-    .map((p: any) => Number(p.id))
-    .filter((n: number) => Number.isFinite(n));
+  if (slotsRes.error) return grouped; 
+  
+  for (const row of slotsRes.data ?? []) { 
+  const pid = Number((row as any).page_id); 
+  if (!Number.isFinite(pid)) continue; 
+  if (!grouped[pid]) grouped[pid] = []; 
+  grouped[pid].push({ 
+  slot_index: Number((row as any).slot_index), 
+  item_id: (row as any).item_id ?? null, 
+  face: (row as any).face === "back" ? "back" : "front", 
+  rot: Number((row as any).rot ?? 0), 
+  flip_h: Boolean((row as any).flip_h), 
+  is_custom: Boolean((row as any).is_custom), 
+  custom_color: (row as any).custom_color ?? null,
+  custom_text: (row as any).custom_text ?? null, 
+  custom_image_url: (row as any).custom_image_url ?? null, 
+  custom_back_image_url: (row as any).custom_back_image_url ?? null,
+  member_id: (row as any).member_id ?? null, // 👈 AÑADIDO
+  is_wanted: Boolean((row as any).is_wanted) // 👈 AÑADIDO
+  }); 
+  } 
+  } 
 
-  if (allPageIds.length > 0) {
-    const slotsRes = await supabase
-      .from("page_slots")
-      .select("page_id, slot_index, item_id, face, rot, flip_h, is_custom, custom_text, custom_image_url, custom_back_image_url")
-      .in("page_id", allPageIds);
-
-    if (slotsRes.error) {
-      console.error("Error leyendo page_slots para undo snapshot:", slotsRes.error.message);
-      return grouped;
-    }
-
-    for (const row of slotsRes.data ?? []) {
-      const pid = Number((row as any).page_id);
-      if (!Number.isFinite(pid)) continue;
-
-      if (!grouped[pid]) grouped[pid] = [];
-
-      grouped[pid].push({
-        slot_index: Number((row as any).slot_index),
-        item_id: (row as any).item_id ?? null,
-        face: (row as any).face === "back" ? "back" : "front",
-        rot: Number((row as any).rot ?? 0),
-        flip_h: Boolean((row as any).flip_h),
-        is_custom: Boolean((row as any).is_custom),
-        custom_text: (row as any).custom_text ?? null,
-        custom_image_url: (row as any).custom_image_url ?? null,
-        custom_back_image_url: (row as any).custom_back_image_url ?? null,
-      });
-    }
-  }
-
-  // 2) Sobrescribir la página activa con el estado LOCAL actual
-  // para que el snapshot refleje exactamente lo que ve la usuaria
-  if (pageId) {
-    const activePageSlots: Array<{
-      slot_index: number;
-      item_id: number | null;
-      face: "front" | "back";
-      rot: number;
-      flip_h: boolean;
-      is_custom: boolean;
-      custom_text?: string | null;
-      custom_image_url?: string | null;
-      custom_back_image_url?: string | null;
-    }> = [];
-
-    for (const [slotStr, item] of Object.entries(slotItems)) {
-      const slotIndex = Number(slotStr);
-      if (!item) continue;
-
-      const isCustom = Boolean((item as any).is_custom);
-
-      activePageSlots.push({
-        slot_index: slotIndex,
-        item_id: isCustom ? null : item.id,
-        face: slotFace[slotIndex] ?? "front",
-        rot: slotRot[slotIndex] ?? 0,
-        flip_h: slotFlipH[slotIndex] ?? false,
-        is_custom: isCustom,
-        custom_text: isCustom ? ((item as any).custom_text ?? null) : null,
-        custom_image_url: isCustom ? ((item as any).custom_image_url ?? null) : null,
-        custom_back_image_url: isCustom ? ((item as any).custom_back_image_url ?? null) : null,
-      });
-    }
-
-    grouped[pageId] = activePageSlots;
-  }
-
-  return grouped;
-}, [binderId, pageId, slotItems, slotFace, slotRot, slotFlipH]);
+  if (pageId) { 
+  const activePageSlots: any[] = []; 
+  for (const [slotStr, item] of Object.entries(slotItems)) { 
+  const slotIndex = Number(slotStr); 
+  if (!item) continue; 
+  const isCustom = Boolean((item as any).is_custom); 
+  activePageSlots.push({ 
+  slot_index: slotIndex, 
+  item_id: isCustom ? null : item.id, 
+  face: slotFace[slotIndex] ?? "front", 
+  rot: slotRot[slotIndex] ?? 0, 
+  flip_h: slotFlipH[slotIndex] ?? false, 
+  is_custom: isCustom, 
+  custom_text: isCustom ? ((item as any).custom_text ?? null) : null, 
+  custom_image_url: isCustom ? ((item as any).custom_image_url ?? null) : null, 
+  custom_back_image_url: isCustom ? ((item as any).custom_back_image_url ?? null) : null,
+  member_id: (item as any).member_id ?? null, // 👈 AÑADIDO
+  is_wanted: Boolean((item as any).is_wanted) // 👈 AÑADIDO
+  }); 
+  } 
+  grouped[pageId] = activePageSlots; 
+  } 
+  return grouped; 
+ }, [binderId, pageId, slotItems, slotFace, slotRot, slotFlipH]);
 
   async function pushUndoSnapshot(): Promise<void> {
     const snapshot: any = {
@@ -5228,100 +5383,93 @@ const readAllPageSlotsSnapshot = useCallback(async () => {
     }
   }
 
-async function doUndo(): Promise<void> {
-  const prev = undoStackRef.current.pop();
-  if (!prev) return;
+async function doUndo(): Promise<void> { 
+  const prev = undoStackRef.current.pop(); 
+  if (!prev) return; 
+  setError(null); 
+  setStatus("Deshaciendo cambio..."); 
 
-  setError(null);
-  setStatus("Deshaciendo cambio...");
+  if (binderId) { 
+  const targetPages = prev.binderPages 
+  .slice() 
+  .sort((a, b) => a.page_index - b.page_index); 
+  const currentPageIds = new Set(binderPages.map((p) => p.id)); 
+  const targetPageIds = new Set(targetPages.map((p) => p.id)); 
 
-    if (binderId) {
-    const targetPages = prev.binderPages
-      .slice()
-      .sort((a, b) => a.page_index - b.page_index);
+  for (const p of binderPages) { 
+  if (!targetPageIds.has(p.id)) { 
+  await supabase.from("binder_pages").delete().eq("id", p.id); 
+  } 
+  } 
+  for (const p of targetPages) { 
+  if (!currentPageIds.has(p.id)) { 
+  await supabase.from("binder_pages").upsert({ 
+  id: p.id, 
+  binder_id: binderId, 
+  page_index: p.page_index, 
+  layout_type: p.layout_type, 
+  } as any); 
+  } 
+  } 
+  await persistPageOrder(targetPages); 
 
-    const currentPageIds = new Set(binderPages.map((p) => p.id));
-    const targetPageIds = new Set(targetPages.map((p) => p.id));
+  const targetPageldsList = targetPages.map((p) => p.id); 
+  if (targetPageldsList.length > 0) { 
+  // 1. PREPARAMOS LOS DATOS ANTES DE BORRAR
+  const rowsToInsert: any[] = []; 
+  for (const pid of targetPageldsList) { 
+  const rows = prev.allPageSlots[pid] || []; 
+  for (const row of rows) { 
+  rowsToInsert.push({ 
+  page_id: pid, 
+  slot_index: row.slot_index, 
+  item_id: row.item_id ?? null, 
+  face: row.face ?? "front", 
+  rot: row.rot ?? 0, 
+  flip_h: row.flip_h ?? false, 
+  is_custom: Boolean(row.is_custom), 
+  custom_text: row.custom_text ?? null, 
+  custom_image_url: row.custom_image_url ?? null, 
+  custom_back_image_url: row.custom_back_image_url ?? null,
+  member_id: row.member_id ?? null, // 👈 AÑADIDO
+  is_wanted: Boolean(row.is_wanted) // 👈 AÑADIDO
+  }); 
+  } 
+  } 
+  // 2. AHORA SÍ, BORRAMOS Y VOLVEMOS A INSERTAR CON SEGURIDAD
+  await supabase.from("page_slots").delete().in("page_id", targetPageldsList); 
 
-    for (const p of binderPages) {
-  if (!targetPageIds.has(p.id)) {
-    await supabase.from("binder_pages").delete().eq("id", p.id);
-  }
-}
+  if (rowsToInsert.length > 0) { 
+  const { error } = await supabase.from("page_slots").insert(rowsToInsert); 
+  if (error) console.error("Error restaurando BD al deshacer:", error.message); 
+  } 
+  } 
+  } 
+  
+  setBinderPages(prev.binderPages); 
+  setPagesCount(prev.pagesCount); 
+  setCurrentPageIndex(prev.currentPageIndex); 
+  setPageId(prev.pageId); 
+  setLayout(prev.layout); 
+  setSlotItems(prev.slotItems); 
+  setSlotRot(prev.slotRot); 
+  setSlotFlipH(prev.slotFlipH); 
+  setSlotFace(prev.slotFace); 
+  setSlotCustom(prev.slotCustom); 
+  setPlacedByItem(prev.placedByItem);
+  setInvByItem(prev.invByItem); 
+  setPriceByItem(prev.priceByItem); 
+  setCurrencyByItem(prev.currencyByItem); 
+  setMarketByItem(prev.marketByItem); 
+  setWtsCurrencyByItem(prev.wtsCurrencyByItem); 
+  setNotesByItem(prev.notesByItem); 
+  setWttWantedByItem(prev.wttWantedByItem); 
+  setWttOfferByItem(prev.wttOfferByItem); 
+  setWttOfferQtyByItem(prev.wttOfferQtyByItem); 
 
-for (const p of targetPages) {
-  if (!currentPageIds.has(p.id)) {
-    await supabase.from("binder_pages").upsert({
-      id: p.id,
-      binder_id: binderId,
-      page_index: p.page_index,
-      layout_type: p.layout_type,
-    } as any);
-  }
-}
-
-await persistPageOrder(targetPages);
-
-// ✅ restaurar page_slots de forma segura
-const targetPageldsList = targetPages.map((p) => p.id);
-
-      if (targetPageldsList.length > 0) {
-        // 1. Borramos la base de datos actual para esas páginas
-        await supabase.from("page_slots").delete().in("page_id", targetPageldsList);
-
-        // 2. Preparamos los datos rescatados (asegurando que no haya undefined)
-        const rowsToInsert: any[] = [];
-
-        for (const pid of targetPageldsList) {
-          const rows = prev.allPageSlots[pid] || [];
-          for (const row of rows) {
-            rowsToInsert.push({
-              page_id: pid,
-              slot_index: row.slot_index,
-              item_id: row.item_id ?? null,
-              face: row.face ?? "front",
-              rot: row.rot ?? 0,
-              flip_h: row.flip_h ?? false,
-              is_custom: Boolean(row.is_custom),
-              custom_text: row.custom_text ?? null,
-              custom_image_url: row.custom_image_url ?? null,
-              custom_back_image_url: row.custom_back_image_url ?? null
-            });
-          }
-        }
-
-        // 3. Volvemos a insertar
-        if (rowsToInsert.length > 0) {
-          const { error } = await supabase.from("page_slots").insert(rowsToInsert);
-          if (error) console.error("Error restaurando BD al deshacer:", error.message);
-        }
-      }
-  }
-      setBinderPages(prev.binderPages);
-setPagesCount(prev.pagesCount);
-setCurrentPageIndex(prev.currentPageIndex);
-setPageId(prev.pageId);
-setLayout(prev.layout);
-
-setSlotItems(prev.slotItems);
-setSlotRot(prev.slotRot);
-setSlotFlipH(prev.slotFlipH);
-  setSlotFace(prev.slotFace);
-  setSlotCustom(prev.slotCustom);
-setPlacedByItem(prev.placedByItem); // <--- AÑADE ESTA LÍNEA
-  setInvByItem(prev.invByItem);
-  setPriceByItem(prev.priceByItem);
-  setCurrencyByItem(prev.currencyByItem);
-  setMarketByItem(prev.marketByItem);
-  setWtsCurrencyByItem(prev.wtsCurrencyByItem);
-  setNotesByItem(prev.notesByItem);
-  setWttWantedByItem(prev.wttWantedByItem);
-  setWttOfferByItem(prev.wttOfferByItem);
-  setWttOfferQtyByItem(prev.wttOfferQtyByItem);
-
-  setStatus("Cambio deshecho ✅");
-  setRefreshTick((t) => t + 1);
-}
+  setStatus("Cambio deshecho ✅"); 
+  setRefreshTick((t) => t + 1); 
+ }
  const reorderPagesInState = useCallback(
  async (dragPageId: number, dropPageId: number) => {
   if (dragPageId === dropPageId) return;
@@ -5442,40 +5590,39 @@ useEffect(() => {
         return; 
       } 
       
-      const user = userData.user; 
-      
-      // 2. ASIGNACIÓN DEL ID (Esto quita el color rojo en el Onboarding)
-      if (!cancelled) { 
-        setEmail(user.email ?? null); 
-        setUserId(user.id); // <--- Esta línea es la que da valor a userId
-      } 
+     const user = userData.user;
+  // LEEMOS TU PLAN DE LA BASE DE DATOS
+  const { data: profileData } = await supabase.from('profiles').select('plan_type, extra_pages, extra_separators').eq('user_id', user.id).single();
+  
+  // 2. ASIGNACIÓN DEL ID Y LÍMITES
+  if (!cancelled) {
+    setEmail(user.email ?? null);
+    setUserId(user.id); 
+    setUserPlan(profileData?.plan_type || "free");
+    setExtraPages(profileData?.extra_pages || 0);
+    setExtraSeparators(profileData?.extra_separators || 0);
+  }
 
-      // 3. Lógica para determinar qué Binder cargar
-      let bld = Number.isFinite(binderFromUrlNum) ? binderFromUrlNum : undefined; 
+     
+     // 1. Extraemos el ID real de la URL (?binderId=XX)
+  const realIdFromUrl = searchParams.get("binderId");
+  const bld = realIdFromUrl ? Number(realIdFromUrl) : null;
 
-      if (!bld) { 
-        const binderRes = await supabase 
-          .from("binders") 
-          .select("id") 
-          .eq("user_id", user.id) 
-          .order("id", { ascending: false }) 
-          .limit(1); 
-        bld = binderRes.data?.[0]?.id; 
-      } 
+  if (bld) {
+    setBinderId(bld);
+   // Cambia el select para pedir también la portada (asegúrate de poner el nombre de tu columna real, yo asumo que es cover_url)
+const { data: bInfo } = await supabase
+  .from("binders")
+  .select("title, color, cover_url") // 👈 AÑADE TU COLUMNA AQUÍ
+  .eq("id", bld)
+  .single();
 
-      // Si el usuario no tiene binder, creamos uno por defecto
-      if (!bld && !cancelled) { 
-        const created = await supabase 
-          .from("binders") 
-          .insert({ user_id: user.id, title: "Mi Binder" }) 
-          .select("id") 
-          .single(); 
-        if (!created.error) bld = created.data.id; 
-      } 
-
-      if (cancelled || !bld) return; 
-      setBinderId(bld); 
-
+if (bInfo) {
+  setBinderTitle(bInfo.title || "Sin título");
+  setBinderColor(bInfo.color || "var(--color-primary)");
+  setCoverUrl(bInfo.cover_url || null); // 👈 GUÁRDALA AQUÍ
+}
+  }
       /* Asegurar que exista al menos una página */ 
       const pagesCheck = await supabase 
         .from("binder_pages") 
@@ -5534,35 +5681,7 @@ if (pageError || !pageData) {
         setLayout(pageData.layout_type as any);
       }
 
-   // Página 94 - Consulta Supabase
-const { data: slotsData, error: slotsError } = await supabase
-  .from("page_slots")
-  .select(`
-    is_wanted,
-    assigned:enriched_items (
-      id,
-      name,
-      image_url,
-      member,
-      member_id,
-      version
-    )
-  `)
-  .eq("page_id", pageData.id);
-
-// Página 95 - Mapeo de datos
-if (!slotsError && slotsData) {
-  const newItems: Record<number, any> = {};
-  slotsData.forEach((s: any) => {
-    if (s.assigned) {
-      newItems[s.slot_index] = {
-        ...s.assigned,
-        is_wanted: s.is_wanted, // <--- CLAVE PARA EL CHECK
-      };
-    }
-  });
-  setSlotItems(newItems);
-}
+   
       
       if (!cancelled) setLoading(false);
     };
@@ -5643,37 +5762,35 @@ if (!slotsError && slotsData) {
   
 
 
-  useEffect(() => {
-    let cancelled = false;
-
-    type PageSlotRow = {
-  slot_index: number;
-  item_id: number | null;
-  rot: number | null;
-  flip_h: boolean | null;
-
-  // ✅ custom dummy
-  is_custom: boolean | null;
-  custom_text: string | null;
-  custom_image_url: string | null;
-};
-
-    const run = async () => {
-  if (!pageId) return;
-  setError(null);
-  const slotsRes = await supabase
-    .from("page_slots")
-    .select("slot_index, item_id, rot, flip_h, is_custom, custom_text, custom_image_url, member_id") // AÑADIDO member_id
-    .eq("page_id", pageId);
-
-  if (slotsRes.error) {
-    if (!cancelled) setError(slotsRes.error.message);
-    return;
-  }
-
-  const rows = (slotsRes.data ?? []) as PageSlotRow[];
-  const itemIds = rows.map((r) => r.item_id).filter((x): x is number => typeof x === "number");
-
+  useEffect(() => { 
+  let cancelled = false; 
+  type PageSlotRow = { 
+    slot_index: number; 
+    item_id: number | null; 
+    rot: number | null; 
+    flip_h: boolean | null; 
+    is_custom: boolean | null; 
+    custom_text: string | null; 
+    custom_image_url: string | null; 
+    is_wanted?: boolean | null; // 👈 AÑADIDO
+    custom_color?: string | null;
+  }; 
+  const run = async () => { 
+  if (!pageId) return; 
+  setError(null); 
+  const slotsRes = await supabase 
+  .from("page_slots") 
+  // 👇 ESTA ES LA LÍNEA QUE DEBES CAMBIAR 👇
+  .select("slot_index, item_id, rot, flip_h, is_custom, custom_text, custom_image_url, custom_back_image_url, member_id, is_wanted, custom_color") 
+  .eq("page_id", pageId); 
+  
+  if (slotsRes.error) { 
+  if (!cancelled) setError(slotsRes.error.message); 
+  return; 
+  } 
+  const rows = (slotsRes.data ?? []) as PageSlotRow[]; 
+  const itemIds = rows.map((r) => r.item_id).filter((x): x is 
+ number => typeof x === "number"); 
   const itemsById = new Map<number, SlotItem>();
   if (itemIds.length > 0) {
     const itemsRes = await supabase
@@ -5706,22 +5823,24 @@ if (!itemsRes.error) {
     rotMap[si] = rotNorm;
     flipMap[si] = Boolean(r.flip_h ?? false);
 
-    if (r.item_id) {
-      const it = itemsById.get(r.item_id);
-      // PASAMOS EL member_id AL OBJETO PARA EL CORAZÓN
-      map[si] = it 
-        ? ({ ...it, member_id: (r as any).member_id } as any) 
-        : ({ id: r.item_id, name: null, image_url: null, back_image_url: null, member_id: (r as any).member_id } as any);
-    } else if (r.is_custom) {
-        map[si] = {
-          id: -Number(`${Date.now()}${si}`),
-          name: "PC personalizada",
-          is_custom: true,
-          custom_text: r.custom_text ?? "",
-          custom_image_url: r.custom_image_url ?? null,
-          member_id: (r as any).member_id ?? null, // 👈 ¡ESTA ES LA LÍNEA MÁGICA QUE FALTABA!
-        } as any;
-      }
+    if (r.item_id) { 
+    const it = itemsById.get(r.item_id); 
+    map[si] = it 
+    ? ({ ...it, member_id: (r as any).member_id, is_wanted: (r as any).is_wanted } as any) // 👈 AÑADIDO
+    : ({ id: r.item_id, name: null, image_url: null, back_image_url: null, member_id: (r as any).member_id, is_wanted: (r as any).is_wanted } as any); // 👈 AÑADIDO
+ } else if (r.is_custom) {
+                  map[si] = {
+                    id: -Number(`${Date.now()}${si}`),
+                    name: r.custom_text || "PC personalizada",
+                    is_custom: true,
+                    custom_text: r.custom_text ?? "",
+                    custom_image_url: r.custom_image_url ?? null,
+                    custom_color: (r as any).custom_color ?? null, // 👈 ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ AQUÍ
+                    custom_back_image_url: (r as any).custom_back_image_url ?? null,
+      member_id: (r as any).member_id ?? null,
+      is_wanted: (r as any).is_wanted ?? false
+    } as any;
+  }
   }
 
   if (!cancelled) {
@@ -5804,7 +5923,8 @@ if (!itemsRes.error) {
         if (binderPages.length + pagesNeeded > MAX_FREE_PAGES) {
           setLoading(false);
           setStatus("");
-          const confirmBuy = window.confirm(
+          const confirmBuy = await showConfirm(
+            t("common.confirm"),
             `Al reducir el formato, ${orphans.length} photocards se quedan sin espacio.\n\nAñadir las páginas necesarias superaría tu límite gratuito (${MAX_FREE_PAGES} páginas).\n\n¿Quieres ampliar tu binder para realizar este cambio?`
           );
           if (confirmBuy) {
@@ -5813,7 +5933,8 @@ if (!itemsRes.error) {
           return; // Abortamos el proceso para no borrar cartas
         } else {
           // Hay margen para crear páginas gratis
-          const confirmCreate = window.confirm(
+          const confirmCreate = await showConfirm(
+            t("common.confirm"),
             `Al reducir el formato, ${orphans.length} photocards necesitan un nuevo hueco.\n\nSe crearán ${pagesNeeded} página(s) nueva(s) automáticamente al final de tu binder para no perder ninguna carta.\n\n¿Deseas continuar?`
           );
           if (!confirmCreate) {
@@ -5843,7 +5964,8 @@ if (!itemsRes.error) {
         }
       } else {
         // Había espacio de sobra desde el principio
-        const confirm = window.confirm(
+        const confirm = await showConfirm(
+          t("common.confirm"),
           `Al reducir el formato, ${orphans.length} photocards se moverán automáticamente a los huecos libres de tu binder.\n\n¿Deseas continuar?`
         );
         if (!confirm) {
@@ -6176,10 +6298,12 @@ if (!itRes.error && itRes.data) {
     return () => document.removeEventListener("keydown", onKey);
   }, [pagesOpen, closePagesModal]);
 
-  const PagesModal = () => {
+const renderPagesModal = () => {
+  
   const onDragStartPage = (pageId: number) => (e: React.DragEvent<HTMLDivElement>) => {
     pageDraggingRef.current = true;
-    setPageDragFromId(pageId);
+    setPageDragFromId(pageId); // Marcamos el ID original
+    setModalPageDragFromId(pageId); // ✅ Nuevo: para feedback visual en el modal
     setPageDragOverId(null);
 
     const payload: PageDragPayload = { pageId };
@@ -6238,244 +6362,339 @@ if (!itRes.error && itRes.data) {
 
 const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
 
-  return (
-     <div
-  onClick={(e) => {
-    if (pageDraggingRef.current) return;
-    if (e.target === e.currentTarget) closePagesModal();
-  }}
-  style={{
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.35)",
-    zIndex: 30000,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 18,
-  }}
-  role="dialog"
-  aria-modal="true"
->
-             <div
-  onMouseDown={(e) => e.stopPropagation()}
-  style={{
-    width: "min(1160px, 96vw)",
-    height: "min(820px, 92vh)",
-    background: "#FFFDF5",
-    borderRadius: 18,
-    border: "1px solid #f3d7e4",
-    boxShadow: "0 18px 60px rgba(0,0,0,0.20)",
-    overflow: "hidden",
-    display: "grid",
-    gridTemplateRows: "72px 1fr",
-  }}
->
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      padding: "12px 18px",
-      borderBottom: "1px solid #f3c7da",
-      background: "#ffd9e6",
-    }}
-  >
- <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-  <img
-    src="/branding/logo.png"
-    alt="My Kpop Binder Logo"
-    style={{ height: 42, width: "auto", objectFit: "contain", flex: "0 0 auto" }}
-  />
+ return ( 
+    <div 
+      onClick={(e) => { 
+        if (pageDraggingRef.current) return; 
+        if (e.target === e.currentTarget) closePagesModal(); 
+      }} 
+      style={{ 
+        position: "fixed", 
+        inset: 0, 
+        background: "var(--overlay-medium)", 
+        zIndex: 30000, 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center", 
+        padding: isMobile ? "10px" : "18px", 
+      }} 
+      role="dialog" 
+      aria-modal="true" 
+    > 
+      <div 
+        onMouseDown={(e) => e.stopPropagation()} 
+        style={{ 
+          width: "min(1160px, 96vw)", 
+          height: isMobile ? "90vh" : "min(820px, 92vh)", 
+          background: "var(--bg-main)", 
+          borderRadius: 18, 
+          border: "1px solid var(--color-border)", 
+          boxShadow: "0 18px 60px color-mix(in srgb, var(--text-main) 20%, transparent)", 
+          overflow: "hidden", 
+          display: "flex", 
+          flexDirection: "column", // Cambiado de grid a flex para mejor control del espacio
+        }} 
+      > 
+        {/* HEADER FIJO */}
+        <div 
+          style={{ 
+            flexShrink: 0,
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "space-between", 
+            padding: isMobile ? "10px 14px" : "12px 18px", 
+            borderBottom: "1px solid var(--color-border)", 
+            background: "var(--bg-soft)", 
+          }} 
+        > 
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, minWidth: 0 }}> 
+            <img 
+              src="/branding/logo.png" 
+              alt={t('header.logo_alt')} 
+              style={{ height: isMobile ? 32 : 42, width: "auto", objectFit: "contain", flex: "0 0 auto" }} 
+            /> 
+            <div style={{ display: "flex", flexDirection: "column", gap: 0, minWidth: 0 }}> 
+              <div 
+                style={{ 
+                  fontWeight: 900, 
+                  color: "var(--color-primary)", 
+                  fontSize: isMobile ? 16 : 18,
+                  display: "flex", 
+                  gap: 8, 
+                  alignItems: "center"
+                }} 
+              > 
+             <span style={{ fontSize: isMobile ? 15 : 18 }}>{t('binders.modals.all_pages_title')}</span>
+                {pageReorderBusy && ( 
+                  <span style={{ fontSize: 10, color: "var(--color-primary)", opacity: 0.8 }}> 
+                    {t('common.saving')} 
+                  </span> 
+                )} 
+              </div> 
+             {/* Texto "arrastra para reordenar" forzado a una sola línea */}
+              <div 
+                style={{ 
+                  fontSize: 11, 
+                  color: "var(--color-primary)", 
+                  fontWeight: 800, 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 6,
+                  whiteSpace: "nowrap" // 👈 Esto evita que salte de línea
+                }} 
+              > 
+                <span 
+                  style={{ 
+                    fontSize: 9, 
+                    padding: "1px 6px", 
+                    borderRadius: 999, 
+                    border: "1px solid var(--color-primary)", 
+                    background: "var(--surface-frost)", 
+                    color: "var(--color-primary)", 
+                    fontWeight: 900, 
+                  }} 
+                > 
+                  {t('binders.tip')} 
+                </span> 
+                <span style={{ whiteSpace: "nowrap" }}>{t('binders.drag_to_reorder')}</span> 
+              </div>
+            </div> 
+          </div> 
 
-  <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-    <div
-      style={{
-        fontWeight: 900,
-        color: "#8C659C",
-        display: "flex",
-        gap: 10,
-        alignItems: "center",
-        flexWrap: "wrap",
-      }}
-    >
-      <span>Todas las páginas</span>
-      {pageReorderBusy && (
-        <span style={{ fontSize: 12, color: "#8C659C", opacity: 0.8 }}>
-          Guardando orden…
-        </span>
-      )}
-    </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    
+   {/* BOTONERA DE BORRADO MÚLTIPLE EN CARRUSEL */}
+        {deleteMode ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "10px" }}>
+            <button 
+              onClick={() => { setDeleteMode(false); setSelectedForDeletion([]); }}
+              style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--color-primary)", fontWeight: 800, fontSize: 12, cursor: "pointer" }}
+            >{t('common.cancel')}</button>
+            <button 
+              onClick={deleteMultiplePages}
+              disabled={selectedForDeletion.length === 0}
+              style={{ padding: "6px 12px", borderRadius: 10, border: "none", background: selectedForDeletion.length > 0 ? "var(--color-primary)" : "var(--color-border)", color: "var(--bg-card)", fontWeight: 800, fontSize: 12, cursor: selectedForDeletion.length > 0 ? "pointer" : "not-allowed" }}
+            >{t('binders.actions.delete')} ({selectedForDeletion.length})</button>
+          </div>
+        ) : (
+          <button 
+            type="button" 
+            onClick={() => setDeleteMode(true)}
+            title={t('binders.select_multiple_delete')} 
+            style={{ padding: "8px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--color-primary)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: "10px" }}
+          >
+            <Trash2 size={18} strokeWidth={2.5} />
+          </button>
+        )}
 
-    <div
-      style={{
-        fontSize: 12,
-        color: "#8C659C",
-        fontWeight: 800,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        flexWrap: "wrap",
-      }}
-    >
-      <span
-        style={{
-          fontSize: 11,
-          padding: "2px 8px",
-          borderRadius: 999,
-          border: "1px solid #F7A8D8",
-          background: "rgba(255,255,255,0.72)",
-          color: "#8C659C",
-          fontWeight: 900,
-        }}
+    {/* Los botones que ya tenías */}
+    {!deleteMode && (
+      <button 
+        type="button" 
+        onClick={() => { void doPagesModalUndo(); }} 
+        title={t('binders.actions.undo')} 
+        style={{ ...topBtnStyle, padding: "4px", width: 32, height: 32, justifyContent: "center" }}
       >
-        Tip
-      </span>
-      <span>arrastra para reordenar</span>
-    </div>
+        <Undo2 size={16} strokeWidth={2.5} />
+      </button>
+    )}
+    <button 
+      type="button" 
+      onClick={closePagesModal} 
+      title={t('common.close')}
+      className="iconDangerHover modalCloseBtn" 
+      style={{ width: 32, height: 32, borderRadius: 10, border: "1px solid var(--state-disabled-border)", background: "var(--bg-card)", cursor: "pointer", fontWeight: 900 }}
+    >
+      ✕
+    </button>
   </div>
+        </div> 
 
- 
-
- </div>
-
- <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-  <button
-   type="button"
-   onClick={() => { void doPagesModalUndo(); }}
-   title="Deshacer cambios de páginas"
-   style={{
-    ...topBtnStyle,
-    padding: "8px",
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-   }}
-  >
-   <Undo2 size={18} strokeWidth={2.5} />
-  </button>
-
-  <button
-   type="button"
-   onClick={closePagesModal}
-   title="Cerrar"
-   className="iconDangerHover modalCloseBtn"
-   style={{
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    border: "1px solid #ddd",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 900,
-   }}
-  >
-   ✕
-  </button>
- </div>
-</div>
-
-        <div
-  style={{
-    padding: 12,
-    overflow: "auto",
-    overflowAnchor: "none",
-  }}
->
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                gap: 14,
-                alignItems: "start",
-              }}
-            >
-             {ordered.map((p, idx) => {
+      {/* CUERPO CON SCROLL INDEPENDIENTE */}
+<div 
+  style={{ 
+    flex: 1,
+    padding: isMobile ? "15px 10px" : "20px", 
+    overflowY: "auto", 
+    overflowX: "hidden", 
+    WebkitOverflowScrolling: "touch"
+  }} 
+> 
+  <div 
+    style={{ 
+      display: "grid", 
+      gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", 
+      gap: isMobile ? "25px" : "14px", 
+      alignItems: "center", // Centrado de las celdas en la grid
+      width: "100%" 
+    }} 
+  > 
+    {/* Página 134 del PDF */}
+{ordered.map((p, idx) => {
   const active = idx === currentPageIndex;
-
-  const isDropTarget =
-    pageDragOverId === p.id &&
-    pageDragFromId != null &&
-    pageDragFromId !== p.id;
-
-  const isDragging = pageDragFromId === p.id;
-
-  return (
+  
+  // ← NUEVO: Variables para el resaltado
+  const isTarget = pageDragOverId === p.id || modalPageDragOverId === p.id;
+  const isDraggingMe = pageDragFromId === p.id || modalPageDragFromId === p.id;
+  
+ return (
     <div
       key={p.id}
-      draggable
-      onDragStart={onDragStartPage(p.id)}
-      onDragEnd={onDragEndPage}
+      draggable={!isMobile} 
+      // 1. TODOS LOS EVENTOS EN LA CAJA EXTERIOR
+      onDragStart={(e) => {
+        if (isMobile) return;
+        pageDraggingRef.current = true;
+        setPageDragFromId(p.id);
+        setModalPageDragFromId(p.id);
+        setModalPageDragOverId(null);
+        
+        const payload = { pageId: p.id };
+        lastPageDragRef.current = payload;
+        setDragData(e.dataTransfer, JSON.stringify(payload));
+      }}
       onDragEnter={(e) => {
-        // ✅ SI estás arrastrando una PC: cambia de página “al vuelo”
-        if (lastSlotDragRef.current) {
-          e.preventDefault();
-          e.stopPropagation();
-          setCurrentPageIndex(idx);
-          return;
+        e.preventDefault();
+        if (modalPageDragFromId !== null && modalPageDragFromId !== p.id) {
+          setModalPageDragOverId(p.id);
         }
-        // ✅ si no, comportamiento normal (reordenar páginas)
-        setPageDragOverId(p.id);
       }}
-      onDragOver={onDragOverPage(p.id)}
-      onDragLeave={onDragLeavePage(p.id)}
-      onDrop={onDropPage(p.id)}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDragLeave={() => {
+        setModalPageDragOverId(prev => prev === p.id ? null : prev);
+      }}
+      onDrop={async (e) => {
+        e.preventDefault();
+        
+        const raw = e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+        const fromPayload = parsePageDragPayload(raw) ?? lastPageDragRef.current;
+        
+        // ¡REORDENAMOS SI NO ES LA MISMA PÁGINA!
+        if (fromPayload && fromPayload.pageId !== p.id) {
+          await reorderPagesInState(fromPayload.pageId, p.id);
+        }
+        
+        pageDraggingRef.current = false;
+        setPageDragFromId(null);
+        setModalPageDragFromId(null);
+        setPageDragOverId(null);
+        setModalPageDragOverId(null);
+      }}
+      onDragEnd={() => {
+        pageDraggingRef.current = false;
+        setPageDragFromId(null);
+        setModalPageDragFromId(null);
+        setPageDragOverId(null);
+        setModalPageDragOverId(null);
+      }}
+      // El clic de navegación también lo pasamos aquí
+      onClick={() => {
+        if (!pageDragFromId && !modalPageDragFromId) {
+          setCurrentPageIndex(idx);
+        }
+      }}
       style={{
-        position: "relative",
-        overflow: "visible",
-        borderRadius: 16,
-        transform: isDragging ? "scale(1.02)" : "scale(1)",
-        opacity: isDragging ? 0.92 : 1,
-        transition: "transform 160ms ease, opacity 160ms ease",
+        position: 'relative',
+        width: '100%',
+        maxWidth: isMobile ? '240px' : '280px',
+        aspectRatio: '3 / 4.2',
+        margin: '0 auto',
+        borderRadius: 12,
+        cursor: 'pointer',
+        border: active
+          ? '3px solid var(--state-info-border)'
+          : (isTarget && !isDraggingMe
+          ? '2px solid var(--color-accent-blue)'
+          : '1px solid var(--state-disabled-border)'),
+        boxShadow: isTarget && !isDraggingMe
+          ? '0 0 0 5px color-mix(in srgb, var(--color-primary) 30%, transparent), 0 0 30px color-mix(in srgb, var(--color-accent-blue) 35%, transparent)'
+          : '0 10px 25px color-mix(in srgb, var(--text-main) 8%, transparent)',
+        background: isTarget && !isDraggingMe ? 'var(--surface-float)' : 'var(--bg-card)',
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: isDraggingMe ? 0.4 : 1,
+        transition: 'all 160ms ease',
+        userSelect: 'none',
+        touchAction: 'none',
       }}
-      data-refresh-tick={refreshTick}
     >
-      {/* ✅ Halo/animación de drop */}
-      {isDropTarget && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: -6,
-            borderRadius: 16,
-            border: "2px solid rgba(141,184,255,0.95)",
-            background: "rgba(141,184,255,0.12)",
-            boxShadow: "0 18px 40px rgba(141,184,255,0.22)",
-            pointerEvents: "none",
-            zIndex: 5,
-            animation: "dropPulse 520ms ease-out infinite",
+      {/* 2. HALO ROSA EXTRA */}
+      {isTarget && !isDraggingMe && (
+        <div style={{
+          position: 'absolute',
+          inset: -6,
+          borderRadius: 16,
+          border: '3px solid var(--color-accent-blue)',
+          background: 'color-mix(in srgb, var(--color-accent-blue) 25%, transparent)',
+          boxShadow: '0 0 20px color-mix(in srgb, var(--color-accent-blue) 40%, transparent)',
+          zIndex: 999,
+          pointerEvents: 'none',
+        }} />
+        
+      )}
+{/* EL CHECKBOX VISUAL DEL CARRUSEL */}
+{deleteMode && (
+  <div style={{
+    position: 'absolute', inset: 0, zIndex: 10,
+    background: selectedForDeletion.includes(p.id) ? "color-mix(in srgb, var(--color-primary) 20%, transparent)" : "color-mix(in srgb, var(--bg-card) 40%, transparent)",
+    border: selectedForDeletion.includes(p.id) ? "3px solid var(--color-primary)" : "none",
+    borderRadius: "8px", display: "flex", alignItems: "flex-start", justifyContent: "flex-end", padding: "4px",
+    pointerEvents: "none" /* 👈 ESTO ES LA CLAVE PARA QUE NO BLOQUEE EL CLIC */
+  }}>
+    <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: selectedForDeletion.includes(p.id) ? "var(--color-primary)" : "var(--bg-card)", border: selectedForDeletion.includes(p.id) ? "none" : "2px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--bg-card)", fontSize: "10px", fontWeight: 900 }}>
+      {selectedForDeletion.includes(p.id) && "✓"}
+    </div>
+  </div>
+)}
+     {/* 3. ADIÓS ESCUDO INVISIBLE: Ya podemos interactuar con el interior */}
+      <div style={{ width: '100%', height: '100%' }}>
+        <PageThumb
+          pageId={p.id}
+          layoutKey={p.layout_type}
+          active={active}
+          size="modal"
+          pageNumber={idx + 1}
+          showPageNumber={true}
+          refreshTick={refreshTick}
+          pageWidth={780}
+          pageHeight={1100}
+          title={`Ir a página ${idx + 1}`}
+          onClick={() => {
+            if (!pageDragFromId && !modalPageDragFromId) {
+              setCurrentPageIndex(idx);
+            }
+          }}
+          draggable={false} 
+          
+        
+          onDeletePage={async (id) => {
+            const ok = await showConfirm(
+              t("common.confirm"),
+              `¿Borrar la página ${idx + 1}? Se perderán los slots colocados en esa página.`,
+            );
+            if (ok) {
+              deletePageById(id);
+            }
           }}
         />
-      )}
-
-   
-<PageThumb
-  pageId={p.id}
-  layoutKey={p.layout_type}
-  active={active}
-  size="modal"
-  title={`Ir a página ${idx + 1}`}
-  onClick={() => {
-    if (lastSlotDragRef.current) return;
-    setCurrentPageIndex(idx);
-  }}
-  pageNumber={idx + 1}
-  showPageNumber
-  onDeletePage={(id) => void deletePageById(id)}
-  refreshTick={refreshTick}
-  pageWidth={PAGE_W}
-  pageHeight={PAGE_H}
-/>
-
-    </div>
-  );
-})}
-            </div>
-          </div>
-        </div>
       </div>
-    );
-  };
+   
+      </div>
+
+  );
+})
+}
+
+  </div> 
+</div>
+      </div> 
+    </div> 
+  );};
 const BuyPagesModal = () => (
     <div
       onMouseDown={(e) => {
@@ -6484,7 +6703,7 @@ const BuyPagesModal = () => (
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.35)",
+        background: "var(--overlay-medium)",
         zIndex: 35000,
         display: "flex",
         alignItems: "center",
@@ -6500,10 +6719,10 @@ const BuyPagesModal = () => (
           width: "min(420px, 92vw)", // Antes era 1240px
           height: "auto",            // Antes era 900px (ahora se adapta al texto)
           // 👆 ---------------------- 👆
-          background: "#f0efe9",
+          background: "var(--bg-main)",
           borderRadius: 18,
-          border: "1px solid #7d187f",
-          boxShadow: "0 18px 60px rgba(81, 41, 95, 0.2)",
+          border: "1px solid var(--color-primary)",
+          boxShadow: "0 18px 60px color-mix(in srgb, var(--color-primary) 20%, transparent)",
           overflow: "hidden",
           display: "flex",           // Mejoramos el layout a flex
           flexDirection: "column",
@@ -6512,14 +6731,14 @@ const BuyPagesModal = () => (
         <div
           style={{
             padding: "14px 16px",
-            borderBottom: "1px solid #7d187f",
+            borderBottom: "1px solid var(--color-primary)",
 // ... el resto de tu modal sigue igual ...
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
         }}
       >
-        <div style={{ fontWeight: 900, color: "#694a79" }}>Límite alcanzado</div>
+        <div style={{ fontWeight: 900, color: "var(--color-primary)" }}>{t('binders.modals.limit_reached')}</div>
         <button
           type="button"
           onClick={() => setBuyPagesOpen(false)}
@@ -6527,24 +6746,24 @@ const BuyPagesModal = () => (
             width: 34,
             height: 34,
             borderRadius: 10,
-            border: "1px solid #c6a0e4",
-            background: "#ccaad340",
+            border: "1px solid var(--color-secondary)",
+            background: "var(--bg-soft)",
             cursor: "pointer",
             fontWeight: 900,
-            color: "#694a79",
+            color: "var(--color-primary)",
           }}
-          title="Cerrar"
+          title={t('common.close')}
         >
           ✕
         </button>
       </div>
 
       <div style={{ padding: 16, textAlign: "left" }}>
-        <div style={{ color: "#694a79", fontWeight: 800, lineHeight: 1.4 }}>
-          Has llegado al máximo de <b>{MAX_FREE_PAGES}</b> páginas.
+        <div style={{ color: "var(--color-primary)", fontWeight: 800, lineHeight: 1.4 }}>
+          {t('binders.modals.max_pages_msg')}
         </div>
-        <div style={{ marginTop: 8, color: "#666", lineHeight: 1.45 }}>
-          Si quieres añadir más, puedes comprar páginas extra.
+        <div style={{ marginTop: 8, color: "var(--text-muted)", lineHeight: 1.45 }}>
+          {t('binders.modals.buy_more_pages')}
         </div>
 
         <div style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
@@ -6554,14 +6773,14 @@ const BuyPagesModal = () => (
             style={{
               padding: "10px 12px",
               borderRadius: 14,
-                  border: "1px solid #8db8ff",
-              background: "#eaf2ff",
+                  border: "1px solid var(--color-accent-blue)",
+              background: "var(--bg-soft)",
               cursor: "pointer",
               fontWeight: 900,
-               color: "#694a79",
+               color: "var(--color-primary)",
             }}
           >
-            Ahora no
+            {t('binders.modals.not_now')}
           </button>
 
           <button
@@ -6573,20 +6792,48 @@ const BuyPagesModal = () => (
             style={{
               padding: "10px 12px",
               borderRadius: 14,
-              border: "1px solid #8db8ff",
-              background: "#eaf2ff",
+              border: "1px solid var(--color-accent-blue)",
+              background: "var(--bg-soft)",
               cursor: "pointer",
               fontWeight: 900,
-              color: "#694a79",
+              color: "var(--color-primary)",
             }}
           >
-            Comprar más páginas
+            {t('binders.modals.buy_pages_btn')}
           </button>
         </div>
       </div>
     </div>
   </div>
 );
+const BuySeparatorsModal = () => (
+  <div
+    onMouseDown={(e) => { if (e.target === e.currentTarget) setBuySeparatorsOpen(false); }}
+    style={{ position: "fixed", inset: 0, background: "var(--overlay-medium)", zIndex: 35000, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}
+    role="dialog"
+    aria-modal="true"
+  >
+    <div style={{ width: "min(420px, 92vw)", height: "auto", background: "var(--bg-main)", borderRadius: 18, border: "1px solid var(--color-primary)", boxShadow: "0 18px 60px color-mix(in srgb, var(--color-primary) 20%, transparent)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--color-primary)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontWeight: 900, color: "var(--color-primary)" }}>{t('binders.modals.limit_reached')}</div>
+        <button type="button" onClick={() => setBuySeparatorsOpen(false)} style={{ width: 34, height: 34, borderRadius: 10, border: "1px solid var(--color-secondary)", background: "var(--bg-soft)", cursor: "pointer", fontWeight: 900, color: "var(--color-primary)" }}>✕</button>
+      </div>
+      <div style={{ padding: 16, textAlign: "left" }}>
+        <div style={{ color: "var(--color-primary)", fontWeight: 800, lineHeight: 1.4 }}>
+          {t('binders.modals.max_separators_msg')}
+        </div>
+        <div style={{ marginTop: 8, color: "var(--text-muted)", lineHeight: 1.45 }}>
+          {t('binders.modals.buy_more_separators')}
+        </div>
+        <div style={{ marginTop: 14, display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <button type="button" onClick={() => setBuySeparatorsOpen(false)} style={{ padding: "10px 12px", borderRadius: 14, border: "1px solid var(--color-accent-blue)", background: "var(--bg-soft)", cursor: "pointer", fontWeight: 900, color: "var(--color-primary)" }}>{t('binders.modals.not_now')}</button>
+          <button type="button" onClick={() => { setBuySeparatorsOpen(false); router.push("/shop"); }} style={{ padding: "10px 12px", borderRadius: 14, border: "1px solid var(--color-accent-blue)", background: "var(--bg-soft)", cursor: "pointer", fontWeight: 900, color: "var(--color-primary)" }}>{t('binders.modals.buy_separators_btn')}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 // ======================
 // MODAL: helpers + wiring
 // ======================
@@ -6851,7 +7098,7 @@ const [modalCustomIsBias, setModalCustomIsBias] = useState(false);
           const h = document.createElement("div");
           h.className = "floating-heart-new";
           h.innerHTML = "❤";
-          h.style.cssText = `position: absolute; bottom: 20%; left: ${Math.random() * 80 + 10}%; font-size: 28px; color: #e23d61; text-shadow: 0 0 6px rgba(174, 0, 255, 0.6); z-index: 99999; pointer-events: none; animation: heartFlyUp 1.2s ease-out forwards;`;
+          h.style.cssText = `position: absolute; bottom: 20%; left: ${Math.random() * 80 + 10}%; font-size: 28px; color: var(--state-danger-fg); text-shadow: 0 0 6px color-mix(in srgb, var(--color-secondary) 60%, transparent); z-index: 99999; pointer-events: none; animation: heartFlyUp 1.2s ease-out forwards;`;
           container.appendChild(h);
           setTimeout(() => h.remove(), 1200);
         }, i * 100);
@@ -7239,7 +7486,7 @@ const WesternWantedFrame = ({
           width: "41.4%",
           height: "38.2%",
           overflow: "hidden",
-          boxShadow: "inset 0 0 12px rgba(0,0,0,0.8)",
+          boxShadow: "inset 0 0 12px var(--overlay-heavy)",
         }}
       >
         {children}
@@ -7253,7 +7500,7 @@ const WesternWantedFrame = ({
           top: "65.2%", 
           width: "88%",
           height: "10%",
-          color: "#2a1a0a",
+          color: "var(--text-main)",
           fontWeight: 950,
           textAlign: "center",
           display: "flex",
@@ -7272,19 +7519,21 @@ const WesternWantedFrame = ({
   );
 };
 
-const SlotBox = ({
-  slotIndex,
-  invByItem,
-  emptyCounts,
-  placedByItem, // 👈 AÑADIMOS LA PROP AQUÍ
-}: {
-  slotIndex: number;
-  invByItem: Record<number, StatusCounts>;
-  emptyCounts: () => StatusCounts;
-  placedByItem: Record<number, number>; // 👈 Y SU TIPO AQUÍ
+const SlotBox = ({ 
+  slotIndex, 
+  invByItem, 
+  emptyCounts, 
+  placedByItem,
+  modalZoom, // 👈 AÑADE ESTO AQUÍ
+}: { 
+  slotIndex: number; 
+  invByItem: Record<number, StatusCounts>; 
+  emptyCounts: () => StatusCounts; 
+  placedByItem: Record<number, number>;
+  modalZoom: number; // 👈 Y ESTO AQUÍ TAMBIÉN
 }) => {
   const assigned = slotItems[slotIndex] ?? null;
-  const neonOrange = "rgba(255, 136, 0, 0.9)";
+  const neonOrange = "color-mix(in srgb, var(--state-warning-border) 90%, transparent)";
   const slotRef = useRef<HTMLDivElement | null>(null);
   const flipWrapRef = useRef<HTMLDivElement | null>(null);
   const itemId = assigned?.id ?? null;
@@ -7351,8 +7600,8 @@ const isBiasPC = useMemo(() => {
       bottom: 20%;
       left: ${Math.random() * 80 + 10}%;
       font-size: 28px;
-color: #e23d61;
-text-shadow: 0 0 6px rgba(174, 0, 255, 0.6);
+color: var(--state-danger-fg);
+text-shadow: 0 0 6px color-mix(in srgb, var(--color-secondary) 60%, transparent);
       z-index: 99999;
       pointer-events: none;
       animation: heartFlyUp 1.2s ease-out forwards;
@@ -7370,9 +7619,9 @@ text-shadow: 0 0 6px rgba(174, 0, 255, 0.6);
     if (prevItemRef.current !== itemId) {
       slotRef.current?.animate(
         [
-          { boxShadow: "0 0 0 rgba(0,0,0,0)", backgroundColor: "rgba(0,0,0,0)" },
-          { boxShadow: "0 10px 22px rgba(0,0,0,0.12)", backgroundColor: "rgba(207,227,255,0.25)" },
-          { boxShadow: "0 0 0 rgba(0,0,0,0)", backgroundColor: "rgba(0,0,0,0)" },
+          { boxShadow: "0 0 0 transparent", backgroundColor: "transparent" },
+          { boxShadow: "0 10px 22px var(--overlay-faint)", backgroundColor: "color-mix(in srgb, var(--state-info-bg) 80%, var(--color-accent-blue) 20%)" },
+          { boxShadow: "0 0 0 transparent", backgroundColor: "transparent" },
         ],
         { duration: 260, easing: "ease-out" }
       );
@@ -7428,7 +7677,7 @@ const { slotW, slotH } = getSlotDimsForLayout(layoutDef);
   // Eliminamos el fitScale (ya no lo necesitamos)
 
 
-const badge = assigned ? dominantBadge(counts) : { key: null, label: "", bg: "#fff", border: "#eee" };
+const badge = assigned ? dominantBadge(counts) : { key: null, label: "", bg: "var(--bg-card)", border: "var(--state-disabled-border)" };
 
 
 
@@ -7483,9 +7732,11 @@ const fitThis =
   setDragData(e.dataTransfer, JSON.stringify(payload));
 };
 
+// Busca o actualiza los handlers de Drag en el carrusel (Página 253 aprox)
 const handleDragEnd = () => {
-  lastSlotDragRef.current = null;
-  setDragOverSlot(null);
+  setPageDragFromId(null);
+  setPageDragOverId(null);
+  pageDraggingRef.current = false;
 };
 const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
 e.preventDefault();
@@ -7688,30 +7939,30 @@ const currencySelectStyle: CSSProperties = {
   height: 30,
   padding: "6px 8px",
   borderRadius: 10,
-  border: "1px solid #F7A8D8",
-  background: "#FFF9FB",
-  color: "#8C659C",
+  border: "1px solid var(--color-primary)",
+  background: "var(--bg-main)",
+  color: "var(--color-primary)",
   fontSize: 12,
   fontWeight: 900,
   cursor: "pointer",
-  boxShadow: "0 2px 8px rgba(247,168,216,0.12)",
+  boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 12%, transparent)",
 };
     const iconBtnStyle: React.CSSProperties = {
   width: 23,
   height: 23,
   borderRadius: 8,
-  border: "1px solid #e7e7ef",
-  background: "rgba(255,255,255,0.92)",
+  border: "1px solid var(--state-disabled-border)",
+  background: "var(--surface-float)",
   backdropFilter: "blur(8px)",
   fontWeight: 900,
   fontSize: 13,
-  color: "var(--icon-color, #777)",
+  color: "var(--icon-color, var(--text-muted))",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   lineHeight: 1,
   cursor: "pointer",
-  boxShadow: "var(--icon-shadow, 0 10px 24px rgba(0,0,0,0.12))",
+  boxShadow: "var(--icon-shadow, 0 10px 24px var(--overlay-faint))",
 };
 
     const seamShift = !pageRotateAll ? 14 : 0;
@@ -7725,9 +7976,9 @@ useEffect(() => {
   if (!swapFxOn) return;
   slotRef.current?.animate(
     [
-      { boxShadow: "0 0 0 rgba(0,0,0,0)", filter: "brightness(1)", transform: "translateZ(0)" },
-      { boxShadow: "0 12px 26px rgba(0,0,0,0.14)", filter: "brightness(1.03)", transform: "translateZ(0)" },
-      { boxShadow: "0 0 0 rgba(0,0,0,0)", filter: "brightness(1)", transform: "translateZ(0)" },
+      { boxShadow: "0 0 0 transparent", filter: "brightness(1)", transform: "translateZ(0)" },
+      { boxShadow: "0 12px 26px color-mix(in srgb, var(--text-main) 14%, transparent)", filter: "brightness(1.03)", transform: "translateZ(0)" },
+      { boxShadow: "0 0 0 transparent", filter: "brightness(1)", transform: "translateZ(0)" },
     ],
     { duration: 260, easing: "cubic-bezier(.2,.9,.2,1)" }
   );
@@ -7873,12 +8124,12 @@ const base = `scaleX(${flip ? -1 : 1})`;
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => closeGapAtGlobal(slotIndex + 1, 1)}
               style={{
-                boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+                boxShadow: "0 8px 18px var(--overlay-faint)",
                 width: 26,
                 height: 26,
                 borderRadius: 999,
-                border: "1px solid #ddd",
-                background: "white",
+                border: "1px solid var(--state-disabled-border)",
+                background: "var(--bg-card)",
                 fontWeight: 900,
                 cursor: isShifting || !canCloseHere ? "not-allowed" : "pointer",
                 opacity: isShifting || !canCloseHere ? 0.45 : 1,
@@ -7893,12 +8144,12 @@ const base = `scaleX(${flip ? -1 : 1})`;
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => makeRoomAtGlobal(slotIndex + 1, 1)}
               style={{
-                boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+                boxShadow: "0 8px 18px var(--overlay-faint)",
                 width: 26,
                 height: 26,
                 borderRadius: 999,
-                border: "1px solid #ddd",
-                background: "white",
+                border: "1px solid var(--state-disabled-border)",
+                background: "var(--bg-card)",
                 fontWeight: 900,
                 cursor: isShifting ? "not-allowed" : "pointer",
                 opacity: isShifting ? 0.45 : 1,
@@ -7919,11 +8170,11 @@ const base = `scaleX(${flip ? -1 : 1})`;
             position: "absolute",
             inset: -6,
             borderRadius: 16,
-            border: isFxAnchor ? "2px solid #8db8ff" : "1px solid rgba(141,184,255,0.55)",
+            border: isFxAnchor ? "2px solid var(--color-accent-blue)" : "1px solid color-mix(in srgb, var(--color-accent-blue) 55%, transparent)",
             boxShadow: isFxAnchor
-              ? "0 0 0 6px rgba(141,184,255,0.16), 0 14px 30px rgba(0,0,0,0.10)"
-              : "0 0 0 4px rgba(141,184,255,0.10)",
-            background: isFxAnchor ? "rgba(141,184,255,0.08)" : "transparent",
+              ? "0 0 0 6px color-mix(in srgb, var(--color-accent-blue) 16%, transparent), 0 14px 30px var(--overlay-faint)"
+              : "0 0 0 4px color-mix(in srgb, var(--color-accent-blue) 10%, transparent)",
+            background: isFxAnchor ? "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)" : "transparent",
             pointerEvents: "none",
             opacity: isFxAnchor ? 1 : 0.9,
             animation: isFxAnchor ? "shiftPulse 520ms ease-out 1" : "none",
@@ -7941,9 +8192,9 @@ const base = `scaleX(${flip ? -1 : 1})`;
               position: "absolute",
               inset: -6,
               borderRadius: 16,
-              border: "2px solid rgba(141,184,255,0.95)",
-              background: "rgba(141,184,255,0.12)",
-              boxShadow: "0 18px 40px rgba(141,184,255,0.22)",
+              border: "2px solid color-mix(in srgb, var(--color-accent-blue) 95%, transparent)",
+              background: "color-mix(in srgb, var(--color-accent-blue) 12%, transparent)",
+              boxShadow: "0 18px 40px color-mix(in srgb, var(--color-accent-blue) 22%, transparent)",
               pointerEvents: "none",
               zIndex: 210,
             }}
@@ -7973,24 +8224,24 @@ const base = `scaleX(${flip ? -1 : 1})`;
                 <div style={{
                   position: "absolute", inset: 0,
                   transform: "translate(6px, 6px)",
-                  borderRadius: 12, border: "1px solid #999",
+                  borderRadius: 12, border: "1px solid var(--state-disabled-fg)",
                   overflow: "hidden", 
                   // Filtro para hacerla más grisácea y oscura, dando sombra real
                   filter: "brightness(0.6) grayscale(0.2)", 
-                  boxShadow: "0 8px 16px rgba(0,0,0,0.25)"
+                  boxShadow: "0 8px 16px var(--overlay-soft)"
                 }}>
-                  <img src={frontUrl || "/mock-pcs/groupsui/not-available.png"} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
+                  <ImageWithExtensionFallback src={frontUrl || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
                 </div>
                 
                 {/* Carta intermedia */}
                 <div style={{
                   position: "absolute", inset: 0,
                   transform: "translate(3px, 3px)",
-                  borderRadius: 12, border: "1px solid #bbb",
+                  borderRadius: 12, border: "1px solid var(--state-disabled-border)",
                   overflow: "hidden", 
                   filter: "brightness(0.8) grayscale(0.1)" // Ligeramente oscurecida
                 }}>
-                  <img src={frontUrl || "/mock-pcs/groupsui/not-available.png"} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
+                  <ImageWithExtensionFallback src={frontUrl || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
                 </div>
               </>
             )}
@@ -8000,7 +8251,7 @@ const base = `scaleX(${flip ? -1 : 1})`;
   width: "100%", height: "100%",
   background: st.bg,
   borderRadius: 12, overflow: "hidden",
-  boxShadow: isMulti ? "none" : "0 4px 12px rgba(0,0,0,0.08)",
+  boxShadow: isMulti ? "none" : "0 4px 12px color-mix(in srgb, var(--text-main) 8%, transparent)",
   border: `1.5px solid ${st.border}`,
   cursor: "pointer", position: "relative"
 }}
@@ -8028,35 +8279,108 @@ onClick={() => openItemModal(slotIndex, assigned)}
         willChange: "transform",
       }}
     >
-     {/* LADO FRONTAL (FRONT) */}
-  <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
-    {(assigned as any)?.is_wanted === true && uiWishlist > 0 ? (
-      <WesternWantedFrame
-        name={
-  prettyMemberLabel(
-    assigned?.member ||
-    assigned?.member_name ||
-    assigned?.custom_text ||
-    assigned?.name ||
-    ""
-  ) || "—"
-}
-      >
-        <img src={frontUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'sepia(0.2)' }} alt="" />
-      </WesternWantedFrame>
-    ) : (
-      <img src={frontUrl} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
-    )}
-  </div>
+{/* LADO FRONTAL (FRONT) */}
+<div style={{
+  position: "absolute", inset: 0,
+  backfaceVisibility: "hidden",
+  WebkitBackfaceVisibility: "hidden",
+  overflow: modalZoom > 1 ? "visible" : "hidden",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center"
+}}>
+  {((z: number, item: any, wishlist: number) => {
+    // 1. Definimos la imagen frontal correctamente (soporta real y custom) 
+    const frontImg = item?.is_custom
+      ? item.custom_image_url
+      : item?.image_url;
 
-      {/* LADO TRASERO (BACK) */}
-      <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
-        <img src={backUrl || DEFAULT_BACK_URL} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
-      </div>
+    // 2. Lógica de título para el marco (Stray Kids / OT8 / Miembros) 
+    let headerTitle = "WANTED";
+    if (item) {
+      const rawMember: string = String(item?.member ?? item?.custom_text ?? "");
+      const memberAliases = ["bang chan", "lee know", "changbin", "hyunjin", "han", "felix", "seungmin", "i.n", "in"];
+      const norm = rawMember.toLowerCase().replace(/,|\+|\/|\|/g, " ").replace(/\s+/g, " ").trim();
+      const headerParts: string[] = memberAliases
+        .filter((m) => (m.includes(" ") ? norm.includes(m) : new RegExp(`\\b${m}\\b`, "i").test(norm)))
+        .map((m) => (m === "i.n" || m === "in" ? "I.N" : m.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")));
+      
+      const rawLower = rawMember.trim().toLowerCase();
+      if (rawLower.includes("ot8") || rawLower.includes("all")) {
+        headerTitle = "OT8";
+      } else if (!headerParts.length) {
+        headerTitle = rawMember || "WANTED";
+      } else if (headerParts.length === 1) {
+        headerTitle = headerParts[0];
+      } else if (headerParts.length === 2) {
+        headerTitle = `${headerParts[0]} + ${headerParts[1]}`;
+      } else if (headerParts.length > 2) {
+        headerTitle = `${headerParts[0]} + ${headerParts[1]}\n+ ${headerParts.length - 2} más`;
+      }
+    }
+
+    // 3. Renderizado final: Con marco si es Wanted, o imagen limpia si no [cite: 1553]
+    if (item?.is_wanted === true && wishlist > 0) {
+      return (
+        <WesternWantedFrame name={headerTitle} variant="modal">
+          <img 
+            src={frontImg || "/mock-pcs/groups/not-available.png"} 
+            style={{ 
+              width: '100%', height: '100%', 
+              objectFit: z > 1 ? "contain" : "cover", 
+              filter: 'sepia(0.2)',
+              transform: `scale(${z})`, 
+              transition: "transform 0.2s ease" 
+            }} 
+            alt="" 
+          /> 
+        </WesternWantedFrame>
+      );
+    } else {
+      return (
+        <img
+          src={frontImg || "/mock-pcs/groups/not-available.png"}
+          style={{
+            width: '100%', height: '100%', 
+            objectFit: z > 1 ? "contain" : "cover",
+            transform: `scale(${z})`,
+            transition: "transform 0.2s ease"
+          }}
+          alt=""
+        />
+      );
+    }
+  })(modalZoom, assigned, uiWishlist)} 
+</div>
+
+{/* LADO TRASERO (BACK) */}
+<div style={{ 
+  position: "absolute", inset: 0, transform: "rotateY(180deg)", 
+  backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+  overflow: modalZoom > 1 ? "visible" : "hidden",
+  display: "flex", alignItems: "center", justifyContent: "center"
+}}> 
+  <img 
+    src={
+      assigned?.is_custom
+        ? (assigned.custom_back_image_url || "/mock-pcs/groups/default-back.png")
+        : (assigned?.back_image_url || "/mock-pcs/groups/default-back.png")
+    } 
+    style={{ 
+      width: "100%", height: "100%", 
+      objectFit: modalZoom > 1 ? "contain" : "cover", 
+      transform: `scale(${modalZoom})`,
+      transition: "transform 0.2s ease" 
+    }} 
+    alt="" 
+  /> 
+</div>
+   </div>
+    </div>
     </div>
   </div>
-</div>
-          </div>
+
+
 
    
 
@@ -8098,7 +8422,7 @@ onClick={() => openItemModal(slotIndex, assigned)}
    cursor: "pointer",
   }}
  >
-  <Heart size={18} fill="#F7A8D8" color="#F7A8D8" strokeWidth={0} />
+  <Heart size={18} fill="var(--color-primary)" color="var(--color-primary)" strokeWidth={0} />
  </button>
 )}
    {/* CONTROLES (Los botones de siempre) */}
@@ -8118,18 +8442,18 @@ onClick={() => openItemModal(slotIndex, assigned)}
         type="button"
         onClick={async (e) => {
           e.stopPropagation();
-          const ok = window.confirm("¿Eliminar esta photocard?");
+          const ok = await showConfirm(t("common.confirm"), "¿Eliminar esta photocard?");
           if (ok) await clearSlot(slotIndex);
         }}
         className="iconDangerHover modalCloseBtn"
-        style={{ ...iconBtnStyle, width: 24, height: 24, background: 'rgba(255,255,255,0.9)' }}
+        style={{ ...iconBtnStyle, width: 24, height: 24, background: 'color-mix(in srgb, var(--bg-card) 90%, transparent)' }}
       >
         ✕
       </button>
     </div>
   </>
 ) : (
-  <button type="button" onClick={() => setPickingSlot(slotIndex)} style={{ width: '100%', height: '100%', borderRadius: 12, border: '1px dashed #cfe4ff', background: '#f7fbff', fontSize: 24, color: '#cfe4ff', cursor: 'pointer', zIndex: 1 }}>+</button>
+  <button type="button" onClick={() => setPickingSlot(slotIndex)} style={{ width: '100%', height: '100%', borderRadius: 12, border: '1px dashed var(--state-info-border)', background: 'var(--state-info-bg)', fontSize: 24, color: 'var(--state-info-border)', cursor: 'pointer', zIndex: 1 }}>+</button>
 )}
 </div>
 );
@@ -8184,79 +8508,81 @@ const rowGap = isSpecial ? 26 : 14;
   const goPrev = () => setCurrentPageIndex((p) => Math.max(0, p - 1));
 const goNext = () =>
   setCurrentPageIndex((p) => Math.min(Math.max(binderPages.length - 1, 0), p + 1));
-const createNewPage = useCallback(async () => {
- if (!binderId) return;
- if (loading || pageReorderBusy) return;
+const createNewPage = useCallback(async (forcedLayout?: LayoutType) => { 
+  if (!binderId) return; 
+  if (loading || pageReorderBusy) return; 
+  const finalLayout = forcedLayout || layout; 
 
- if (!canAddPage) {
-  setError(`Has alcanzado el límite gratuito de ${MAX_FREE_PAGES} páginas.
-Para añadir más páginas necesitas pagar.`);
-  setStatus("Límite de páginas alcanzado");
-  setBuyPagesOpen(true);
-  return;
- }
+  
+  // 1. LEEMOS LA BASE DE DATOS EN TIEMPO REAL AL HACER CLIC
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('plan_type, extra_pages, extra_separators')
+    .eq('user_id', userId)
+    .single();
 
- // ✅ guardar estado ANTES del cambio
- if (pagesOpen) {
-  pushPagesModalUndoSnapshot();
- } else {
-  await pushUndoSnapshot();
- }
 
- setError(null);
- setStatus("Creando página...");
- setLoading(true);
+  const extrasP = profileData?.extra_pages || 0;
+  const extrasS = profileData?.extra_separators || 0;
+const rawPlan = (profileData?.plan_type || "free").toLowerCase().trim();
+  const currentPlan = profile?.is_premium && rawPlan === 'free' ? 'mensual' : rawPlan;
+  // 2. CALCULAMOS LOS LÍMITES REALES (Plan + Compras de Shop)
+  const maxPages = (currentPlan === 'anual' ? 60 : currentPlan === 'mensual' ? 30 : 12) + extrasP;
+  const maxSeparators = (currentPlan === 'anual' ? 30 : currentPlan === 'mensual' ? 15 : 5) + extrasS;
 
- for (let attempt = 0; attempt < 3; attempt++) {
+  const realPagesCount = binderPages.filter(p => p.layout_type !== 'separator').length; 
+  const sepCount = binderPages.filter(p => p.layout_type === 'separator').length; 
+  
+  const isAdmin = isAdminTeamEmail(email);
+
+  // 3. APLICAMOS EL BLOQUEO (CON INMUNIDAD ADMIN ACTIVADA 🛡️)
+  if (finalLayout === 'separator') {
+    if (!isAdmin && sepCount >= maxSeparators) {
+      setBuySeparatorsOpen(true);
+      return;
+    }
+  } else {
+    if (!isAdmin && realPagesCount >= maxPages) {
+      setBuyPagesOpen(true);
+      return;
+    }
+  }
+  
+  setStatus("Creando...");
+  setLoading(true);
+  setLoading(true);
+
+  // 3. El resto del código de creación sigue igual
   const lastRes = await supabase
-   .from("binder_pages")
-   .select("page_index")
-   .eq("binder_id", binderId)
-   .order("page_index", { ascending: false })
-   .limit(1);
+    .from("binder_pages")
+    .select("page_index")
+    .eq("binder_id", binderId)
+    .order("page_index", { ascending: false })
+    .limit(1);
 
-  const lastIndexRaw = lastRes.data?.[0]?.page_index;
-  const lastIndex = typeof lastIndexRaw === "number" ? lastIndexRaw : -1;
-  const nextIndex = lastIndex + 1;
+  const nextIndex = (lastRes.data?.[0]?.page_index ?? -1) + 1;
 
   const ins = await supabase
-   .from("binder_pages")
-   .insert({ binder_id: binderId, page_index: nextIndex, layout_type: layout })
-   .select("id, page_index, layout_type")
-   .single();
+    .from("binder_pages")
+    .insert({ binder_id: binderId, page_index: nextIndex, layout_type: finalLayout })
+    .select("id")
+    .single();
 
   if (!ins.error && ins.data) {
-   setStatus("Página creada ✅");
-   setLoading(false);
-   setRefreshTick((t) => t + 1);
-   setCurrentPageIndex(nextIndex);
-   return;
+    const newPage = { id: ins.data.id, page_index: nextIndex, layout_type: finalLayout };
+    const newBinderPages = [...binderPages, newPage].sort((a,b) => a.page_index - b.page_index);
+    
+    setBinderPages(newBinderPages);
+    setPagesCount(newBinderPages.length);
+    setCurrentPageIndex(newBinderPages.length - 1);
+    
+    setRefreshTick((t) => t + 1);
+    setStatus(finalLayout === 'separator' ? "Separador añadido ✨" : "Página añadida ✅");
+  } else {
+    setError(ins.error?.message || "Error al crear");
   }
-
-  const msg = ins.error?.message ?? "No se pudo crear la página";
-  const isDuplicate =
-   msg.toLowerCase().includes("duplicate key value") ||
-   msg.toLowerCase().includes("unique constraint");
-
-  if (!isDuplicate || attempt === 2) {
-   setError(msg);
-   setStatus("Error creando página");
-   setLoading(false);
-   return;
-  }
- }
-}, [
- binderId,
- layout,
- binderPages,
- pagesCount,
- loading,
- pageReorderBusy,
- MAX_FREE_PAGES,
- canAddPage,
- pushUndoSnapshot,
- pagesOpen,
-]);
+  setLoading(false);
+}, [binderId, layout, binderPages, MAX_ALLOWED_PAGES, MAX_ALLOWED_SEPARATORS,loading, pageReorderBusy]);
 
 const deletePageById = useCallback(
  async (targetPageId: number) => {
@@ -8354,9 +8680,9 @@ const deleteCurrentPage = useCallback(async () => {
     setStatus("Acción no permitida");
     return;
   }
-
-  const ok = window.confirm(
-    `¿Borrar la página ${currentPageIndex + 1}? Se perderán los slots colocados en esa página.`
+  const ok = await showConfirm(
+    t("common.confirm"),
+    `¿Borrar la página ${currentPageIndex + 1}? Se perderán los slots colocados en esa página.`,
   );
   if (!ok) return;
 
@@ -8370,10 +8696,26 @@ const deleteCurrentPage = useCallback(async () => {
   currentPageIndex,
   deletePageById,
 ]);
+// --- LÓGICA DE MOVIMIENTO POR BOTONES (SOLO MÓVIL) ---
+  const handleMobileMoveClick = async (targetPageId: number) => {
+    if (!mobileMoveSourceId || mobileMoveSourceId === targetPageId) {
+      setMobileMoveSourceId(null);
+      return;
+    }
+
+    setStatus("Reordenando páginas...");
+    if (navigator.vibrate) navigator.vibrate(50); // Pequeña vibración al confirmar
+
+    // Ejecutamos el intercambio real en la base de datos y estado
+    await reorderPagesInState(mobileMoveSourceId, targetPageId);
+    
+    // Limpiamos la selección
+    setMobileMoveSourceId(null);
+  };
 function isLikelyImageUrl(u: string | null | undefined) {
   if (!u) return false;
   const clean = u.split("?")[0].toLowerCase();
-  return /\.(png|jpe?g|webp)$/.test(clean);
+  return PC_IMAGE_FILENAME_EXT_RE.test(clean);
 }
 function prettyLabel(s: string | null | undefined) {
   const raw = (s ?? "").trim();
@@ -8485,7 +8827,13 @@ onBecameWts: (itemId: number) => void;
   setFxPairLoading: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setFxPairRate: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   fetchFxPair: (base: string, target: string) => Promise<number | null>;
-  
+  // ✅ NUEVAS PROPS PARA NAVEGACIÓN
+  canPrev: boolean;
+  canNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  t: (k: string) => string;
+  showAlert: (title: string, message: string) => void;
 };
 
 function BinderItemModal({
@@ -8538,7 +8886,13 @@ function BinderItemModal({
   setFxPairLoading,
   setFxPairRate,
   fetchFxPair,
-  
+  // ✅ NUEVAS PROPS PARA NAVEGACIÓN
+  canPrev,
+  canNext,
+  onPrev,
+  onNext,
+  t,
+  showAlert,
 }: BinderItemModalProps) {
 
   const isCustom = Boolean(assigned?.is_custom);
@@ -8712,33 +9066,40 @@ useEffect(() => {
     onBecameWts(activeItemId);
   }
 }, [stockModalOpen, activeItemId, stockDraft, invByItem, onBecameWts]);
-// 1. Función para el flag de WTT (Intercambio)
-// 1. Función para el flag de WTT (Intercambio)
-// 1. Función para el flag de WTT (Intercambio)
-// 1. Función para el flag de WTT (Intercambio)
-// 1. Función para el flag de WTT (Intercambio)
-const persistWttFlag = useCallback(
-  async (value: number) => {
-    if (!userId) return;
-    if (activeItemId == null) return;
+// 👇 NUEVO: CHIVATO PARA DETECTAR WTT 👇
+                 const wttListingPromptedRef = React.useRef(false);
+                 // ✅ Disparo inmediato del modal WTT al detectar el incremento en el borrador
 
-    if (value > 0) {
-      const up = await supabase
-        .from("user_item_statuses")
-        .upsert(
-          [{ user_id: userId, item_id: activeItemId, status: "wtt", qty: 1 }] as any,
-          { onConflict: "user_id,item_id,status" }
-        );
-      if (up.error) return;
-    } else {
-      const del = await supabase
-        .from("user_item_statuses")
-        .delete()
-        .eq("user_id", userId)
-        .eq("item_id", activeItemId)
-        .eq("status", "wtt");
-      if (del.error) return;
-    }
+  
+
+
+const persistWttFlag = useCallback(async (value: number) => {
+  if (!userId || activeItemId == null) return;
+
+  // Recuperamos el país por defecto para el anuncio
+  const countryValue = localStorage.getItem(`binder:market:${activeItemId}`) || "España";
+  const commentValue = localStorage.getItem(`binder:wttMessage:${activeItemId}`) || ""; // 👈 AÑADE ESTO
+
+  if (value > 0) {
+    await supabase
+      .from("user_item_statuses")
+      .upsert([{
+        user_id: userId,
+        item_id: activeItemId,
+        status: "wtt",
+        qty: 1,
+        origin_country: countryValue, 
+        market_comment: commentValue // 👈 AÑADE ESTO
+      }] as any, { onConflict: "user_id,item_id,status" });
+  } else {
+    await supabase
+      .from("user_item_statuses")
+      .delete()
+      .eq("user_id", userId)
+      .eq("item_id", activeItemId)
+      .eq("status", "wtt");
+  }
+
 
     setInvByItem((prev: any) => ({
       ...prev,
@@ -8881,18 +9242,24 @@ const becameWts = prevWts === 0 && nextWts > 0;
     const rows: any[] = [];
     const toDelete: string[] = [];
 
-    const pushRow = (status: string, qty: number) => {
-      if (qty > 0) rows.push({ ...base, status, qty });
-      else toDelete.push(status);
-    };
-
-    pushRow("have", next.have);
-    pushRow("wtt", next.wtt);
-    pushRow("wts", next.wts);
-    pushRow("on_its_way", next.on_its_way);
-    pushRow("wishlist", next.wish);
-    // ✅ limpia legacy "wish" siempre
-    toDelete.push("wish");
+   const pushRow = (status: string, qty: number) => {
+    if (qty > 0) {
+      let extraData = {};
+      // Si estamos guardando stock de WTT, le adjuntamos el comentario
+     if (status === "wtt") {
+  const wttComment = localStorage.getItem(`binder:wttMessage:${activeItemId}`) || "";
+  const countryVal = localStorage.getItem(`binder:market:${activeItemId}`) || "España";
+  
+  // 👇 MAGIA 3: Leemos directo de la memoria profunda para evitar cruces de datos
+              const wttIds = readWttOffer(activeItemId).ids ?? [];
+  
+  extraData = { market_comment: wttComment, origin_country: countryVal, wtt_ids: wttIds };
+  }
+      rows.push({ ...base, status, qty, ...extraData });
+    } else {
+      toDelete.push(status);
+    }
+  };
 
     if (rows.length) {
       const up = await supabase
@@ -8924,10 +9291,20 @@ const becameWts = prevWts === 0 && nextWts > 0;
       setWttWantDraft([]);
       void persistWttFlag(0);
     }
-// ✅ si acaba de activar WTS, pedir precio/moneda/país en modal aparte
+    // ✅ NUEVO: Limpieza absoluta de WTT (cartas seleccionadas) si guardamos con 0
+      if (next.wtt === 0 && typeof activeItemId === "number") {
+        setWttOfferByItem((prev: any) => ({ ...prev, [activeItemId]: [] }));
+        setWttOfferQtyByItem((prev: any) => ({ ...prev, [activeItemId]: 0 }));
+        try { writeWttOffer(activeItemId, 0, []); } catch(e) {}
+      }
+// ✅ si acaba de activar WTS o WTT, abrimos su modal correspondiente
+                // ✅ Dentro de saveStockDraft, al final del bloque try:
 if (becameWts) {
   setWtsListingItemId(activeItemId);
   setWtsListingModalOpen(true);
+} else if (next.wtt > 0) { // 👈 Si ha marcado WTT, abrimos directamente el modal de detalles
+  setWttListingItemId(activeItemId);
+  setWttListingModalOpen(true);
 }
     setStockDirty(false);
     setStockModalOpen(false); // ✅ SOLO se cierra aquí
@@ -8956,19 +9333,60 @@ React.useEffect(() => {
 const [showTools, setShowTools] = React.useState(false);  
   const [modalZoom, setModalZoom] = React.useState<number>(1);
   React.useEffect(() => {
-    if (!open) return;
-    setModalZoom(1);
+  if (!open) return;
+  setModalZoom(1);
   }, [open, slotIndex]);
 
+  const [savedMarketRefUsd, setSavedMarketRefUsd] = React.useState("");
+  const [marketConsultLoading, setMarketConsultLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open || isCustom || activeItemId == null) {
+      setSavedMarketRefUsd("");
+      return;
+    }
+    try {
+      setSavedMarketRefUsd(localStorage.getItem(marketRefUsdStorageKey(activeItemId)) ?? "");
+    } catch {
+      setSavedMarketRefUsd("");
+    }
+  }, [open, isCustom, activeItemId]);
+
+  const onConsultMarketRef = React.useCallback(async () => {
+    if (activeItemId == null) return;
+    setMarketConsultLoading(true);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const tok = s.session?.access_token;
+      if (!tok) throw new Error("login");
+      const res = await fetch("/api/market-reference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ itemId: activeItemId }),
+      });
+      const data = (await res.json()) as { error?: string; usdMedian?: number };
+      if (!res.ok) throw new Error(data?.error || "err");
+      const n = Number(data.usdMedian);
+      if (!Number.isFinite(n)) throw new Error("bad");
+      const sval = String(Math.round(n * 100) / 100);
+      try {
+        localStorage.setItem(marketRefUsdStorageKey(activeItemId), sval);
+      } catch {
+        /* ignore */
+      }
+      setSavedMarketRefUsd(sval);
+    } catch {
+      showAlert(t("common.error"), t("binders.item_info.market_consult_error"));
+    } finally {
+      setMarketConsultLoading(false);
+    }
+  }, [activeItemId, showAlert, t, supabase]);
+
   const marketRawStr =
-    open && !isCustom && activeItemId != null ? (marketByItem[activeItemId] ?? "") : "";
+    open && !isCustom && activeItemId != null ? savedMarketRefUsd : "";
 
   const targetCurrency =
     open && !isCustom && activeItemId != null ? (currencyByItem[activeItemId] ?? "EUR") : "EUR";
-
-  const rateKey = fxPairKey(marketBaseCurrency, targetCurrency);
-  const existingRate = fxPairRate[rateKey];
-  const existingLoading = fxPairLoading[rateKey] === true;
 
   React.useEffect(() => {
   if (!open) return;
@@ -9020,23 +9438,23 @@ const [showTools, setShowTools] = React.useState(false);
     return Number.isFinite(n) ? n : null;
   })();
 
-  const marketDisplayValue =
-    marketBaseValue != null && existingRate != null ? marketBaseValue * existingRate : null;
-
-  const marketDisplayStr =
-    marketDisplayValue != null ? String(Math.round(marketDisplayValue * 100) / 100) : "";
-
-  const fxLoading = existingLoading === true;
-  const fxErr = fxPairError?.[rateKey];
+  const marketShownConverted =
+    marketBaseValue == null
+      ? null
+      : targetCurrency === "USD"
+        ? marketBaseValue
+        : marketFxRate != null && Number.isFinite(marketFxRate) && marketFxRate > 0
+          ? marketBaseValue * marketFxRate
+          : null;
     const headerBtn: React.CSSProperties = {
     padding: "8px 10px",
     borderRadius: 12,
-    border: "1px solid #ddd",
-    background: "white",
+    border: "1px solid var(--state-disabled-border)",
+    background: "var(--bg-card)",
     cursor: "pointer",
     fontWeight: 950,
     fontSize: 12,
-    color: "#2a2a44",
+    color: "var(--text-main)",
   };
 const [marketPrice, setMarketPrice] = useState("");
  const iconBtnStyle: CSSProperties = {
@@ -9047,40 +9465,51 @@ const [marketPrice, setMarketPrice] = useState("");
   padding: "6px 10px",
   borderRadius: 10,
 
-  background: "#ffffff",
+  background: "var(--bg-card)",
 
-  color: "#8C659C",                 // 👈 morado del sistema
+  color: "var(--color-primary)",                 // 👈 morado del sistema
   fontWeight: 600,
   fontSize: 12,
 
-  border: "1px solid #F7A8D8",      // 👈 borde rosa suave
+  border: "1px solid var(--color-primary)",      // 👈 borde rosa suave
 
-  boxShadow: "0 1px 4px rgba(140,101,156,0.15)",
+  boxShadow: "0 1px 4px color-mix(in srgb, var(--color-primary) 15%, transparent)",
 
   cursor: "pointer",
 
   transition: "all 0.15s ease",
 };
-
+const currencySelectStyle: CSSProperties = { 
+  height: 30, 
+  padding: "6px 8px", 
+  borderRadius: 10, 
+  border: "1px solid var(--color-primary)", 
+  background: "var(--bg-main)", 
+  color: "var(--color-primary)", 
+  fontSize: 12, 
+  fontWeight: 900, 
+  cursor: "pointer", 
+  boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 12%, transparent)", 
+ };
   const dangerBtn: CSSProperties = {
   width: 36,
   height: 36,
   borderRadius: 12,
-  border: "1px solid #F4C7D8",
-  background: "#FFF7FA",
-  color: "#8C659C",
+  border: "1px solid var(--color-border)",
+  background: "var(--bg-soft)",
+  color: "var(--color-primary)",
   cursor: "pointer",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  boxShadow: "0 4px 10px rgba(247,168,216,0.10)",
+  boxShadow: "0 4px 10px color-mix(in srgb, var(--color-primary) 10%, transparent)",
 };
 
     const subtleCard: CSSProperties = {
-  background: "#FFF9FB",
-  border: "1px solid #F3DCE7",
+  background: "var(--bg-main)",
+  border: "1px solid var(--color-border)",
   borderRadius: 18,
-  boxShadow: "0 8px 24px rgba(247, 168, 216, 0.10)",
+  boxShadow: "0 8px 24px color-mix(in srgb, var(--color-primary) 10%, transparent)",
 };
 
 
@@ -9091,6 +9520,8 @@ const frontImg = isCustom ? customImageUrl : (meta?.image_url ?? null);
 const backImg = isCustom
   ? ((assigned as any)?.custom_back_image_url ?? DEFAULT_BACK_URL)
   : (meta?.back_image_url ?? DEFAULT_BACK_URL);
+  const modalObjectFit = modalZoom > 1 ? "contain" : "cover"; 
+const currentImgUrl = face === "front" ? frontImg : backImg;
 const imgUrl = face === "front" ? frontImg : backImg;
 // ✅ flip “puerta” en el MODAL: animar primero y luego confirmar estado (igual que binder)
 const modalFlipWrapRef = React.useRef<HTMLDivElement | null>(null);
@@ -9230,17 +9661,17 @@ const headerTitle = (() => {
             marginBottom: 6,
           }}
         >
-          <div style={{ fontWeight: 950, color: "#8C659C" }}>Info</div>
+          <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>{t("binders.item_info.info_title")}</div>
 
           <button
             type="button"
-            onClick={() => {
-              const ok = window.confirm("¿Eliminar esta photocard del slot?");
+            onClick={async () => {
+              const ok = await showConfirm(t("common.confirm"), "¿Eliminar esta photocard del slot?");
               if (!ok) return;
               onRemoveItem();
             }}
             style={dangerBtn}
-            title="Eliminar photocard"
+            title={t('binders.remove_pc')}
           >
             🗑
           </button>
@@ -9248,9 +9679,9 @@ const headerTitle = (() => {
 
         <div style={{ display: "grid", rowGap: 10 }}>
           {[
-            { k: "Grupo", v: prettyGroup },
-            { k: "Álbum", v: prettyAlbum },
-            { k: "Versión", v: prettyVersion },
+            { k: t("binders.picker.group"), v: prettyGroup },
+            { k: t("binders.picker.album"), v: prettyAlbum },
+            { k: t("binders.picker.version"), v: prettyVersion },
           ].map((r) => (
             <div
               key={r.k}
@@ -9263,11 +9694,11 @@ const headerTitle = (() => {
                 borderRadius: 12,
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 900, color: "#8C659C" }}>{r.k}</div>
+              <div style={{ fontSize: 12, fontWeight: 900, color: "var(--color-primary)" }}>{r.k}</div>
               <div
                 style={{
                   fontWeight: 950,
-                  color: "#2F2740",
+                  color: "var(--text-main)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -9282,48 +9713,36 @@ const headerTitle = (() => {
         </div>
       </div>
 
-      {/* ÁREA 2 COLUMNAS: STOCK + PRECIO */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-          gap: 14,
-          alignItems: "stretch",
-        }}
-      >
-        
-     {/* STOCK */}
-<div style={{ ...subtleCard, padding: 14 }}>
-  {/* Ocultamos las líneas si el check de Wish está marcado */}
-  {uiWishlist <= 0 && (
-    <div style={{ display: "grid", gap: 8, fontSize: 13, color: "#333", marginBottom: 10 }}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <span style={{ fontWeight: 900 }}>Tengo</span>
-      <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{uiCounts.have}</span>
-    </div>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <span style={{ fontWeight: 900 }}>WTT</span>
-      <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{uiWttDisplay}</span>
-    </div>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <span style={{ fontWeight: 900 }}>WTS</span>
-      <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{uiCounts.wts}</span>
-    </div>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <span style={{ fontWeight: 900 }}>On the way</span>
-      <span style={{ fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{uiCounts.on_its_way}</span>
-    </div>
-  </div>
-)}
+      {/* Stock + precio (mismo patrón visual que library) */}
+      <div style={{ ...subtleCard, padding: 14 }}>
+        <div style={{ fontWeight: 950, marginBottom: 10, color: "var(--color-primary)" }}>
+          {t("binders.item_info.price_title")}
+        </div>
+        <div className="library-stock-row" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 950, marginBottom: 10, color: "var(--color-primary)" }}>
+              {t("library.stock_title")}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text-main)", lineHeight: 1.7 }}>
+              {t("library.status_have")}: <b>{uiCounts.have}</b>
+              <br />
+              {t("binders.statuses.wtt")}: <b>{uiWttDisplay}</b>
+              <br />
+              {t("binders.statuses.wts")}: <b>{uiCounts.wts}</b>
+              <br />
+              {t("library.status_otw")}: <b>{uiCounts.on_its_way}</b>
+              <br />
+              {t("library.status_wish")}: <b>{uiWishlist}</b>
+            </div>
   {/* Checkbox WISH debajo del stock */}
 
   <label style={{
     display: "flex", alignItems: "center", justifyContent: "space-between",
     marginTop: 10,
-    padding: "8px 10px", borderRadius: 10, border: "1px solid #eee",
-    background: uiWishlist > 0 ? "#fffdf1" : "#fff", cursor: "pointer"
+    padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)",
+    background: "var(--bg-card)", cursor: "pointer"
   }}>
-    <span style={{ fontSize: 13, fontWeight: 800, color: "#4A3F54" }}>WISH </span>
+    <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-main)" }}>{t('binders.statuses.wish')} </span>
     <input
       type="checkbox"
       checked={uiWishlist > 0}
@@ -9340,7 +9759,7 @@ const headerTitle = (() => {
           setRefreshTick(t => t + 1);
         }
       }}
-      style={{ width: 18, height: 18, accentColor: "#e8c8eb", cursor: "pointer" }}
+      style={{ width: 18, height: 18, accentColor: "var(--color-primary)", cursor: "pointer" }}
     />
   </label>
 
@@ -9350,15 +9769,15 @@ const headerTitle = (() => {
   {(uiWishlist > 0 || (assigned as any)?.is_wanted) && (
     <label style={{
       marginTop: "4px", padding: "10px 12px",
-      backgroundColor: "#FFF9FB", borderRadius: "14px",
-      border: "1px dashed #F7A8D8",
+      backgroundColor: "var(--bg-main)", borderRadius: "14px",
+      border: "1px dashed var(--color-primary)",
       display: "flex", alignItems: "center", justifyContent: "space-between",
       cursor: "pointer", transition: "all 0.2s ease"
     }}>
-      <span style={{ fontSize: "12px", fontWeight: 900, color: "#8C659C" }}>Añadir decoración</span>
+      <span style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)" }}>{t('binders.actions.add_decoration')}</span>
       <input
         type="checkbox"
-        style={{ width: "16px", height: "16px", accentColor: "#8C659C", cursor: "pointer" }}
+        style={{ width: "16px", height: "16px", accentColor: "var(--color-primary)", cursor: "pointer" }}
         checked={!!(assigned as any)?.is_wanted}
        // Localiza el checkbox "Añadir decoración" en la página 163 del PDF
 onChange={async (e) => {
@@ -9413,17 +9832,17 @@ onChange={async (e) => {
              style={{
  padding: "6px 10px",
  borderRadius: 10,
- border: "1px solid #f6d3e8",
- background: "white",
- color: "#8C659C",
+ border: "1px solid var(--color-border)",
+ background: "var(--bg-card)",
+ color: "var(--color-primary)",
  cursor: uiWishlist > 0 ? "not-allowed" : "pointer",
  fontWeight: 900,
  fontSize: 12,
  opacity: uiWishlist > 0 ? 0.6 : 1,
- boxShadow: uiWishlist > 0 ? "none" : "0 4px 12px rgba(247,168,216,0.14)",
+ boxShadow: uiWishlist > 0 ? "none" : "0 4px 12px color-mix(in srgb, var(--color-primary) 14%, transparent)",
 }}
             >
-              Actualizar stock
+              {t("binders.actions.update_stock")}
             </button>
 
             {stockModalOpen && (
@@ -9433,7 +9852,7 @@ onChange={async (e) => {
                 style={{
                   position: "fixed",
                   inset: 0,
-                  background: "rgba(0,0,0,0.35)",
+                  background: "var(--overlay-medium)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -9462,9 +9881,9 @@ onChange={async (e) => {
   style={{
     width: "min(280px, 92vw)",
     borderRadius: 18,
-    background: "white",
-    border: "1px solid #e7e7ef",
-    boxShadow: "0 22px 60px rgba(0,0,0,0.22)",
+    background: "var(--bg-card)",
+    border: "1px solid var(--state-disabled-border)",
+    boxShadow: "0 22px 60px color-mix(in srgb, var(--text-main) 22%, transparent)",
     padding: 16,
   }}
 
@@ -9478,33 +9897,33 @@ onChange={async (e) => {
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                    <button
   type="button"
-  title="Cerrar"
+  title={t('common.close')}
   onClick={(e) => {
     e.stopPropagation();
     if (stockSaving) return;
     setStockModalOpen(false);
   }}
   onMouseEnter={(e) => {
-    e.currentTarget.style.background = "#FFF5FA";
-    e.currentTarget.style.borderColor = "#F7A8D8";
-    e.currentTarget.style.color = "#8C659C";
-    e.currentTarget.style.boxShadow = "0 4px 12px rgba(247,168,216,0.18)";
+    e.currentTarget.style.background = "var(--bg-soft)";
+    e.currentTarget.style.borderColor = "var(--color-primary)";
+    e.currentTarget.style.color = "var(--color-primary)";
+    e.currentTarget.style.boxShadow = "0 4px 12px color-mix(in srgb, var(--color-primary) 18%, transparent)";
   }}
   onMouseLeave={(e) => {
-    e.currentTarget.style.background = "white";
-    e.currentTarget.style.borderColor = "#F7A8D8";
-    e.currentTarget.style.color = "#8C659C";
+    e.currentTarget.style.background = "var(--bg-card)";
+    e.currentTarget.style.borderColor = "var(--color-primary)";
+    e.currentTarget.style.color = "var(--color-primary)";
     e.currentTarget.style.boxShadow = "none";
   }}
   style={{
     width: 34,
     height: 34,
     borderRadius: 12,
-    border: "1px solid #F7A8D8",
-    background: "white",
+    border: "1px solid var(--color-primary)",
+    background: "var(--bg-card)",
     cursor: stockSaving ? "not-allowed" : "pointer",
     fontWeight: 950,
-    color: "#8C659C",
+    color: "var(--color-primary)",
     boxShadow: "none",
     transition: "all 0.15s ease",
   }}
@@ -9515,141 +9934,139 @@ onChange={async (e) => {
                     <div
   style={{
     fontWeight: 900,
-    color: "#8C659C",
+    color: "var(--color-primary)",
     fontSize: 18,
   }}
 >
-  Editar stock
+  {t("binders.actions.edit_stock")}
 </div>
                   </div>
 
-                  <div style={{ display: "grid", gap: 10 }}>
-  {(() => {
-   const setCount = (key: string, value: number) => {
-  const prevVal = (stockDraft as any)?.[key] ?? 0;
-  const nextVal = Math.max(0, value);
+                  <div style={{ display: "grid", gap: 10 }}> 
+  {(() => { 
+ const setCount = (key: string, value: number) => {
+    const intendedNext = Math.max(0, value);
 
-  // Solo procedemos si el valor realmente cambia
-  if (nextVal !== prevVal) {
-    // Para evitar el error de "await", disparamos el snapshot sin bloquear el hilo principal
-    if (activeItemId != null) {
-      void pushModalUndoSnapshot(activeItemId);
-    }
+    // 1. Actualizamos el estado de forma puramente matemática (sin efectos secundarios)
+    setStockDraft((prevDraft) => {
+      const prevVal = (prevDraft as any)?.[key] ?? 0;
+      if (prevVal === intendedNext) return prevDraft; // Si no cambia, cortamos aquí
 
-    if (key === "wtt" && prevVal > 0 && nextVal === 0) {
-      if (typeof activeItemId === "number") {
-        clearWttWanted(activeItemId);
-      }
-      setWttWantDraft([]);
-    }
+      return {
+        ...(prevDraft ?? emptyCounts()),
+        [key]: intendedNext,
+        // Si añadimos stock físico, apagamos la Wishlist automáticamente
+        ...(intendedNext > 0 ? { wish: 0 } : {}),
+      } as any;
+    });
 
-    setStockDraft((prev) => ({
-      ...(prev ?? emptyCounts()),
-      [key]: nextVal,
-      // Si activas cualquier stock, desmarca WISH automáticamente
-      ...(nextVal > 0 ? { wish: 0 } : {}),
-    }) as any);
-
-    if (key === "wtt") setWttDisplay(nextVal);
+    // 2. Sincronizamos la UI visual y marcamos que hay cambios sin guardar
+    if (key === "wtt") setWttDisplay(intendedNext);
     setStockDirty(true);
-  }
-};
-    const rows = [
-      { key: "have", label: "Tengo" },
-      { key: "wts", label: "WTS" },
-      { key: "on_its_way", label: "On the way" },
-    ];
+  };
 
-    return (
-      <>
-                          {/* ✅ Resto de stocks */}
-                          {rows.map((row) => {
-          const current = (stockDraft as any)?.[row.key] ?? 0;
+    // Lista corregida con WTT incluido
+    const rows = [ 
+      { key: "have", label: t("library.status_have") }, 
+      { key: "wtt", label: t("binders.statuses.wtt") }, 
+      { key: "wts", label: t("binders.statuses.wts") }, 
+      { key: "on_its_way", label: t("library.status_otw") }, 
+    ]; 
 
-                            return (
-                           <div
-  key={row.key}
-  style={{
-    borderRadius: 14,
-    border: "1px solid #FFD9E6",
-    background: "#F2F2F2",
-    padding: "10px 14px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 46,
-    minHeight: 72,
-  }}
->
-  <div
-  style={{
-    fontWeight: 900,
-    color: "#8C659C",
-    fontSize: 16,
-    textAlign: "left",
-    minWidth: 90,
-  }}
->
+    return ( 
+      <> 
+        {rows.map((row) => { 
+          const current = (stockDraft as any)?.[row.key] ?? 0; 
 
-    {row.label}
-  </div>
+          return ( 
+            <div 
+              key={row.key} 
+              style={{ 
+                borderRadius: 14, 
+                border: "1px solid var(--bg-soft)", 
+                background: "var(--state-disabled-bg)", 
+                padding: "10px 14px", 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "flex-start", 
+                gap: 46, 
+                minHeight: 72, 
+              }} 
+            > 
+              <div 
+                style={{ 
+                  fontWeight: 900, 
+                  color: "var(--color-primary)", 
+                  fontSize: 16, 
+                  textAlign: "left", 
+                  minWidth: 90, 
+                }} 
+              > 
+                {row.label} 
+              </div> 
 
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "26px 32px",
-      gridTemplateRows: "20px 20px",
-      columnGap: 6,
-      rowGap: 3,
-      alignItems: "center",
-      justifyItems: "center",
-      flex: "0 0 auto",
-    }}
-  >
-    <div
-      style={{
-        gridColumn: "1 / 2",
-        gridRow: "1 / 3",
-        minWidth: 24,
-        textAlign: "center",
-        fontWeight: 900,
-        color: "#8C659C",
-        fontSize: 16,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
+              <div 
+                style={{ 
+                  display: "grid", 
+                  gridTemplateColumns: "26px 32px", 
+                  gridTemplateRows: "20px 20px", 
+                  columnGap: 6, 
+                  rowGap: 3, 
+                  alignItems: "center", 
+                  justifyItems: "center", 
+                  flex: "0 0 auto", 
+                }} 
+              > 
+                <div 
+                  style={{ 
+                    gridColumn: "1 / 2", 
+                    gridRow: "1 / 3", 
+                    minWidth: 24, 
+                    textAlign: "center", 
+                    fontWeight: 900, 
+                    color: "var(--color-primary)", 
+                    fontSize: 16, 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center", 
+                  }} 
+                >
       {current}
     </div>
 
-    <button
-      type="button"
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => {
-        e.stopPropagation();
-        setCount(row.key, current + 1);
-      }}
-      style={{
-        gridColumn: "2 / 3",
-        gridRow: "1 / 2",
-        width: 32,
-        height: 20,
-        borderRadius: 10,
-        border: "1px solid #F7A8D8",
-        background: "#FFF5FA",
-        color: "#8C659C",
-        cursor: "pointer",
-        fontWeight: 950,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: "0 1px 4px rgba(247,168,216,0.18)",
-      }}
-      title="Sumar 1"
-    >
-      +
-    </button>
+  <button
+type="button"
+onMouseDown={(e) => e.stopPropagation()}
+onClick={(e) => {
+e.stopPropagation();
+const nextVal = current + 1;
+setCount(row.key, nextVal);
+
+if (row.key === "wtt" && current === 0) {
+setStockModalOpen(false);
+setWttListingItemId(activeItemId);
+setWttListingModalOpen(true);
+}
+}}
+style={{
+gridColumn: "2 / 3",
+gridRow: "1 / 2",
+width: 32,
+height: 28,
+borderRadius: 8,
+border: "1px solid var(--library-stock-step-minus-border)",
+background: "var(--library-stock-step-minus-bg)",
+color: "var(--library-stock-step-minus-fg)",
+cursor: "pointer",
+fontWeight: 900,
+fontSize: 16,
+display: "flex",
+alignItems: "center",
+justifyContent: "center",
+}}
+>
++
+</button>
 
     <button
       type="button"
@@ -9662,19 +10079,19 @@ onChange={async (e) => {
         gridColumn: "2 / 3",
         gridRow: "2 / 3",
         width: 32,
-        height: 20,
-        borderRadius: 10,
-        border: "1px solid #F7A8D8",
-        background: "#FFF5FA",
-        color: "#8C659C",
+        height: 28,
+        borderRadius: 8,
+        border: "1px solid var(--library-stock-step-minus-border)",
+        background: "var(--library-stock-step-minus-bg)",
+        color: "var(--library-stock-step-minus-fg)",
         cursor: "pointer",
-        fontWeight: 950,
+        fontWeight: 900,
+        fontSize: 16,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        boxShadow: "0 1px 4px rgba(247,168,216,0.18)",
       }}
-      title="Restar 1"
+      title={t('common.subtract_one')}
     >
       −
     </button>
@@ -9695,7 +10112,7 @@ onChange={async (e) => {
     gap: 10,
     marginTop: 14,
     paddingTop: 12,
-    borderTop: "1px solid #eee",
+    borderTop: "1px solid var(--state-disabled-border)",
   }}
   onMouseDown={(e) => e.stopPropagation()}
   onClick={(e) => e.stopPropagation()}
@@ -9710,14 +10127,14 @@ onChange={async (e) => {
     style={{
     padding: "10px 16px",
     borderRadius: 12,
-    border: "1px solid #F7A8D8",
-    background: "white",
-    color: "#8C659C",
+    border: "1px solid var(--color-primary)",
+    background: "var(--bg-card)",
+    color: "var(--color-primary)",
     fontWeight: 900,
     cursor: "pointer",
   }}
 >
-  Cancelar
+  {t("common.cancel")}
 </button>
 
   <button
@@ -9730,16 +10147,16 @@ onChange={async (e) => {
     style={{
   padding: "10px 14px",
   borderRadius: 14,
-  border: "1px solid #F7A8D8",
-  background: "#f7e3ef",
-  color: "#8C659C",
+  border: "1px solid var(--color-primary)",
+  background: "var(--bg-soft)",
+  color: "var(--color-primary)",
   cursor: stockSaving ? "not-allowed" : "pointer",
   fontWeight: 950,
   opacity: stockSaving ? 0.6 : 1,
-  boxShadow: "0 4px 12px rgba(247,168,216,0.25)",
+  boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 25%, transparent)",
 }}
   >
-    {stockSaving ? "Guardando…" : "Guardar"}
+    {stockSaving ? t("binders.actions.saving") : t("common.save")}
   </button>
 </div>
                 </div>
@@ -9748,241 +10165,194 @@ onChange={async (e) => {
           </div>
         </div>
 
-        {/* PRECIO */}
-        <div style={{ ...subtleCard, padding: 14, overflow: "hidden" }}>
-         <div style={{ fontWeight: 950, color: "#8C659C" }}>Precio</div>
-
-          <div style={{ display: "grid", gap: 12 }}>
-           {/* TU PRECIO WTS */}
-{uiCounts.wts > 0 ? (
-  <div style={{ display: "grid", gap: 6 }}>
-    <div style={{ fontSize: 12, color: "#5b5b72", fontWeight: 800 }}>
-      Tu precio (WTS)
-    </div>
-
-    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "nowrap" }}>
-      {/* input bloqueado: muestra lo guardado */}
-      <input
-      
-       value={(() => {
-  if (activeItemId == null) return "—";
-  const stored = priceByItem[activeItemId] ?? readLS(priceKey(activeItemId)) ?? "";
-  const raw = String(stored).trim();
-  if (!raw) return "—";
-
-  const baseCur = wtsCurrencyByItem[activeItemId] ?? "EUR";
-  
-  // Si la moneda es la misma, formateamos el original
-  if (wtsViewCurrency === baseCur) return formatPrice(raw);
-  
-  // Si hay conversión
-  if (wtsFxRate == null) return "—";
-  const base = Number(raw.replace(",", "."));
-  return formatPrice(base * wtsFxRate);
-})()}
-        disabled
-        style={{
-          width: "33%",
-          minWidth: 90,
-          maxWidth: 110,
-          height: 30,
-          padding: "6px 8px",
-          borderRadius: 10,
-          border: "1px solid #dfe0ee",
-          background: "#f4f5fb",
-          fontSize: 12,
-          lineHeight: "18px",
-          color: "#333",
-          cursor: "not-allowed",
-        }}
-        title="Precio fijado por ti (se edita desde el modal)"
-      />
-
-      {/* selector libre: SOLO para convertir y consultar */}
-     <select
- value={wtsViewCurrency}
- onChange={async (e) => {
- const next = e.target.value || "EUR";
- setWtsViewCurrency(next);
- if (activeItemId == null) return;
- const baseCur = wtsCurrencyByItem[activeItemId] ?? "EUR";
- if (next === baseCur) {
- setWtsFxRate(1);
- return;
- }
- setWtsFxLoading(true);
- try {
- const r = await fetchFxPair(baseCur, next);
- setWtsFxRate(r);
- } finally {
- setWtsFxLoading(false);
- }
- }}
- style={{
- padding: "6px 10px",
- borderRadius: 10,
- background: "#FFF5FA",
- border: "1px solid #f6d3e8",
- color: "#8C659C",
- fontWeight: 900,
- fontSize: 12,
- cursor: "pointer",
- boxShadow: "0 2px 8px rgba(247,168,216,0.18)",
-}}
- title="Convertir tu precio a otra moneda"
->
- <option value="EUR">EUR</option>
- <option value="USD">USD</option>
- <option value="GBP">GBP</option>
- <option value="JPY">JPY</option>
- <option value="CNY">CNY</option>
- <option value="AUD">AUD</option>
- <option value="CAD">CAD</option>
- <option value="CHF">CHF</option>
- <option value="HKD">HKD</option>
- <option value="SGD">SGD</option>
- <option value="NZD">NZD</option>
- <option value="SEK">SEK</option>
- <option value="NOK">NOK</option>
- <option value="DKK">DKK</option>
- <option value="INR">INR</option>
- <option value="BRL">BRL</option>
- <option value="MXN">MXN</option>
- <option value="KRW">KRW</option>
-</select>
-
-{/* botón visible para editar: reabre el WtsListingModal */}
-<button
- type="button"
- onMouseDown={(e) => e.stopPropagation()}
- onClick={(e) => {
- e.stopPropagation();
- if (activeItemId == null) return;
- onBecameWts(activeItemId);
- }}
- style={{
- padding: "6px 10px",
- borderRadius: 10,
- background: "#FFF5FA",
- border: "1px solid #f6d3e8",
- color: "#8C659C",
- fontWeight: 900,
- fontSize: 12,
- cursor: "pointer",
- boxShadow: "0 2px 8px rgba(247,168,216,0.18)",
-}}
- title="Modificar precio"
- onMouseEnter={(e) => {
- e.currentTarget.style.background = "#f3f4fb";
- e.currentTarget.style.borderColor = "#cfd2ff";
- }}
- onMouseLeave={(e) => {
- e.currentTarget.style.background = "white";
- e.currentTarget.style.borderColor = "#dfe0ee";
- }}
->
- <RotateCw size={15} strokeWidth={2.4} />
-</button>
-</div>
-  </div>
-) : null}
-            {/* PRECIO DE MERCADO */}
-            <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontSize: 12, color: "#5b5b72", fontWeight: 800 }}>Precio de mercado</div>
-
-
-
-              {/* Campo no editable con valor 8 USD y conversión */}
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
- 
-<input
-  value={
-    targetCurrency === "USD"
-      ? formatPrice(8)
-      : (marketFxRate != null ? formatPrice(8 * marketFxRate) : "—")
-  } 
-  disabled
-                  placeholder="Ej: 8 (USD)"
+          <div
+            className="library-stock-price-col"
+            style={{ minWidth: 200, maxWidth: 280, flex: "1 1 200px", display: "grid", gap: 10, alignContent: "start" }}
+          >
+            <div style={{ borderRadius: 14, border: "1px solid var(--color-border)", background: "var(--bg-card)", padding: 8 }}>
+              <div style={{ fontWeight: 950, marginBottom: 6, color: "var(--color-primary)", fontSize: 12 }}>{t("binders.item_info.your_price")}</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", width: "100%" }}>
+                <input
+                  value={(() => {
+                    if (activeItemId == null) return "—";
+                    const stored = priceByItem[activeItemId] ?? readLS(priceKey(activeItemId)) ?? "";
+                    const raw = String(stored).trim();
+                    if (!raw) return "—";
+                    const baseCur = wtsCurrencyByItem[activeItemId] ?? "EUR";
+                    if (wtsViewCurrency === baseCur) return formatPrice(raw);
+                    if (wtsFxRate == null) return "—";
+                    const base = Number(raw.replace(",", "."));
+                    return formatPrice(base * wtsFxRate);
+                  })()}
+                  disabled
+                  placeholder={t("library.modal.price_unset")}
                   style={{
-                    width: "50%",
-                    minWidth: 120,
-                    maxWidth: 160,
-                    height: 30,
-                    padding: "6px 8px",
-                    borderRadius: 10,
-                    border: "1px solid #dfe0ee",
-                    background: "#f4f5fb",
+                    flex: "1 1 88px",
+                    minWidth: 0,
+                    padding: "8px 10px",
+                    height: 34,
                     fontSize: 12,
-                    lineHeight: "18px",
-                    color: "#777",
+                    borderRadius: 12,
+                    border: "1px solid var(--state-disabled-border)",
+                    outline: "none",
+                    background: "var(--state-disabled-bg)",
+                    color: "var(--text-muted)",
                     cursor: "not-allowed",
+                    fontWeight: 700,
                   }}
                 />
-
+                {uiCounts.wts > 0 ? (
+                  <>
+                    <select
+                      value={wtsViewCurrency}
+                      onChange={async (e) => {
+                        const next = e.target.value || "EUR";
+                        setWtsViewCurrency(next);
+                        if (activeItemId == null) return;
+                        const baseCur = wtsCurrencyByItem[activeItemId] ?? "EUR";
+                        if (next === baseCur) {
+                          setWtsFxRate(1);
+                          return;
+                        }
+                        setWtsFxLoading(true);
+                        try {
+                          const r = await fetchFxPair(baseCur, next);
+                          setWtsFxRate(r);
+                        } finally {
+                          setWtsFxLoading(false);
+                        }
+                      }}
+                      style={{
+                        height: 34,
+                        padding: "4px 8px",
+                        borderRadius: 10,
+                        border: "1px solid var(--color-primary)",
+                        background: "var(--bg-main)",
+                        color: "var(--color-primary)",
+                        fontSize: 11,
+                        fontWeight: 900,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {!binderFxCurrencyOptions.some((c) => c.code === wtsViewCurrency) ? (
+                        <option value={wtsViewCurrency}>{wtsViewCurrency}</option>
+                      ) : null}
+                      {binderFxCurrencyOptions.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.symbol} {c.name} — {c.code}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (activeItemId != null) onBecameWts(activeItemId);
+                      }}
+                      style={{ ...iconBtnStyle, flex: "0 0 auto", width: 32, height: 30 }}
+                    >
+                      <RotateCw size={14} strokeWidth={2.4} />
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            <div style={{ borderRadius: 14, border: "1px solid var(--color-border)", background: "var(--bg-card)", padding: 8 }}>
+              <div style={{ fontWeight: 950, marginBottom: 6, color: "var(--color-primary)", fontSize: 12 }}>{t("binders.item_info.market_price")}</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  value={
+                    marketFxLoading && marketBaseValue != null && targetCurrency !== "USD"
+                      ? "…"
+                      : marketShownConverted != null
+                        ? formatPrice(marketShownConverted)
+                        : "—"
+                  }
+                  disabled
+                  placeholder={t("library.modal.price_unset")}
+                  style={{
+                    flex: "1 1 88px",
+                    minWidth: 0,
+                    padding: "8px 10px",
+                    height: 34,
+                    fontSize: 12,
+                    borderRadius: 12,
+                    border: "1px solid var(--state-disabled-border)",
+                    outline: "none",
+                    background: "var(--state-disabled-bg)",
+                    color: "var(--text-muted)",
+                    cursor: "not-allowed",
+                    fontWeight: 700,
+                  }}
+                />
                 <select
                   value={targetCurrency}
-                 onChange={async (e) => {
-  if (activeItemId == null) return;
-  const cur = e.target.value || "EUR";
-  setCurrencyByItem((prev) => ({ ...prev, [activeItemId]: cur }));
-  writeLS(currencyKey(activeItemId), cur);
-
-  // ✅ dispara la conversión (y cachea) para que NO se quede “cargando”
-  await getFxRate("USD", cur);
-}}
+                  onChange={async (e) => {
+                    if (activeItemId == null) return;
+                    const cur = e.target.value || "EUR";
+                    setCurrencyByItem((prev) => ({ ...prev, [activeItemId]: cur }));
+                    writeLS(currencyKey(activeItemId), cur);
+                    await getFxRate("USD", cur);
+                  }}
                   style={{
-  padding: "6px 10px",
-  borderRadius: 10,
-
-  background: "#FFF5FA",
-  border: "1px solid #f6d3e8",
-
-  color: "#8C659C",
-  fontWeight: 900,
-  fontSize: 12,
-
-  cursor: "pointer",
-
-  boxShadow: "0 2px 8px rgba(247,168,216,0.18)",
-}}
-                  title="Moneda para ver la conversión"
+                    height: 34,
+                    padding: "4px 8px",
+                    borderRadius: 10,
+                    border: "1px solid var(--color-primary)",
+                    background: "var(--bg-main)",
+                    color: "var(--color-primary)",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    cursor: "pointer",
+                  }}
                 >
-                  <option value="EUR">EUR</option>
-                  <option value="USD">USD</option>
-                  <option value="GBP">GBP</option>
-                  <option value="JPY">JPY</option>
-                  <option value="KRW">KRW</option>
-                  <option value="CNY">CNY</option>
-                  <option value="AUD">AUD</option>
-                  <option value="CAD">CAD</option>
-                  <option value="CHF">CHF</option>
-                  <option value="HKD">HKD</option>
-                  <option value="SGD">SGD</option>
-                  <option value="NZD">NZD</option>
-                  <option value="SEK">SEK</option>
-                  <option value="NOK">NOK</option>
-                  <option value="DKK">DKK</option>
-                  <option value="INR">INR</option>
-                  <option value="BRL">BRL</option>
-                  <option value="MXN">MXN</option>
+                  {!binderFxCurrencyOptions.some((c) => c.code === targetCurrency) ? (
+                    <option value={targetCurrency}>{targetCurrency}</option>
+                  ) : null}
+                  {binderFxCurrencyOptions.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.symbol} {c.name} — {c.code}
+                    </option>
+                  ))}
                 </select>
+                <button
+                  type="button"
+                  disabled={marketConsultLoading || activeItemId == null}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void onConsultMarketRef();
+                  }}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 10,
+                    border: "1px solid var(--color-primary)",
+                    background: marketConsultLoading ? "var(--state-disabled-bg)" : "var(--bg-soft)",
+                    color: "var(--color-primary)",
+                    fontWeight: 900,
+                    fontSize: 11,
+                    cursor: marketConsultLoading || activeItemId == null ? "not-allowed" : "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {marketConsultLoading ? t("binders.item_info.market_consulting") : t("binders.item_info.consult_market_price")}
+                </button>
               </div>
-
-              {/* Conversión en tiempo real de 8 USD a la moneda seleccionada */}
-<div style={{ fontSize: 12, color: "#5b5b72", lineHeight: 1.4 }}>
-  Mercado: <b>{formatPrice(8)}</b> USD
-  {targetCurrency !== "USD" ? (
-    <>
-      {" "} → {targetCurrency}: <b>{marketFxRate != null ? formatPrice(8 * marketFxRate) : "—"}</b>
-      {marketFxLoading ? " (cargando…)" : ""}
-    </>
-  ) : null}
-</div>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6, lineHeight: 1.35 }}>
+                {marketBaseValue != null
+                  ? `${t("binders.item_info.market")}: ${formatPrice(marketBaseValue)} USD${
+                      targetCurrency !== "USD" && marketShownConverted != null
+                        ? ` → ${formatPrice(marketShownConverted)} ${targetCurrency}`
+                        : ""
+                    }`
+                  : t("binders.item_info.market_no_reference")}
+              </div>
+              <div style={{ fontSize: 10, color: "var(--color-primary)", marginTop: 4, fontWeight: 700 }}>
+                {t("binders.item_info.market_stub_note")}
+              </div>
             </div>
           </div>
         </div>
       </div>
-
       {/* WTT + NOTAS */}
       <div style={{ display: "grid", gap: 12 }}>
         <div style={{ ...subtleCard, padding: 14 }}>
@@ -9995,7 +10365,7 @@ onChange={async (e) => {
               marginBottom: 10,
             }}
           >
-         <div style={{ fontWeight: 950, color: "#8C659C" }}>Busco en WTT</div>
+         <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>{t('binders.looking_for_wtt')}</div>
 
             <button
               type="button"
@@ -10008,19 +10378,19 @@ onChange={async (e) => {
   padding: "6px 10px",
   borderRadius: 10,
 
-  background: "#FFF5FA",
-  border: "1px solid #f6d3e8",
+  background: "var(--bg-soft)",
+  border: "1px solid var(--color-border)",
 
-  color: "#8C659C",
+  color: "var(--color-primary)",
   fontWeight: 900,
   fontSize: 12,
 
   cursor: "pointer",
 
-  boxShadow: "0 2px 8px rgba(247,168,216,0.18)",
+  boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 18%, transparent)",
 }}
             >
-              Mis trades
+              {t('binders.my_trades')}
             </button>
           </div>
 
@@ -10045,9 +10415,9 @@ onChange={async (e) => {
               }}
             >
               {wttOfferForModal.map((w, idx) => (
-                <img
+                <ImageWithExtensionFallback
                   key={`${w.id ?? "wtt"}-${idx}`}
-                  src={w.image_url ?? "/mock-pcs/groupsui/not-available.png"}
+                  src={w.image_url ?? "/mock-pcs/groups/not-available.png"}
                   alt=""
                   draggable={false}
                   title={w.name ?? ""}
@@ -10055,19 +10425,19 @@ onChange={async (e) => {
                     width: 90,
                     height: 110,
                     borderRadius: 12,
-                    border: "1px solid #e7e7ef",
-                    background: "linear-gradient(180deg, #ffffff, #f6f7ff)",
+                    border: "1px solid var(--state-disabled-border)",
+                    background: "linear-gradient(180deg, var(--bg-card), var(--bg-soft))",
                     objectFit: "cover",
                     flex: "0 0 auto",
                     scrollSnapAlign: "start",
-                    boxShadow: "0 8px 18px rgba(0,0,0,0.06)",
+                    boxShadow: "0 8px 18px color-mix(in srgb, var(--text-main) 6%, transparent)",
                   }}
                 />
               ))}
             </div>
           ) : wttOfferForModal.length > 0 ? null : (
-            <div style={{ fontSize: 13, color: "#5b5b72", lineHeight: 1.5 }}>
-              Aún no has añadido nada a “Busco en WTT”.
+            <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+              {t('binders.no_wtt_items')}
             </div>
           )}
 
@@ -10082,7 +10452,7 @@ onChange={async (e) => {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.35)",
+            background: "var(--overlay-medium)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -10091,42 +10461,49 @@ onChange={async (e) => {
           }}
           onMouseDown={(e) => {
             e.stopPropagation();
-            if (e.target === e.currentTarget) setWttWantOpen(false);
+            if (e.target === e.currentTarget) 
+            closeLegacyWttPicker();
+if (resumeWttListingAfterLegacyPicker) {
+  setStockModalOpen(true);
+  setWttListingModalOpen(true);
+  setResumeWttListingAfterLegacyPicker(false);
+}
           }}
         >
           <div
-            style={{
-              width: "min(980px, 96vw)",
-              height: "min(740px, 92vh)",
-              background: "white",
-              borderRadius: 18,
-              border: "1px solid #e7e7ef",
-              boxShadow: "0 22px 60px rgba(0,0,0,0.22)",
-              overflow: "hidden",
-              display: "grid",
-              gridTemplateRows: "58px auto 1fr 64px",
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+ style={{
+  width: "min(980px, 96vw)",
+  height: "min(740px, 92vh)",
+  background: "var(--bg-card)",
+  borderRadius: 18,
+  border: "1px solid var(--state-disabled-border)",
+  boxShadow: "0 22px 60px color-mix(in srgb, var(--text-main) 22%, transparent)",
+  overflow: "hidden",
+  display: "grid",
+  gridTemplateRows: "58px auto minmax(0, 1fr) 64px",
+  minHeight: 0,
+ }}
+ onMouseDown={(e) => e.stopPropagation()}
+>
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "12px 16px",
-                borderBottom: "1px solid #eee",
+                borderBottom: "1px solid var(--state-disabled-border)",
               }}
             >
-              <div style={{ fontWeight: 950 }}>Selecciona lo que buscas en WTT</div>
+              <div style={{ fontWeight: 950 }}>{t('binders.select_wtt_looking')}</div>
               <button
                 type="button"
-                onClick={() => setWttWantOpen(false)}
+                onClick={() => closeLegacyWttPicker()}
                 style={{
                   width: 34,
                   height: 34,
                   borderRadius: 10,
-                  border: "1px solid #ddd",
-                  background: "white",
+                  border: "1px solid var(--state-disabled-border)",
+                  background: "var(--bg-card)",
                   cursor: "pointer",
                   fontWeight: 900,
                 }}
@@ -10138,7 +10515,7 @@ onChange={async (e) => {
             <div
               style={{
                 padding: "10px 16px",
-                borderBottom: "1px solid #eee",
+                borderBottom: "1px solid var(--state-disabled-border)",
                 display: "grid",
                 gap: 10,
               }}
@@ -10147,9 +10524,9 @@ onChange={async (e) => {
                 <select
                   value={wttWantGroup}
                   onChange={(e) => setWttWantGroup(e.target.value ? Number(e.target.value) : "")}
-                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)" }}
                 >
-                  <option value="">Grupo (todos)</option>
+                  <option value="">{t('binders.picker.group')} {t('binders.picker.all_masculine')}</option>
                   {Array.from(
                     new Set(
                       wttWantCatalog
@@ -10169,9 +10546,9 @@ onChange={async (e) => {
                 <select
                   value={wttWantAlbum}
                   onChange={(e) => setWttWantAlbum(e.target.value ? Number(e.target.value) : "")}
-                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)" }}
                 >
-                  <option value="">Álbum (todos)</option>
+                  <option value="">{t('binders.picker.album')} {t('binders.picker.all_masculine')}</option>
                   {Array.from(
                     new Set(
                       wttWantCatalog
@@ -10201,9 +10578,9 @@ onChange={async (e) => {
                 <select
                   value={wttWantVersion}
                   onChange={(e) => setWttWantVersion(e.target.value || "")}
-                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)" }}
                 >
-                  <option value="">Versión (todas)</option>
+                  <option value="">{t('binders.picker.version')} {t('binders.picker.all_feminine')}</option>
                   {Array.from(
                     new Set(
                       wttWantCatalog
@@ -10224,20 +10601,20 @@ onChange={async (e) => {
                 <select
                   value={wttWantUnit}
                   onChange={(e) => setWttWantUnit(e.target.value as any)}
-                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)" }}
                 >
-                  <option value="all">Tipo (todos)</option>
-                  <option value="single">Selfie</option>
-                  <option value="unit">Unit</option>
+                  <option value="all">{t('binders.picker.type')} {t('binders.picker.all_masculine')}</option>
+                  <option value="single">{t('binders.picker.type_selfie')}</option>
+                  <option value="unit">{t('binders.picker.type_unit')}</option>
                   <option value="ot8">OT8</option>
                 </select>
 
                 <select
                   value={wttWantMember}
                   onChange={(e) => setWttWantMember(e.target.value || "")}
-                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                  style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)" }}
                 >
-                  <option value="">Miembro (todos)</option>
+                  <option value="">{t('binders.picker.member')} {t('binders.picker.all_masculine')}</option>
                   {[
                     { value: "bang-chan", label: "Bang Chan" },
                     { value: "lee-know", label: "Lee Know" },
@@ -10254,7 +10631,7 @@ onChange={async (e) => {
   if (wttWantAlbum !== "" && it.album_id !== wttWantAlbum) return false;
   if (wttWantVersion !== "" && (it.version ?? "").trim() !== wttWantVersion) return false;
   // Ajuste aquí: añadimos || ""
-  if (wttWantUnit !== "all" && unitTypeFromMember(it.member || "") !== wttWantUnit) return false;
+  if (wttWantUnit !== "all" && unitTypeFromMember(it.member || it.name || "") !== wttWantUnit) return false;
   // Ajuste aquí: añadimos || ""
   return memberMatches(it.member || "", m.value);
 });
@@ -10268,33 +10645,40 @@ onChange={async (e) => {
                 </select>
               </div>
 
-              <input
-                ref={wttSearchRef}
-                autoFocus
-                value={wttWantQ}
-                onChange={(e) => setWttWantQ(e.target.value)}
-                placeholder="Búsqueda libre"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: "1px solid #ddd",
-                }}
-              />
+        <input
+ ref={wttSearchRef}
+ value={wttWantQ}
+ onChange={(e) => setWttWantQ(e.target.value)}
+ placeholder={t('binders.picker.search_placeholder')}
+ style={{
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: "1px solid var(--state-disabled-border)",
+ }}
+/>
             </div>
 
-            <div style={{ padding: 16, overflow: "auto" }}>
-              {wttWantLoading ? (
-                <div style={{ color: "#666" }}>Cargando…</div>
-              ) : (
-                <div
-                  ref={wttGridRef}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-                    gap: 12,
-                  }}
-                >
+        <div
+ ref={wttWantScrollRef}
+ style={{
+  padding: 16,
+  overflow: "auto",
+  minHeight: 0,
+  WebkitOverflowScrolling: "touch",
+  overflowAnchor: "none",
+ }}
+>
+ {wttWantLoading ? (
+  <div style={{ color: "var(--text-muted)" }}>{t('common.loading')}</div>
+ ) : (
+  <div
+   style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+    gap: 12,
+   }}
+  >
                   {wttWantCatalog
                     .filter((it) => {
                      if (wttWantGroup !== "" && it.group_id !== wttWantGroup) return false;
@@ -10303,7 +10687,7 @@ if (wttWantVersion !== "" && (it.version ?? "").trim() !== wttWantVersion) retur
 // Ajuste aquí: it.member || ""
 if (wttWantMember !== "" && !memberMatches(it.member || "", wttWantMember)) return false;
 // Ajuste aquí: it.member || ""
-if (wttWantUnit !== "all" && unitTypeFromMember(it.member || "") !== wttWantUnit) return false;
+if (wttWantUnit !== "all" && unitTypeFromMember(it.member || it.name || "") !== wttWantUnit) return false;
 
 const q = normText(wttWantQ);
 if (!q) return true;
@@ -10321,42 +10705,49 @@ return hay.includes(q);
                     .map((it) => {
                       const selected = wttWantDraft.includes(it.id);
                       return (
-                        <button
-                          key={it.id}
-                          type="button"
-                          onClick={() => {
-                            const scroller = wttGridRef.current;
-                            const top = scroller?.scrollTop ?? 0;
-                            setWttWantDraft((prev) =>
-                              prev.includes(it.id)
-                                ? prev.filter((x) => x !== it.id)
-                                : [...prev, it.id]
-                            );
-                            requestAnimationFrame(() => {
-                              if (scroller) scroller.scrollTop = top;
-                            });
-                          }}
-                          style={{
-                            borderRadius: 14,
-                            border: selected ? "2px solid #8db8ff" : "1px solid #ececf6",
-                            background: selected ? "#f2f7ff" : "white",
-                            boxShadow: "0 8px 18px rgba(0,0,0,0.06)",
-                            padding: 8,
-                            cursor: "pointer",
-                            textAlign: "left",
-                          }}
-                        >
+                  <button
+ key={it.id}
+ type="button"
+ onMouseDown={(e) => {
+  e.preventDefault();
+ }}
+ onClick={() => {
+  const scroller = wttWantScrollRef.current;
+  wttWantScrollSnapshotRef.current = {
+   top: scroller?.scrollTop ?? 0,
+   left: scroller?.scrollLeft ?? 0,
+  };
+
+  setWttWantDraft((prev) =>
+   prev.includes(it.id)
+    ? prev.filter((x) => x !== it.id)
+    : [...prev, it.id]
+  );
+ }}
+ style={{
+  borderRadius: 14,
+  border: "2px solid",
+  borderColor: selected ? "var(--color-accent-blue)" : "transparent",
+  background: selected ? "var(--state-info-bg)" : "var(--bg-card)",
+  boxShadow: selected
+    ? "0 0 0 1px var(--state-info-border), 0 8px 18px color-mix(in srgb, var(--text-main) 6%, transparent)"
+    : "0 0 0 1px var(--state-disabled-border), 0 8px 18px color-mix(in srgb, var(--text-main) 6%, transparent)",
+  padding: 8,
+  cursor: "pointer",
+  textAlign: "left",
+}}
+>
                           <div
                             style={{
                               width: "100%",
                               aspectRatio: "2 / 3",
                               borderRadius: 10,
                               overflow: "hidden",
-                              background: "#fafafa",
+                              background: "var(--bg-main)",
                             }}
                           >
-                            <img
-                              src={it.image_url ?? "/mock-pcs/groupsui/not-available.png"}
+                            <ImageWithExtensionFallback
+                              src={it.image_url ?? "/mock-pcs/groups/not-available.png"}
                               alt=""
                               draggable={false}
                               style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -10375,21 +10766,21 @@ return hay.includes(q);
                 justifyContent: "space-between",
                 alignItems: "center",
                 padding: "12px 16px",
-                borderTop: "1px solid #eee",
+                borderTop: "1px solid var(--state-disabled-border)",
               }}
             >
-             <div style={{ fontSize: 13, color: "#70708a", fontWeight: 900 }}>
+             <div style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 900 }}>
   Seleccionadas: {wttOfferDraft.length}
 </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <button
                   type="button"
-                  onClick={() => setWttWantOpen(false)}
+                 onClick={() => closeLegacyWttPicker()}
                   style={{
                     padding: "10px 12px",
                     borderRadius: 12,
-                    border: "1px solid #ddd",
-                    background: "white",
+                    border: "1px solid var(--state-disabled-border)",
+                    background: "var(--bg-card)",
                     cursor: "pointer",
                     fontWeight: 900,
                   }}
@@ -10402,8 +10793,8 @@ return hay.includes(q);
                   style={{
                     padding: "10px 12px",
                     borderRadius: 12,
-                    border: "1px solid #ddd",
-                    background: "white",
+                    border: "1px solid var(--state-disabled-border)",
+                    background: "var(--bg-card)",
                     cursor: "pointer",
                     fontWeight: 900,
                   }}
@@ -10419,10 +10810,10 @@ return hay.includes(q);
 
   style={{
     // ... otros estilos
-    background: "#B17EAC", // Púrpura de la tipografía
-    color: "white",
+    background: "var(--color-primary)", // Púrpura de la tipografía
+    color: "var(--bg-card)",
     border: "none",
-    boxShadow: "0 4px 10px rgba(177, 126, 172, 0.3)"
+    boxShadow: "0 4px 10px color-mix(in srgb, var(--color-primary) 30%, transparent)"
   }}
 >
   Guardar
@@ -10433,528 +10824,258 @@ return hay.includes(q);
         </div>
       )}
 
-      {wttOfferOpen && wttOfferForId === activeItemId && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100000,
-            padding: 18,
-          }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            if (e.target === e.currentTarget) setWttOfferOpen(false);
-          }}
-        >
-         <div
-  style={{
-    width: "min(980px, 96vw)",
-    height: "min(700px, 92vh)",
-    background: "#F7F4EE",
-    borderRadius: 18,
-    border: "1px solid #F3DCE7",
-    boxShadow: "0 22px 60px rgba(0,0,0,0.22)",
-    overflow: "hidden",
-    display: "grid",
-    gridTemplateRows: "62px auto 1fr 64px",
-  }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "12px 16px",
-    borderBottom: "1px solid #F3C7DA",
-    background: "#FFD9E6",
-  }}
->
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      minWidth: 0,
-    }}
-  >
-    <img
-      src="/branding/logo.png"
-      alt=""
+   {wttOfferOpen && wttOfferForId === activeItemId && ( 
+    <div 
+      role="dialog" 
+      aria-modal="true" 
+      style={{ 
+        position: "fixed", inset: 0, background: "var(--overlay-medium)", 
+        display: "flex", alignItems: "center", justifyContent: "center", 
+        zIndex: 100000, padding: isMobile ? "10px" : "20px" 
+      }} 
+    > 
+      <div 
+        onClick={(e) => e.stopPropagation()} 
+        style={{ 
+          width: "min(980px, 96vw)", height: isMobile ? "90vh" : "800px", 
+          background: "var(--bg-main)", borderRadius: 20, overflow: "hidden", 
+          display: "flex", flexDirection: "column", border: "1px solid var(--color-border)"
+        }} 
+      > 
+        {/* HEADER */}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "var(--bg-soft)", borderBottom: "1px solid var(--color-border)" }}> 
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}> 
+            <img src="/branding/logo.png" alt="" style={{ height: 24, width: "auto" }} /> 
+            <div style={{ fontWeight: 950, color: "var(--color-primary)", fontSize: isMobile ? 16 : 18 }}>{t('binders.my_trades')} (WTT)</div> 
+          </div> 
+          <button onClick={() => setWttOfferOpen(false)} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--color-primary)", background: "var(--bg-card)", fontWeight: 900, color: "var(--color-primary)", cursor: "pointer" }}>✕</button> 
+        </div> 
+
+     {/* CONTENEDOR DE FILTROS COLAPSABLE */}
+<div style={{ flexShrink: 0, background: "var(--bg-soft)", borderBottom: "1px solid var(--state-disabled-border)" }}>
+  
+  {/* Botón de control de filtros */}
+  <div style={{ padding: "8px 12px", display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
+    <button
+      type="button"
+      onClick={() => setShowWttFilters(!showWttFilters)}
       style={{
-        height: 28,
-        width: "auto",
-        objectFit: "contain",
-        flex: "0 0 auto",
-      }}
-    />
-    <div
-      style={{
-        fontWeight: 950,
-        color: "#8C659C",
-        fontSize: 20,
-        lineHeight: 1.1,
+        background: showWttFilters ? "var(--color-primary)" : "var(--bg-card)",
+        color: showWttFilters ? "var(--bg-card)" : "var(--color-primary)",
+        border: "1px solid var(--color-primary)",
+        padding: "6px 12px",
+        borderRadius: "10px",
+        fontSize: "12px",
+        fontWeight: 900,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 6
       }}
     >
-      Mis trades (WTT)
-    </div>
+      <span>{showWttFilters ? `✕ ${t('common.close_filters')}` : `🔍 ${t('common.filter_list')}`}</span>
+    </button>
+    
+    {/* La búsqueda rápida siempre visible para que el usuario pueda buscar por nombre sin abrir filtros */}
+    {!showWttFilters && (
+      <input 
+        value={wttOfferQ || ""} 
+        onChange={(e) => setWttOfferQ(e.target.value)} 
+        placeholder={t('common.search')} 
+        style={{ flex: 1, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 13, height: "34px" }} 
+      />
+    )}
   </div>
 
-  <button
-    type="button"
-    onClick={() => setWttOfferOpen(false)}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.background = "#FFF5FA";
-      e.currentTarget.style.borderColor = "#F7A8D8";
-      e.currentTarget.style.color = "#8C659C";
-      e.currentTarget.style.boxShadow = "0 4px 12px rgba(247,168,216,0.18)";
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.background = "white";
-      e.currentTarget.style.borderColor = "#F7A8D8";
-      e.currentTarget.style.color = "#8C659C";
-      e.currentTarget.style.boxShadow = "none";
-    }}
-    style={{
-      width: 34,
-      height: 34,
-      borderRadius: 10,
-      border: "1px solid #F7A8D8",
-      background: "white",
-      color: "#8C659C",
-      cursor: "pointer",
-      fontWeight: 900,
-      transition: "all 0.15s ease",
-    }}
-  >
-    ✕
-  </button>
-</div>
+  {/* Los selectores se muestran solo si showWttFilters es true */}
+  {showWttFilters && (
+    <div style={{ padding: "0 12px 12px 12px", display: "grid", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(5, 1fr)", gap: 6 }}>
+        
+        {/* 1. Grupo */}
+        <select 
+          value={String(wttOfferGroup ?? "")} 
+          onChange={(e) => setWttOfferGroup(e.target.value ? Number(e.target.value) : "")} 
+          style={{ padding: "10px", borderRadius: 8, border: "1px solid var(--color-border)", fontSize: 13, width: "100%", height: "42px", background: "var(--bg-card)" }}
+        >
+          <option value="">{t('binders.picker.group')} ({t('common.all')})</option>
+          {Array.from(new Set(wttWantCatalog.map(i => i.group_id).filter(Boolean))).map(id => (
+            <option key={String(id)} value={String(id)}>{wttWantGroupNames[id as number] ?? `Grupo ${id}`}</option>
+          ))}
+        </select>
 
-          <div
-  style={{
-    padding: "10px 16px",
-    borderBottom: "1px solid #F3DCE7",
-    display: "grid",
-    gap: 10,
-    background: "#efedef",
-  }}
->
-              <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 10 }}>
-                <div style={{ display: "grid", gap: 6 }}>
-<div style={{ fontSize: 12, color: "#8C659C", fontWeight: 900 }}>
-  Nº de PCs para tradear
-</div>
-                  <input
-                    type="number"
-                    min={0}
-                    value={wttOfferQtyDraft}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      const next = Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0;
-                      setWttOfferQtyDraft(next);
-                      if (next === 0) setWttOfferDraft([]);
-                      if (wttOfferForId != null) {
-                        const nextIds = next > 0 ? wttOfferDraft : [];
-                        setWttOfferByItem((prev) => ({ ...prev, [wttOfferForId]: nextIds }));
-                        setWttOfferQtyByItem((prev) => ({ ...prev, [wttOfferForId]: next }));
-                        writeWttOffer(wttOfferForId, next, nextIds);
-                        setInvByItem((prev: any) => ({
-                          ...prev,
-                          [wttOfferForId]: { ...(prev?.[wttOfferForId] ?? emptyCounts()), wtt: next },
-                        }));
-                        void persistWttQty(wttOfferForId, next);
-                      }
-                    }}
-                    style={{
-  height: 34,
-  padding: "6px 10px",
-  borderRadius: 10,
-  border: "1px solid #F3DCE7",
-  background: "white",
-  fontSize: 13,
-  color: "#2F2740",
-}}
-                  />
-                </div>
+        {/* 2. Álbum */}
+        <select 
+          value={String(wttOfferAlbum ?? "")} 
+          onChange={(e) => setWttOfferAlbum(e.target.value ? Number(e.target.value) : "")} 
+          style={{ padding: "10px", borderRadius: 8, border: "1px solid var(--color-border)", fontSize: 13, width: "100%", height: "42px", background: "var(--bg-card)" }}
+        >
+          <option value="">{t('binders.picker.album')} ({t('common.all')})</option>
+          {Array.from(new Set(wttWantCatalog.filter(i => !wttOfferGroup || i.group_id === wttOfferGroup).map(i => i.album_id).filter(Boolean))).map(id => (
+            <option key={String(id)} value={String(id)}>{wttWantAlbumNames[id as number] ?? `Álbum ${id}`}</option>
+          ))}
+        </select>
 
-                <div style={{ display: "grid", gap: 6 }}>
-                  <label
-  style={{
-    fontSize: 12,
-    color: "#8C659C",
-    fontWeight: 900,
-    display: "flex",
-     borderRadius: 10,
-  border: "1px solid #F3DCE7",
-      background: "#fff9fe",
-    alignItems: "center",
-    gap: 6,
-  }}
->
-  Buscar en mis WTT
-</label>
-                  <input
-                    ref={wttOfferQRef}
-                    value={wttOfferQ}
-                    onChange={(e) => {
-                      setWttOfferQ(e.target.value);
-                      requestAnimationFrame(() => wttOfferQRef.current?.focus());
-                    }}
-                    placeholder="Busca por nombre, miembro, versión…"
-                    style={{
-                      height: 34,
-                      padding: "6px 10px",
-                      borderRadius: 10,
-                      border: "1px solid #ddd",
-                      background: "#fff9fe",
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-              </div>
+        {/* 3. Versión */}
+        <select 
+          value={wttOfferVersion || ""} 
+          onChange={(e) => setWttOfferVersion(e.target.value)} 
+          style={{ padding: "10px", borderRadius: 8, border: "1px solid var(--color-border)", fontSize: 13, width: "100%", height: "42px", background: "var(--bg-card)" }}
+        >
+          <option value="">{t('binders.picker.version')} ({t('common.all_feminine')})</option>
+          {Array.from(new Set(wttWantCatalog.filter(i => (!wttOfferGroup || i.group_id === wttOfferGroup) && (!wttOfferAlbum || i.album_id === wttOfferAlbum)).map(i => i.version).filter(Boolean))).sort().map(v => (
+            <option key={String(v)} value={String(v)}>{prettyText(String(v))}</option>
+          ))}
+        </select>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={{ fontSize: 12, color: "#666666", display: "flex", alignItems: "center", gap: 6 }}>
-                    <Users size={14} strokeWidth={2.4} /> Grupo
-                  </label>
-                  <select
-                    value={wttOfferGroup}
-                    onChange={(e) => setWttOfferGroup(e.target.value ? Number(e.target.value) : "")}
-                    style={{background: "#fff9fe", padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
-                  >
-                    <option value="">Todos</option>
-                    {Array.from(
-                      new Set(
-                        wttWantCatalog
-                          .map((i) => i.group_id)
-                          .filter((x): x is number => typeof x === "number")
-                      )
-                    )
-                      .map((id) => ({ id, name: wttWantGroupNames[id] ?? `#${id}` }))
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
+        {/* 4. Miembro */}
+        <select 
+          value={wttOfferMember || ""} 
+          onChange={(e) => setWttOfferMember(e.target.value)} 
+          style={{ padding: "10px", borderRadius: 8, border: "1px solid var(--color-border)", fontSize: 13, width: "100%", height: "42px", background: "var(--bg-card)" }}
+        >
+          <option value="">{t('binders.picker.member')} ({t('common.all')})</option>
+          <option value="bang-chan">Bang Chan</option>
+          <option value="lee-know">Lee Know</option>
+          <option value="changbin">Changbin</option>
+          <option value="hyunjin">Hyunjin</option>
+          <option value="han">Han</option>
+          <option value="felix">Felix</option>
+          <option value="seungmin">Seungmin</option>
+          <option value="in">I.N</option>
+        </select>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={pickerLabelStyle}>
-                    <Disc3 size={14} strokeWidth={2.4} /> Álbum
-                  </label>
-                  <select
-                    value={wttOfferAlbum}
-                    onChange={(e) => setWttOfferAlbum(e.target.value ? Number(e.target.value) : "")}
-                    style={{ background: "#fff9fe", padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
-                  >
-                    <option value="">Todos</option>
-                    {Array.from(
-                      new Set(
-                        wttWantCatalog
-                          .filter((i) => (wttOfferGroup === "" ? true : i.group_id === wttOfferGroup))
-                          .map((i) => i.album_id)
-                          .filter((x): x is number => typeof x === "number")
-                      )
-                    )
-                      .map((id) => ({
-                        id,
-                        name: wttWantAlbumNames[id] ?? `#${id}`,
-                        release_date: wttWantAlbumRelease[id] ?? null,
-                      }))
-                      .sort((a, b) => {
-                        const da = a.release_date ? new Date(a.release_date).getTime() : Number.POSITIVE_INFINITY;
-                        const db = b.release_date ? new Date(b.release_date).getTime() : Number.POSITIVE_INFINITY;
-                        if (da !== db) return da - db;
-                        return a.name.localeCompare(b.name, "es");
-                      })
-                      .map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={pickerLabelStyle}>
-                    <Mic2 size={14} strokeWidth={2.4} /> Versión
-                  </label>
-                  <select
-                    value={wttOfferVersion}
-                    onChange={(e) => setWttOfferVersion(e.target.value)}
-                    style={{ background: "#fff9fe", padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
-                  >
-                   <option value="">Todos</option>
-{Array.from(
-  new Set(
-    wttWantCatalog
-      .filter((i) => (wttOfferGroup === "" ? true : i.group_id === wttOfferGroup))
-      .filter((i) => (wttOfferAlbum === "" ? true : i.album_id === wttOfferAlbum))
-      .map((i) => String(i.version ?? i.version_name ?? "").trim())
-      .filter(Boolean)
-  )
-)
-  .sort((a, b) => prettyText(a).localeCompare(prettyText(b), "es"))
-  .map((v) => (
-    <option key={v} value={v}>
-      {prettyText(v)}
-    </option>
-  ))}
-                  </select>
-                </div>
-
-               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-  <label
-    style={pickerLabelStyle}>
- 
-    <User size={14} strokeWidth={2.4} /> Miembro
-  </label>
-
-  <select
-    value={wttOfferMember}
-    onChange={(e) => setWttOfferMember(e.target.value)}
-    style={{
-     
-   
-      background: "#fff9fe", 
-      padding: "8px 10px", 
-      borderRadius: 10, 
-      border: "1px solid #ddd" 
-    
-    
-    }}
-  >
-    <option value="">Todos</option>
-    <option value="bang-chan">Bang Chan</option>
-    <option value="lee-know">Lee Know</option>
-    <option value="changbin">Changbin</option>
-    <option value="hyunjin">Hyunjin</option>
-    <option value="han">Han</option>
-    <option value="felix">Felix</option>
-    <option value="seungmin">Seungmin</option>
-    <option value="in">I.N</option>
-  </select>
-</div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={pickerLabelStyle}>
-                    <Layers size={14} strokeWidth={2.4} /> Tipo
-                  </label>
-                  <select
-                    value={wttOfferUnit}
-                    onChange={(e) => setWttOfferUnit(e.target.value as any)}
-                    style={{ background: "#fff9fe", padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd" }}
-                  >
-                    <option value="all">Todos</option>
-                    <option value="single">Single</option>
-                    <option value="unit">Unit</option>
-                    <option value="ot8">OT8</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-           <div
-  ref={wttOfferScrollRef}
-  style={{
-    padding: 12,
-    overflow: "auto",
-    overflowAnchor: "none",
-  }}
->
-              {(() => {
-                if (wttWantLoading) {
-                  return <div style={{ fontSize: 13, color: "#666" }}>Cargando…</div>;
-                }
-
-                const filtered = wttWantCatalog.filter((it) => {
-  if (wttOfferGroup !== "" && it.group_id !== wttOfferGroup) return false;
-  if (wttOfferAlbum !== "" && it.album_id !== wttOfferAlbum) return false;
-  
-  // Normalización de versión para evitar rojos
-  const versionStr = String(it.version ?? it.version_name ?? "");
-  if (wttOfferVersion && versionStr !== wttOfferVersion) return false;
-
-  // CORRECCIÓN PARA EVITAR EL ROJO EN MEMBER:
-  // Usamos ?? "" para garantizar que siempre se envíe un string a las funciones
-  const memberVal = it.member ?? it.member_name ?? "";
-
-  if (wttOfferMember && !memberMatches(memberVal, wttOfferMember)) return false;
-  
-  if (wttOfferUnit !== "all" && unitTypeFromMember(memberVal) !== wttOfferUnit) return false;
-
-  const q = normText(wttOfferQ);
-  if (!q) return true;
-
-  const hay = normText(
-    [
-      it.id,
-      it.name ?? "",
-      it.member ?? "",
-      it.member_name ?? "",
-      it.version ?? "",
-      it.version_name ?? "",
-      it.version_name_display ?? "",
-      notesByItem[it.id] ?? readLS(notesKey(it.id)) ?? "",
-    ].join(" ")
-  );
-  return hay.includes(q);
-});
-                if (!filtered.length) {
-                  return <div style={{ fontSize: 13, color: "#666" }}>No hay resultados.</div>;
-                }
-
-                return (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
-                      gap: 10,
-                    }}
-                  >
-                    {filtered.map((it) => {
-  const selected = wttOfferDraft.includes(it.id);
-
-  return (
-   <div
-  key={it.id}
-  role="button"
-  aria-pressed={selected}
-  onMouseDown={(e) => {
-    const el = wttOfferScrollRef.current;
-    if (el) {
-      wttOfferScrollSnapshotRef.current = {
-        top: el.scrollTop,
-        left: el.scrollLeft,
-      };
-    }
-    e.preventDefault();
-  }}
-  onClick={() => {
-    setWttOfferDraft((prev) =>
-      prev.includes(it.id)
-        ? prev.filter((x) => x !== it.id)
-        : [...prev, it.id]
-    );
-  }}
-  style={{
-    border: selected ? "2px solid #8db8ff" : "2px solid transparent",
-    borderRadius: 12,
-    background: selected ? "#f2f7ff" : "white",
-    padding: 6,
-    cursor: "pointer",
-    textAlign: "left",
-    boxSizing: "border-box",
-    boxShadow: selected
-      ? "0 8px 18px rgba(141,184,255,0.16)"
-      : "0 8px 18px rgba(0,0,0,0.06)",
-    userSelect: "none",
-  }}
->
-      <img
-        src={it.image_url ?? "/mock-pcs/groupsui/not-available.png"}
-        alt=""
-        draggable={false}
-        style={{
-          width: "100%",
-          aspectRatio: "3 / 4",
-          objectFit: "cover",
-          borderRadius: 8,
-          border: "1px solid #e7e7ef",
-          background: "#fafafa",
-          display: "block",
-          pointerEvents: "none",
-        }}
+        {/* 5. Tipo */}
+        <select 
+          value={wttOfferUnit || "all"} 
+          onChange={(e) => setWttOfferUnit(e.target.value as any)} 
+          style={{ padding: "10px", borderRadius: 8, border: "1px solid var(--color-border)", fontSize: 13, width: "100%", height: "42px", background: "var(--bg-card)" }}
+        >
+          <option value="all">{t('binders.picker.type')} ({t('common.all')})</option>
+          <option value="single">{t('binders.picker.type_selfie')}</option>
+          <option value="unit">{t('binders.picker.type_unit')}</option>
+          <option value="ot8">OT8</option>
+        </select>
+      </div>
+      
+      {/* Input de búsqueda movido aquí dentro cuando los filtros están abiertos */}
+      <input 
+        value={wttOfferQ || ""} 
+        onChange={(e) => setWttOfferQ(e.target.value)} 
+        placeholder={t('binders.picker.search_placeholder')} 
+        style={{ padding: "12px", borderRadius: 8, border: "1px solid var(--color-border)", fontSize: 14, width: "100%", height: "44px", background: "var(--bg-card)" }} 
       />
     </div>
-  );
-})}
-                  </div>
-                );
-              })()}
-            </div>
+  )}
+</div>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "10px 16px",
-                borderTop: "1px solid #eee",
-              }}
-            >
-              <div style={{ fontSize: 12, color: "#666" }}>
-                Seleccionadas: <b>{wttOfferDraft.length}</b>
-              </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-               <button
-  type="button"
-  onClick={() => setWttOfferDraft([])}
-  style={{
-    padding: "8px 14px",
-    borderRadius: 14,
-    border: "1px solid #FFD9E6",
-    background: "#FFF5FA",
-    color: "#8C659C",
-    fontWeight: 900,
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    cursor: "pointer",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-  }}
+       {/* ÁREA DE CARTAS (SCROLL BLINDADO) */}
+<div 
+  ref={wttOfferScrollRef} // <--- ASIGNA LA REFERENCIA AQUÍ
+  style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "12px" }}
+  onScroll={(e) => e.stopPropagation()}
 >
-  <Trash2 size={16} />
-  Borrar selección
-</button>
-                <button
-                  type="button"
-                  onClick={() => setWttOfferOpen(false)}
-                  style={{
-  padding: "10px 16px",
-  borderRadius: 14,
-  border: "1px solid #FFD9E6",
-  background: "#FFF5FA",
-  color: "#8C659C",
-  fontWeight: 900,
-  cursor: "pointer",
-}}
-                >
-                  Cancelar
-                </button>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 10, paddingBottom: 40 }}>
+         {wttWantCatalog
+              .filter(it => {
+                if (wttOfferGroup && it.group_id !== wttOfferGroup) return false;
+                if (wttOfferAlbum && it.album_id !== wttOfferAlbum) return false;
+                if (wttOfferVersion && it.version !== wttOfferVersion) return false;
+                if (wttOfferMember && !memberMatches(it.member || "", wttOfferMember)) return false;
+                if (wttOfferUnit !== "all" && unitTypeFromMember(it.member || it.name || "") !== wttOfferUnit) return false;
+                if (wttOfferQ && !normText(`${it.member} ${it.name}`).includes(normText(wttOfferQ))) return false;
+                return true;
+              })
+              .map((it) => {
+                const selected = wttOfferDraft.includes(it.id);
+                return (
+                  <label 
+                    key={it.id} 
+                    style={{ 
+                      position: "relative", 
+                      padding: 4, 
+                      borderRadius: 12, 
+                      cursor: "pointer",
+                      border: selected ? "3px solid var(--color-accent-blue)" : "1px solid var(--state-disabled-border)",
+                      background: selected ? "var(--state-info-bg)" : "var(--bg-card)",
+                      display: "block",
+                      // Esto asegura que el scroll no se bloquee al deslizar sobre una carta
+                      touchAction: "pan-y",
+                      WebkitTapHighlightColor: "transparent"
+                    }}
+                  >
+                    {/* INPUT INVISIBLE QUE GESTIONA EL ESTADO SIN SALTOS */}
+                 
+<input
+  type="checkbox"
+  checked={selected}
+  onChange={() => {
+    // 1. CAPTURAMOS EL SCROLL ACTUAL
+    const scroller = wttOfferScrollRef.current;
+    if (scroller) {
+      wttOfferScrollSnapshotRef.current = {
+        top: scroller.scrollTop,
+        left: scroller.scrollLeft
+      };
+    }
 
-                <button
-                  type="button"
-                  onClick={() => saveWttOfferDraft()}
-                 style={{
-  padding: "10px 16px",
-  borderRadius: 14,
-  border: "1px solid #F7B9D2",
-  background: "#FFE8F2",
-  color: "#8C659C",
-  fontWeight: 950,
-  cursor: "pointer",
-  boxShadow: "0 4px 10px rgba(247,185,210,0.25)",
-}}
-                >
-                  Guardar
-                </button>
-              </div>
-            </div>
+    // 2. ACTUALIZAMOS EL ESTADO (esto provocará el re-render)
+    setWttOfferDraft(prev =>
+      prev.includes(it.id) ? prev.filter(x => x !== it.id) : [...prev, it.id]
+    );
+  }}
+                      style={{ 
+                        position: "absolute", 
+                        opacity: 0, 
+                        inset: 0, 
+                        width: "100%", 
+                        height: "100%", 
+                        margin: 0, 
+                        cursor: "pointer",
+                        zIndex: 2
+                      }}
+                    />
+
+                    <ImageWithExtensionFallback 
+                      src={it.image_url ?? "/mock-pcs/groups/not-available.png"} 
+                      style={{ 
+                        width: "100%", 
+                        aspectRatio: "3/4", 
+                        objectFit: "cover", 
+                        borderRadius: 8, 
+                        display: "block",
+                        pointerEvents: "none" 
+                      }} 
+                    />
+
+                    {selected && (
+                      <div style={{ 
+                        position: "absolute", top: 4, right: 4, background: "var(--color-accent-blue)", 
+                        color: "var(--bg-card)", width: 20, height: 20, borderRadius: "50%", 
+                        display: "flex", alignItems: "center", justifyContent: "center", 
+                        fontSize: 10, fontWeight: 900, zIndex: 3
+                      }}>✓</div>
+                    )}
+                  </label>
+                );
+              })}
           </div>
         </div>
-      )}
+
+        {/* FOOTER FIJO */}
+        <div style={{ flexShrink: 0, padding: "12px 16px", background: "var(--bg-card)", borderTop: "1px solid var(--state-disabled-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)" }}>{wttOfferDraft.length} {t('binders.selected_plural')}</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => setWttOfferDraft([])} style={{ ...whitePinkBtnStyle, padding: "6px 10px", fontSize: 11 }}>{t('binders.clear_selection')}</button>
+            <button onClick={() => setWttOfferOpen(false)} style={{ ...whitePinkBtnStyle, padding: "6px 10px", fontSize: 11 }}>{t('common.cancel')}</button>
+            <button onClick={() => savewttOfferDraft()} 
+ style={{ ...softPinkBtnStyle, padding: "6px 12px", fontSize: 12 }}
+>{t('common.save_and_publish')}</button>
+          </div>
+        </div>
+      </div> 
+    </div> 
+  )}
     </div>
   ) : (
     // =========================
@@ -10968,8 +11089,8 @@ return hay.includes(q);
       }}
     >
       <div style={{ ...subtleCard, padding: 14 }}>
-        <div style={{ fontWeight: 950, color: "#1f1f2f", lineHeight: 1.15 }}>
-          Información PC personalizada
+        <div style={{ fontWeight: 950, color: "var(--text-main)", lineHeight: 1.15 }}>
+          {t('binders.custom_pc.title')}
         </div>
 
         <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
@@ -10977,15 +11098,15 @@ return hay.includes(q);
             value={draftCustomText}
             onChange={(e) => setDraftCustomText(e.target.value)}
             onBlur={() => onChangeCustomText(draftCustomText)}
-            placeholder="Ej: dónde la conseguiste, notas, trade info…"
+            placeholder={t('binders.custom_pc.placeholder')}
             rows={3}
             style={{
               width: "100%",
               padding: "10px 12px",
               borderRadius: 12,
-              border: "1px solid #F3DCE7",
-background: "white",
-color: "#2F2740",
+              border: "1px solid var(--color-border)",
+background: "var(--bg-card)",
+color: "var(--text-main)",
               outline: "none",
               resize: "none",
               fontWeight: 800,
@@ -11000,61 +11121,73 @@ color: "#2F2740",
       width: "100%",
       padding: "10px 12px",
       borderRadius: 12,
-      border: "1px solid #d9b0ea",
-      background: "white",
+      border: "1px solid var(--color-border)",
+      background: "var(--bg-card)",
       cursor: "pointer",
       fontWeight: 800,
-      boxShadow: "0 8px 18px rgba(0,0,0,0.06)",
+      boxShadow: "0 8px 18px color-mix(in srgb, var(--text-main) 6%, transparent)",
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
       textAlign: "center",
     }}
-    title="Subir imagen"
+    title={t('common.upload_image')}
   >
     Subir anverso
     
-    <input
-      type="file"
-      accept="image/png,image/jpeg,image/webp"
-      style={{ display: "none" }}
-      onChange={(e) => {
-  const f = e.target.files?.[0];
-    if (f) onPickCustomImage(f, "front"); // Añade "front"
-  e.currentTarget.value = "";
-}}
-    />
+   <input 
+    type="file" 
+    accept="image/*" 
+    style={{ display: "none" }} 
+    onClick={(e) => {
+      // 🚨 CANDADO: Evita que se abra la carpeta de Windows/Mac
+      if (!profile?.is_premium && !isAdmin) {
+        e.preventDefault(); 
+        showAlert("Ventaja VIP 👑", "Subir imágenes personalizadas es exclusivo para cuentas Premium.");
+      }
+    }}
+    onChange={(e) => { 
+      const f = e.target.files?.[0]; 
+      if (f) onPickCustomImage(f, "front"); 
+      e.currentTarget.value = ""; 
+    }} 
+  />
   </label>
   <label
     style={{
       width: "100%",
       padding: "10px 12px",
       borderRadius: 12,
-      border: "1px solid #d9b0ea",
-      background: "white",
+      border: "1px solid var(--color-border)",
+      background: "var(--bg-card)",
       cursor: "pointer",
       fontWeight: 800,
-      boxShadow: "0 8px 18px rgba(193, 143, 205, 0.06)",
+      boxShadow: "0 8px 18px color-mix(in srgb, var(--color-primary) 6%, transparent)",
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
       textAlign: "center",
     }}
-    title="Subir imagen"
+    title={t('common.upload_image')}
   >
     Subir reverso
     
-    <input
-      type="file"
-      accept="image/png,image/jpeg,image/webp"
-      style={{ display: "none" }}
-     
-       onChange={(e) => {
-  const f = e.target.files?.[0];
-  if (f) onPickCustomImage(f, "back"); // Añade "back"
-  e.currentTarget.value = "";
-}}
-    />
+    <input 
+    type="file" 
+    accept="image/*" 
+    style={{ display: "none" }} 
+    onClick={(e) => {
+      if (!profile?.is_premium && !isAdmin) {
+        e.preventDefault(); 
+        showAlert("Ventaja VIP 👑", "Subir imágenes personalizadas es exclusivo para cuentas Premium.");
+      }
+    }}
+    onChange={(e) => { 
+      const f = e.target.files?.[0]; 
+      if (f) onPickCustomImage(f, "back"); 
+      e.currentTarget.value = ""; 
+    }} 
+  />
   </label>
 {/* CHECKBOX DE BIAS */}
         <label
@@ -11066,47 +11199,42 @@ color: "#2F2740",
             gap: 8,
             padding: "12px",
             borderRadius: 12,
-            border: customIsBias ? "1px solid #F7A8D8" : "1px solid #d9b0ea",
-            background: customIsBias ? "#FFF5FA" : "white",
+            border: customIsBias ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
+            background: customIsBias ? "var(--bg-soft)" : "var(--bg-card)",
             cursor: "pointer",
             fontWeight: 800,
-            boxShadow: customIsBias ? "0 8px 18px rgba(247,168,216,0.12)" : "0 8px 18px rgba(193, 143, 205, 0.06)",
+            boxShadow: customIsBias ? "0 8px 18px color-mix(in srgb, var(--color-primary) 12%, transparent)" : "0 8px 18px color-mix(in srgb, var(--color-primary) 6%, transparent)",
             transition: "all 140ms ease",
           }}
-          title="Marcar como Bias"
+          title={t('binders.custom_pc.is_bias')}
         >
          <input
             type="checkbox"
             checked={customIsBias}
             onChange={(e) => onToggleCustomBias(e.target.checked)}
-            style={{ width: 18, height: 18, accentColor: "#F7A8D8", cursor: "pointer" }}
+            style={{ width: 18, height: 18, accentColor: "var(--color-primary)", cursor: "pointer" }}
           />
  
-          <span style={{ fontSize: 14, color: customIsBias ? "#8C659C" : "#555" }}>
+          <span style={{ fontSize: 14, color: customIsBias ? "var(--color-primary)" : "var(--text-muted)" }}>
             💖 Esta PC es de mi Bias
           </span>
         </label>
-  {customImageUrl && (
-    <button
-      type="button"
-      onClick={onClearCustomImage}
-      style={{
-        ...dangerBtn,
-       width: "100%",
-      padding: "10px 12px",
-      borderRadius: 12,
-      background: "white",
-      cursor: "pointer",
-      fontWeight: 800,
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      textAlign: "center",
-      }}
-    >
-      Quitar imagen
-    </button>
-  )}
+  {customImageUrl && ( 
+    <button 
+      type="button" 
+      onClick={onClearCustomImage} 
+      style={{ 
+        ...dangerBtn, 
+        width: "100%", 
+        padding: "12px", 
+        marginBottom: isMobile ? "40px" : "0", // 👈 Empuja el botón hacia arriba del borde real
+        background: "var(--bg-card)", 
+        fontWeight: 800, 
+      }} 
+    > 
+      Quitar imagen 
+    </button> 
+  )} 
 </div>
         </div>
       </div>
@@ -11116,7 +11244,7 @@ color: "#2F2740",
   return (
     <div
       role="dialog"
-      aria-modal="true"
+  aria-modal="true"
       onMouseDown={(e) => {
         const t = e.target as HTMLElement | null;
 
@@ -11134,376 +11262,288 @@ color: "#2F2740",
 
         e.stopPropagation();
       }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.40)",
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 18,
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-        style={{
- width: "auto",
- maxWidth: "96vw",
- height: "auto",
- maxHeight: "92vh",
- background: "#F7F4EE",
- borderRadius: 18,
- border: "1px solid #F3DCE7",
- boxShadow: "0 30px 80px rgba(0,0,0,0.22)",
- overflow: "hidden",
- display: "grid",
- gridTemplateRows: "62px auto",
+  
  
-}}
+  style={{ 
+    position: "fixed", 
+    inset: 0, 
+    background: "var(--overlay-medium)", 
+    zIndex: 9999, 
+    display: "flex", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    padding: isMobile ? "10px" : "18px",
 
-      >
-    
-{/* HEADER */}
-<div
-  style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "12px 16px",
-    borderBottom: "1px solid #F3C7DA",
-    background: "#FFD9E6",
   }}
 >
-  {/* IZQUIERDA: logo + título */}
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      minWidth: 0,
-      flex: 1,
-    }}
+      <div 
+    onMouseDown={(e) => e.stopPropagation()} 
+    onClick={(e) => e.stopPropagation()} 
+    style={{ 
+      width: isMobile ? "96vw" : "auto", 
+      maxWidth: "980px", 
+      height: isMobile ? "90vh" : "auto", // Altura máxima en móvil
+      maxHeight: "92vh", 
+      background: "var(--bg-main)", 
+      borderRadius: 18, 
+      border: "1px solid var(--color-border)", 
+      overflowY: "auto", // 👈 AQUÍ ES DONDE VA EL SCROLL
+      display: "flex", 
+      flexDirection: "column",
+      WebkitOverflowScrolling: "touch"
+    }} 
   >
-    <img
-      src="/branding/logo.png"
-      alt=""
-      style={{
-        height: 28,
-        width: "auto",
-        objectFit: "contain",
-        flex: "0 0 auto",
-      }}
-    />
-
-    <div
-      style={{
-         fontSize: 22,      // 👈 tamaño del nombre
-        fontWeight: 950,
-        color: "#8C659C",
-        whiteSpace: "pre-line",
-        lineHeight: 1.1,
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-      }}
-    >
-      {headerTitle}
-    </div>
+    
+{/* 1. HEADER DEL MODAL */}
+  <div
+  style={{
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "12px 16px",
+  borderBottom: "1px solid var(--color-border)",
+  background: "var(--bg-soft)",
+  flexShrink: 0,
+  }}
+  >
+  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+  <img src="/branding/logo.png" alt="" style={{ height: 28, width: "auto", objectFit: "contain" }} />
+  <div style={{ fontSize: 22, fontWeight: 950, color: "var(--color-primary)", whiteSpace: "pre-line", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis" }}>
+  {headerTitle}
   </div>
-
-  {/* DERECHA: botones */}
-  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
-    {/* AÑADE ESTE BOTÓN AQUÍ: */}
+  </div>
+  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  
+  {/* ✅ BOTONES DE NAVEGACIÓN AÑADIDOS AQUÍ */}
   <button
     type="button"
-    onClick={() => { void doModalUndo(); }}
-    title="Deshacer cambios en esta PC"
-    style={{
-      ...iconBtnStyle,
-      padding: "8px",
-      width: 36,
-      height: 36,
-    }}
+    onClick={onPrev}
+    disabled={!canPrev}
+    style={{ ...iconBtnStyle, padding: "8px", width: 36, height: 36, opacity: canPrev ? 1 : 0.45, cursor: canPrev ? "pointer" : "not-allowed" }}
+    title={t('common.previous')}
   >
-    <Undo2 size={18} strokeWidth={2.5} />
+    <ChevronLeft size={18} strokeWidth={2.6} />
+  </button>
+  <button
+    type="button"
+    onClick={onNext}
+    disabled={!canNext}
+    style={{ ...iconBtnStyle, padding: "8px", width: 36, height: 36, opacity: canNext ? 1 : 0.45, cursor: canNext ? "pointer" : "not-allowed" }}
+    title={t('common.next')}
+  >
+    <ChevronRight size={18} strokeWidth={2.6} />
+  </button>
+  {/* ✅ FIN DE BOTONES DE NAVEGACIÓN */}
+
+  <button
+  type="button"
+  onClick={() => { void doModalUndo(); }}
+  title={t('binders.actions.undo')}
+  style={{ ...iconBtnStyle, padding: "8px", width: 36, height: 36 }}
+  >
+  <Undo2 size={18} strokeWidth={2.5} />
+  </button>
+  <button type="button" onClick={onClose} style={iconBtnStyle} title={t('common.close')} className="iconDangerHover modalCloseBtn">
+  ✕
+  </button>
+  </div>
+  </div>
+
+  {/* 2. CUERPO DEL MODAL (Ajuste definitivo de scroll) */} 
+  <div 
+    style={{ 
+      display: "flex", 
+      flexDirection: isMobile ? "column" : "row", 
+      width: "100%",
+      height: "auto", 
+      overflowY: "visible", // Cambiamos a visible aquí
+      padding: isMobile ? "10px 10px 120px 10px" : "20px", 
+      backgroundColor: "var(--bg-main)", 
+      gap: 15
+    }} 
+  >
+   {/* COLUMNA IZQUIERDA: CARTA Y ZOOM (NAVEGACIÓN TOTAL) */}
+  <div 
+    style={{ 
+      display: "flex", 
+      flexDirection: "column", 
+      alignItems: "center", 
+      width: isMobile ? "100%" : "420px", 
+      flexShrink: 0, 
+      background: "var(--bg-main)", 
+      padding: isMobile ? "10px" : "20px", 
+      borderRadius: "20px", 
+      border: "1px solid var(--bg-soft)",
+      position: "relative"
+    }} 
+  > 
+    {/* ÁREA DE VISUALIZACIÓN TIPO LUPA */}
+    <div style={{ 
+      width: "100%", 
+      height: isMobile ? "380px" : "480px", 
+      position: "relative", 
+      overflow: "auto", // ✅ Permite scroll en todas direcciones
+      borderRadius: 14,
+      background: "var(--state-disabled-border)",
+      display: "block", // ✅ Cambiado de flex a block para scroll real
+      WebkitOverflowScrolling: "touch"
+    }}> 
+      {(() => { 
+        const sleeveRot = ((rot % 360) + 360) % 360; 
+        const fImg = isCustom ? customImageUrl : (meta?.image_url ?? null);
+        const bImg = isCustom 
+          ? ((assigned as any)?.custom_back_image_url ?? DEFAULT_BACK_URL) 
+          : (meta?.back_image_url ?? DEFAULT_BACK_URL);
+
+        return ( 
+          /* Contenedor de expansión: crea el espacio necesario para que el scroll llegue a los bordes */
+          <div style={{ 
+            width: "100%",
+            height: "100%",
+            minWidth: 320 * modalZoom,
+            minHeight: 480 * modalZoom,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "100px" // ✅ Margen de seguridad para que la carta no choque con los bordes
+          }}> 
+            <div style={{ 
+              width: 320, 
+              height: 480, 
+              flexShrink: 0,
+              position: "relative",
+              transform: `scale(${modalZoom}) rotate(${sleeveRot}deg)`, 
+              transition: "transform 0.2s ease-out",
+              zIndex: 1
+            }}> 
+              <div style={{ 
+                width: "100%", height: "100%", 
+                borderRadius: 14, overflow: "hidden", 
+                border: "1px solid var(--state-disabled-border)", background: "var(--bg-card)", 
+                boxShadow: "0 10px 30px var(--overlay-faint)"
+              }}> 
+                <div style={{ width: "100%", height: "100%", position: "relative", perspective: 1200 }}> 
+                  <div ref={modalFlipWrapRef} style={{ 
+                    width: "100%", height: "100%", position: "absolute", 
+                    transformStyle: "preserve-3d", 
+                    transform: `scaleX(${flipH ? -1 : 1}) rotateY(${modalFaceUI === "front" ? 0 : 180}deg)` 
+                  }}> 
+                    {/* FRONT */} 
+                    <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}> 
+                      {((assigned as any)?.is_wanted === true && uiWishlist > 0) ? ( 
+                        <WesternWantedFrame name={headerTitle || "WANTED"} variant="modal"> 
+                          <ImageWithExtensionFallback src={fImg || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> 
+                        </WesternWantedFrame> 
+                      ) : ( 
+                        <ImageWithExtensionFallback src={fImg || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: "cover" }} alt="" /> 
+                      )} 
+                    </div> 
+                    {/* BACK */} 
+                    <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}> 
+                      <img src={bImg || DEFAULT_BACK_URL} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> 
+                    </div> 
+                  </div> 
+                </div> 
+              </div> 
+            </div> 
+          </div> 
+        ); 
+      })()} 
+    </div> 
+
+    {/* PANEL DE CONTROL (FIJO) */}
+    <div style={{ 
+      marginTop: 15, display: "flex", flexDirection: "column", gap: 12, width: "100%", alignItems: "center"
+    }}>
+      <div style={{ display: "flex", gap: 10 }}> 
+        <button type="button" onClick={onRotateLeft} style={{...iconBtnStyle, width: 40, height: 40, fontSize: 18}}>⟲</button> 
+        <button type="button" onClick={onRotateRight} style={{...iconBtnStyle, width: 40, height: 40, fontSize: 18}}>⟳</button> 
+        <button type="button" onClick={onToggleFaceAnimated} style={{...iconBtnStyle, width: 40, height: 40, fontSize: 18}}>⇄</button> 
+      </div> 
+
+      <div style={{ 
+        display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", 
+        borderRadius: "99px", background: "var(--bg-card)", border: "1px solid var(--color-border)", 
+        boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 15%, transparent)" 
+      }}> 
+        <button type="button" onClick={() => setModalZoom((z) => Math.max(0.6, z - 0.2))} style={{...iconBtnStyle, border: "none", boxShadow: "none"}}>−</button> 
+        <span style={{ fontSize: 12, fontWeight: 900, color: "var(--color-primary)", minWidth: 40, textAlign: "center" }}>{Math.round(modalZoom * 100)}%</span>
+        <button type="button" onClick={() => setModalZoom((z) => Math.min(3.0, z + 0.2))} style={{...iconBtnStyle, border: "none", boxShadow: "none"}}>+</button> 
+        <button type="button" onClick={() => setModalZoom(1)} style={{
+          marginLeft: 5, padding: "4px 10px", borderRadius: 8, border: "1px solid var(--color-primary)", 
+          background: "var(--bg-soft)", color: "var(--color-primary)", fontWeight: 900, fontSize: 10, cursor: "pointer"
+        }}>Reset</button> 
+      </div> 
+
+ 
+ 
+
+ 
+
+ {/* ✅ BOTÓN GUARDAR CAMBIOS VISUALES CORREGIDO */}
+  <button 
+    type="button" 
+    onClick={async () => { 
+      if (modalSlotIndex == null) return; 
+      setStatus("Guardando cambios visuales..."); 
+
+      // Recuperamos los datos actuales para no borrar el reverso al guardar
+      const current = slotItems[modalSlotIndex];
+      const frontImg = current?.custom_image_url ?? null;
+      const backImg = (current as any)?.custom_back_image_url ?? null;
+
+      // Guardamos la transformación y las imágenes actuales
+      await saveCustomToDb( 
+        modalSlotIndex, 
+        modalCustomText, 
+        frontImg, // 👈 Pasamos la imagen de la memoria, no null
+        backImg,  // 👈 Pasamos el reverso de la memoria, no null
+        modalViewRot, 
+        modalViewFlipH,
+        (current as any)?.member_id // Mantenemos el bias
+      ); 
+
+      setRefreshTick(t => t + 1); 
+      await loadPageThumbs(); 
+      
+      setStatus("¡Cambios guardados! ✅"); 
+      setTimeout(() => setStatus(""), 2000); 
+    }} 
+    style={{ 
+      ...topBtnStyle, 
+      background: "var(--color-primary)", 
+      color: "var(--bg-card)", 
+      border: "none", 
+      padding: "8px 20px", 
+      fontSize: "13px" 
+    }} 
+  > 
+    Guardar cambios 
   </button>
 
-    <button
-      type="button"
-      onClick={onClose}
-      style={iconBtnStyle}
-      title="Cerrar"
-      className="iconDangerHover modalCloseBtn"
-    >
-      ✕
-    </button>
-  </div>
-</div>
-
-        {/* BODY */}
-        <div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "420px 520px", // 👈 ancho fijo derecha
-    columnGap: 18,
-    justifyContent: "start",
-    height: "100%",
-    minHeight: 0,
-  }}
->
-               {/* IZQUIERDA: PREVIEW */}
-<div
- style={{
-  position: "relative",
-  background: "#F7F4EE",
-  padding: 10,
-  borderRight: "1px solid #FFD9E6",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  minHeight: 0,
- }}
->
-           {/* ✅  PC ARRIBA */}
-        {(() => {
-          const sleeveRot = ((rot % 360) + 360) % 360;
-          const modalIsZoomed = modalZoom > 1;
-          const modalObjectFit = modalIsZoomed ? "contain" : "cover";
-
-          return (
-            <div
-              className="modalPcWrap"
-              style={{
-                width: "100%",
-                maxWidth: 320, // Tamaño constante
-                aspectRatio: "2 / 3", // Aspecto nativo vertical
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "visible",
-                margin: "auto 0",
-                position: "relative",
-                zIndex: 1,
-              }}
-            >
-              {/* LA CARTA QUE ROTA */}
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: 14,
-                  overflow: modalIsZoomed ? "visible" : "hidden",
-                  border: "1px solid #e7e7ef",
-                  background: "white",
-                  position: "absolute",
-                  zIndex: 1,
-                  transform: `rotate(${sleeveRot}deg)`,
-                  transition: "transform 160ms ease",
-                }}
-              >
-                <div style={{ width: "100%", height: "100%", position: "relative", perspective: 900 }}>
-                  <div
-                    ref={modalFlipWrapRef}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      position: "absolute",
-                      inset: 0,
-                      transformStyle: "preserve-3d",
-                      transition: "none",
-                      transform: `scaleX(${flipH ? -1 : 1}) rotateY(${face === "front" ? 0 : 180}deg)`,
-                      willChange: "transform",
-                    }}
-                  >
-                    {/* FRONT EN EL MODAL */}
-  <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
-    {(assigned as any)?.is_wanted === true && uiWishlist > 0 ? (
-      <WesternWantedFrame 
-        name={headerTitle || "WANTED"} 
-        variant="modal" // <--- Importante: esto activa el tamaño grande
-      >
-        <img src={frontImg || "/mock-pcs/groupsui/not-available.png"} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'sepia(0.2)' }} alt="" />
-      </WesternWantedFrame>
-    ) : (
-      <img src={frontImg || "/mock-pcs/groupsui/not-available.png"} style={{ width: '100%', height: '100%', objectFit: modalObjectFit }} alt="" />
-    )}
-  </div>
-                    {/* BACK */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        transform: "rotateY(180deg)",
-                        backfaceVisibility: "hidden",
-                        WebkitBackfaceVisibility: "hidden",
-                      }}
-                    >
-                      <img
-                        src={backImg}
-                        alt=""
-                        draggable={false}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: modalObjectFit,
-                          background: "#fff",
-                          transform: `scale(${modalZoom})`,
-                          transformOrigin: "center center",
-                          transition: "transform 120ms ease",
-                          display: "block",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* BOTONES EMERGENTES (Flotan por encima de la carta, no se rotan) */}
-              <div className="modalPcControls" style={{ zIndex: 10 }}>
-                <button type="button" onClick={onRotateLeft} title="Rotar -90º">⟲</button>
-                <button type="button" onClick={onRotateRight} title="Rotar +90º">⟳</button>
-                <button
-                  type="button"
-                  onClick={onToggleFaceAnimated ?? onToggleFace}
-                  title={face === "front" ? "Reverso" : "Anverso"}
-                >
-                  ⇄
-                </button>
-              </div>
-            </div>
-          );
-        })()}
-
-{/* ✅ ESPACIADOR */}
-<div style={{ flex: 0 }} />
-{/* ✅ ABAJO: ZOOM + NOTAS (PEGADOS) */}
-<div
- style={{
-  width: "min(380px, 96%)",
-  display: "grid",
-  gap: 10,
-  paddingBottom: 6,
-  position: "relative",
-  zIndex: 30
- }}
->
-  <div
-  style={{
-    display: "flex",
-    gap: 10,
-    justifyContent: "center",
-    padding: 10,
-    borderRadius: 16,
-
-    background: "#f9f5f7",          // rosa muy suave
-    border: "1px solid #f9daed",    // borde rosa del sistema
-    boxShadow: "0 6px 8px rgba(234, 208, 224, 0.25)",
-
-  }}
->
-    <button
-      type="button"
-      onClick={() => setModalZoom((z) => Math.max(0.8, Math.round((z - 0.1) * 10) / 10))}
-      style={iconBtnStyle}
-      title="Zoom -"
-    >
-      −
-    </button>
-    <button
-      type="button"
-      onClick={() => setModalZoom((z) => Math.min(1.8, Math.round((z + 0.1) * 10) / 10))}
-      style={iconBtnStyle}
-      title="Zoom +"
-    >
-      +
-    </button>
-    <button type="button" onClick={() => setModalZoom(1)} style={iconBtnStyle} title="Reset zoom">
-      Reset
-    </button>
-  </div>
-
-  {/* ✅ Notas: SOLO para PCs NO personalizadas */}
-  {!isCustom && (
-    <div
-      style={{
-        width: "100%",
-    minHeight: 90,
-
-    padding: "10px 12px",
-    borderRadius: 12,
-
-    background: "#FFF7FB",        // rosa muy muy suave
-    border: "1px solid #f7e6ed",  // borde rosa sutil
-
-    color: "#333",
-    fontSize: 14,
-
-    outline: "none",
-
-    boxShadow: "0 1px 3px rgba(247,168,216,0.15)",
-
-    resize: "vertical",
-      }}
-    >
-      <div
-        style={{
-         fontWeight: 900,
-    color: "#8C659C",
-    letterSpacing: 0.2,
-        }}
-      >
-        Notas
       </div>
-
-      <textarea
-        value={draftNotes}
-        onChange={(e) => setDraftNotes(e.target.value)}
-        onBlur={() => onChangeNotes(draftNotes)}
-        placeholder="Notas libres..."
-        rows={2}
-        style={{
-          width: "100%",
-          padding: "8px 10px",
-     
-          outline: "none",
-          resize: "none",
-          fontWeight: 700,
-          color: "#232336",
-          fontSize: 12,
-          boxSizing: "border-box",
-          background: "#FFF9FB",
-border: "1px solid #F3DCE7",
-borderRadius: 18,
-boxShadow: "0 8px 24px rgba(247,168,216,0.10)",
-        }}
-      />
     </div>
-  )}
-</div>
-
-          </div>
-
-          {/* DERECHA: INFO + BLOQUES */}
-          <div
-            style={{
-              padding: 16,
-              overflowY: "auto",
-              height: "100%",
-              minHeight: 0,
-              minWidth: 0,
-              width: 520,
-            }}
-          >
-           {rightPanelContent}
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
+       <div>{rightPanelContent}</div>
+       {!isCustom && (
+        <div style={{ padding: "15px", borderRadius: 16, background: "var(--bg-soft)", border: "1px solid var(--color-border)" }}>
+          <div style={{ fontWeight: 900, color: "var(--color-primary)", marginBottom: 8 }}>Notas</div>
+          <textarea
+            value={draftNotes}
+            onChange={(e) => setDraftNotes(e.target.value)}
+            onBlur={() => onChangeNotes(draftNotes)}
+            placeholder={t('binders.item_info.free_notes')}
+            rows={3}
+            style={{ width: "100%", padding: "10px", borderRadius: 12, border: "1px solid var(--color-border)", fontWeight: 700, fontSize: 13, resize: "none" }}
+          />
         </div>
-      </div>
+      )}
     </div>
   </div>
+    </div>
+      </div>
   );
-  
 } // <--- AQUÍ TERMINA BinderItemModal
 
 // 👇 PÉGALO JUSTO AQUÍ, EN ESTE ESPACIO 👇
@@ -11555,20 +11595,33 @@ useEffect(() => {
 
   
 
+// [Página 233 aprox. de tu código]
 return (
+  <div
+    className="binder-page-shell"
+    // ✅ PASO 2: Pega esto aquí para limpiar el rastro al soltar fuera
+    onDragOver={(e) => { if (!isMobile) e.preventDefault(); }}
+    onMouseUp={() => {
+      setPageDragFromId(null);
+      setPageDragOverId(null);
+    }}
+    onDragEnd={() => {
+      setPageDragFromId(null);
+      setPageDragOverId(null);
+    }}
+  >
+   
+    {/* El resto de tu código sigue igual... */}
   <div style={{ 
-    minHeight: "100vh", 
-    backgroundColor: "#FFFDF5", // Fondo blanco como en tu moodboard
+    width: "100%", 
+    maxWidth: "100vw", 
+    overflowX: "hidden", 
+    margin: isMobile ? "0 auto" : "40px auto", 
+    textAlign: "center",
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
+    alignItems: "center"
   }}>
-    
-  <Header />
-
-    {/* CUERPO DEL BINDER (Debajo de la banda) */}
-    <div style={{ width: "100%", maxWidth: 1120, margin: "40px auto", textAlign: "center" }}>
-      {/* ... resto del código (h1, email, status...) ... */}
-      {/* ... aquí sigue el resto de tu código (email, status, etc) ... */}
       
       
 
@@ -11579,13 +11632,13 @@ return (
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
-  background: #2F2740;
+  background: var(--text-main);
   color: white;
   padding: 10px 20px;
   border-radius: 999px;
   font-weight: 800;
   font-size: 13px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 20px var(--overlay-soft);
   z-index: 100000;
   pointer-events: none;
   animation: slideUpFade 0.3s ease-out;
@@ -11601,12 +11654,12 @@ return (
     z-index: 960;
     padding: 3px 8px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid #eee;
+    background: color-mix(in srgb, var(--bg-card) 95%, transparent);
+    border: 1px solid var(--state-disabled-border);
     font-size: 11px;
     font-weight: 950;
-    color: #2a2a44;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    color: var(--text-main);
+    box-shadow: 0 4px 10px var(--overlay-faint);
     opacity: 1 !important; /* 👈 ESTO FUERZA A QUE SIEMPRE SE VEA */
     pointer-events: none;
   }
@@ -11622,7 +11675,18 @@ return (
     transition: all 140ms ease;
   }
 
-  
+  @keyframes float {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-15px) rotate(2deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+/* Forzamos que se vea en móvil */
+.floating-pc {
+  animation: float 4s ease-in-out infinite;
+  will-change: transform; /* Esto activa la GPU del móvil */
+  display: block !important; /* Evita que algún estilo lo oculte */
+}
   
   /* Ajuste para el badge xN centrado si hay hover */
   .pcSlotWrap:hover .pcQtyBadgeCentered {
@@ -11662,26 +11726,21 @@ return (
 
         /* ✅ SOLO carrusel: “emergentes” a la mitad */
 /* ✅ SOLO carrusel: número IGUAL que la X (círculo 16x16) */
-.pagesCarousel .pageThumb .pageNumBadge{
-  left: 8px;
-  bottom: 8px;
+/* Número de página idéntico a la X en el carrusel */
+ .pagesCarousel .pageThumb .pageNumBadge {
+  left: 8px !important;
+  bottom: 8px !important;
+  width: 16px !important;
+  height: 16px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 10px !important;
+  border-radius: 999px !important;
+  line-height: 1 !important;
+ }
 
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
-
-  padding: 0;                 /* <- clave: adiós “pill” */
-  border-radius: 999px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  font-size: 10px;            /* mismo que la X */
-  line-height: 1;             /* para centrar bien */
-
-  box-shadow: 0 6px 14px rgba(0,0,0,0.10);
-}
 
 .pagesCarousel .pageDeleteBtn{
   right: 8px;
@@ -11690,23 +11749,35 @@ return (
   height: 16px;
   border-radius: 999px;
   font-size: 10px;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.10);
+  box-shadow: 0 6px 14px var(--overlay-faint);
 }
 @media (hover: hover) {
-  .pageThumb .pageNumBadge {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  .pageThumb:hover .pageNumBadge {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+ .pageThumb .pageNumBadge {
+  position: absolute;
+  left: 6px;       /* Antes 10px */
+  bottom: 6px;     /* Antes 10px */
+  padding: 4px 8px; /* Antes 6px 10px */
+  border-radius: 999px;
+  border: 1px solid var(--state-info-border);
+  background: var(--surface-float);
+  backdrop-filter: blur(8px);
+  font-weight: 900;
+  font-size: 10px; /* Antes 12px */
+  color: var(--state-info-fg);
+  box-shadow: 0 10px 24px var(--overlay-faint);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 140ms ease, transform 140ms ease;
+  z-index: 50;
+ }
 @keyframes dropPulse {
-    0% { transform: scale(1); opacity: 0.75; }
-    50% { transform: scale(1.01); opacity: 1; }
-    100% { transform: scale(1); opacity: 0.75; }
-  }
+  0% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 30px color-mix(in srgb, var(--color-primary) 80%, transparent); }
+  100% { transform: scale(1); opacity: 0.6; }
+}
+
+
 
 /* En móvil/tablet (sin hover), mejor que se vea siempre */
 @media (hover: none) {
@@ -11738,19 +11809,29 @@ return (
   bottom: 10px;
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid #cfdcff;
-  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--state-info-border);
+  background: var(--surface-float);
   backdrop-filter: blur(8px);
   font-weight: 900;
   font-size: 12px;
-  color: #1f3b66;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+  color: var(--state-info-fg);
+  box-shadow: 0 10px 24px var(--overlay-faint);
   pointer-events: none;
   opacity: 0;
   transform: translateY(2px);
   transition: opacity 140ms ease, transform 140ms ease;
 }
+/* Añadir dentro de <style jsx global> */
+.pageThumb {
+  -webkit-touch-callout: none; /* Desactiva el menú contextual de imagen en iOS */
+  touch-action: none;          /* Imprescindible para que el drag funcione en táctil */
+}
 
+/* Opcional: un feedback visual cuando el usuario mantiene pulsado en móvil */
+.pageThumb:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+}
 /* ❌ botón borrar */
 .pageDeleteBtn{
   position: absolute;
@@ -11759,13 +11840,13 @@ return (
   width: 30px;
   height: 30px;
   border-radius: 999px;
-  border: 1px solid #ddd;
-  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--state-disabled-border);
+  background: var(--surface-float);
   backdrop-filter: blur(8px);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 10px 24px var(--overlay-faint);
   font-weight: 950;
   cursor: pointer;
-  color: #a11;
+  color: var(--state-danger-fg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -11786,8 +11867,8 @@ return (
     pointer-events: auto;
   }
   .pageDeleteBtn:hover{
-    border-color: #f0b4b4;
-    background: rgba(255,242,242,0.95);
+    border-color: var(--state-danger-border);
+    background: color-mix(in srgb, var(--state-danger-bg) 95%, transparent);
   }
 }
 
@@ -11805,13 +11886,13 @@ return (
   bottom:10px;
   padding:6px 10px;
   border-radius:999px;
-  border:1px solid #cfdcff;
-  background:rgba(255,255,255,0.92);
+  border:1px solid var(--state-info-border);
+  background:var(--surface-float);
   backdrop-filter:blur(8px);
   font-weight:900;
   font-size:12px;
-  color:#1f3b66;
-  box-shadow:0 10px 24px rgba(0,0,0,0.12);
+  color:var(--state-info-fg);
+  box-shadow:0 10px 24px var(--overlay-faint);
   pointer-events:none;
   opacity:0;
   transform:translateY(2px);
@@ -11838,11 +11919,7 @@ return (
     transform:translateY(0);
   }
 }
-        @keyframes dropPulse {
-  0% { transform: scale(1); opacity: 0.55; }
-  50% { transform: scale(1.02); opacity: 0.95; }
-  100% { transform: scale(1); opacity: 0.55; }
-}
+
 @keyframes shiftSlideRight {
   0% { transform: translateX(0); }
   45% { transform: translateX(10px); }
@@ -11892,13 +11969,13 @@ return (
  z-index: 80;
 }
 .pcControlsBottom button{
- color: #b42318;
+ color: var(--state-danger-fg);
 }
 @media (hover: hover){
  .pcControlsBottom button:hover{
- border-color: #f0b4b4;
- background: #fff2f2;
- color: #a11;
+ border-color: var(--state-danger-border);
+ background: var(--state-danger-bg);
+ color: var(--state-danger-fg);
  }
 }
 @media (hover: hover){
@@ -11943,14 +12020,14 @@ bottom: 8px;
 
   padding: 3px 7px;
   border-radius: 999px;
-  border: 1px solid rgba(0,0,0,0.10);
-  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--overlay-faint);
+  background: var(--surface-float);
   backdrop-filter: blur(8px);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.10);
+  box-shadow: 0 10px 24px var(--overlay-faint);
 
   font-size: 11px;
   font-weight: 950;
-  color: #2a2a44;
+  color: var(--text-main);
 
   display: inline-flex;
   align-items: center;
@@ -11989,22 +12066,22 @@ bottom: 8px;
 }
 
 .iconDangerHover {
-  border: 1px solid #ddd;
-  background: white;
-  color: var(--icon-color, #777);
-  --icon-color: #777;
+  border: 1px solid var(--state-disabled-border);
+  background: var(--bg-card);
+  color: var(--icon-color, var(--text-muted));
+  --icon-color: var(--text-muted);
 }
 
 .modalCloseBtn {
   transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
-  --icon-shadow: 0 10px 24px rgba(0,0,0,0.12);
+  --icon-shadow: 0 10px 24px var(--overlay-faint);
 }
 
 @media (hover: hover) {
   .modalCloseBtn:hover:not(:disabled) {
     transform: translateY(-1px);
-    --icon-shadow: 0 8px 18px rgba(0,0,0,0.10);
-    border-color: #d5d9e4;
+    --icon-shadow: 0 8px 18px var(--overlay-faint);
+    border-color: var(--state-disabled-border);
   }
 }
 
@@ -12014,10 +12091,10 @@ bottom: 8px;
 
 @media (hover: hover) {
   .iconDangerHover:hover:not(:disabled) {
-    border-color: #f0b4b4;
-    background: #fff2f2;
-    --icon-color: #a11;
-    --icon-shadow: 0 8px 18px rgba(176, 35, 24, 0.18);
+    border-color: var(--state-danger-border);
+    background: var(--state-danger-bg);
+    --icon-color: var(--state-danger-fg);
+    --icon-shadow: 0 8px 18px color-mix(in srgb, var(--state-danger-fg) 18%, transparent);
   }
 }
   
@@ -12048,12 +12125,12 @@ bottom: 8px;
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  border: 1px solid #e7e7ef;
-  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--state-disabled-border);
+  background: var(--surface-float);
   backdrop-filter: blur(8px);
   font-weight: 950;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 10px 24px var(--overlay-faint);
 }
 
 @media (hover: hover){
@@ -12090,12 +12167,12 @@ bottom: 8px;
 
   padding: 6px 10px;
   border-radius: 10px;
-  border: 1px solid #ddd;
-  background: rgba(255,255,255,0.96);
+  border: 1px solid var(--state-disabled-border);
+  background: var(--surface-float-strong);
   backdrop-filter: blur(8px);
-  box-shadow: 0 12px 28px rgba(0,0,0,0.16);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--text-main) 16%, transparent);
 
-  color: #222;
+  color: var(--text-main);
   font-size: 12px;
   line-height: 1.25;
   font-weight: 700;
@@ -12105,7 +12182,7 @@ bottom: 8px;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
-  overflow: hidden;
+  overflow: visible;
   text-overflow: ellipsis;
   white-space: normal;
   word-break: break-word;
@@ -12219,12 +12296,12 @@ bottom: 8px;
     transform: translateX(-50%) translateY(5px) !important;
     padding: 3px 8px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid #eee;
+    background: color-mix(in srgb, var(--bg-card) 95%, transparent);
+    border: 1px solid var(--state-disabled-border);
     font-size: 11px;
     font-weight: 900;
-    color: #2a2a44;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    color: var(--text-main);
+    box-shadow: 0 4px 10px var(--overlay-faint);
   }
 
   .pcSlotWrap:hover .pcQtyBadgeCentered {
@@ -12272,829 +12349,1074 @@ bottom: 8px;
     20% { opacity: 1; transform: translateY(-20px); }
     100% { transform: translateY(-140px) translateX(30px) scale(1.5); opacity: 0; }
   }
+.pagesCarousel::-webkit-scrollbar {
+  display: none; /* Oculta la barra nativa para usar nuestra barra de progreso */
+}
+.pagesCarousel {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
 
+/* Estilo para el botón deslizador */
+.custom-range-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--bg-card);
+  border: 2px solid var(--color-primary); /* O usa binderColor si es dinámico */
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--overlay-faint);
+}
 
-
+.custom-range-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--bg-card);
+  border: 2px solid var(--color-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px var(--overlay-faint);
+}
 
         `}</style>
+{binderPages.length > 0 && (
+  <div style={{ width: "100%", marginTop: 14 }}>
+    
+    {/* TÍTULO + BOTÓN VOLVER */}
+    <div style={{ 
+      width: "100%", 
+      maxWidth: isMobile ? 390 : 1120, 
+      margin: "0 auto 15px auto", 
+      padding: isMobile ? "0 12px" : "0 20px", 
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between"
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 4, height: 24, background: binderColor || "var(--color-primary)", borderRadius: 2 }} />
+        <h2 style={{ margin: 0, fontSize: isMobile ? 22 : 32, fontWeight: 950, color: "var(--text-main)", letterSpacing: "-0.5px" }}>
+          {binderTitle}
+        </h2>
+      </div>
 
-        {binderPages.length > 0 && (
-  <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
-    <div style={{ width: "100%", maxWidth: 1120 }}>
-      <div
+      <button 
+        onClick={() => router.push('/binders')}
+        style={{
+          ...topBtnStyle,
+          padding: "8px 12px",
+          fontSize: 12,
+          background: "var(--bg-card)",
+          display: "flex",
+          alignItems: "center",
+          gap: 6
+        }}
+      >
+        <Undo2 size={14} /> {isMobile ? "" : "Mis Binders"}
+      </button>
+    </div>
+
+  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", marginTop: 10 }}>
+    
+    {/* ✅ BLOQUE DE TIP INFORMATIVO (Solo visible en móvil) */}
+    {isMobile && (
+        <div style={{ 
+            marginBottom: 12, 
+            padding: "8px 16px", 
+            borderRadius: 12, 
+            background: "var(--bg-main)", 
+            border: "1px dashed var(--color-primary)",
+            width: "fit-content",
+            maxWidth: "90%"
+        }}>
+            <div style={{ fontSize: 11, color: "var(--color-primary)", fontWeight: 800, lineHeight: 1.4 }}>
+                {mobileMoveSourceId === null 
+                    ? "💡 Tip: Toca una página para moverla de sitio." 
+                    : "✨ Ahora toca el hueco donde quieras colocarla."}
+            </div>
+        </div>
+    )}
+
+    <div style={{ 
+        width: "100%", 
+        maxWidth: isMobile ? 390 : 1120, 
+        display: "flex", 
+        flexDirection: isMobile ? "column" : "row", 
+        alignItems: "center", 
+        justifyContent: "center", 
+        gap: 15 
+    }}>
+
+
+       {/* CARRUSEL DE PÁGINAS */}
+<div
+  id="pagesCarouselContainer"
   className="pagesCarousel"
   style={{
-    display: "flex",
-    flexWrap: "nowrap",
+    display: "flex",         // 👈 VITAL para alinear en horizontal
+    alignItems: "center",    // 👈 Centra los elementos verticalmente
+    gap: "16px",             // 👈 Añade separación entre miniaturas
+    width: "100%",           // 👈 Ocupa todo el ancho
     overflowX: "auto",
-    overflowY: "hidden",
-    // ✅ CAMBIO: 'center' para que cuando haya pocas páginas estén centradas. 
-    // El 'auto' en los márgenes permite que si hay muchas, el scroll funcione bien.
-    justifyContent: binderPages.length > 5 ? "flex-start" : "center", 
-    gap: 12,
-    alignItems: "center",
-    padding: "10px 20px", // Un poco más de aire lateral
-    maxWidth: "100%",
-    WebkitOverflowScrolling: "touch",
-    scrollSnapType: "x mandatory",
-  }}
-        onDragOver={(e) => e.preventDefault()}
-      >
-        {binderPages
-          .slice()
-          .sort((a, b) => a.page_index - b.page_index)
-          .map((p, idx) => {
-    const active = idx === currentPageIndex;
-
-    const onDragStartPage = (pageId: number) => (e: React.DragEvent<HTMLDivElement>) => {
-  const payload: PageDragPayload = { pageId };
-  lastPageDragRef.current = payload;
-setPageDragFromId(pageId); // ✅ clave para que el overlay sepa “desde dónde”
-  const json = JSON.stringify(payload);
-  setDragData(e.dataTransfer, json);
-};
-
-   const onDragOverPage = (e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
-  e.stopPropagation();
-
-  // ✅ Si estamos arrastrando una PC, cambia de página al vuelo
-  if (lastSlotDragRef.current) {
-    if (idx !== currentPageIndex) setCurrentPageIndex(idx);
-  }
-};
-
-   const onDropPage = async (e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  e.stopPropagation();
-
-  const raw =
-    e.dataTransfer.getData("application/json") ||
-    e.dataTransfer.getData("text/plain");
-
-  // 1) ✅ Si lo que estás soltando es una PC (slot drag), muévela a esta página
-  const slotPayload = parseDragPayload(raw) ?? lastSlotDragRef.current;
-  if (slotPayload && Number.isFinite(Number(slotPayload.fromPageId))) {
-    // OJO: aquí NO reordenamos páginas. Solo movemos la PC.
-    await movePcToPageFromCarousel(slotPayload, p.id);
-
-    // evita que el click de la miniatura te cambie de página “como si fuera un tap”
-    lastSlotDragRef.current = null;
-    return;
-  }
-
-  // 2) ✅ Si NO es PC, entonces sí: reorder de páginas (lo de siempre)
-  const pagePayload = parsePageDragPayload(raw);
-  if (!pagePayload) return;
-  reorderPagesInState(pagePayload.pageId, p.id);
-};
-
-       return (
-  <div
-    key={p.id}
-    draggable
-    onDragStart={onDragStartPage(p.id)}
-    onDragEnter={(e) => {
-  // ✅ Si arrastras una PC, NO activamos overlay de reorder
-  if (lastSlotDragRef.current) {
-    e.preventDefault();
-    e.stopPropagation();
-    return;
-  }
-  setPageDragOverId(p.id);
-}}
-    onDragOver={onDragOverPage}
-    onDragEnd={() => {
-      // ✅ limpia estados al soltar
-      setPageDragOverId(null);
-      setPageDragFromId(null);
-      lastPageDragRef.current = null;
-    }}
-    onDrop={onDropPage}
-    style={{
-      flex: "0 0 auto",
-      scrollSnapAlign: "start",
-      position: "relative",
-      overflow: "visible",
-    }}
-  >
-    {pageDragOverId === p.id &&
-      pageDragFromId != null &&
-      pageDragFromId !== p.id && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: -6,
-            borderRadius: 16,
-            border: "2px solid rgba(141,184,255,0.95)",
-            background: "rgba(141,184,255,0.12)",
-            boxShadow: "0 18px 40px rgba(141,184,255,0.22)",
-            pointerEvents: "none",
-            zIndex: 999,
-            animation: "dropPulse 520ms ease-out infinite",
-          }}
-        />
-      )}
-
-<PageThumb
-  pageId={p.id}
-  layoutKey={p.layout_type}
-  active={active}
-  title={`Ir a página ${idx + 1}`}
-  onClick={() => {
-    // ✅ si quedó “basura” de un drag antiguo, la limpiamos y dejamos clicar
-    if (lastSlotDragRef.current) lastSlotDragRef.current = null;
-    setCurrentPageIndex(idx);
-  }}
-  pageNumber={idx + 1}
-  showPageNumber
-  onDeletePage={(id) => void deletePageById(id)}
-  refreshTick={refreshTick}
-/>
-  </div>
-);
- })}
-
-        <div style={{ flex: "0 0 auto", scrollSnapAlign: "start" }}>
-  <button
-    type="button"
-    onClick={() => setPagesOpen(true)}
-    style={{
-      ...topBtnStyle,
-      padding: "8px 14px",
-      whiteSpace: "nowrap",
-      justifyContent: "center",
-    }}
-    title="Ver todas las páginas"
-  >
-    Ver todas
-  </button>
-</div>
-      </div>
-
-      {/* ✅ guía debajo del carrusel (no la corta el overflow) */}
-      
-    </div>
-  </div>
-)}
-
-        <div
-          style={{
-            marginTop: 14,
-            display: "flex",
-            justifyContent: "center",
-            gap: 10,
-            alignItems: "center",
-            width: "100%",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginRight: 10 }}>
-
-    
-      
-   
-
-</div>
-{/* Selector de Cursor SKZOO */}
-<div ref={skzooBoxRef} style={{ position: "relative", display: "inline-block", marginRight: 10 }}>
-  <button
-  type="button"
-  onClick={() => setSkzooOpen(!skzooOpen)}
-  style={{
-    ...topBtnStyle, // Hereda el borde rosa y la sombra 
-    minWidth: 120,
-    justifyContent: "space-between",
-    border: activeSkzoo ? "2px solid #F7A8D8" : "1px solid #F7A8D8", // Borde rosa siempre [cite: 348]
-    background: activeSkzoo ? "#FFF5FA" : "white"
+    overflowY: "visible",    // Mantiene la luz visible
+    padding: "25px 20px",    
+    minHeight: "180px",
+    boxSizing: "border-box"
   }}
 >
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={{ fontSize: 13, color: "#8C659C", fontWeight: 900 }}>Cursor</span>
-      {activeSkzoo && <img src={activeSkzoo.img} style={{ width: 20, height: 20, objectFit: "contain" }} alt="" />}
-    </div>
-    <span style={{ fontSize: 10, opacity: 0.5 }}>{skzooOpen ? "▲" : "▼"}</span>
-  </button>
+        {/* CONTENEDOR DEL CARRUSEL DE PÁGINAS */}
 
- {skzooOpen && (
-  <div style={{
-    position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 1100,
-    width: 260, background: "white", border: "1px solid #ddd", borderRadius: 14,
-    boxShadow: "0 12px 32px rgba(0,0,0,0.15)", padding: 10,
-    maxHeight: "450px", overflowY: "auto"
-  }}>
+{binderPages
+  .slice()
+  .sort((a, b) => a.page_index - b.page_index)
+  .map((p, idx) => {
+    const active = idx === currentPageIndex;
+    const isSelectedToMove = mobileMoveSourceId === p.id;
     
-    {/* Botón armonioso para quitar cursor */}
-    <button
-      onClick={() => {
-        setActiveSkzoo(null);
-        setSkzooOpen(false);
-        localStorage.removeItem("binder:skzoo-cursor");
-      }}
-      style={{
-        width: "100%", height: 38, marginBottom: 12, borderRadius: 10,
-        border: "1px solid #eee", background: "#f9f9f9", cursor: "pointer",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 12, fontWeight: 800, color: "#666", gap: 8
-      }}
-    >
-      <span style={{ fontSize: 14 }}>🚫</span> Quitar cursor personalizado
-    </button>
+    // Estados de iluminación (leídos directamente desde el root de BinderClient)
+   const isTarget = pageDragOverId === p.id;
+const isDraggingMe = pageDragFromId === p.id;
 
-    <input 
-      type="text"
-      placeholder="Buscar mascota o artista..."
-      value={cursorQuery}
-      onChange={(e) => setCursorQuery(e.target.value)}
-      style={{
-        width: "100%", padding: "8px 10px", borderRadius: 8,
-        border: "1px solid #eee", fontSize: 12, marginBottom: 12, outline: "none"
-      }}
-    />
 
-    {/* ... resto del mapeo de grupos que ya tienes ... */}
-
-    {/* SECCIÓN: FAVORITOS (Solo si hay alguno seleccionado) */}
-    {(() => {
-      const allMascots = CURSOR_GROUPS.flatMap(g => g.mascots);
-      const favMascots = allMascots.filter(m => 
-        favorites.includes(m.id) && 
-        (m.name + (m as any).artist).toLowerCase().includes(cursorQuery.toLowerCase())
-      );
-      if (favMascots.length === 0) return null;
-      return (
-        <div style={{ marginBottom: 16, borderBottom: "1px solid #f0f0f0", paddingBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, color: "#F7A8D8", textTransform: "uppercase", marginBottom: 8 }}>⭐ Mis Favoritos</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-            {favMascots.map(m => (
-              <button key={`fav-${m.id}`} onClick={() => { setActiveSkzoo(m); setSkzooOpen(false); }} style={{ borderRadius: 10, position: "relative", border: activeSkzoo?.id === m.id ? "2px solid #8db8ff" : "1px solid #eee", background: "white", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px" }}>
-                <span onClick={(e) => toggleFavorite(e, m.id)} style={{ position: "absolute", top: 2, left: 2, fontSize: 10 }}>⭐</span>
-                <img src={m.img} style={{ width: 28, height: 28, objectFit: "contain" }} alt="" />
-                <span style={{ fontSize: 8, fontWeight: 800, marginTop: 4, color: "#666", textAlign: "center", lineHeight: 1.1 }}>{m.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    })()}
-
-    {/* SECCIÓN: GRUPOS NORMALES */}
-    {CURSOR_GROUPS.map(group => {
-     const filtered = group.mascots.filter(m => 
-  m.name.toLowerCase().includes(cursorQuery.toLowerCase()) || 
-  m.artist.toLowerCase().includes(cursorQuery.toLowerCase())
-);
-      if (filtered.length === 0) return null;
-      return (
-        <div key={group.groupName} style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, color: "#aaa", textTransform: "uppercase", marginBottom: 8 }}>{group.groupName}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-            {filtered.map(it => (
-              <button key={it.id} onClick={() => { setActiveSkzoo(it); setSkzooOpen(false); }} style={{ borderRadius: 10, position: "relative", border: activeSkzoo?.id === it.id ? "2px solid #8db8ff" : "1px solid #eee", background: "white", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px" }}>
-                <span onClick={(e) => toggleFavorite(e, it.id)} style={{ position: "absolute", top: 2, left: 2, fontSize: 10, opacity: favorites.includes(it.id) ? 1 : 0.2 }}>⭐</span>
-                <img src={it.img} style={{ width: 28, height: 28, objectFit: "contain" }} alt="" />
-                <span style={{ fontSize: 8, fontWeight: 800, marginTop: 4, color: "#666", textAlign: "center", lineHeight: 1.1 }}>{it.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    })}
-  </div>
-)}
-</div>
-
-          <div ref={layoutBoxRef} style={{ position: "relative", display: "inline-block" }}>
-  <button
-    type="button"
-    onClick={() => setLayoutOpen((v) => !v)}
-    style={topBtnStyle}
-    title="Cambiar formato"
-  >
-    <span style={{ fontSize: 14, color: "#8C659C", fontWeight: 900 }}>
-      Formato
-{layoutDef.size === "special" ? (
-  <img
-    src="/ui/premium-medal.png"
-    alt=""
-    aria-hidden="true"
-    title="Premium"
-    style={{
-      width: 16,
-      height: 16,
-      marginLeft: 6,
-      verticalAlign: "middle",
-      display: "inline-block",
-    }}
-  />
-) : null}
-    </span>
-
-    <div
-      style={{
-        width: 44,
-        height: 32,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ transform: "scale(0.6)", transformOrigin: "center" }}>
-        <LayoutMiniPreview
-          layoutKey={layout}
-          size="carousel"
-          thumbs={pageId && pageThumbs[pageId] && Object.keys(pageThumbs[pageId]).some(k => !!pageThumbs[pageId][Number(k)]) ? pageThumbs[pageId] : undefined}
-          refreshTick={refreshTick}
-          key={refreshTick}
-        />
-      </div>
-    </div>
-
-  </button>
-
-            {layoutOpen && (
+   return (
+          <div
+            key={`carousel-page-${p.id}`}
+            onClick={() => {
+              if (deleteMode) {
+                // MODO SELECCIÓN: Marcamos o desmarcamos
+                setSelectedForDeletion(prev =>
+                  prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                );
+              } else {
+                // MODO NORMAL: Cambiamos de página
+                if (!pageDragFromId) setCurrentPageIndex(idx);
+              }
+            }}
+            style={{
+              flex: "0 0 auto",
+              position: "relative",
+              padding: "8px 6px",
+              zIndex: isTarget ? 150 : 1,
+              cursor: deleteMode ? "pointer" : "default" // Cursor click en modo borrar
+            }}
+          >
+            {/* ✅ LA LUZ ROSA DE DRAG & DROP */}
+            {isTarget && !isDraggingMe && (
               <div
                 style={{
                   position: "absolute",
-                  top: "calc(100% + 8px)",
-                  left: 0,
-                  zIndex: 1000,
-                  width: 260,
-                  background: "white",
-                  border: "1px solid #ddd",
-                  borderRadius: 12,
-                  boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
-                  overflow: "hidden",
+                  inset: 0,
+                  borderRadius: 16,
+                  border: "3px solid var(--color-primary)",
+                  background: "color-mix(in srgb, var(--color-primary) 25%, transparent)",
+                  boxShadow: "0 0 20px color-mix(in srgb, var(--color-primary) 50%, transparent)",
+                  zIndex: 0,
+                  pointerEvents: "none",
+                  animation: "dropPulse 400ms ease-out infinite"
                 }}
-              >
-                <div style={{ padding: 12, borderBottom: "1px solid #eee" }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", gap: 8, flex: 1, flexWrap: "nowrap" }}>
-                      <button
-                        type="button"
-                        onClick={() => setApplyAll(false)}
-                        style={{
-                          flex: 1,
-                          padding: "6px 8px",
-                          borderRadius: 12,
-                          border: "1px solid #ddd",
-                          background: !applyAll ? "#eaf2ff" : "white",
-                          color: "#222",
-                          fontWeight: 800,
-                          fontSize: 11,
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                        }}
-                        title="Aplicar solo a esta página"
-                      >
-                        Solo esta página
-                      </button>
+              />
+            )}
 
-                      <button
-                        type="button"
-                        onClick={() => setApplyAll(true)}
-                        style={{
-                          flex: 1,
-                          padding: "6px 8px",
-                          borderRadius: 12,
-                          border: "1px solid #ddd",
-                          background: applyAll ? "#eaf2ff" : "white",
-                          color: "#222",
-                          fontWeight: 800,
-                          fontSize: 11,
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                        }}
-                        title="Aplicar a todo el binder"
-                      >
-                        Todo el binder
-                      </button>
-                    </div>
+            {/* MARCO SELECCIÓN (Móvil) */}
+            {isSelectedToMove && (
+              <div style={{ position: "absolute", inset: 2, borderRadius: 14, border: "3px solid var(--color-primary)", zIndex: 5, pointerEvents: "none" }} />
+            )}
+
+            {/* ✅ CONTENEDOR PRINCIPAL CON OPACIDAD (Igual que en "Ver Todas") */}
+            <div style={{
+              opacity: isDraggingMe ? 0.3 : (deleteMode && !selectedForDeletion.includes(p.id) ? 0.6 : 1),
+              transition: "opacity 0.2s ease",
+              position: "relative",
+              zIndex: 10
+            }}>
+
+              {/* ✅ CHECKBOX DEL MODO BORRAR (Circulito gigante) */}
+              {deleteMode && (
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  zIndex: 20,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: selectedForDeletion.includes(p.id) ? "color-mix(in srgb, var(--color-primary) 20%, transparent)" : "transparent",
+                  pointerEvents: 'none' // Deja pasar el clic al div padre
+                }}>
+                  <div style={{
+                    width: 28, height: 28,
+                    borderRadius: '50%',
+                    background: selectedForDeletion.includes(p.id) ? "var(--color-primary)" : "var(--bg-card)",
+                    border: "2px solid var(--color-border)",
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: "var(--bg-card)", fontWeight: 900, fontSize: 14,
+                    boxShadow: "0 4px 10px var(--overlay-faint)"
+                  }}>
+                    {selectedForDeletion.includes(p.id) ? "✓" : ""}
                   </div>
                 </div>
+              )}
 
-                <div style={{ maxHeight: 240, background: "#F7F4EE", overflow: "auto", padding: 6 }}>
- {LAYOUTS.map((l) => {
-  
-  const isSelected = layout === l.key;
-  const isHover = layoutHover === l.key;
-  const bg = isSelected ? "#eaf2ff" : isHover ? "#f4f7ff" : "white";
-const border = isSelected ? "#8db8ff" : isHover ? "#cfdcff" : "#eee";
-  // ✅ “especial” solo si existe size y vale "special"
-  const isSpecial = (l as any).size === "special";
-
-  return (
-    <button
-      key={l.key}
-      type="button"
-      onMouseEnter={() => setLayoutHover(l.key)}
-      onMouseLeave={() => setLayoutHover(null)}
-      onClick={async () => {
-        await changeLayout(l.key);
-        setLayoutOpen(false);
-      }}
-      style={{
-        width: "100%",
-        textAlign: "center",
-        padding: 6,
-        borderRadius: 14,
-        border: `1px solid ${border}`,
-        background: bg,
-        cursor: "pointer",
-        marginBottom: 10,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        position: "relative", // ✅ para anclar la estrella
-      }}
-    >
-     {/* 🏅 badge premium solo en especiales */}
-{isSpecial ? (
-  <span
-    aria-hidden="true"
-    title="Premium"
-    style={{
-      position: "absolute",
-      top: 8,
-      right: 10,
-      width: 24,
-      height: 24,
-      borderRadius: 999,
-      border: "1px solid #cfdcff",
-      background: "rgba(255,255,255,0.92)",
-      backdropFilter: "blur(8px)",
-      boxShadow: "0 10px 24px rgba(0,0,0,0.12)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      pointerEvents: "none",
-    }}
-  >
-    <img
-      src="/ui/premium-medal.png"
-      alt=""
-      style={{
-        width: 16,
-        height: 16,
-        display: "block",
-      }}
-      draggable={false}
-      
-    />
-  </span>
-) : null}
-
-      <div style={{ marginTop: 6 }}>
-        <LayoutMiniPreview layoutKey={l.key} size="picker" refreshTick={refreshTick} />
+              {/* ✅ CONTENEDOR DRAG & DROP (Bloqueado durante el borrado) */}
+              <div
+                draggable={!isMobile && !deleteMode}
+                onDragStart={(e) => {
+                  if (isMobile || deleteMode) return;
+                  pageDraggingRef.current = true;
+                  setPageDragFromId(p.id);
+                  setPageDragOverId(null);
+                  const payload = { pageId: p.id };
+                  lastPageDragRef.current = payload;
+                  setDragData(e.dataTransfer, JSON.stringify(payload));
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  if (deleteMode) return;
+                  if (pageDragFromId !== null && pageDragFromId !== p.id) {
+                    setPageDragOverId(p.id);
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (deleteMode) return;
+                  e.dataTransfer.dropEffect = "move";
+                }}
+                onDragLeave={() => setPageDragOverId(null)}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (deleteMode) return;
+                  const raw = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
+                  const fromPayload = parsePageDragPayload(raw) ?? lastPageDragRef.current;
+                  if (!fromPayload) return;
+                  await reorderPagesInState(fromPayload.pageId, p.id);
+                  pageDraggingRef.current = false;
+                  setPageDragFromId(null);
+                  setPageDragOverId(null);
+                }}
+                onDragEnd={() => {
+                  pageDraggingRef.current = false;
+                  setPageDragFromId(null);
+                  setPageDragOverId(null);
+                }}
+                style={{
+                  // 🔥 EL ESCUDO: Si estamos borrando, desactiva los botones internos
+                  pointerEvents: deleteMode ? "none" : "auto" 
+                }}
+              >
+                <PageThumb
+                  pageId={p.id}
+                  layoutKey={p.layout_type}
+                  active={active && !deleteMode}
+                  size="carousel"
+                  pageNumber={idx + 1}
+                  showPageNumber={true}
+                  refreshTick={refreshTick}
+                  title={`Ir a página ${idx + 1}`}
+                  onClick={() => {}} // Ya lo maneja el padre
+                  draggable={false}
+                  onDeletePage={deleteMode ? undefined : async (id) => {
+                    const ok = await showConfirm(
+                      t("common.confirm"),
+                      `¿Borrar la página ${idx + 1}? Se perderán los slots colocados.`,
+                    );
+                    if (ok) {
+                      deletePageById(id);
+                    }
+                  }}
+                />
               </div>
 
-     {/* ✅ SIN TEXTO, SIN NÚMEROS */}
-            </button>
-          );
-        })}
-        
+              {/* BOTÓN MÓVIL VER PÁGINA */}
+              {isMobile && isSelectedToMove && !deleteMode && (
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setCurrentPageIndex(idx); setMobileMoveSourceId(null); }}
+                    style={{ background: "var(--bg-card)", border: "1px solid var(--state-disabled-border)", borderRadius: "8px", fontSize: "10px", padding: "5px 10px", fontWeight: 800, color: "var(--color-primary)" }}
+                  >
+                    Ver esta página
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+})}
         </div>
-      </div>
-      )}
-    </div>
-
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      {/* ❌ El botón de Biblioteca ha sido eliminado */}
-
-      <button
-        type="button"
-        onClick={() => {
-          if (loading) return;
-          if (canAddPage) createNewPage();
-          else setBuyPagesOpen(true);
-        }}
-        disabled={loading}
-        title={
-          loading
-            ? "Cargando…"
-            : canAddPage
-            ? "Añadir una nueva página al binder"
-            : `Has llegado al límite (${MAX_FREE_PAGES}). Pulsa para ver opciones.`
-        }
-        style={{
-          ...topBtnStyle,
-          width: 44,
-          minWidth: 44,
-          padding: 0,
-          justifyContent: "center",
-          opacity: loading ? 0.45 : 1,
-          cursor: loading ? "not-allowed" : "pointer",
-        }}
-      >
-        +
-      </button>
-
-      <button
-        type="button"
-        onClick={deleteCurrentPage}
-        disabled={loading || binderPages.length <= 1}
-        title={binderPages.length <= 1 ? "No puedes borrar la última página" : "Borrar esta página"}
-        aria-label={binderPages.length <= 1 ? "No puedes borrar la última página" : "Borrar esta página"}
-        className="iconDangerHover"
-        style={{
-          ...topBtnStyle,
-          width: 44,
-          minWidth: 44,
-          padding: 0,
-          justifyContent: "center",
-          opacity: loading || binderPages.length <= 1 ? 0.45 : 1,
-          cursor: loading || binderPages.length <= 1 ? "not-allowed" : "pointer",
-        }}
-      >
-  <Trash2 size={18} />
-</button>
-    
-<button
- onClick={doUndo}
- style={{
-  ...topBtnStyle,
-  padding: "8px",
-  width: 36,
-  height: 36,
-  justifyContent: "center",
- }}
- title="Deshacer"
->
- <Undo2 size={18} strokeWidth={2.5} />
-</button>
- {/* ✅ Voltear 90º (todas) */}
-<button
-  type="button"
-  onClick={togglePageRotateAll}
-  disabled={loading}
-  role="switch"
-  aria-checked={pageRotateAll}
-  title={pageRotateAll ? "Quitar voltear 90º (todas)" : "Voltear 90º (todas)"}
-  style={{
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 10,
-    border: "0",
-    background: "transparent",
-    padding: 0,
-    cursor: loading ? "not-allowed" : "pointer",
-    opacity: loading ? 0.6 : 1,
-  }}
->
-  <span style={{ fontSize: 14, color: "#8C659C", fontWeight: 900 }}>Voltear 90º</span>
-
-  <span
-    aria-hidden="true"
-    style={{
-      width: 34,
-      height: 20,
-      borderRadius: 999,
-      border: "1px solid #d9d9d9",
-      background: pageRotateAll ? "#8db8ff" : "#e9e9e9",
-      position: "relative",
-      display: "inline-block",
-    }}
-  >
-    <span
-      style={{
-        width: 16,
-        height: 16,
-        borderRadius: 999,
-        background: "white",
-        position: "absolute",
-        top: 1,
-        left: 1,
-        transform: pageRotateAll ? "translateX(14px)" : "translateX(0)",
-        transition: "transform 160ms ease",
-        boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
-      }}
-    />
-  </span>
-</button>
-
-{/* ✅ Reverso (todas) */}
-<button
-  ref={backAllBtnRef}
-  type="button"
-  onClick={togglePageShowBackAll}
-  disabled={loading}
-  role="switch"
-  aria-checked={pageShowBackAll}
-  title={pageShowBackAllUI ? "Ver anverso (todas)" : "Ver reverso (todas)"}
+        
   
-  style={{
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 10,
-    border: "0",
-    background: "transparent",
-    padding: 0,
-    cursor: loading ? "not-allowed" : "pointer",
-    opacity: loading ? 0.6 : 1,
-  }}
->
-  <span style={{ fontSize: 14, color: "#8C659C", fontWeight: 900 }}>Reverso</span>
 
-  <span
-    aria-hidden="true"
-    style={{
-      width: 34,
-      height: 20,
-      borderRadius: 999,
-      border: "1px solid #d9d9d9",
-      background: pageShowBackAll ? "#8db8ff" : "#e9e9e9",
-      position: "relative",
-      display: "inline-block",
-      
-    }}
-  >
-    <span
-      style={{
-        width: 16,
-        height: 16,
-        borderRadius: 999,
-        background: "white",
-        position: "absolute",
-        top: 1,
-        left: 1,
-        transform: pageShowBackAll ? "translateX(14px)" : "translateX(0)",
-        transition: "transform 160ms ease",
-        boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
-      }}
-    />
-  </span>
-</button>
-{/* ✅ Zoom real (− / +) */}
+
+      </div>
+
+      {/* ✅ BARRA DESLIZADORA PURAMENTE DE NAVEGACIÓN (MÓVIL) */}
+      {isMobile && binderPages.length > 1 && (
+        <div style={{ width: "70%", marginTop: 10, marginBottom: 20 }}>
+          <input 
+            type="range"
+            min="0"
+            max={100} // Usamos porcentaje para un scroll más fino
+            defaultValue={0}
+            onInput={(e) => {
+              const val = parseInt((e.target as HTMLInputElement).value);
+              const container = document.getElementById("pagesCarouselContainer");
+              if (container) {
+                // ✅ Mueve el scroll basándose en el porcentaje del slider
+                const maxScroll = container.scrollWidth - container.clientWidth;
+                const scrollTarget = (val / 100) * maxScroll;
+                container.scrollTo({ left: scrollTarget, behavior: "auto" });
+              }
+            }}
+            style={{
+              width: "100%",
+              height: "6px",
+              appearance: "none",
+              background: "var(--state-disabled-border)",
+              borderRadius: "10px",
+              outline: "none",
+            }}
+            className="custom-range-slider"
+          />
+        </div>
+      )}
+
+     
+    </div>
+  </div>
+)}
+
+{/* ✅ Guía y bloque de controles debajo del carrusel */}
 <div
   style={{
-    display: "inline-flex",
+    marginTop: 14,
+    display: "flex",
+    justifyContent: "center",
+    gap: 10,
     alignItems: "center",
-    gap: 8,
+    width: "100%",
+    maxWidth: isMobile ? 390 : 1120,
+    marginLeft: "auto",
+    marginRight: "auto",
+    paddingLeft: isMobile ? 12 : 0,
+    paddingRight: isMobile ? 12 : 0,
+    boxSizing: "border-box",
+    flexWrap: "wrap",
   }}
 >
-  <span style={{ fontSize: 14, color: "#8C659C", fontWeight: 900 }}>Zoom</span>
+{/* CONTENEDOR DE SELECTORES Y BOTÓN VER TODAS */}
+<div 
+  style={{ 
+    marginTop: 14, 
+    display: "flex", 
+    justifyContent: "center", 
+    gap: 10, 
+    alignItems: "center", 
+    width: "100%", 
+    maxWidth: isMobile ? 390 : 1120, 
+    marginLeft: "auto", 
+    marginRight: "auto", 
+    paddingLeft: isMobile ? 12 : 0, 
+    paddingRight: isMobile ? 12 : 0, 
+    boxSizing: "border-box", 
+    flexWrap: "wrap", 
+  }} 
+> 
+  {/* Selector de Cursor SKZOO */}
+  <div ref={skzooBoxRef} style={{ position: "relative", display: "inline-block" }}> 
+    <button 
+      type="button" 
+      onClick={() => setSkzooOpen(!skzooOpen)} 
+      style={{ 
+        ...topBtnStyle, 
+        minWidth: 120, 
+        justifyContent: "space-between", 
+        border: activeSkzoo ? "2px solid var(--binder-btn-outline-fg)" : "1px solid var(--binder-btn-outline-border)", 
+        background: activeSkzoo ? "var(--bg-soft)" : "var(--binder-btn-outline-bg)" 
+      }} 
+    > 
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}> 
+        <span style={{ fontSize: 13, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>Cursor</span> 
+        {activeSkzoo && <img src={activeSkzoo.img} style={{ width: 20, height: 20, objectFit: "contain" }} alt="" />} 
+      </div> 
+      <span style={{ fontSize: 10, opacity: 0.55, color: "var(--binder-btn-outline-fg)" }}>{skzooOpen ? "▲" : "▼"}</span> 
+    </button> 
+    {skzooOpen && ( 
+      <div style={{ 
+        position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 1100, 
+        width: 260, background: "var(--bg-card)", border: "1px solid var(--state-disabled-border)", borderRadius: 14, 
+        boxShadow: "0 12px 32px var(--overlay-faint)", padding: 10, 
+        maxHeight: "450px", overflowY: "auto" 
+      }}> 
+        <button 
+          onClick={() => { 
+            setActiveSkzoo(null); 
+            setSkzooOpen(false); 
+            localStorage.removeItem("binder:skzoo-cursor"); 
+          }} 
+          style={{ 
+            width: "100%", height: 38, marginBottom: 12, borderRadius: 10, 
+            border: "1px solid var(--state-disabled-border)", background: "var(--state-disabled-bg)", cursor: "pointer", 
+            display: "flex", alignItems: "center", justifyContent: "center", 
+            fontSize: 12, fontWeight: 800, color: "var(--text-muted)", gap: 8 
+          }} 
+        > 
+          <span style={{ fontSize: 14 }}>🚫 </span> {t("binders.remove_custom_cursor")} 
+        </button> 
+        <input 
+          type="text" 
+          placeholder={t("binders.search_cursor_placeholder")} 
+          value={cursorQuery} 
+          onChange={(e) => setCursorQuery(e.target.value)} 
+          style={{ 
+            width: "100%", padding: "8px 10px", borderRadius: 8, 
+            border: "1px solid var(--state-disabled-border)", fontSize: 12, marginBottom: 12, outline: "none" 
+          }} 
+        /> 
+        {(() => { 
+          const allMascots = CURSOR_GROUPS.flatMap(g => g.mascots); 
+          const favMascots = allMascots.filter(m => 
+            favorites.includes(m.id) && 
+            (m.name + (m as any).artist).toLowerCase().includes(cursorQuery.toLowerCase()) 
+          ); 
+          if (favMascots.length === 0) return null; 
+          return ( 
+            <div style={{ marginBottom: 16, borderBottom: "1px solid var(--state-disabled-bg)", paddingBottom: 12 }}> 
+              <div style={{ fontSize: 10, fontWeight: 900, color: "var(--color-primary)", textTransform: "uppercase", marginBottom: 8 }}>⭐ {t("common.my_favorites")}</div> 
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}> 
+                {favMascots.map(m => ( 
+                  <button key={`fav-${m.id}`} onClick={() => { setActiveSkzoo(m); setSkzooOpen(false); }} style={{ borderRadius: 10, position: "relative", border: activeSkzoo?.id === m.id ? "2px solid var(--color-accent-blue)" : "1px solid var(--state-disabled-border)", background: "var(--bg-card)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px" }}>
+                    <span onClick={(e) => toggleFavorite(e, m.id)} style={{ position: "absolute", top: 2, left: 2, fontSize: 10 }}>⭐ </span> 
+                    <img src={m.img} style={{ width: 28, height: 28, objectFit: "contain" }} alt="" /> 
+                    <span style={{ fontSize: 8, fontWeight: 800, marginTop: 4, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.1 }}>{m.name}</span> 
+                  </button> 
+                ))} 
+              </div> 
+            </div> 
+          ); 
+        })()} 
+        {CURSOR_GROUPS.map(group => { 
+          const filtered = group.mascots.filter(m => 
+            m.name.toLowerCase().includes(cursorQuery.toLowerCase()) || 
+            m.artist.toLowerCase().includes(cursorQuery.toLowerCase()) 
+          ); 
+          if (filtered.length === 0) return null; 
+          return ( 
+            <div key={group.groupName} style={{ marginBottom: 16 }}> 
+              <div style={{ fontSize: 10, fontWeight: 900, color: "var(--state-disabled-fg)", textTransform: "uppercase", marginBottom: 8 }}>{group.groupName}</div> 
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}> 
+                {filtered.map(it => ( 
+                  <button key={it.id} onClick={() => { setActiveSkzoo(it); setSkzooOpen(false); }} style={{ borderRadius: 10, position: "relative", border: activeSkzoo?.id === it.id ? "2px solid var(--color-accent-blue)" : "1px solid var(--state-disabled-border)", background: "var(--bg-card)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", padding: "8px 4px" }}>
+                    <span onClick={(e) => toggleFavorite(e, it.id)} style={{ position: "absolute", top: 2, left: 2, fontSize: 10, opacity: favorites.includes(it.id) ? 1 : 0.2 }}>⭐ </span> 
+                    <img src={it.img} style={{ width: 28, height: 28, objectFit: "contain" }} alt="" /> 
+                    <span style={{ fontSize: 8, fontWeight: 800, marginTop: 4, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.1 }}>{it.name}</span> 
+                  </button> 
+                ))} 
+              </div> 
+            </div> 
+          ); 
+        })} 
+      </div> 
+    )} 
+  </div> 
 
-  <div
+  {/* Selector de Formato */}
+  <div ref={layoutBoxRef} style={{ position: "relative", display: "inline-block" }}> 
+    <button 
+      type="button" 
+      onClick={() => setLayoutOpen((v) => !v)} 
+      style={{ 
+        ...topBtnStyle, 
+        display: "inline-flex", 
+        alignItems: "center", 
+        justifyContent: "space-between", 
+        gap: 10, 
+        minWidth: 120 
+      }} 
+      title={t("binders.change_format")} 
+    > 
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}> 
+        <span style={{ fontSize: 14, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>{t("binders.format")}</span> 
+        <div style={{ width: 44, height: 32, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}> 
+          <div style={{ transform: "scale(0.5)", transformOrigin: "center" }}> 
+            <LayoutMiniPreview layoutKey={layout} size="carousel" refreshTick={refreshTick} /> 
+          </div> 
+        </div> 
+      </div> 
+      <span style={{ fontSize: 10, opacity: 0.55, color: "var(--binder-btn-outline-fg)" }}>{layoutOpen ? "▲" : "▼"}</span> 
+    </button> 
+    {layoutOpen && ( 
+      <div style={{ 
+        position: "absolute", top: "calc(100% + 8px)", left: isMobile ? "auto" : 0, 
+        right: isMobile ? 0 : "auto", zIndex: 1000, width: "260px", 
+        background: "var(--bg-card)", border: "1px solid var(--state-disabled-border)", borderRadius: 12, 
+        boxShadow: "0 12px 32px var(--overlay-faint)", overflow: "hidden" 
+      }}> 
+        <div style={{ padding: 12, borderBottom: "1px solid var(--state-disabled-border)" }}> 
+          <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}> 
+            <div style={{ display: "flex", gap: 8, flex: 1, flexWrap: "wrap" }}> 
+              <button 
+                type="button" 
+                onClick={() => setApplyAll(false)} 
+                style={{ 
+                  flex: 1, padding: "6px 8px", borderRadius: 12, border: "1px solid var(--state-disabled-border)", 
+                  background: !applyAll ? "var(--bg-soft)" : "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, 
+                  fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" 
+                }} 
+              > 
+                {t("binders.scope_page")} 
+              </button> 
+              <button 
+                type="button" 
+                onClick={() => setApplyAll(true)} 
+                style={{ 
+                  flex: 1, padding: "6px 8px", borderRadius: 12, border: "1px solid var(--state-disabled-border)", 
+                  background: applyAll ? "var(--bg-soft)" : "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, 
+                  fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" 
+                }} 
+              > 
+                {t("binders.scope_all")} 
+              </button> 
+            </div> 
+          </div> 
+        </div> 
+        <div style={{ maxHeight: 240, background: "var(--bg-main)", overflow: "auto", padding: 6 }}> 
+          {LAYOUTS.map((l) => { 
+            const isSelected = layout === l.key; 
+            const isHover = layoutHover === l.key; 
+            const bg = isSelected ? "var(--bg-soft)" : isHover ? "var(--state-info-bg)" : "var(--bg-card)"; 
+            const border = isSelected ? "var(--color-accent-blue)" : isHover ? "var(--state-info-border)" : "var(--state-disabled-border)"; 
+            const isSpec = (l as any).size === "special"; 
+            return ( 
+            <button 
+    key={l.key} 
+    type="button" 
+    onMouseEnter={() => setLayoutHover(l.key)} 
+    onMouseLeave={() => setLayoutHover(null)} 
+    onClick={async () => { 
+      // 🚨 BLOQUEO VIP PARA LAYOUTS ESPECIALES 🚨
+      const needsUnlock = isSpec && !profile?.is_premium && !isAdmin && !unlockedLayouts.has(l.key);
+      if (needsUnlock) {
+        if (!profile?.id) return;
+        const cost = getLayoutUnlockCost(String(l.key));
+        const balance = Number(profile?.puntos || 0);
+        if (balance < cost) {
+          showAlert(t("common.error"), `Necesitas ${cost} K-oins para desbloquear este layout.`);
+          return;
+        }
+        const ok = await showConfirm(
+          t("shop.confirm_modal.btn_confirm"),
+          `Desbloquear este layout por ${cost} K-oins?`,
+        );
+        if (!ok) return;
+        const unlockRes = await supabase
+          .from("user_vip_unlocks")
+          .upsert({ user_id: profile.id, unlock_key: unlockKeyForLayout(String(l.key)) }, { onConflict: "user_id,unlock_key" });
+        if (unlockRes.error) {
+          showAlert(t("common.error"), unlockRes.error.message);
+          return;
+        }
+        const nextKoins = Math.max(0, balance - cost);
+        const pointsRes = await supabase
+          .from("profiles")
+          .update({ puntos: nextKoins })
+          .eq("user_id", profile.id);
+        if (pointsRes.error) {
+          showAlert(t("common.error"), pointsRes.error.message);
+          return;
+        }
+        setUnlockedLayouts((prev) => {
+          const next = new Set(prev);
+          next.add(String(l.key));
+          return next;
+        });
+        const localProfileStr = localStorage.getItem("me:profile");
+        if (localProfileStr) {
+          const parsed = JSON.parse(localProfileStr);
+          parsed.puntos = nextKoins;
+          localStorage.setItem("me:profile", JSON.stringify(parsed));
+        }
+        refreshGlobal();
+        showAlert("Desbloqueado", `Layout desbloqueado por ${cost} K-oins.`);
+      }
+      
+      await changeLayout(l.key); 
+      setLayoutOpen(false); 
+    }} 
+    style={{ width: "100%", textAlign: "center", padding: 6, borderRadius: 14, border: `1px solid ${border}`, background: bg, cursor: "pointer", marginBottom: 10, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }} 
+  >
+                {isSpec && ( 
+                  <span aria-hidden="true" style={{ position: "absolute", top: 8, right: 10, width: 24, height: 24, borderRadius: 999, background: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}> 
+                    <img src="/ui/premium-medal.png" style={{ width: 16, height: 16 }} alt={t('common.premium_account')} />
+                  </span> 
+                )} 
+                <div style={{ marginTop: 6 }}> 
+                  <LayoutMiniPreview layoutKey={l.key} size="picker" refreshTick={refreshTick} /> 
+                </div> 
+              </button> 
+            ); 
+          })} 
+        </div> 
+      </div> 
+    )} 
+  </div> 
+
+  {/* Botón Ver todas */}
+  <button 
+    type="button" 
+    onClick={() => setPagesOpen(true)} 
+    style={{ 
+      ...topBtnStyle, 
+      minWidth: isMobile ? "auto" : 120, 
+      justifyContent: "center", 
+      gap: 8 
+    }} 
+  > 
+    <span style={{ fontSize: 14, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}> 
+      {`🔍 ${t("binders.picker.view_all")}`}
+    </span> 
+  </button>
+</div>
+
+   <div
   style={{
-    display: "inline-flex",
+    display: "flex",
+    alignItems: isMobile ? "flex-start" : "center",
+    justifyContent: isMobile ? "space-between" : "center",
+    gap: 10,
+    width: "100%",
+  }}
+>
+   
+{/* CONTENEDOR MAESTRO DE BOTONES: Organizado en 3 filas centradas */}
+  <div style={{ 
+    width: "100%", 
+    maxWidth: "100vw", 
+    padding: isMobile ? "0 15px" : "0 20px", 
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
     alignItems: "center",
-    gap: 6,
-    padding: "6px 8px",
-    borderRadius: 999,
-    border: "1px solid #F7A8D8", // Borde rosa [cite: 348]
-    background: "white",
-    boxShadow: "0 4px 12px rgba(247, 168, 216, 0.25)", // Brillo rosado 
-  }}
-  aria-label="Controles de zoom"
->
-    <button
-  type="button"
-  onClick={zoomOut}
-  disabled={loading}
-  style={{
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    border: "1px solid #F7A8D8",
-    background: "white",
-    color: "#8C659C",
-    boxShadow: loading
-      ? "none"
-      : "0 4px 12px rgba(247,168,216,0.15)",
-    cursor: loading ? "not-allowed" : "pointer",
-    fontWeight: 900,
-    fontSize: 16,
-    opacity: loading ? 0.45 : 0.75
-  }}
->
-  -
-</button>
+    gap: 15,
+    marginBottom: "20px"
+  }}>
 
-    <div
-  style={{
-    minWidth: 54,
-    textAlign: "center",
-    fontWeight: 950,
-    color: "#8C659C",
-    fontSize: 12,
-  }}
-  title="Nivel de zoom"
->
-    
-      {Math.round(pageZoom * 100)}%
+    {/* FILA 1: Cursor y Formato (Reutilizamos la lógica del contenedor padre) */}
+    <div style={{ 
+      display: "flex", 
+      gap: 10, 
+      width: "100%", 
+      justifyContent: "center", 
+      flexWrap: "wrap",
+      alignItems: "center"
+    }}>
+       {/* Los selectores de Cursor y Formato ya están definidos arriba en tu código, 
+           así que aquí agrupamos las acciones y toggles */}
     </div>
 
-   <button
-  type="button"
-  onClick={zoomIn}
-  disabled={loading}
-  style={{
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    border: "1px solid #F7A8D8",
-    background: "white",
-    color: "#8C659C",
-    boxShadow: loading
-      ? "none"
-      : "0 4px 12px rgba(247,168,216,0.15)",
-    cursor: loading ? "not-allowed" : "pointer",
-    fontWeight: 900,
-    fontSize: 16,
-    opacity: loading ? 0.45 : 0.75
-  }}
->
-  +
-</button>
-
-    {/* opcional pero muy útil */}
-    <button
-  type="button"
-  onClick={zoomReset}
-  disabled={loading || Math.abs(pageZoom - 1) < 1e-9}
-  title="Reset (100%)"
-  style={{
-    marginLeft: 4,
-    padding: "0 10px",
-    height: 30,
-    borderRadius: 999,
-    border: "1px solid #F7A8D8",
-    background: "white",
-    color: "#8C659C",
-    boxShadow:
-      loading || Math.abs(pageZoom - 1) < 1e-9
-        ? "none"
-        : "0 4px 12px rgba(247, 168, 216, 0.25)",
-    cursor: loading || Math.abs(pageZoom - 1) < 1e-9 ? "not-allowed" : "pointer",
-    fontWeight: 900,
-    fontSize: 12,
-    opacity: loading || Math.abs(pageZoom - 1) < 1e-9 ? 0.45 : 1,
-  }}
->
-  Reset
-</button>
-  </div>
-</div>
-</div>
-        </div>
-
-       {pageId ? (
-  <div style={{ display: "flex", justifyContent: "center" }}>
-    <div
-      style={{
-        zoom: pageZoom as any,
-      }}
-    >
-      <div
+    {/* FILA 2: Acciones (+, Trash, Undo) Y Toggles (Voltear, Reverso) */}
+    <div style={{ 
+      display: "flex", 
+      gap: isMobile ? 10 : 25, 
+      justifyContent: "center", 
+      width: "100%", 
+      flexWrap: "wrap", 
+      alignItems: "center" 
+    }}>
+      {/* Subgrupo Acciones en horizontal */}
+   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+  <button 
+    type="button" 
+    onClick={() => createNewPage('3x3')} // 👈 FIJO PARA QUE SIEMPRE SEA PÁGINA NORMAL
+    style={{ ...topBtnStyle, width: 38, height: 38, padding: 0, justifyContent: "center", fontSize: 18 }} 
+  > 
+    + 
+  </button>
+  <button 
+    type="button" 
+    onClick={() => createNewPage('separator')} // 👈 FIJO PARA QUE SIEMPRE SEA SEPARADOR
+    style={{
+      ...topBtnStyle,
+      width: "auto",
+      padding: "0 12px",
+      height: 38,
+      justifyContent: "center",
+      fontSize: 12,
+      background: "var(--binder-btn-separator-bg)",
+      color: "var(--binder-btn-separator-fg)",
+      border: "none",
+      boxShadow: "0 4px 14px color-mix(in srgb, var(--color-primary) 22%, transparent)",
+    }} 
+  > 
+    <Bookmark size={14} style={{ marginRight: 6 }} /> {t("binders.actions.add_separator")}
+  </button>
+        {/* NUEVO BOTÓN DE BORRAR MÚLTIPLE EN EL CARRUSEL */}
+  {deleteMode ? (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <button
+        onClick={() => { setDeleteMode(false); setSelectedForDeletion([]); }}
         style={{
-          marginTop: 16,
-          display: "grid",
-          gridTemplateColumns: `repeat(${layoutDef.cols}, ${gridFrameW}px)`,
-          columnGap: baseGap,
-          rowGap: baseRowGap,
-          justifyContent: "center",
-          alignContent: "start",
+          padding: "8px 12px",
+          borderRadius: "99px",
+          border: "1px solid var(--binder-btn-outline-border)",
+          background: "var(--binder-btn-outline-bg)",
+          color: "var(--binder-btn-outline-fg)",
+          fontWeight: 800,
+          fontSize: 12,
+          cursor: "pointer",
         }}
       >
-      {baseSlots.map((n) => (
-    <SlotBox
-      key={n}
-      slotIndex={n}
-      invByItem={invByItem}
-      emptyCounts={emptyCounts}
-      placedByItem={placedByItem} // 👈 AÑADE ESTA LÍNEA
-    />
-  ))}
-  {extras > 0 && (
-    <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "center", gap: gridGap, marginTop: 8 }}>
-      {extraSlots.map((n) => (
-        <SlotBox
-          key={n}
-          slotIndex={n}
-          invByItem={invByItem}
-          emptyCounts={emptyCounts}
-          placedByItem={placedByItem} // 👈 AÑADE ESTA LÍNEA TAMBIÉN
-        />
-      ))}
+        {t("common.cancel")}
+      </button>
+      <button
+        onClick={deleteMultiplePages}
+        disabled={selectedForDeletion.length === 0}
+        style={{
+          padding: "8px 12px",
+          borderRadius: "99px",
+          border: `2px solid var(--binder-btn-delete-border)`,
+          background: selectedForDeletion.length > 0 ? "var(--binder-btn-delete-bg)" : "var(--state-disabled-bg)",
+          color: selectedForDeletion.length > 0 ? "var(--binder-btn-delete-fg)" : "var(--state-disabled-fg)",
+          fontWeight: 800,
+          fontSize: 12,
+          cursor: selectedForDeletion.length > 0 ? "pointer" : "not-allowed",
+        }}
+      >
+        {t("binders.actions.delete")} ({selectedForDeletion.length})
+      </button>
     </div>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setDeleteMode(true)}
+      className="iconDangerHover"
+      style={{
+        ...topBtnStyle,
+        width: 38,
+        height: 38,
+        padding: 0,
+        justifyContent: "center",
+        border: `2px solid var(--binder-btn-delete-border)`,
+        background: "var(--binder-btn-delete-bg)",
+        color: "var(--binder-btn-delete-fg)",
+        boxShadow: "0 2px 10px color-mix(in srgb, var(--binder-btn-delete-fg) 14%, transparent)",
+      }}
+      title={t("binders.select_multiple_delete")}
+    >
+      <Trash2 size={18} />
+    </button>
   )}
+        <button 
+          type="button" 
+          onClick={doUndo} 
+          style={{
+            ...topBtnStyle,
+            width: 38,
+            height: 38,
+            padding: 0,
+            justifyContent: "center",
+            border: `1px solid var(--binder-btn-undo-border)`,
+            background: "var(--binder-btn-undo-bg)",
+            color: "var(--binder-btn-undo-fg)",
+          }}
+        >
+          <Undo2 size={18} strokeWidth={2.5} />
+        </button>
+      </div>
+
+      {/* Subgrupo Toggles */}
+      <div style={{ display: "flex", gap: 15, alignItems: "center" }}>
+        <button type="button" onClick={togglePageRotateAll} style={{ border: 0, background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>{t("binders.actions.flip")}</span>
+          <span style={{ width: 30, height: 16, borderRadius: 999, background: pageRotateAll ? "var(--binder-toggle-track-on)" : "var(--state-disabled-bg)", position: "relative", display: "inline-block" }}>
+            <span style={{ width: 12, height: 12, borderRadius: 999, background: "var(--bg-card)", position: "absolute", top: 2, left: pageRotateAll ? 16 : 2, transition: "all 0.2s" }} />
+          </span>
+        </button>
+        <button type="button" onClick={togglePageShowBackAll} style={{ border: 0, background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>{t("binders.actions.back_side")}</span>
+          <span style={{ width: 30, height: 16, borderRadius: 999, background: pageShowBackAll ? "var(--binder-toggle-track-on)" : "var(--state-disabled-bg)", position: "relative", display: "inline-block" }}>
+            <span style={{ width: 12, height: 12, borderRadius: 999, background: "var(--bg-card)", position: "absolute", top: 2, left: pageShowBackAll ? 16 : 2, transition: "all 0.2s" }} />
+          </span>
+        </button>
+      </div>
+    </div>
+
+   {/* FILA 3: ZOOM Y GUARDADO MAESTRO */}
+  <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center", width: "100%", marginTop: 10, flexWrap: "wrap" }}>
+    <span style={{ fontSize: 13, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>{t("binders.zoom")}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 999, border: "1px solid var(--binder-btn-outline-border)", background: "var(--binder-btn-outline-bg)", boxShadow: "var(--binder-btn-outline-shadow)" }}>
+      <button type="button" onClick={zoomOut} style={{ width: 28, height: 28, borderRadius: 999, border: "none", background: "none", color: "var(--binder-btn-outline-fg)", fontWeight: 900, cursor: "pointer" }}>-</button>
+      <div style={{ minWidth: 42, textAlign: "center", fontWeight: 950, color: "var(--binder-btn-outline-fg)", fontSize: 12 }}>{Math.round(pageZoom * 100)}%</div>
+      <button type="button" onClick={zoomIn} style={{ width: 28, height: 28, borderRadius: 999, border: "none", background: "none", color: "var(--binder-btn-outline-fg)", fontWeight: 900, cursor: "pointer" }}>+</button>
+      <button type="button" onClick={zoomReset} style={{ marginLeft: 4, padding: "0 10px", height: 26, borderRadius: 999, border: "1px solid var(--binder-btn-outline-border)", background: "var(--bg-soft)", color: "var(--binder-btn-outline-fg)", fontWeight: 900, fontSize: 11, cursor: "pointer" }}>{t("binders.actions.reset")}</button>
+    </div>
+
+    {/* ✅ NUEVO BOTÓN PREVISUALIZAR */}
+    <button 
+      type="button" 
+      onClick={() => setPreviewBinderOpen(true)} 
+      title={t("binders.actions.preview")}
+      style={{
+        ...topBtnStyle,
+        padding: "8px 16px",
+        fontSize: 13,
+        background: "var(--bg-soft)",
+        border: "1px solid var(--binder-btn-outline-border)",
+        color: "var(--binder-btn-outline-fg)",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <BookText size={16} /> {t("binders.actions.preview")}
+    </button>
+
+    {/* ✅ BOTÓN MAESTRO DE GUARDADO (TAMAÑO REDUCIDO CON ICONO) */}
+    <button 
+      type="button" 
+      onClick={async () => { 
+        if (!pageId) return; 
+        setStatus(t("binders.actions.saving")); 
+        try { 
+          const stateToPersist = new Map(); 
+          slots.forEach(n => { 
+            stateToPersist.set(n, { 
+              item: slotItems[n] || null, 
+              rot: slotRot[n] ?? 0, 
+              flip: slotFlipH[n] ?? false, 
+              face: slotFace[n] ?? "front" 
+            }); 
+          }); 
+          await persistSlotsBulk(stateToPersist); 
+          setRefreshTick(t => t + 1); 
+          await loadPageThumbs(); 
+          setStatus(t("binders.alerts.saved_binder")); 
+        } catch (err) { 
+          setStatus(t("common.error_saving")); 
+        } finally { 
+          setTimeout(() => setStatus(""), 3000); 
+        } 
+      }} 
+      title={t("common.save_changes")}
+      style={{
+        ...topBtnStyle,
+        background: "var(--binder-btn-save-bg)",
+        color: "var(--binder-btn-save-fg)",
+        padding: "8px 16px",
+        border: "none",
+        boxShadow: "var(--binder-btn-save-shadow)",
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }} 
+    >
+      💾 {t("common.save")}
+    </button>
+  </div>
+
+  </div>
+    </div>
+      </div>
+      {pageId ? (
+  <div style={{ display: "flex", justifyContent: "center" }}>
+    <div style={{ zoom: pageZoom as any }}>
+      
+      <div style={{ marginTop: 16 }}>
+       {/* --- LÓGICA DE SEPARADOR --- */}
+  {layout === 'separator' ? (
+    <div style={{
+      width: "320px",
+      height: "520px", // Un poco más alto para que quepa todo bien
+      padding: "30px",
+      background: "var(--bg-card)",
+      borderRadius: "20px",
+      boxShadow: "0 10px 30px var(--overlay-faint)",
+      textAlign: "center",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      border: `4px solid ${slotItems[1]?.custom_color || binderColor || "var(--color-primary)"}`,
+      position: "relative",
+      overflow: "hidden"
+    }}>
+      
+      {/* FONDO DE IMAGEN DEL SEPARADOR (Si el usuario ya ha subido una) */}
+      {slotItems[1]?.custom_image_url && (
+        <img 
+          src={slotItems[1].custom_image_url} 
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, zIndex: 0 }} 
+          alt=""
+        />
+      )}
+
+      {/* CONTENIDO (Por encima de la imagen de fondo) */}
+      <div style={{ zIndex: 1, position: "relative", width: "100%" }}>
+       <Bookmark size={50} color={slotItems[1]?.custom_color || binderColor || "var(--color-primary)"} style={{ marginBottom: "15px", margin: "0 auto" }} />
+        
+        <h3 className="tan-font" style={{ color: "var(--text-main)", fontWeight: 950, marginBottom: "15px", fontSize: "18px" }}>
+          CONFIGURACIÓN SEPARADOR
+        </h3>
+
+        {/* SECCIÓN 1: EL NOMBRE */}
+        <div style={{ width: "100%", marginBottom: "20px" }}>
+          <p style={{ fontSize: "11px", color: "var(--color-primary)", fontWeight: 900, marginBottom: "8px", textTransform: "uppercase" }}>
+            Nombre en la pestaña
+          </p>
+          <input
+            type="text"
+            placeholder={t('binders.custom_pc.tab_placeholder')}
+            style={{ 
+              height: 40, padding: "8px 12px", borderRadius: 12, border: "2px solid var(--color-border)", 
+              width: "100%", textAlign: "center", fontSize: "16px", fontWeight: 900, color: "var(--text-main)",
+              outline: "none", boxSizing: "border-box"
+            }}
+            value={slotItems[1]?.name || ""}
+            onChange={async (e) => {
+               const val = e.target.value;
+               setSlotItems(prev => ({
+                 ...prev,
+                 1: { ...prev[1], id: 999999, is_custom: true, custom_text: val, name: val } as any
+               }));
+               await persistSlotState(1, { kind: 'custom', custom_text: val, custom_image_url: slotItems[1]?.custom_image_url || null }, 0, false);
+            }}
+          />
+        </div>
+
+        {/* SECCIÓN 2: EL COLOR */}
+        <div style={{ width: "100%", marginBottom: "20px" }}>
+          <p style={{ fontSize: "11px", color: "var(--color-primary)", fontWeight: 900, marginBottom: "8px", textTransform: "uppercase" }}>
+            Color del separador
+          </p>
+          <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+          {BINDER_ACCENT_SWATCHES.map((c) => {
+  const isSelected = slotItems[1]?.custom_color === c; // Comprobamos el color de este separador
+  return (
+    <button
+      key={c}
+      type="button"
+      onClick={async () => {
+        // 1. Lo actualizamos visualmente en la pantalla
+        setSlotItems(prev => ({
+          ...prev,
+          1: { ...prev[1], id: 999999, is_custom: true, custom_color: c } as any
+        }));
+        // 2. Lo mandamos a guardar a la base de datos
+        await persistSlotState(1, { 
+          kind: 'custom', 
+          custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "", 
+          custom_image_url: slotItems[1]?.custom_image_url || null,
+          custom_color: c 
+        } as any, 0, false);
+      }} 
+      style={{ 
+        width: 28, height: 28, borderRadius: "50%", background: c, 
+        border: isSelected ? "3px solid var(--text-main)" : "2px solid color-mix(in srgb, var(--color-border) 65%, transparent)", 
+        cursor: "pointer", transition: "transform 0.1s, box-shadow 0.15s ease",
+        boxShadow: isSelected
+          ? `0 0 0 1px var(--color-primary), 0 0 12px color-mix(in srgb, ${c} 45%, transparent)`
+          : `0 0 8px color-mix(in srgb, ${c} 25%, transparent)`,
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.2)"}
+      onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+    />
+  );
+})}
+          </div>
+        </div>
+
+        {/* SECCIÓN 3: IMAGEN PERSONALIZADA (¡AHORA SÍ FUNCIONA!) */}
+        <div style={{ width: "100%" }}>
+          <p style={{ fontSize: "11px", color: "var(--color-primary)", fontWeight: 900, marginBottom: "8px", textTransform: "uppercase" }}>
+            Fondo especial
+          </p>
+          <label style={{ 
+            display: "inline-flex", alignItems: "center", justifyContent: "center", 
+            background: "var(--bg-soft)", border: "1px solid var(--color-primary)", color: "var(--color-primary)", 
+            padding: "10px", borderRadius: "10px", fontWeight: 900, cursor: "pointer", 
+            width: "100%", fontSize: "11px", boxSizing: "border-box"
+          }}>
+            {slotItems[1]?.custom_image_url ? "📷 Cambiar Imagen" : "📷 Subir Imagen"}
+           <input 
+    type="file" 
+    accept="image/*" 
+    style={{ display: "none" }} 
+    onClick={(e) => {
+      if (!profile?.is_premium && !isAdmin) {
+        e.preventDefault(); // Bloquea la ventana
+        showAlert("Ventaja VIP 👑", "Poner fondos personalizados en los separadores es exclusivo para Premium.");
+      }
+    }}
+    onChange={async (e) => { 
+      // Como ya bloqueamos arriba, aquí solo procesamos si hay archivo
+      const file = e.target.files?.[0]; 
+      if (file) { 
+        setStatus("Subiendo imagen..."); 
+        const up = await uploadCustomImage(file, 1); 
+        if (up.ok && up.publicUrl) { 
+          setSlotItems(prev => ({ 
+            ...prev, 
+            1: { ...(prev[1] || {}), id: 999999, is_custom: true, custom_image_url: up.publicUrl } as any 
+          })); 
+          await persistSlotState(1, { kind: 'custom', custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "", custom_image_url: up.publicUrl }, 0, false); 
+          setStatus("Imagen actualizada ✨"); 
+        } else { 
+          setError(up.error || "Error al subir"); 
+          setStatus("Error subiendo imagen"); 
+        } 
+      } 
+      e.target.value = ""; 
+    }} 
+  />
+          </label>
+        </div>
+
+        <p style={{ fontSize: "10px", color: "var(--state-disabled-fg)", marginTop: "20px", fontStyle: "italic", lineHeight: 1.3 }}>
+          * Las pestañas se escalonan solas del 1 al 7.<br/>
+          * La imagen se verá al abrir el Modo Lectura.
+        </p>
+      </div>
+    </div>
+  ) : (
+  /* Aquí sigue tu código normal del grid de slots... */
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: `repeat(${layoutDef.cols}, ${gridFrameW}px)`,
+      columnGap: baseGap,
+      rowGap: baseRowGap,
+      justifyContent: "center",
+      alignContent: "start",
+    }}
+  >
+    {baseSlots.map((n) => ( 
+      <SlotBox key={n} slotIndex={n} invByItem={invByItem} emptyCounts={emptyCounts} placedByItem={placedByItem} modalZoom={pageZoom} /> 
+    ))}
+
+            {extras > 0 && (
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "center", gap: gridGap, marginTop: 8 }}>
+                {extraSlots.map((n) => (
+                  <SlotBox
+                    key={n}
+                    slotIndex={n}
+                    invByItem={invByItem}
+                    emptyCounts={emptyCounts}
+                    placedByItem={placedByItem}
+                    modalZoom={pageZoom}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   </div>
 ) : (
-  <div style={{ marginTop: 30, color: "#666", fontWeight: 800 }}>
+  <div style={{ marginTop: 30, color: "var(--text-muted)", fontWeight: 800 }}>
     Cargando página…
   </div>
 )}
-  <WtsListingModal
- open={wtsListingModalOpen}
- itemId={wtsListingItemId}
- onClose={() => setWtsListingModalOpen(false)}
- onSaved={handleWtsListingSaved}
-/>
+ 
+
 
 <BinderItemModal
  open={modalItemId != null && modalSlotIndex != null}
@@ -13132,6 +13454,11 @@ const border = isSelected ? "#8db8ff" : isHover ? "#cfdcff" : "#eee";
  setFxPairLoading={setFxPairLoading}
  setFxPairRate={setFxPairRate}
  fetchFxPair={fetchFxPair}
+ // ✅ PASAMOS LAS NUEVAS VARIABLES DE NAVEGACIÓN
+  canPrev={canPrevModal}
+  canNext={canNextModal}
+  onPrev={handleModalPrev}
+  onNext={handleModalNext}
  notes={
   !modalAssigned?.is_custom && typeof modalItemId === "number"
    ? (notesByItem[modalItemId] ?? "")
@@ -13148,9 +13475,60 @@ const border = isSelected ? "#8db8ff" : isHover ? "#cfdcff" : "#eee";
     const next = modalFace === "front" ? "back" : "front";
     setSlotFace((prev) => ({ ...prev, [modalSlotIndex]: next }));
   }}
- onRotateLeft={() => setModalViewRot(((modalViewRot - 90) % 360 + 360) % 360)}
- onRotateRight={() => setModalViewRot(((modalViewRot + 90) % 360 + 360) % 360)}
- onToggleFlipH={() => setModalViewFlipH((v) => !v)}
+ // Dentro de BinderClient, en el renderizado de <BinderItemModal />
+/* EN BinderClient.tsx, DENTRO DE <BinderItemModal /> (Pág. 265) */
+onRotateLeft={() => {
+  const nextRot = ((modalViewRot - 90) % 360 + 360) % 360;
+  setModalViewRot(nextRot);
+  
+  if (pageId && modalSlotIndex != null) {
+    setSlotRot(prev => ({ ...prev, [modalSlotIndex]: nextRot })); // 1. Actualiza grid
+    setRefreshTick(t => t + 1); // 2. SEÑAL MÁGICA: Actualiza carrusel y online
+    
+    // Aquí es donde deberías disparar el persistTransformForSlotSafe para guardar en DB
+    void persistTransformForSlotSafe(modalSlotIndex, nextRot, modalViewFlipH);
+  }
+}}
+
+  onRotateRight={() => {
+    const nextRot = ((modalViewRot + 90) % 360 + 360) % 360;
+    setModalViewRot(nextRot);
+
+    if (pageId && modalSlotIndex != null) {
+      setPageThumbs(prev => {
+        const newMap = { ...prev };
+        const currentPageSlots = { ...(newMap[pageId] || {}) };
+        const currentSlotData = { ...(currentPageSlots[modalSlotIndex] || {}) };
+        
+        currentSlotData.rot = nextRot;
+        currentPageSlots[modalSlotIndex] = currentSlotData;
+        newMap[pageId] = currentPageSlots;
+        
+        return newMap;
+      });
+      setRefreshTick(t => t + 1);
+    }
+  }}
+
+  onToggleFlipH={() => {
+    const nextFlip = !modalViewFlipH;
+    setModalViewFlipH(nextFlip);
+
+    if (pageId && modalSlotIndex != null) {
+      setPageThumbs(prev => {
+        const newMap = { ...prev };
+        const currentPageSlots = { ...(newMap[pageId] || {}) };
+        const currentSlotData = { ...(currentPageSlots[modalSlotIndex] || {}) };
+        
+        currentSlotData.flipH = nextFlip; // Aplicamos volteo
+        currentPageSlots[modalSlotIndex] = currentSlotData;
+        newMap[pageId] = currentPageSlots;
+        
+        return newMap;
+      });
+      setRefreshTick(t => t + 1);
+    }
+  }}
  meta={modalMeta}
  names={modalNames}
  counts={modalCounts}
@@ -13165,41 +13543,18 @@ const border = isSelected ? "#8db8ff" : isHover ? "#cfdcff" : "#eee";
  betterPhotoBusy={betterPhotoBusy}
  customIsBias={modalCustomIsBias}
   onToggleCustomBias={handleToggleCustomBias}
+  t={t}
+  showAlert={showAlert}
 />
-{activeSkzoo && (
-  <div
-    ref={skzooFollowerRef}
-    style={{
-      position: "fixed",
-      left: 0,
-      top: 0,
-      width: 30,
-      height: 30,
-      pointerEvents: "none",
-      zIndex: 9999999,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      willChange: "transform",
-      transform: `translate3d(${mousePos.x + 15}px, ${mousePos.y + 15}px, 0)`,
-    }}
-  >
-    <img
-      src={activeSkzoo.img}
-      alt=""
-      draggable={false}
-      style={skzooImgStyle}
-    />
-  </div>
-)}
+
 {/* NAV inferior */}
 <div
   style={{
     position: "sticky",
     bottom: 0,
-    background: "rgba(255,255,255,0.92)",
+    background: "var(--surface-float)",
     backdropFilter: "blur(10px)",
-    borderTop: "1px solid #eee",
+    borderTop: "1px solid var(--state-disabled-border)",
     padding: "10px 12px",
     display: "flex",
     justifyContent: "center",
@@ -13207,21 +13562,18 @@ const border = isSelected ? "#8db8ff" : isHover ? "#cfdcff" : "#eee";
     
   }}
 >
-  <div
-    style={{
-      width: "100%",
-      maxWidth: 1120,
-      display: "grid",
-      gridTemplateColumns: "1fr auto 1fr",
-      flexWrap: "wrap",
-      alignItems: "center",
-      gap: 10,
-    }}
-  >
-    {/* Columna izquierda: vacía (sirve de “contrapeso”) */}
-    <div />
+ <div 
+    style={{ 
+      width: "100%", maxWidth: 1120, display: "grid", 
+      gridTemplateColumns: "1fr auto 1fr", flexWrap: "wrap", alignItems: "center", gap: 10, 
+    }} 
+  > 
+    {/* Columna izquierda: Vacía porque movimos el botón arriba */} 
+    <div style={{ display: "flex", justifyContent: "flex-start", paddingLeft: "10px" }}> 
+    </div> 
 
-    {/* Columna central: SIEMPRE centrada */}
+    {/* Columna central: SIEMPRE centrada */} 
+    {/* ... (botones Anterior y Siguiente) ... */}
     <div style={{ display: "flex", justifyContent: "center" }}>
       <div
         style={{
@@ -13249,7 +13601,7 @@ const border = isSelected ? "#8db8ff" : isHover ? "#cfdcff" : "#eee";
   style={{
     fontSize: 14,
     fontWeight: 900,
-    color: "#8C659C",
+    color: "var(--color-primary)",
     letterSpacing: 0.2,
   
   }}
@@ -13276,117 +13628,187 @@ const border = isSelected ? "#8db8ff" : isHover ? "#cfdcff" : "#eee";
     <div />
  </div>
 </div>
+{/* --- SECCIÓN DE MODALES --- */}
+      {pagesOpen && renderPagesModal()}
+      {buyPagesOpen && <BuyPagesModal />}
+      {buySeparatorsOpen && <BuySeparatorsModal />}
 
-{/* Picker en modal */}
-{pickingSlot != null &&
- pickerUserId != null &&
- pickerBinderId != null && (
- <div
-  onClick={() => setPickingSlot(null)}
+      {showOnboarding && userId && (
+        <OnboardingForm
+          onComplete={() => {
+            setShowOnboarding(false);
+            window.location.reload();
+          }}
+        />
+      )}
+
+      {/* Popups de estado */}
+      {status && (
+        <div className="status-popup" aria-live="polite">
+          {status}
+        </div>
+      )}
+
+     {/* Modal WTS */}
+<WtsListingModal
+open={wtsListingModalOpen}
+itemId={wtsListingItemId}
+onClose={() => setWtsListingModalOpen(false)}
+onSaved={handleWtsListingSaved}
+/>
+{/* 🔄 Modal WTT (El Rosa) - Configurado para volver al
+Stock al cerrar/guardar */}
+<WttListingModal
+   open={wttListingModalOpen}
+   itemId={wttListingItemId}
+   initialPublicMessage={
+     wttListingItemId != null ? 
+     readLS(wttMessageKey(wttListingItemId)) : ""
+   }
+   onSavePublicMessage={(itemId: number, value: string) => {
+     writeLS(wttMessageKey(itemId), value);
+   }}
+   onClose={() => {
+     setWttListingModalOpen(false);
+     setStockModalOpen(true);
+   }}
+   onSaved={() => {
+     // 👇 NUEVO COMPORTAMIENTO: Cierra este modal y abre el Picker
+     setWttListingModalOpen(false);
+     // Ponemos false porque ya NO queremos que vuelva a abrir el modal rosa después
+     setResumeWttListingAfterLegacyPicker(false); 
+     
+     if (wttListingItemId) {
+       openWttOfferModal(wttListingItemId); // Abre el picker
+     }
+   }}
+   // Ya no necesitamos onOpenPicker, lo puedes borrar o dejar vacío
+ />
+      {/* Libro Virtual */}
+      {previewBinderOpen && (() => {
+     const datosParaElLibro = binderPages.map(page => {
+    const def = defFor(page.layout_type);
+    const capacity = def.slots;
+    const slotsForPage = Array(capacity).fill(null);
+
+    if (page.id === pageId) {
+      Object.entries(slotItems).forEach(([idxStr, item]) => {
+        const slotIdx = Number(idxStr);
+        const arrayIdx = slotIdx - 1;
+        if (arrayIdx >= 0 && arrayIdx < capacity && item) {
+          
+          // OTW y WISH leídos del inventario
+          const stock = !item.is_custom ? invByItem[item.id] : null;
+          const isOtw = stock ? (stock.on_its_way > 0) : false;
+
+          slotsForPage[arrayIdx] = {
+            id: String(item.id),
+            image_url: item.is_custom ? item.custom_image_url : item.image_url,
+            back_image_url: item.is_custom ? (item as any).custom_back_image_url : item.back_image_url,
+            rotation: slotRot[slotIdx] || 0,
+            flip: slotFace[slotIdx] === "back",
+            name: item.is_custom ? ((item as any).custom_text || item.name) : item.name,
+            custom_text: (item as any).custom_text,
+            custom_color: (item as any).custom_color,
+            // ETIQUETAS AÑADIDAS
+            isMissing: (item as any).is_wanted === true,
+            isOtw: isOtw
+          };
+        }
+      });
+    } else {
+      const thumbs = pageThumbs[page.id] || {};
+      Object.entries(thumbs).forEach(([idxStr, meta]: [string, any]) => {
+        const slotIdx = Number(idxStr);
+        const arrayIdx = slotIdx - 1;
+        if (arrayIdx >= 0 && arrayIdx < capacity) {
+          slotsForPage[arrayIdx] = {
+            id: String(meta.itemId),
+            image_url: meta.url,
+            back_image_url: meta.back_image_url,
+            rotation: meta.rot || 0,
+            flip: meta.flipH || false,
+            name: meta.name,
+            custom_text: (meta as any).custom_text || meta.name,
+            custom_color: (meta as any).custom_color,
+            // ETIQUETAS AÑADIDAS
+            isMissing: meta.isWanted === true,
+            isOtw: meta.onItsWay > 0
+          };
+        }
+      });
+    }
+    return { layoutType: page.layout_type, slots: slotsForPage };
+  });
+
+        return (
+          <VirtualBinder 
+            binderName={binderTitle} 
+            binderColor={binderColor} 
+            coverUrl={coverUrl} 
+            pagesData={datosParaElLibro}
+            onClose={() => {
+              setPreviewBinderOpen(false);
+              if (isViewMode) router.push('/binders');
+            }} 
+          />
+        );
+      })()}
+
+      {/* 👑 EL PICKER (Al final de todo para Z-INDEX máximo y efecto Boomerang) */} 
+     {pickingSlot != null && pickerUserId != null &&
+pickerBinderId != null && (
+<div
   style={{
-   position: "fixed",
-   inset: 0,
-   zIndex: 10030,
-   background: "rgba(32, 18, 34, 0.38)",
-   backdropFilter: "blur(6px)",
-   display: "flex",
-   alignItems: "center",
-   justifyContent: "center",
-   padding: 20,
-  }}
- >
-  <div
-  onClick={(e) => e.stopPropagation()}
-  style={{
-    width: "min(1180px, 96vw)",
-    height: "90vh",
-    borderRadius: 24,
-    border: "1px solid #f1d9e8",
-    background: "#fffdfd",
-    boxShadow: "0 24px 80px rgba(80, 46, 86, 0.22)",
-    padding: 18,
-    overflow: "hidden",
+    position: "fixed",
+    inset: 0,
+    zIndex: 999999,
+    background: "var(--overlay-medium)",
+    backdropFilter: "blur(8px)",
     display: "flex",
-    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20
   }}
 >
-   
-
-   <ItemPicker
-                userId={pickerUserId}
-                binderId={pickerBinderId}
-                placedByItem={placedByItem}
-                invByItem={invByItem}
-                loadInvForIds={loadInvForIds}
-                refreshTick={refreshTick}
-                userBiases={userBiases} // <--- NUEVA LÍNEA AÑADIDA
-                onPick={(itemId) => {
-                  const s = pickingSlot;
-                  setPickingSlot(null);
-                  if (s != null) assignItemToSlot(s, itemId);
-                }}
-                onClose={() => setPickingSlot(null)}
-              />
-  </div>
-  
- </div>
-)}
-
-{/* Modales */}
-{pagesOpen && <PagesModal />}
-{buyPagesOpen && <BuyPagesModal />}
-
-{showOnboarding && userId && (
-  <OnboardingForm
-    onComplete={() => {
-      setShowOnboarding(false);
-      window.location.reload();
+  <div
+    style={{
+      width: "min(1180px, 96vw)",
+      height: isMobile ? "85vh" : "90vh",
+      borderRadius: 24,
+      background: "var(--bg-card)",
+      overflow: "hidden",
+      display: "flex",
+      flexDirection: "column"
     }}
-  />
-)}
-
-{/* ✅ AQUÍ ES DONDE DEBES PEGARLO: */}
-{status && (
-  <div className="status-popup" aria-live="polite">
-    {status}
+  >
+    <ItemPicker
+      userId={pickerUserId}
+      binderId={pickerBinderId}
+      binderTitle={binderTitle}
+      placedByItem={placedByItem}
+      invByItem={invByItem}
+      loadInvForIds={loadInvForIds}
+      refreshTick={refreshTick}
+      userBiases={userBiases}
+      isMobile={isMobile}
+      onPick={(itemId) => {
+        const s = pickingSlot;
+        setPickingSlot(null);
+        if (s != null) assignItemToSlot(s, itemId);
+        setWttListingModalOpen(true);
+      }}
+      onClose={() => {
+        setPickingSlot(null);
+        setWttListingModalOpen(true);
+      }}
+    />
   </div>
+</div>
 )}
-      </div>
-   <Footer />
+   </div> 
+      {/* Cierres finales del componente */}
+      <Footer />
     </div>
   );
 }
-
-  function updateSlotCustom(next: Record<number, SlotCustom>) {
-      // Updates the slotCustom state with the provided object
-      // Used to store custom text/image for slots (PC personalizada)
-      // next: { [slotIndex]: { text: string, imageDataUrl: string | null } }
-      // This is a state setter, so call React's setSlotCustom
-      setSlotCustom((prev: Record<number, SlotCustom>) => ({ ...prev, ...next }));
-    }
-
-    function setSlotCustom(
-      updater: (prev: Record<number, SlotCustom>) => Record<number, SlotCustom>
-    ) {
-      // Updates the slotCustom state using the provided updater function
-      // This is a wrapper for the React state setter
-      // Example usage: setSlotCustom(prev => ({ ...prev, [slotIndex]: custom }))
-      // If you want to call this outside the component, bind it to the state setter
-
-      // If you have a React state setter available, call it here:
-      // setSlotCustomState(updater);
-
-      // Otherwise, if this is a placeholder for the actual setter, you can implement it as:
-      // (This assumes setSlotCustomState is the actual React useState setter)
-      // setSlotCustomState(updater);
-
-      // Since this is inside the component, just call the state setter directly:
-      // (You may need to rename this function or ensure it's not shadowing the state setter)
-      // For now, this is a no-op as the actual setter is already defined above.
-    }
-
-
-function setShowOnboarding(arg0: boolean) {
-  throw new Error("Function not implemented.");
-}
-

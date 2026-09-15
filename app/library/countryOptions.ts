@@ -30,11 +30,31 @@ const ISO_COUNTRY_CODES: string[] = [
   "ZM","ZW"
 ];
 
-const displayNames = new Intl.DisplayNames(["es"], { type: "region" });
+/**
+ * Genera la lista de países traducida según el idioma del perfil.
+ * @param lang Código de idioma (es, en, ja, etc.)
+ */
+export const getCountryOptions = (lang: string = "es"): CountryOption[] => {
+  try {
+    const displayNames = new Intl.DisplayNames([lang], { type: "region" });
+    
+    return ISO_COUNTRY_CODES
+      .map((code) => ({
+        code,
+        name: displayNames.of(code) ?? code,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, lang));
+  } catch (e) {
+    // Fallback por si el navegador no soporta el idioma
+    const fallbackNames = new Intl.DisplayNames(["en"], { type: "region" });
+    return ISO_COUNTRY_CODES
+      .map((code) => ({
+        code,
+        name: fallbackNames.of(code) ?? code,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "en"));
+  }
+};
 
-export const COUNTRY_OPTIONS: CountryOption[] = ISO_COUNTRY_CODES
-  .map((code) => ({
-    code,
-    name: displayNames.of(code) ?? code,
-  }))
-  .sort((a, b) => a.name.localeCompare(b.name, "es"));
+// Mantenemos esta constante para no romper componentes antiguos que no pasen idioma todavía
+export const COUNTRY_OPTIONS = getCountryOptions("es");

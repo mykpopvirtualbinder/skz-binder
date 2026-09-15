@@ -1,0 +1,34 @@
+-- =============================================================================
+-- Álbumes en Merch vía Supabase (merch_items, category = 'Álbumes')
+-- =============================================================================
+--
+-- Si SOLO ves un ítem de "Ejemplo" en la web, es que ejecutaste un INSERT de
+-- prueba pero NO el volcado masivo generado desde tus carpetas public/albums.
+--
+-- PASO A — Columnas (una vez)
+--   En Supabase → SQL Editor → pega y ejecuta: scripts/add-merch-album-columns.sql
+--
+-- PASO B — Generar el SQL desde TUS carpetas (en TU ordenador, con el repo)
+--   1. Imágenes en una de estas formas:
+--        public/albums/stray-kids/korean/…
+--        public/stray-kids/korean/…   (si no usas la carpeta "albums")
+--   2. En la raíz del proyecto ejecuta:
+--        npm run build:merch-albums-catalog
+--   3. Se crean:
+--        - public/merch-albums-catalog.json
+--        - scripts/merch-albums-seed-for-supabase.sql   ← ESTE es el que debes
+--          abrir, copiar ENTERO y pegar en el SQL Editor de Supabase y Run.
+--   4. Recarga /merch → pestaña Álbumes.
+--
+-- PASO C — Quitar filas de prueba del botón «Añadir Datos (Demo)» o SQL viejos
+--   DELETE FROM merch_items WHERE name LIKE 'Ejemplo —%';
+--   DELETE FROM merch_items WHERE name LIKE 'I am NOT —%';
+--   DELETE FROM merch_items WHERE category = 'Álbumes' AND group_name ILIKE '%stray%kid%' AND lower(trim(album_title)) IN ('karma', 'do it');
+--
+-- Nota image_url: si el SQL trae rutas /albums/... las verá el navegador solo
+-- si esas imágenes existen en el deploy (git). Si no, sube PNG a Storage y
+-- sustituye en SQL las URLs por https://... del bucket público.
+--
+-- =============================================================================
+-- (No hay INSERT aquí: el masivo lo genera npm run build:merch-albums-catalog.)
+-- =============================================================================

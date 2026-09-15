@@ -27,16 +27,8 @@ export function encodeMockPcPathUrl(url: string): string {
 
 // --- Resolución de URLs mock-pcs (Season's Greetings, POB por año, etc.) ---
 
-const MAX_CANDIDATES = 8;
+const MAX_CANDIDATES = 14;
 const ALT_EXTS = ["jpg", "png", "JPG", "PNG", "JPEG", "jpeg"] as const;
-
-function isKoreanSeasonsGreetings(url: string): boolean {
-  return /\/seasons-greetings\/korean\//i.test(url);
-}
-
-function useChangBinOnDisk(url: string): boolean {
-  return /\/seasons-greetings\/korean\/2025-the-street-kids\/pob-/i.test(url);
-}
 
 function memberTailFromStem(stem: string): string | null {
   const m = stem.match(/-(?:front|back)-(.+)$/i);
@@ -44,7 +36,7 @@ function memberTailFromStem(stem: string): string | null {
 }
 
 function isUnitMemberTail(tail: string): boolean {
-  return tail.includes("+") || /%2B/i.test(tail);
+  return tail.includes("+") || /%2B/i.test(tail) || /_/i.test(tail);
 }
 
 function applyPobPolaroidsUnitFolder(file: string): string | null {
@@ -82,7 +74,7 @@ function decodeMockPcInput(url: string): string {
   return segments.join("/") + query;
 }
 
-function normalizeMemberTail(tail: string, url: string): string {
+function normalizeMemberTail(tail: string, _url: string): string {
   const fixPart = (part: string): string => {
     let s = part;
     const rules: Array<(x: string) => string | null> = [
@@ -91,11 +83,6 @@ function normalizeMemberTail(tail: string, url: string): string {
       (x) => replaceMemberToken(x, /\bseung-min\b/gi, "seungmin"),
       (x) => replaceMemberToken(x, /\bhyun-jin\b/gi, "hyunjin"),
     ];
-    if (useChangBinOnDisk(url)) {
-      rules.push((x) => replaceMemberToken(x, /\bchangbin\b/gi, "chang-bin"));
-    } else if (isKoreanSeasonsGreetings(url)) {
-      rules.push((x) => replaceMemberToken(x, /\bchang-bin\b/gi, "changbin"));
-    }
     for (const rule of rules) {
       const next = rule(s);
       if (next) s = next;
@@ -104,7 +91,7 @@ function normalizeMemberTail(tail: string, url: string): string {
   };
 
   let t = tail;
-  if (/%20/i.test(t)) {
+  if (/%2B/i.test(t) || /%20/i.test(t)) {
     try {
       t = decodeURIComponent(t.replace(/\+/g, "%2B"));
     } catch {
@@ -126,6 +113,12 @@ function normalizeMemberTail(tail: string, url: string): string {
       .map((p) => fixPart(p.trim()))
       .join("+");
   }
+  if (t.includes("_")) {
+    const parts = t.split("_").map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      return parts.map((p) => fixPart(p)).join("+");
+    }
+  }
   return fixPart(t);
 }
 
@@ -142,17 +135,74 @@ function extensionVariants(stem: string, extLower: string, rawUrl: string): stri
   const dot = rawPath.lastIndexOf(".");
   const extRaw = dot > 0 ? rawPath.slice(dot + 1) : extLower;
 
-  push("jpg");
-  push("png");
-  push("JPG");
-  push("PNG");
+  // Prefer the extension stored in the URL / on disk. Forcing .jpg first
+  // hid thousands of real .png files after the folder reorg.
+  if (/^hei[cf]$/i.test(extLower) || /^hei[cf]$/i.test(extRaw)) {
+    push("jpg");
+    push("png");
+    push("JPG");
+    push("PNG");
+  }
   push(extRaw);
   push(extLower);
-  if (extRaw.toLowerCase() !== extRaw.toUpperCase()) push(extRaw.toUpperCase());
+  if (extRaw && extRaw.toLowerCase() !== extRaw.toUpperCase()) push(extRaw.toUpperCase());
   for (const ext of ALT_EXTS) {
-    if (ext.toLowerCase() === extLower) push(ext);
+    push(ext);
   }
   return out;
+}
+
+/** Old SG trees dumped POB folders under photocards/; disk uses pobs/. */
+function seasonsGreetingsRestSuffix(rest: string): string {
+  const r = String(rest || "");
+  if (/^(photocards|inclusions|pobs?|pop-ups?|pop[\s_%-]*ups?)\//i.test(r)) return r;
+  const first = r.split("/")[0] || "";
+  if (
+    /^pob/i.test(first) ||
+    /polaroid-pob/i.test(first) ||
+    /^photo-card-fanclub/i.test(first)
+  ) {
+    return `pobs/${r}`;
+  }
+  return `photocards/${r}`;
+}
+
+/** Year folders, trailing spaces, photocard-set, polaroid — apply after otros→others. */
+function applySeasonsGreetingsDiskAliases(pathname: string): string {
+  let p = String(pathname || "");
+  if (!/seasons-greetings/i.test(p)) return p;
+
+  p = p.replace(/\/seasons-greetings\/korean\/2022\//gi, "/seasons-greetings/korean/2022-room-mates/");
+  p = p.replace(/\/seasons-greetings\/korean\/2024\//gi, "/seasons-greetings/korean/2024-perfect-day/");
+  p = p.replace(/\/seasons-greetings\/korean\/2025\//gi, "/seasons-greetings/korean/2025-the-street-kids/");
+  p = p.replace(/\/seasons-greetings\/korean\/2026\//gi, "/seasons-greetings/korean/2026-starlight-super-club/");
+  p = p.replace(
+    /\/seasons-greetings\/korean\/2023-szks-mini-world\//gi,
+    "/seasons-greetings/korean/2023-szks-mini-world%20/",
+  );
+
+  p = p.replace(
+    /\/2024-perfect-day\/photocards\/polaroid\//gi,
+    "/2024-perfect-day/photocards/polaroid%20/",
+  );
+  p = p.replace(
+    /\/2024-perfect-day\/polaroid\//gi,
+    "/2024-perfect-day/photocards/polaroid%20/",
+  );
+
+  p = p.replace(/\/photocards\/photocard-set\//gi, "/photocards/photo-card-set/");
+  p = p.replace(/\/pob-polaroid-unit\//gi, "/pob-polaroids-unit/");
+
+  p = p.replace(
+    /\/seasons-greetings\/korean\/2021\/(?:photocards\/)?polaroid\//gi,
+    "/seasons-greetings/korean/2021/pobs/polaroid-pob/",
+  );
+  p = p.replace(
+    /\/seasons-greetings\/korean\/2021\/(?:photocards\/)?set\//gi,
+    "/seasons-greetings/korean/2021/photocards/",
+  );
+
+  return p;
 }
 
 function applyYearAwarePobFolderAliases(v: string, push: (s: string) => void): void {
@@ -183,29 +233,99 @@ function applyYearAwarePobFolderAliases(v: string, push: (s: string) => void): v
   }
 }
 
+function remapLegacyMockPcDiskPath(pathname: string): string {
+  let p = String(pathname || "");
+  if (!p) return p;
+
+  // Supabase still stores the pre-reorg roots (`/album/`, `/otros/`, `/eventos/`).
+  // Only rewrite the segment right after the group so nested folders like
+  // `albums/japanese/circus/album/a/` stay intact.
+  p = p
+    .replace(/^(.*\/groups\/[^/]+)\/album\//i, "$1/albums/")
+    .replace(/^(.*\/groups\/[^/]+)\/otros\//i, "$1/others/")
+    .replace(/^(.*\/groups\/[^/]+)\/eventos\//i, "$1/events/");
+
+  const albumPc = p.match(
+    /^(.*\/groups\/[^/]+)\/photocards\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,
+  );
+  if (albumPc) {
+    return `${albumPc[1]}/albums/${albumPc[2].toLowerCase()}/${albumPc[3]}/photocards/${albumPc[4]}`;
+  }
+
+  const albumInc = p.match(
+    /^(.*\/groups\/[^/]+)\/inclusions\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,
+  );
+  if (albumInc) {
+    return `${albumInc[1]}/albums/${albumInc[2].toLowerCase()}/${albumInc[3]}/inclusions/${albumInc[4]}`;
+  }
+
+  const sg = p.match(
+    /^(.*\/groups\/[^/]+)\/photocards\/seasons-greetings\/(korean|japanese|taiwanese)\/([^/]+)\/(.*)$/i,
+  );
+  if (sg && !/\/others\/seasons-greetings\//i.test(p)) {
+    p = `${sg[1]}/others/seasons-greetings/${sg[2]}/${sg[3]}/${seasonsGreetingsRestSuffix(sg[4])}`;
+  }
+
+  let decoded = p;
+  try {
+    decoded = decodeURIComponent(p.replace(/\+/g, " "));
+  } catch {
+    decoded = p;
+  }
+  const portadas = decoded.match(
+    /^(.*\/groups\/[^/]+)\/portadas(?:[- ]+(?:de[- ]+)?)albums?\/(korean|japanese|taiwanese|taiwan)\/([^/]+)\/(.*)$/i,
+  );
+  if (portadas) {
+    const rest = portadas[4] ?? "";
+    const pack = (rest.split("/")[0] || "").toLowerCase();
+    const kindFolders = new Set(["regular", "vinyl", "skzoo", "platform", "accordion"]);
+    const accordionPack = new Set(["digipack", "jewel-case", "paper-case", "postcard", "fan-club", "compact"]);
+    let inner = rest;
+    if (!kindFolders.has(pack)) {
+      if (accordionPack.has(pack) && rest.includes("/")) inner = `accordion/${rest}`;
+      else inner = `regular/${rest}`;
+    }
+    const region = portadas[2].toLowerCase() === "taiwan" ? "taiwanese" : portadas[2].toLowerCase();
+    return applySeasonsGreetingsDiskAliases(
+      `${portadas[1]}/albums/${region}/${portadas[3]}/portadas-album/${inner}`,
+    );
+  }
+
+  return applySeasonsGreetingsDiskAliases(p);
+}
+
 function pathVariants(v: string): string[] {
   const out: string[] = [];
   const push = (s: string) => {
     if (s && !out.includes(s)) out.push(s);
   };
 
-  const unitFixed = applyPobPolaroidsUnitFolder(v);
-  if (unitFixed) push(unitFixed);
+  const remapped = remapLegacyMockPcDiskPath(v);
+  if (remapped !== v) push(remapped);
+
+  const seeds = remapped !== v ? [remapped, v] : [v];
+  for (const seed of seeds) {
+    const unitFixed = applyPobPolaroidsUnitFolder(seed);
+    if (unitFixed) push(unitFixed);
+  }
 
   const aliasPairs: [string, string][] = [
-    ["/seasons-greetings/korean/2021/polaroid/", "/seasons-greetings/korean/2021/polaroid-pob/"],
-    ["/seasons-greetings/korean/2021/set/", "/seasons-greetings/korean/2021/photocard-set/"],
+    ["/seasons-greetings/korean/2021/polaroid/", "/seasons-greetings/korean/2021/pobs/polaroid-pob/"],
+    ["/seasons-greetings/korean/2021/set/", "/seasons-greetings/korean/2021/photocards/"],
     ["/seasons-greetings/korean/2022/", "/seasons-greetings/korean/2022-room-mates/"],
     ["/seasons-greetings/korean/2024/", "/seasons-greetings/korean/2024-perfect-day/"],
     ["/seasons-greetings/korean/2025/", "/seasons-greetings/korean/2025-the-street-kids/"],
     ["/seasons-greetings/korean/2026/", "/seasons-greetings/korean/2026-starlight-super-club/"],
     ["/seasons-greetings/korean/2023-szks-mini-world/", "/seasons-greetings/korean/2023-szks-mini-world%20/"],
-    ["/seasons-greetings/korean/2024-perfect-day/polaroid/", "/seasons-greetings/korean/2024-perfect-day/polaroid%20/"],
+    ["/2024-perfect-day/photocards/polaroid/", "/2024-perfect-day/photocards/polaroid%20/"],
+    ["/2024-perfect-day/polaroid/", "/2024-perfect-day/photocards/polaroid%20/"],
     ["/pob-polaroid-unit/", "/pob-polaroids-unit/"],
   ];
 
-  for (const [from, to] of aliasPairs) {
-    if (v.includes(from)) push(v.replace(from, to));
+  for (const seed of [...out, v]) {
+    for (const [from, to] of aliasPairs) {
+      if (seed.includes(from)) push(seed.replace(from, to));
+    }
   }
 
   applyYearAwarePobFolderAliases(v, push);
@@ -219,11 +339,16 @@ function pathVariants(v: string): string[] {
   if (v.includes("/korean-album/")) push(v.replace("/korean-album/", "/korean-albums/"));
   if (v.includes("/japanese-albums/")) push(v.replace("/japanese-albums/", "/japanese-album/"));
   if (v.includes("/japanese-album/")) push(v.replace("/japanese-album/", "/japanese-albums/"));
-  if (/\/seasons-greetings\/[^/]+\/[^/]+\/photocard-set\//i.test(v)) {
-    push(v.replace(/\/photocard-set\//i, "/photo-card-set/"));
+  if (/\/photocards\/photocard-set\//i.test(v)) {
+    push(v.replace(/\/photocards\/photocard-set\//i, "/photocards/photo-card-set/"));
   }
-  if (/\/seasons-greetings\/[^/]+\/[^/]+\/photo-card-set\//i.test(v)) {
-    push(v.replace(/\/photo-card-set\//i, "/photocard-set/"));
+  if (/\/photocards\/photo-card-set\//i.test(v)) {
+    push(v.replace(/\/photocards\/photo-card-set\//i, "/photocards/photocard-set/"));
+  }
+
+  for (const candidate of [...out]) {
+    const remappedLater = remapLegacyMockPcDiskPath(candidate);
+    if (remappedLater !== candidate) push(remappedLater);
   }
 
   return out;
@@ -236,24 +361,46 @@ function stemPrefixVariants(stem: string, url: string): string[] {
   };
 
   const tail = memberTailFromStem(stem);
+  const changbinStems: string[] = [stem];
+  if (tail) {
+    if (/\bchang-bin\b/i.test(tail)) {
+      changbinStems.push(stem.replace(/\bchang-bin\b/gi, "changbin"));
+    } else if (/\bchangbin\b/i.test(tail)) {
+      changbinStems.push(stem.replace(/\bchangbin\b/gi, "chang-bin"));
+    }
+  }
+
   if (tail && isUnitMemberTail(tail)) {
-    push(stem);
+    for (const s of changbinStems) {
+      push(s);
+      if (s.includes("+")) push(s.replace(/\+/g, "_"));
+      if (s.includes("_")) push(s.replace(/_/g, "+"));
+    }
     return out;
   }
 
   const prefer00 =
-    /\/2026-starlight-super-club\/pob-/i.test(url) && !/\/pob-musickorea\//i.test(url);
-  const alt001 = /\/001-front-/i.test(stem) ? stem.replace(/\/001-front-/gi, "/00-front-") : null;
-  const alt00 = /\/00-front-/i.test(stem) ? stem.replace(/\/00-front-/gi, "/001-front-") : null;
+    /\/2026-starlight-super-club\/pobs\/(?:pob-applemusic|pob-ktown4u|pob-with-mu-u|pob-yes24)\//i.test(
+      url,
+    );
 
-  if (prefer00 && alt001) {
-    push(alt001);
-    push(stem);
-  } else {
-    push(stem);
-    if (alt001) push(alt001);
+  for (const baseStem of changbinStems) {
+    const alt001 = /\/001-front-/i.test(baseStem)
+      ? baseStem.replace(/\/001-front-/gi, "/00-front-")
+      : null;
+    const alt00 = /\/00-front-/i.test(baseStem)
+      ? baseStem.replace(/\/00-front-/gi, "/001-front-")
+      : null;
+
+    if (prefer00 && alt001) {
+      push(alt001);
+      push(baseStem);
+    } else {
+      push(baseStem);
+      if (alt001) push(alt001);
+    }
+    if (alt00) push(alt00);
   }
-  if (alt00) push(alt00);
   return out;
 }
 
@@ -290,7 +437,13 @@ function normalizeStemAndTail(encoded: string, rawUrl: string): string {
   const bestSe = splitPcImageStemExt(best);
   if (!bestSe) return best;
   const exts = extensionVariants(bestSe.stem, bestSe.extLower, rawUrl);
-  return exts.find((e) => /\.(jpe?g|png)$/i.test(e)) ?? exts[0] ?? best;
+  const originalExt = (rawUrl.split("?")[0] ?? rawUrl).split(".").pop() || bestSe.extLower;
+  const preferOriginal = exts.find((e) =>
+    e.toLowerCase().endsWith(`.${String(originalExt).toLowerCase()}`),
+  );
+  return encodeMockPcPathUrl(
+    preferOriginal ?? exts.find((e) => /\.(jpe?g|png|webp)$/i.test(e)) ?? exts[0] ?? best,
+  );
 }
 
 function normalizeMockPcUrl(url: string): string {
@@ -353,8 +506,23 @@ export function buildMockPcImageCandidates(
   const unitFromBase = applyPobPolaroidsUnitFolder(base);
   if (unitFromBase && unitFromBase !== canonical) pushStemVariants(unitFromBase);
 
-  if (!out.includes(base) && out.length < MAX_CANDIDATES) push(base);
+  for (const file of [canonical, resolved, base]) {
+    if (!file) continue;
+    if (/%2B/i.test(file)) push(file.replace(/%2B/gi, "+"));
+    if (file.includes("+")) push(file.replace(/\+/g, "%2B"));
+    if (file.includes("+") || /%2B/i.test(file)) {
+      push(file.replace(/\+/g, "_").replace(/%2B/gi, "_"));
+    }
+    const slash = file.lastIndexOf("/");
+    const name = slash >= 0 ? file.slice(slash + 1) : file;
+    const dir = slash >= 0 ? file.slice(0, slash + 1) : "";
+    if (name.includes("_")) {
+      push(dir + name.replace(/_/g, "+"));
+      push(dir + name.replace(/_/g, "%2B"));
+    }
+  }
 
+  if (base !== canonical) push(base);
   if (fallback && out.length < MAX_CANDIDATES) push(fallback);
   return out;
 }

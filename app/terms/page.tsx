@@ -1,112 +1,123 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { User, Scale, Copyright, ShieldAlert, AlertTriangle, FileText, Mail } from "lucide-react";
-import type { CSSProperties } from "react";
-import Header from "../components/header";
+import React from "react";
+import { Scale, Copyright, ShieldAlert, FileText, Mail } from "lucide-react";
+import { useGlobal } from "../context/GlobalContext";
+
 import Footer from "../components/footer";
 
-// --- ESTILOS CORPORATIVOS UNIFICADOS ---
-const menuBtnStyle: CSSProperties = { background: "transparent", border: "none", padding: "10px 14px", textAlign: "left", borderRadius: 10, cursor: "pointer", fontWeight: 900, color: "#8C659C", fontSize: 14 };
-const footerColumnTitle: CSSProperties = { fontSize: "13px", color: "#8C659C", fontWeight: 900, textTransform: "uppercase", marginBottom: "15px", display: "block" };
-const footerLinkStyle: CSSProperties = { fontSize: "12px", color: "#b17eac", textDecoration: "none", fontWeight: 500, marginBottom: "8px", display: "block" };
-
 export default function TermsAndConditions() {
-  const router = useRouter();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const { t } = useGlobal(); // 👈 Añadimos el traductor
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#FFFDF5", display: "flex", flexDirection: "column", color: "#2F2740" }}>
+    <div style={{ 
+      minHeight: "100vh", 
+      backgroundColor: "var(--bg-main)", 
+      display: "flex", 
+      flexDirection: "column", 
+      color: "var(--text-main)",
+      transition: "background-color 0.3s ease"
+    }}>
       
-     <Header />
-
-      {/* CONTENIDO PRINCIPAL EDITORIAL */}
-      <main style={{ width: "100%", maxWidth: "900px", margin: "80px auto", padding: "0 40px", flex: 1 }}>
+      <main className="legal-page" style={{ width: "100%", maxWidth: "900px", margin: "24px auto", padding: "0 40px", flex: 1 }}>
         
         {/* TITULAR GIGANTE */}
         <div style={{ marginBottom: "60px" }}>
-          <h1 className="tan-font" style={{ color: "#8C659C", fontSize: "64px", lineHeight: "0.8", margin: 0 }}>
-            TERMS<br /><span style={{ fontSize: "40px" }}>& CONDITIONS</span>
+          <h1 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "64px", lineHeight: "0.8", margin: 0 }}>
+            {(t("terms.title_part1") || t("terms.title_1"))}<br />
+            <span style={{ fontSize: "40px" }}>{(t("terms.title_part2") || t("terms.title_2"))}</span>
           </h1>
-          <p style={{ color: "#b17eac", fontWeight: 700, fontSize: "14px", marginTop: "20px", letterSpacing: "2px", textTransform: "uppercase" }}>
-            Marco legal y de convivencia para My Kpop Binder
+          <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "14px", marginTop: "20px", letterSpacing: "2px", textTransform: "uppercase" }}>
+            {t("terms.subtitle")}
           </p>
-          <p style={{ color: "#8C659C", fontWeight: 800, fontSize: "13px", marginTop: "10px" }}>Última actualización: 17/3/2026</p>
+          <p style={{ color: "var(--color-primary)", fontWeight: 800, fontSize: "13px", marginTop: "10px" }}>
+            {(t("terms.last_updated") || t("terms.last_update"))}
+          </p>
         </div>
 
         {/* LISTADO LEGAL CHIC */}
         <div style={{ display: "flex", flexDirection: "column", gap: "50px" }}>
           
           <section>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <FileText size={20}/> 1. IDENTIFICACIÓN
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <FileText size={20}/> {t("terms.section1_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              My Kpop Binder es una plataforma dedicada a la gestión de colecciones y la interacción entre coleccionistas. Al acceder, tod@s l@s usuari@s aceptan el presente marco legal.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {(t("terms.section1_text") || t("terms.section1_desc"))}
             </p>
           </section>
 
           <section>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px" }}>2. USO Y RESPONSABILIDAD</h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              El registro requiere información veraz. L@s usuari@s son responsables de la seguridad de sus cuentas. El marketplace actúa como facilitador tecnológico; las transacciones físicas son responsabilidad de las partes involucradas.
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px" }}>
+              {t("terms.section2_title")}
+            </h2>
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {(t("terms.section2_text") || t("terms.section2_desc"))}
             </p>
           </section>
 
-          <section style={{ borderTop: "1px solid #F3DCE7", paddingTop: "40px" }}>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <Scale size={20}/> 3. COMMUNITY GUIDELINES
+          <section style={{ borderTop: "1px solid var(--color-border)", paddingTop: "40px" }}>
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <Scale size={20}/> {t("terms.section3_title")}
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <div style={{ paddingLeft: "20px", borderLeft: "2px solid #F3C7DA" }}>
-                   <p style={{ fontWeight: 800, color: "#8C659C", margin: 0 }}>RESPETO</p>
-                   <p style={{ fontSize: "14px", color: "#666" }}>Cero tolerancia al acoso o discriminación entre miembros.</p>
+                <div style={{ paddingLeft: "20px", borderLeft: "2px solid var(--color-border)" }}>
+                   <p style={{ fontWeight: 800, color: "var(--color-primary)", margin: 0 }}>
+                     {(t("terms.section3_sub1_title") || t("terms.respect_title"))}
+                   </p>
+                   <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
+                     {(t("terms.section3_sub1_text") || t("terms.respect_desc"))}
+                   </p>
                 </div>
-                <div style={{ paddingLeft: "20px", borderLeft: "2px solid #F3C7DA" }}>
-                   <p style={{ fontWeight: 800, color: "#8C659C", margin: 0 }}>MODERACIÓN</p>
-                   <p style={{ fontSize: "14px", color: "#666" }}>Nos reservamos el derecho de eliminar contenido que vulnere la paz de la comunidad.</p>
+                <div style={{ paddingLeft: "20px", borderLeft: "2px solid var(--color-border)" }}>
+                   <p style={{ fontWeight: 800, color: "var(--color-primary)", margin: 0 }}>
+                     {(t("terms.section3_sub2_title") || t("terms.mod_title"))}
+                   </p>
+                   <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>
+                     {(t("terms.section3_sub2_text") || t("terms.mod_desc"))}
+                   </p>
                 </div>
             </div>
           </section>
 
           <section>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <Copyright size={20}/> 4. PROPIEDAD INTELECTUAL
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <Copyright size={20}/> {t("terms.section4_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              Las imágenes de artistas pertenecen a sus respectivos propietarios. Su uso en la plataforma es estrictamente para identificación de artículos de coleccionismo bajo el principio de uso legítimo.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {(t("terms.section4_text") || t("terms.section4_desc"))}
             </p>
           </section>
 
-          <section style={{ backgroundColor: "#FFF9FB", padding: "40px", borderRadius: "24px", border: "1px solid #F3DCE7" }}>
-            <h2 style={{ color: "#8C659C", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <ShieldAlert size={20}/> 5. POLÍTICA ANTI-FRAUDE
+          <section style={{ backgroundColor: "var(--bg-soft)", padding: "40px", borderRadius: "24px", border: "1px solid var(--color-border)" }}>
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <ShieldAlert size={20}/> {t("terms.section5_title")}
             </h2>
-            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "#444" }}>
-              Cualquier actividad fraudulenta (scams, falsificaciones, ocultación de daños) resultará en la expulsión definitiva. Trabajamos con el estándar DSA para reportes de abuso.
+            <p style={{ fontSize: "16px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {(t("terms.section5_text") || t("terms.section5_desc"))}
             </p>
           </section>
         </div>
 
         {/* CIERRE CON SOBRECITO */}
         <div style={{ marginTop: "80px", textAlign: "center", paddingBottom: "40px" }}>
-          <p style={{ color: "#b17eac", fontWeight: 700, fontSize: "13px", letterSpacing: "1px", marginBottom: "20px", textTransform: "uppercase" }}>
-            ¿Tienes alguna consulta legal?
+          <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "13px", letterSpacing: "1px", marginBottom: "20px", textTransform: "uppercase" }}>
+            {(t("terms.contact_question") || t("terms.doubts"))}
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div style={{ height: "1px", flex: 1, backgroundColor: "#F3C7DA" }}></div>
+            <div style={{ height: "1px", flex: 1, backgroundColor: "var(--color-border)" }}></div>
             <a 
               href="mailto:info@mykpopbinder.com" 
+              className="tan-font"
               style={{ 
-                display: "flex", alignItems: "center", gap: "10px", color: "#8C659C", 
-                textDecoration: "none", fontWeight: 900, fontSize: "13px", letterSpacing: "1px" 
+                display: "flex", alignItems: "center", gap: "10px", color: "var(--color-primary)", 
+                textDecoration: "none", fontWeight: 900, fontSize: "14px", letterSpacing: "1px" 
               }}
             >
               <Mail size={18} strokeWidth={2.5} />
               <span>INFO@MYKPOPBINDER.COM</span>
             </a>
-            <div style={{ height: "1px", flex: 1, backgroundColor: "#F3C7DA" }}></div>
+            <div style={{ height: "1px", flex: 1, backgroundColor: "var(--color-border)" }}></div>
           </div>
         </div>
 

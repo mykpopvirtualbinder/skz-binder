@@ -145,7 +145,15 @@ async function ensureAlbum(name, group_id) {
   throw new Error(`ensureAlbum: no pude asegurar el álbum "${safeName}"`);
 }
 
-async function upsertItemByImageUrl(payload) {
+async function upsertItemByImageUrl(payload, idByDecodedUrl) {
+  const decoded = decodeUrlPath(payload.image_url).toLowerCase();
+  const existingId = idByDecodedUrl.get(decoded);
+  if (existingId) {
+    const { error: upErr } = await supabase.from("items").update(payload).eq("id", existingId);
+    if (upErr) throw upErr;
+    return "update";
+  }
+
   const { data: existing, error: selErr } = await supabase
     .from("items")
     .select("id,image_url")
@@ -158,11 +166,95 @@ async function upsertItemByImageUrl(payload) {
     const id = existing[0].id;
     const { error: upErr } = await supabase.from("items").update(payload).eq("id", id);
     if (upErr) throw upErr;
-    return;
+    idByDecodedUrl.set(decoded, id);
+    return "update";
   }
 
-  const { error: insErr } = await supabase.from("items").insert(payload);
+  const fileName = String(payload.image_url || "").split("/").pop() || "";
+  if (fileName && payload.album_id) {
+    const { data: byFile, error: fileErr } = await supabase
+      .from("items")
+      .select("id,image_url")
+      .eq("album_id", payload.album_id)
+      .ilike("image_url", `%/${fileName}`)
+      .limit(5);
+    if (fileErr) throw fileErr;
+    // Only remap a dead old-path row onto the new file. Never merge two
+    // live versions that share a filename (001-front-bang-chan in A vs B).
+    const dead = (byFile || []).filter((row) => {
+      const u = String(row.image_url || "");
+      if (!u.startsWith("/")) return false;
+      const rel = u
+        .split("?")[0]
+        .split("/")
+        .map((seg) => {
+          try {
+            return decodeURIComponent(seg);
+          } catch {
+            return seg;
+          }
+        })
+        .join("/");
+      const abs = path.join(process.cwd(), "public", rel.replace(/^\/+/, ""));
+      return !fs.existsSync(abs);
+    });
+    if (dead.length === 1) {
+      const { error: upErr } = await supabase.from("items").update(payload).eq("id", dead[0].id);
+      if (upErr) throw upErr;
+      idByDecodedUrl.set(decoded, dead[0].id);
+      return "remap";
+    }
+  }
+
+  const { data: insertedRow, error: insErr } = await supabase.from("items").insert(payload).select("id").single();
   if (insErr) throw insErr;
+  if (insertedRow?.id) idByDecodedUrl.set(decoded, insertedRow.id);
+  return "insert";
+}
+
+function albumSlugFromImageUrl(imageUrl) {
+  const u = String(imageUrl || "");
+  const albumEra = u.match(/\/album\/(?:korean|japanese|taiwanese|taiwan)\/([^/]+)\//i);
+  if (albumEra?.[1]) return albumEra[1];
+  const sg = u.match(/\/seasons-greetings\/(?:korean|japanese|taiwanese)\/([^/]+)\//i);
+  if (sg?.[1]) return `seasons-greetings-${sg[1]}`;
+  const ev = u.match(/\/eventos\/(?:events|tour|pop-ups)\/([^/]+)\//i);
+  if (ev?.[1]) return ev[1];
+  return "";
+}
+
+function decodeUrlPath(u) {
+  return String(u || "")
+    .split("?")[0]
+    .split("/")
+    .map((seg) => {
+      if (!seg) return seg;
+      try {
+        return decodeURIComponent(seg);
+      } catch {
+        return seg;
+      }
+    })
+    .join("/");
+}
+
+function isSkippedImageUrl(imageUrl) {
+  const u = decodeUrlPath(imageUrl).toLowerCase();
+  return u.includes("/templates/") || /\/groups\/[^/]+\/other\//i.test(u);
+}
+
+async function fetchAllItems(cols) {
+  const rows = [];
+  let from = 0;
+  const page = 1000;
+  while (true) {
+    const { data, error } = await supabase.from("items").select(cols).range(from, from + page - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < page) break;
+    from += page;
+  }
+  return rows;
 }
 
 async function main() {
@@ -174,23 +266,61 @@ async function main() {
   const raw = fs.readFileSync(CSV_PATH, "utf8");
   const rows = parseTSVOrCSV(raw);
   console.log("Filas CSV:", rows.length);
-console.log("Filas CSV:", rows.length);
+
+  const existingItems = await fetchAllItems("id,album_id,image_url");
+  const albumIdByDir = new Map();
+  const idByDecodedUrl = new Map();
+  for (const it of existingItems) {
+    const decoded = decodeUrlPath(it.image_url);
+    if (decoded) idByDecodedUrl.set(decoded.toLowerCase(), it.id);
+    const dir = decoded.replace(/\/[^/]+$/, "");
+    if (dir && it.album_id && !albumIdByDir.has(dir)) albumIdByDir.set(dir, it.album_id);
+  }
+  function albumIdFromSiblings(imageUrl) {
+    let dir = decodeUrlPath(imageUrl).replace(/\/[^/]+$/, "");
+    while (dir.includes("/mock-pcs/")) {
+      if (albumIdByDir.has(dir)) return albumIdByDir.get(dir);
+      const next = dir.replace(/\/[^/]+$/, "");
+      if (next === dir) break;
+      dir = next;
+    }
+    return 0;
+  }
+
   let processed = 0;
-const groupsTouched = new Set();
-const albumsTouched = new Set();
+  let remapped = 0;
+  let inserted = 0;
+  let updated = 0;
+  let skipped = 0;
+  const groupsTouched = new Set();
+  const albumsTouched = new Set();
   for (const r of rows) {
     const name = r.name || "";
     const image_url = r.image_url || "";
     const back_image_url = r.back_image_url || "";
-    const group_name = r.group_name || "";
-    const album_name = r.album_name || "";
     const version = r.version || "";
     const member = r.member || "";
 
     if (!image_url) continue;
+    if (isSkippedImageUrl(image_url)) {
+      skipped++;
+      continue;
+    }
 
-    const group_id = await ensureGroup(group_name);
-    const album_id = await ensureAlbum(album_name, group_id);
+    const group_id_num = Number(r.group_id);
+    const group_id = Number.isFinite(group_id_num) && group_id_num > 0
+      ? group_id_num
+      : await ensureGroup(r.group_name || "Stray Kids");
+
+    const album_id_num = Number(r.album_id);
+    let album_id = albumIdFromSiblings(image_url) || (Number.isFinite(album_id_num) && album_id_num > 0 ? album_id_num : 0);
+    if (!album_id) {
+      const rawAlbumSlug = r.album_name || albumSlugFromImageUrl(image_url) || "Unsorted";
+      let albumName;
+      try { albumName = decodeURIComponent(rawAlbumSlug); } catch { albumName = rawAlbumSlug; }
+      album_id = await ensureAlbum(albumName, group_id);
+    }
+
     if (group_id) groupsTouched.add(group_id);
     if (album_id) albumsTouched.add(album_id);
     const payload = {
@@ -202,17 +332,25 @@ const albumsTouched = new Set();
       version: version || null,
       member: member || null,
     };
-
-    await upsertItemByImageUrl(payload);
+    const action = await upsertItemByImageUrl(payload, idByDecodedUrl);
+    if (action === "remap") remapped++;
+    else if (action === "insert") {
+      inserted++;
+      const dir = decodeUrlPath(image_url).replace(/\/[^/]+$/, "");
+      if (dir && album_id && !albumIdByDir.has(dir)) albumIdByDir.set(dir, album_id);
+    } else updated++;
     processed++;
-    if (processed % 50 === 0) console.log("Procesados:", processed);
-    if (processed % 100 === 0) console.log("Procesados:", processed);
+    if (processed % 100 === 0) console.log("Procesados:", processed, `(update ${updated} / remap ${remapped} / insert ${inserted})`);
   }
 
   console.log("OK ✅ Import terminado");
   console.log(`- Items procesados: ${processed}`);
-console.log(`- Groups: ${groupsTouched.size}`);
-console.log(`- Albums mapeados: ${albumsTouched.size}`);
+  console.log(`- Update por URL exacta: ${updated}`);
+  console.log(`- Remap (misma carta, ruta nueva): ${remapped}`);
+  console.log(`- Insert nuevos: ${inserted}`);
+  console.log(`- Omitidos (templates/other): ${skipped}`);
+  console.log(`- Groups: ${groupsTouched.size}`);
+  console.log(`- Albums mapeados: ${albumsTouched.size}`);
 }
 
 main().catch((e) => {
