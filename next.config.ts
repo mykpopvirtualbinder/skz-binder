@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const SG_KO_OLD = "/mock-pcs/groups/:group/photocards/seasons-greetings/korean";
-const SG_KO = "/mock-pcs/groups/:group/others/seasons-greetings/korean";
+const SG_KO = "/mock-pcs/groups/:group/photocards/seasons-greetings/korean";
 
 function seasonsGreetingsMockPcRewrites() {
   const rules: { source: string; destination: string }[] = [];
@@ -79,69 +79,89 @@ function seasonsGreetingsMockPcRewrites() {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   async rewrites() {
-    return [
-      ...seasonsGreetingsMockPcRewrites(),
-      {
-        source:
-          "/mock-pcs/groups/:group/photocards/seasons-greetings/japanese/2026-force/photocard-set/:path*",
-        destination:
-          "/mock-pcs/groups/:group/others/seasons-greetings/japanese/2026-force/photocards/photo-card-set/:path*",
-      },
-      {
-        source:
-          "/mock-pcs/groups/:group/others/seasons-greetings/japanese/2026-force/photocards/photocard-set/:path*",
-        destination:
-          "/mock-pcs/groups/:group/others/seasons-greetings/japanese/2026-force/photocards/photo-card-set/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/otros/:path*",
-        destination: "/mock-pcs/groups/:group/others/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/eventos/:path*",
-        destination: "/mock-pcs/groups/:group/events/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/photocards/korean-albums/:album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/korean/:album/photocards/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/photocards/korean-album/:album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/korean/:album/photocards/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/japanese/:album/photocards/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/photocards/japanese-album/:album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/japanese/:album/photocards/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/photocards/taiwanese-albums/:album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/taiwanese/:album/photocards/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/inclusions/korean-albums/:album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/korean/:album/inclusions/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/inclusions/korean-album/:album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/korean/:album/inclusions/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/inclusions/japanese-albums/:album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/japanese/:album/inclusions/:path*",
-      },
-      {
-        source: "/mock-pcs/groups/:group/inclusions/japanese-album/:album/:path*",
-        destination: "/mock-pcs/groups/:group/albums/japanese/:album/inclusions/:path*",
-      },
-    ];
+    return {
+      afterFiles: [
+        ...seasonsGreetingsMockPcRewrites(),
+        {
+          source:
+            "/mock-pcs/groups/:group/photocards/seasons-greetings/japanese/2026-force/photocard-set/:path*",
+          destination:
+            "/mock-pcs/groups/:group/photocards/seasons-greetings/japanese/2026-force/photo-card-set/:path*",
+        },
+        {
+          source:
+            "/mock-pcs/groups/:group/others/seasons-greetings/japanese/2026-force/photocards/photocard-set/:path*",
+          destination:
+            "/mock-pcs/groups/:group/photocards/seasons-greetings/japanese/2026-force/photo-card-set/:path*",
+        },
+        // New local tree → production tree (file missing on Vercel)
+        {
+          source: "/mock-pcs/groups/:group/albums/korean/:album/photocards/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/korean-album/:album/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/albums/japanese/:album/photocards/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/albums/taiwanese/:album/photocards/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/taiwanese-albums/:album/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/events/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/events/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/eventos/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/events/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/others/seasons-greetings/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/seasons-greetings/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/otros/seasons-greetings/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/seasons-greetings/:path*",
+        },
+        // Production tree → local tree (file missing on disk after reorg)
+        {
+          source: "/mock-pcs/groups/:group/photocards/korean-album/:album/:path*",
+          destination: "/mock-pcs/groups/:group/albums/korean/:album/photocards/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/photocards/korean-albums/:album/:path*",
+          destination: "/mock-pcs/groups/:group/albums/korean/:album/photocards/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/:path*",
+          destination: "/mock-pcs/groups/:group/albums/japanese/:album/photocards/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/photocards/japanese-album/:album/:path*",
+          destination: "/mock-pcs/groups/:group/albums/japanese/:album/photocards/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/photocards/taiwanese-albums/:album/:path*",
+          destination: "/mock-pcs/groups/:group/albums/taiwanese/:album/photocards/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/photocards/events/:path*",
+          destination: "/mock-pcs/groups/:group/events/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/photocards/seasons-greetings/:path*",
+          destination: "/mock-pcs/groups/:group/others/seasons-greetings/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/album/:path*",
+          destination: "/mock-pcs/groups/:group/albums/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/otros/:path*",
+          destination: "/mock-pcs/groups/:group/others/:path*",
+        },
+      ],
+    };
   },
 };
 

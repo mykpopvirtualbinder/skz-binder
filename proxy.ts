@@ -2,10 +2,18 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 function remapLegacyAlbumTreePath(pathname: string): string | null {
+  // Production files live under /photocards and /inclusions. Never move those
+  // to /albums or the deployed site 404s.
+  if (/\/groups\/[^/]+\/(photocards|inclusions)\//i.test(pathname)) {
+    const collapsed = pathname.replace(/\/events\/events\//gi, "/events/");
+    return collapsed !== pathname ? collapsed : null;
+  }
+
   let next = pathname
+    .replace(/\/events\/events\//gi, "/events/")
     .replace(/^(.*\/groups\/[^/]+)\/album\//i, "$1/albums/")
     .replace(/^(.*\/groups\/[^/]+)\/otros\//i, "$1/others/")
-    .replace(/^(.*\/groups\/[^/]+)\/eventos\//i, "$1/events/");
+    .replace(/^(.*\/groups\/[^/]+)\/eventos\//i, "$1/photocards/events/");
 
   const albumPc = next.match(
     /^(.*\/groups\/[^/]+)\/photocards\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,

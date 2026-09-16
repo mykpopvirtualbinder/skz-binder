@@ -27,8 +27,7 @@ export function encodeMockPcPathUrl(url: string): string {
 
 // --- Resolución de URLs mock-pcs (Season's Greetings, POB por año, etc.) ---
 
-const MAX_CANDIDATES = 14;
-const ALT_EXTS = ["jpg", "png", "JPG", "PNG", "JPEG", "jpeg"] as const;
+const MAX_CANDIDATES = 12;
 
 function memberTailFromStem(stem: string): string | null {
   const m = stem.match(/-(?:front|back)-(.+)$/i);
@@ -146,9 +145,8 @@ function extensionVariants(stem: string, extLower: string, rawUrl: string): stri
   push(extRaw);
   push(extLower);
   if (extRaw && extRaw.toLowerCase() !== extRaw.toUpperCase()) push(extRaw.toUpperCase());
-  for (const ext of ALT_EXTS) {
-    push(ext);
-  }
+  if (extLower !== "png") push("png");
+  if (extLower !== "jpg" && extLower !== "jpeg") push("jpg");
   return out;
 }
 
@@ -233,37 +231,126 @@ function applyYearAwarePobFolderAliases(v: string, push: (s: string) => void): v
   }
 }
 
+function regionAlbumFolders(region: string): string[] {
+  const r = region.toLowerCase();
+  return [`${r}-album`, `${r}-albums`];
+}
+
+/** Collapse `/events/events/` from double eventos→events rewrites. */
+function collapseDuplicateEventSegments(pathname: string): string {
+  return String(pathname || "").replace(/\/events\/events\//gi, "/events/");
+}
+
+/**
+ * Production still serves `photocards/korean-album/…`.
+ * Local disk after the reorg uses `albums/korean/…/photocards/…`.
+ * Always offer both so images work on the deployed site and on localhost.
+ */
+function layoutAliases(pathname: string): string[] {
+  const out: string[] = [];
+  const push = (s: string) => {
+    const t = collapseDuplicateEventSegments(s);
+    if (t && !out.includes(t)) out.push(t);
+  };
+  const p = collapseDuplicateEventSegments(pathname);
+  if (!p) return out;
+  push(p);
+
+  const albumsPc = p.match(
+    /^(.*\/groups\/[^/]+)\/albums\/(korean|japanese|taiwanese)\/([^/]+)\/photocards\/(.*)$/i,
+  );
+  if (albumsPc) {
+    for (const folder of regionAlbumFolders(albumsPc[2])) {
+      push(`${albumsPc[1]}/photocards/${folder}/${albumsPc[3]}/${albumsPc[4]}`);
+    }
+  }
+
+  const pcAlbum = p.match(
+    /^(.*\/groups\/[^/]+)\/photocards\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,
+  );
+  if (pcAlbum) {
+    push(`${pcAlbum[1]}/albums/${pcAlbum[2].toLowerCase()}/${pcAlbum[3]}/photocards/${pcAlbum[4]}`);
+  }
+
+  const albumsInc = p.match(
+    /^(.*\/groups\/[^/]+)\/albums\/(korean|japanese|taiwanese)\/([^/]+)\/inclusions\/(.*)$/i,
+  );
+  if (albumsInc) {
+    for (const folder of regionAlbumFolders(albumsInc[2])) {
+      push(`${albumsInc[1]}/inclusions/${folder}/${albumsInc[3]}/${albumsInc[4]}`);
+    }
+  }
+
+  const incAlbum = p.match(
+    /^(.*\/groups\/[^/]+)\/inclusions\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,
+  );
+  if (incAlbum) {
+    push(`${incAlbum[1]}/albums/${incAlbum[2].toLowerCase()}/${incAlbum[3]}/inclusions/${incAlbum[4]}`);
+  }
+
+  const pcEvents = p.match(/^(.*\/groups\/[^/]+)\/photocards\/events\/(.*)$/i);
+  if (pcEvents) {
+    push(`${pcEvents[1]}/events/${pcEvents[2]}`);
+    push(`${pcEvents[1]}/eventos/${pcEvents[2]}`);
+  }
+
+  const groupEvents = p.match(/^(.*\/groups\/[^/]+)\/events\/(.*)$/i);
+  if (groupEvents && !/\/photocards\/events\//i.test(p)) {
+    const rest = groupEvents[2].replace(/^events\//i, "");
+    push(`${groupEvents[1]}/photocards/events/${rest}`);
+    push(`${groupEvents[1]}/eventos/${rest}`);
+  }
+
+  const eventos = p.match(/^(.*\/groups\/[^/]+)\/eventos\/(.*)$/i);
+  if (eventos) {
+    const rest = eventos[2].replace(/^events\//i, "");
+    push(`${eventos[1]}/photocards/events/${rest}`);
+    push(`${eventos[1]}/events/${rest}`);
+  }
+
+  const pcSg = p.match(/^(.*\/groups\/[^/]+)\/photocards\/seasons-greetings\/(.*)$/i);
+  if (pcSg) {
+    push(`${pcSg[1]}/others/seasons-greetings/${pcSg[2]}`);
+    push(`${pcSg[1]}/otros/seasons-greetings/${pcSg[2]}`);
+  }
+
+  const othersSg = p.match(/^(.*\/groups\/[^/]+)\/others\/seasons-greetings\/(.*)$/i);
+  if (othersSg) {
+    push(`${othersSg[1]}/photocards/seasons-greetings/${othersSg[2]}`);
+  }
+
+  const otrosSg = p.match(/^(.*\/groups\/[^/]+)\/otros\/seasons-greetings\/(.*)$/i);
+  if (otrosSg) {
+    push(`${otrosSg[1]}/photocards/seasons-greetings/${otrosSg[2]}`);
+    push(`${otrosSg[1]}/others/seasons-greetings/${otrosSg[2]}`);
+  }
+
+  const groupAlbum = p.match(/^(.*\/groups\/[^/]+)\/album\/(.*)$/i);
+  if (groupAlbum && !/\/albums\//i.test(p)) {
+    push(`${groupAlbum[1]}/albums/${groupAlbum[2]}`);
+  }
+
+  return out;
+}
+
 function remapLegacyMockPcDiskPath(pathname: string): string {
-  let p = String(pathname || "");
+  let p = collapseDuplicateEventSegments(pathname);
   if (!p) return p;
 
-  // Supabase still stores the pre-reorg roots (`/album/`, `/otros/`, `/eventos/`).
   // Only rewrite the segment right after the group so nested folders like
   // `albums/japanese/circus/album/a/` stay intact.
+  // Do NOT move `photocards/korean-album/…` — that is the tree deployed on production.
   p = p
     .replace(/^(.*\/groups\/[^/]+)\/album\//i, "$1/albums/")
     .replace(/^(.*\/groups\/[^/]+)\/otros\//i, "$1/others/")
-    .replace(/^(.*\/groups\/[^/]+)\/eventos\//i, "$1/events/");
-
-  const albumPc = p.match(
-    /^(.*\/groups\/[^/]+)\/photocards\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,
-  );
-  if (albumPc) {
-    return `${albumPc[1]}/albums/${albumPc[2].toLowerCase()}/${albumPc[3]}/photocards/${albumPc[4]}`;
-  }
-
-  const albumInc = p.match(
-    /^(.*\/groups\/[^/]+)\/inclusions\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,
-  );
-  if (albumInc) {
-    return `${albumInc[1]}/albums/${albumInc[2].toLowerCase()}/${albumInc[3]}/inclusions/${albumInc[4]}`;
-  }
+    .replace(/^(.*\/groups\/[^/]+)\/eventos\//i, "$1/photocards/events/")
+    .replace(/^(.*\/groups\/[^/]+)\/events\/events\//i, "$1/photocards/events/");
 
   const sg = p.match(
     /^(.*\/groups\/[^/]+)\/photocards\/seasons-greetings\/(korean|japanese|taiwanese)\/([^/]+)\/(.*)$/i,
   );
-  if (sg && !/\/others\/seasons-greetings\//i.test(p)) {
-    p = `${sg[1]}/others/seasons-greetings/${sg[2]}/${sg[3]}/${seasonsGreetingsRestSuffix(sg[4])}`;
+  if (sg) {
+    p = `${sg[1]}/photocards/seasons-greetings/${sg[2]}/${sg[3]}/${seasonsGreetingsRestSuffix(sg[4])}`;
   }
 
   let decoded = p;
@@ -300,10 +387,15 @@ function pathVariants(v: string): string[] {
     if (s && !out.includes(s)) out.push(s);
   };
 
-  const remapped = remapLegacyMockPcDiskPath(v);
-  if (remapped !== v) push(remapped);
+  const cleaned = collapseDuplicateEventSegments(v);
+  push(cleaned);
+  for (const alias of layoutAliases(cleaned)) push(alias);
 
-  const seeds = remapped !== v ? [remapped, v] : [v];
+  const remapped = remapLegacyMockPcDiskPath(cleaned);
+  if (remapped !== cleaned) push(remapped);
+  for (const alias of layoutAliases(remapped)) push(alias);
+
+  const seeds = remapped !== cleaned ? [cleaned, remapped] : [cleaned];
   for (const seed of seeds) {
     const unitFixed = applyPobPolaroidsUnitFolder(seed);
     if (unitFixed) push(unitFixed);
@@ -322,28 +414,26 @@ function pathVariants(v: string): string[] {
     ["/pob-polaroid-unit/", "/pob-polaroids-unit/"],
   ];
 
-  for (const seed of [...out, v]) {
+  for (const seed of [...out, cleaned]) {
     for (const [from, to] of aliasPairs) {
       if (seed.includes(from)) push(seed.replace(from, to));
     }
   }
 
-  applyYearAwarePobFolderAliases(v, push);
+  applyYearAwarePobFolderAliases(cleaned, push);
   for (const candidate of [...out]) {
     applyYearAwarePobFolderAliases(candidate, push);
   }
 
-  push(v);
-
-  if (v.includes("/korean-albums/")) push(v.replace("/korean-albums/", "/korean-album/"));
-  if (v.includes("/korean-album/")) push(v.replace("/korean-album/", "/korean-albums/"));
-  if (v.includes("/japanese-albums/")) push(v.replace("/japanese-albums/", "/japanese-album/"));
-  if (v.includes("/japanese-album/")) push(v.replace("/japanese-album/", "/japanese-albums/"));
-  if (/\/photocards\/photocard-set\//i.test(v)) {
-    push(v.replace(/\/photocards\/photocard-set\//i, "/photocards/photo-card-set/"));
+  if (cleaned.includes("/korean-albums/")) push(cleaned.replace("/korean-albums/", "/korean-album/"));
+  if (cleaned.includes("/korean-album/")) push(cleaned.replace("/korean-album/", "/korean-albums/"));
+  if (cleaned.includes("/japanese-albums/")) push(cleaned.replace("/japanese-albums/", "/japanese-album/"));
+  if (cleaned.includes("/japanese-album/")) push(cleaned.replace("/japanese-album/", "/japanese-albums/"));
+  if (/\/photocards\/photocard-set\//i.test(cleaned)) {
+    push(cleaned.replace(/\/photocards\/photocard-set\//i, "/photocards/photo-card-set/"));
   }
-  if (/\/photocards\/photo-card-set\//i.test(v)) {
-    push(v.replace(/\/photocards\/photo-card-set\//i, "/photocards/photocard-set/"));
+  if (/\/photocards\/photo-card-set\//i.test(cleaned)) {
+    push(cleaned.replace(/\/photocards\/photo-card-set\//i, "/photocards/photocard-set/"));
   }
 
   for (const candidate of [...out]) {
@@ -408,6 +498,8 @@ function pathContext(url: string): string {
   const variants = pathVariants(url);
   return (
     variants.find((p) => p.includes("/pob-polaroids-unit/")) ??
+    variants.find((p) => /\/groups\/[^/]+\/photocards\//i.test(p) && !/\/events\/events\//i.test(p)) ??
+    variants.find((p) => !/\/events\/events\//i.test(p)) ??
     applyPobPolaroidsUnitFolder(url) ??
     variants[0] ??
     url
@@ -482,7 +574,13 @@ export function buildMockPcImageCandidates(
     return out;
   }
 
-  const base = encodeMockPcPathUrl(decodeMockPcInput(raw));
+  const decoded = decodeMockPcInput(raw);
+  const base = encodeMockPcPathUrl(decoded);
+  push(base);
+  for (const alias of layoutAliases(decoded)) {
+    push(encodeMockPcPathUrl(alias));
+  }
+
   const resolved = normalizeMockPcUrl(base);
   const canonical = normalizeStemAndTail(base, raw);
 
@@ -500,8 +598,8 @@ export function buildMockPcImageCandidates(
     }
   };
 
-  pushStemVariants(canonical);
-  if (resolved !== canonical) pushStemVariants(resolved);
+  if (canonical !== base) pushStemVariants(canonical);
+  if (resolved !== canonical && resolved !== base) pushStemVariants(resolved);
 
   const unitFromBase = applyPobPolaroidsUnitFolder(base);
   if (unitFromBase && unitFromBase !== canonical) pushStemVariants(unitFromBase);
