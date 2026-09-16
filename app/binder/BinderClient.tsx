@@ -25,6 +25,7 @@ import { marketRefUsdStorageKey } from "@/lib/market-reference-keys";
 import { getLayoutUnlockCost, unlockKeyForLayout } from "@/lib/theme-unlocks";
 import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
 import { PC_IMAGE_FILENAME_EXT_RE } from "@/lib/pc-image-extensions";
+import { resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
@@ -208,6 +209,117 @@ type PickerItem = {
   member_name?: string | null;
   member?: string | null;
 };
+
+const SUPABASE_PAGE = 1000;
+const IN_QUERY_CHUNK = 80;
+const PICKER_ITEM_COLS =
+  "id, name, image_url, back_image_url, group_id, album_id, version_id, version, member_id, member";
+
+type StatusRow = { item_id: unknown; status: unknown; qty: unknown };
+
+function applyStatusRow(map: Record<number, StatusCounts>, row: StatusRow) {
+  const itemId = Number(row.item_id);
+  if (!Number.isFinite(itemId)) return;
+  const st = String(row.status ?? "").trim().toLowerCase();
+  const isWish = st === "wish" || st === "wishlist";
+  const qtyRaw = row.qty == null ? (isWish ? 1 : 0) : Number(row.qty);
+  const qty = Number.isFinite(qtyRaw) ? Math.max(0, Math.floor(qtyRaw)) : 0;
+  const c = map[itemId] ?? emptyCounts();
+  if (st === "have") c.have += qty;
+  else if (st === "wtt") c.wtt += qty;
+  else if (st === "wts") c.wts += qty;
+  else if (st === "on_its_way" || st === "otw") c.on_its_way += qty;
+  else if (isWish) c.wish += qty;
+  map[itemId] = c;
+}
+
+function itemHasPickerStock(c: StatusCounts | undefined) {
+  const counts = c ?? emptyCounts();
+  return (
+    Number(counts.have) + Number(counts.wtt) + Number(counts.wts) + Number(counts.on_its_way) > 0 ||
+    Number(counts.wish) > 0
+  );
+}
+
+function withResolvedPcImages<T extends { image_url?: string | null; back_image_url?: string | null }>(row: T): T {
+  const front = typeof row.image_url === "string" ? resolveMockPcImageUrl(row.image_url) : row.image_url;
+  const back =
+    typeof row.back_image_url === "string" ? resolveMockPcImageUrl(row.back_image_url) : row.back_image_url;
+  return { ...row, image_url: front || null, back_image_url: back || null };
+}
+
+/** PostgREST caps a single select at ~1000 rows. */
+async function fetchAllUserItemStatuses(userId: string): Promise<StatusRow[]> {
+  const all: StatusRow[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("user_item_statuses")
+      .select("item_id, status, qty")
+      .eq("user_id", userId)
+      .order("item_id", { ascending: true })
+      .range(from, from + SUPABASE_PAGE - 1);
+    if (error) {
+      const fallback = await supabase
+        .from("user_item_statuses")
+        .select("item_id, status, qty")
+        .eq("user_id", userId);
+      if (fallback.error) throw new Error(fallback.error.message);
+      return (fallback.data ?? []) as StatusRow[];
+    }
+    const batch = (data ?? []) as StatusRow[];
+    all.push(...batch);
+    if (batch.length < SUPABASE_PAGE) break;
+    from += SUPABASE_PAGE;
+  }
+  return all;
+}
+
+async function fetchPickerItemsByIds(ids: number[]): Promise<PickerItem[]> {
+  const uniq = Array.from(new Set(ids.map((x) => Number(x)))).filter((x) => Number.isFinite(x));
+  const all: PickerItem[] = [];
+  const seen = new Set<number>();
+  for (let i = 0; i < uniq.length; i += IN_QUERY_CHUNK) {
+    const chunk = uniq.slice(i, i + IN_QUERY_CHUNK);
+    const { data, error } = await supabase
+      .from("items")
+      .select(PICKER_ITEM_COLS)
+      .in("id", chunk)
+      .order("id", { ascending: true });
+    if (error) throw new Error(error.message);
+    for (const row of (data ?? []) as PickerItem[]) {
+      const id = Number(row.id);
+      if (!Number.isFinite(id) || seen.has(id)) continue;
+      seen.add(id);
+      all.push(withResolvedPcImages({ ...row, id }));
+    }
+  }
+  if (seen.size >= uniq.length) {
+    all.sort((a, b) => Number(a.id) - Number(b.id));
+    return all;
+  }
+
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("items")
+      .select(PICKER_ITEM_COLS)
+      .order("id", { ascending: true })
+      .range(from, from + SUPABASE_PAGE - 1);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as PickerItem[];
+    for (const row of batch) {
+      const id = Number(row.id);
+      if (!uniq.includes(id) || seen.has(id)) continue;
+      seen.add(id);
+      all.push(withResolvedPcImages({ ...row, id }));
+    }
+    if (batch.length < SUPABASE_PAGE) break;
+    from += SUPABASE_PAGE;
+  }
+  all.sort((a, b) => Number(a.id) - Number(b.id));
+  return all;
+}
 
 type WttCarouselItem = {
   id: number;
@@ -478,6 +590,7 @@ const [items, setItems] = useState<PickerItem[]>([]);
 
  const [pickerReloadTick, setPickerReloadTick] = useState(0);
  const [q, setQ] = useState("");
+ const [localInv, setLocalInv] = useState<Record<number, StatusCounts>>({});
  
   const [statusFilter, setStatusFilter] = useState<"" | StatusKey>("");
   const [group, setGroupId] = useState<number | "">("");
@@ -497,21 +610,14 @@ useEffect(() => {
   setErr(null);
 
   try {
-   const invRes = await supabase
-  .from("user_item_statuses")
-  .select("item_id")
-  .eq("user_id", userId);
-
-const ids = Array.from(new Set((invRes.data ?? []).map(r => r.item_id)));
-
-// Localiza esto en la función run() del ItemPicker
-// Elimina la parte que dice .in("id", ids)
-const itemsRes = await supabase
-  .from("items")
-  .select("id, name, image_url, back_image_url, group_id, album_id, version_id, version, member_id, member")
-  .order("id", { ascending: true });
-
-const rawItems = (itemsRes.data ?? []) as PickerItem[];
+   const statusRows = await fetchAllUserItemStatuses(userId);
+   const invMap: Record<number, StatusCounts> = {};
+   for (const row of statusRows) applyStatusRow(invMap, row);
+   const ids = Object.keys(invMap)
+     .map((id) => Number(id))
+     .filter((id) => Number.isFinite(id) && itemHasPickerStock(invMap[id]));
+   if (!cancelled) setLocalInv(invMap);
+   const rawItems = ids.length > 0 ? await fetchPickerItemsByIds(ids) : [];
 
 
 // ⚠️ proteger carga de inventario
@@ -759,7 +865,7 @@ const albumOptions = useMemo(() => {
     console.log("Picker Debug Total items:", items.length, "User Biases:", userBiases);
 
     return items.filter((it) => {
-      const counts = invByItem[it.id] ?? emptyCounts();
+      const counts = invByItem[it.id] ?? localInv[it.id] ?? emptyCounts();
 
       // 1. REGLA DE ORO: Si ya está en el binder, no la mostramos en el picker
       const inBinder = !!placedByItem[it.id];
@@ -827,6 +933,7 @@ const albumOptions = useMemo(() => {
     onlyBiases,
     userBiases,
     biasSlugById,
+    localInv,
   ]);
  const pickBtnStyle: CSSProperties = {
  marginTop: 14,
@@ -1216,7 +1323,7 @@ return (
   {filtered.map((it) => {
     // ... resto de tu lógica de stock y estados [cite: 429, 436]
   // --- 1. LÓGICA DE STOCK Y ESTADOS ---
-  const counts = invByItem[it.id] ?? emptyCounts();
+  const counts = invByItem[it.id] ?? localInv[it.id] ?? emptyCounts();
   const rawHave = Number(counts.have ?? 0);
   const rawWtt = Number(counts.wtt ?? 0);
   const rawWts = Number(counts.wts ?? 0);
@@ -3639,7 +3746,7 @@ const loadPageThumbs = useCallback(async () => {
           if (st === "have") c.have += qty;
           else if (st === "wtt") c.wtt += qty;
           else if (st === "wts") c.wts += qty;
-          else if (st === "on_its_way") c.on_its_way += qty;
+          else if (st === "on_its_way" || st === "otw") c.on_its_way += qty;
           else if (isWish) c.wish += Math.max(1, qty);
         }
       }
@@ -3655,7 +3762,9 @@ for (const r of slotRows) {
   if (!next[pid]) next[pid] = {};
 
   const itemData = itemsData.find(i => Number(i.id) === Number(r.item_id));
-  let url = r.is_custom ? (r.custom_image_url ?? "") : (itemData?.image_url ?? "");
+  let url = r.is_custom
+    ? (r.custom_image_url ?? "")
+    : resolveMockPcImageUrl(itemData?.image_url ?? "") || itemData?.image_url || "";
 
   const counts = countsByItem[Number(r.item_id)] ?? emptyCounts();
   const stockTotal = Number(counts.have) + Number(counts.wtt) + Number(counts.wts) + Number(counts.on_its_way);
@@ -3664,7 +3773,9 @@ for (const r of slotRows) {
 next[pid][sid] = {
   url: url || "/mock-pcs/groups/not-available.png",
   // 👇 AÑADE ESTA LÍNEA PARA GUARDAR LA TRASERA
-  back_image_url: r.is_custom ? (r.custom_back_image_url ?? null) : (itemData?.back_image_url ?? null),
+  back_image_url: r.is_custom
+    ? (r.custom_back_image_url ?? null)
+    : (itemData?.back_image_url ? resolveMockPcImageUrl(itemData.back_image_url) : null),
   itemId: r.item_id,
   isCustom: !!r.is_custom,
   // ... resto igual
@@ -3731,7 +3842,7 @@ useEffect(() => {
 const loadInvForIds = useCallback(
  async (ids: number[]) => {
  if (!userId) return;
- const uniq = Array.from(new Set(ids)).filter((x) => Number.isFinite(x));
+ const uniq = Array.from(new Set(ids.map((x) => Number(x)))).filter((x) => Number.isFinite(x));
  if (uniq.length === 0) return;
  const chunkSize = 200;
 const allRows: any[] = [];
@@ -3774,7 +3885,7 @@ for (const row of rows) {
   if (st === "have") c.have += qty;
   if (st === "wtt") c.wtt += qty;
   if (st === "wts") c.wts += qty;
-  if (st === "on_its_way") c.on_its_way += qty;
+  if (st === "on_its_way" || st === "otw") c.on_its_way += qty;
   if (isWish) c.wish += qty;
 }
 
@@ -5789,8 +5900,13 @@ if (pageError || !pageData) {
   return; 
   } 
   const rows = (slotsRes.data ?? []) as PageSlotRow[]; 
-  const itemIds = rows.map((r) => r.item_id).filter((x): x is 
- number => typeof x === "number"); 
+  const itemIds = Array.from(
+    new Set(
+      rows
+        .map((r) => Number(r.item_id))
+        .filter((x) => Number.isFinite(x)),
+    ),
+  );
   const itemsById = new Map<number, SlotItem>();
   if (itemIds.length > 0) {
     const itemsRes = await supabase
@@ -5800,11 +5916,13 @@ if (pageError || !pageData) {
 
 if (!itemsRes.error) {
   for (const it of (itemsRes.data ?? []) as DbItemRow[]) {
-    itemsById.set(it.id, {
-      id: it.id,
+    const id = Number(it.id);
+    if (!Number.isFinite(id)) continue;
+    itemsById.set(id, {
+      id,
       name: it.name,
-      image_url: it.image_url ?? null,
-      back_image_url: it.back_image_url ?? null,
+      image_url: it.image_url ? resolveMockPcImageUrl(it.image_url) : null,
+      back_image_url: it.back_image_url ? resolveMockPcImageUrl(it.back_image_url) : null,
       member: it.member ?? null,
       member_id: it.member_id ?? null,
     });
@@ -5824,7 +5942,7 @@ if (!itemsRes.error) {
     flipMap[si] = Boolean(r.flip_h ?? false);
 
     if (r.item_id) { 
-    const it = itemsById.get(r.item_id); 
+    const it = itemsById.get(Number(r.item_id)); 
     map[si] = it 
     ? ({ ...it, member_id: (r as any).member_id, is_wanted: (r as any).is_wanted } as any) // 👈 AÑADIDO
     : ({ id: r.item_id, name: null, image_url: null, back_image_url: null, member_id: (r as any).member_id, is_wanted: (r as any).is_wanted } as any); // 👈 AÑADIDO
@@ -7685,11 +7803,11 @@ const badge = assigned ? dominantBadge(counts) : { key: null, label: "", bg: "va
 
 const frontUrl = assigned?.is_custom
   ? (assigned.custom_image_url ?? undefined) 
-  : (assigned?.image_url ?? undefined);
+  : (assigned?.image_url ? resolveMockPcImageUrl(assigned.image_url) : undefined);
 
 const backUrl = assigned?.is_custom
   ? ((assigned as any).custom_back_image_url ?? DEFAULT_BACK_URL)
-  : (assigned?.back_image_url ?? DEFAULT_BACK_URL);
+  : (assigned?.back_image_url ? resolveMockPcImageUrl(assigned.back_image_url) : DEFAULT_BACK_URL);
 
 
     
@@ -9253,13 +9371,19 @@ const becameWts = prevWts === 0 && nextWts > 0;
   // 👇 MAGIA 3: Leemos directo de la memoria profunda para evitar cruces de datos
               const wttIds = readWttOffer(activeItemId).ids ?? [];
   
-  extraData = { market_comment: wttComment, origin_country: countryVal, wtt_ids: wttIds };
+      extraData = { market_comment: wttComment, origin_country: countryVal, wtt_ids: wttIds };
   }
       rows.push({ ...base, status, qty, ...extraData });
     } else {
       toDelete.push(status);
     }
   };
+
+    pushRow("have", next.have);
+    pushRow("wtt", next.wtt);
+    pushRow("wts", next.wts);
+    pushRow("on_its_way", next.on_its_way);
+    pushRow("wishlist", next.wish);
 
     if (rows.length) {
       const up = await supabase
