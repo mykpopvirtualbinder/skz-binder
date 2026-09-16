@@ -748,6 +748,108 @@ export function resolveMockPcImageUrl(src: string | null | undefined): string {
   return normalizeMockPcUrl(raw);
 }
 
+const DEFAULT_PC_BACK = "/mock-pcs/groups/default-back.png";
+
+/** True when the filename is a PC back (`…-back-ot8`, `…-back-bang-chan`), not a front. */
+export function isMockPcBackPath(url: string | null | undefined): boolean {
+  const raw = String(url ?? "").split("?")[0];
+  const file = (raw.split("/").pop() || "").trim();
+  if (!file) return false;
+  let decoded = file;
+  try {
+    decoded = decodeURIComponent(file);
+  } catch {
+    /* keep */
+  }
+  const base = decoded.replace(/\.[^.]+$/, "").toLowerCase();
+  if (/-front-/.test(base)) return false;
+  return /(?:^|[-_ ])back(?:[-_ ]|$)/.test(base);
+}
+
+function mockPcDir(url: string): string {
+  const pathOnly = String(url || "").split("?")[0];
+  const slash = pathOnly.lastIndexOf("/");
+  return slash >= 0 ? pathOnly.slice(0, slash + 1) : "";
+}
+
+/**
+ * Backs live next to fronts in the same folder:
+ * - `001-back-bang-chan` → that member
+ * - `009-back-ot8` / `back-ot8` → common back for the folder
+ */
+export function buildMockPcBackCandidates(
+  frontSrc: string | null | undefined,
+  storedBack?: string | null,
+  fallbackSrc: string = DEFAULT_PC_BACK,
+): string[] {
+  const out: string[] = [];
+  const push = (v: string) => {
+    const t = String(v || "").trim();
+    if (!t || out.includes(t) || out.length >= MAX_CANDIDATES) return;
+    out.push(t);
+  };
+  const pushTree = (url: string) => {
+    if (!url || !/^\/mock-pcs\//i.test(url)) {
+      push(url);
+      return;
+    }
+    push(encodeMockPcPathUrl(url));
+    push(resolveMockPcImageUrl(url));
+  };
+  const pushAliased = (url: string) => {
+    pushTree(url);
+    if (!url || !/^\/mock-pcs\//i.test(url)) return;
+    for (const alias of layoutAliases(decodeMockPcInput(url)).slice(0, 3)) {
+      push(encodeMockPcPathUrl(alias));
+    }
+  };
+
+  const stored = String(storedBack ?? "").trim();
+  if (stored && !/default-back/i.test(stored) && isMockPcBackPath(stored)) {
+    pushAliased(stored);
+  }
+
+  const front = String(frontSrc ?? "").trim();
+  if (front && /^\/mock-pcs\//i.test(front)) {
+    const resolvedFront = resolveMockPcImageUrl(front);
+    const se = splitPcImageStemExt(resolvedFront);
+    if (se && /-front-/i.test(se.stem)) {
+      const backStem = se.stem.replace(/-front-/i, "-back-");
+      const exts = [...new Set([se.extLower, "png", "jpg", "JPG"])];
+      exts.forEach((ext, i) => {
+        const next = `${backStem}.${ext}`;
+        if (i === 0) pushAliased(next);
+        else pushTree(next);
+      });
+    }
+    const dir = mockPcDir(resolvedFront);
+    const ot8Stems = ["009-back-ot8", "010-back-ot8", "back-ot8", "back ot8", "008-back-ot8", "016-back-ot8"];
+    let firstOt8 = true;
+    for (const stem of ot8Stems) {
+      for (const ext of ["png", "jpg"]) {
+        const next = `${dir}${stem}.${ext}`;
+        if (firstOt8) {
+          pushAliased(next);
+          firstOt8 = false;
+        } else {
+          pushTree(next);
+        }
+      }
+    }
+  }
+
+  if (fallbackSrc) push(encodeMockPcPathUrl(fallbackSrc) || fallbackSrc);
+  return out;
+}
+
+export function resolveMockPcBackUrl(
+  frontSrc: string | null | undefined,
+  storedBack?: string | null,
+): string {
+  const cands = buildMockPcBackCandidates(frontSrc, storedBack, "");
+  return cands[0] || String(storedBack ?? "").trim() || DEFAULT_PC_BACK;
+}
+
 export function buildMockPcImageCandidates(
   src: string | null | undefined,
   fallbackSrc?: string,

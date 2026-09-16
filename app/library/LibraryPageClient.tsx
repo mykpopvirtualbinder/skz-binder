@@ -4,7 +4,7 @@ import Footer from "../components/footer";
 import Header from "../components/header";
 import AdRailLayout from "../components/AdRailLayout";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
-import { resolveMockPcImageUrl } from "@/lib/mock-pc-url";
+import { isMockPcBackPath, resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 
 import { useGlobal } from "../context/GlobalContext";
 import {
@@ -32,6 +32,7 @@ import {
   folderIsLibraryInclusionsCollection,
   folderIsLibraryPhotocardsCollection,
   folderMatchesLibraryGroup,
+  itemIsMerchNotPhotocard,
   folderVersionMatches,
   mergeVersionLabels,
   type FolderTreeAlbum,
@@ -855,6 +856,8 @@ function LibraryItemCard({
           <ImageWithExtensionFallback
             key={`lib-card-b-${item.id}-${item.back_image_url ?? DEFAULT_BACK_URL}`}
             src={item.back_image_url ?? DEFAULT_BACK_URL}
+            frontSrcForBack={item.image_url ?? undefined}
+            fallbackSrc={DEFAULT_BACK_URL}
             alt=""
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
@@ -1366,6 +1369,8 @@ function ItemModal({
                     <ImageWithExtensionFallback
                       key={`lib-modal-b-${item.id}-${item.back_image_url ?? DEFAULT_BACK_URL}`}
                       src={item.back_image_url ?? DEFAULT_BACK_URL}
+                      frontSrcForBack={item.image_url ?? undefined}
+                      fallbackSrc={DEFAULT_BACK_URL}
                       alt=""
                       style={{ width: "100%", height: "100%", objectFit: "cover", background: "var(--bg-card)", transform: `rotate(${rot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }}
                     />
@@ -2076,13 +2081,16 @@ const loadAll = useCallback(async () => {
     const frontRaw = String(r.image_url ?? "").toLowerCase();
     const isInclusion = typeRaw.startsWith("inclusions") || frontRaw.includes("/inclusions/");
     if (catalog === "photocards" && isInclusion) continue;
+    if (catalog === "photocards" && itemIsMerchNotPhotocard(r)) continue;
     if (catalog === "inclusions" && !isInclusion) continue;
+    if (isMockPcBackPath(r.image_url)) continue;
     const front =
       typeof r.image_url === "string" && r.image_url.trim()
         ? resolveMockPcImageUrl(r.image_url.trim())
         : null;
-    const back =
-      typeof r.back_image_url === "string" && r.back_image_url.trim()
+    const back = front
+      ? resolveMockPcBackUrl(front, r.back_image_url)
+      : typeof r.back_image_url === "string" && r.back_image_url.trim()
         ? resolveMockPcImageUrl(r.back_image_url.trim())
         : null;
     itemsData.push({

@@ -338,6 +338,27 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
 
     const { data: catalog } = await supabase.from("merch_items").select("*");
     let merged = catalog ?? [];
+    if (variant === "merch") {
+      try {
+        const productsRes = await fetch("/api/merch-products-catalog", { cache: "no-store" });
+        if (productsRes.ok) {
+          const extra = (await productsRes.json()) as MerchItem[];
+          if (Array.isArray(extra) && extra.length > 0) {
+            const seen = new Set(merged.map((r) => r.id));
+            const seenUrl = new Set(merged.map((r) => String(r.image_url || "")));
+            for (const row of extra) {
+              if (!row?.id || seen.has(row.id)) continue;
+              if (row.image_url && seenUrl.has(row.image_url)) continue;
+              merged.push(row);
+              seen.add(row.id);
+              if (row.image_url) seenUrl.add(row.image_url);
+            }
+          }
+        }
+      } catch {
+        /* offline o API no disponible */
+      }
+    }
     if (variant === "albums") {
       try {
         const [albumsRes, treeRes] = await Promise.all([

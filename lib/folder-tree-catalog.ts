@@ -25,6 +25,7 @@ export {
   folderVersionMatches,
   folderIsLibraryPhotocardsCollection,
   folderIsLibraryInclusionsCollection,
+  itemIsMerchNotPhotocard,
 } from "./folder-tree-catalog-shared";
 
 const ACCORDION_PACKAGING = new Set([

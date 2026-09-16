@@ -25,7 +25,7 @@ import { marketRefUsdStorageKey } from "@/lib/market-reference-keys";
 import { getLayoutUnlockCost, unlockKeyForLayout } from "@/lib/theme-unlocks";
 import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
 import { PC_IMAGE_FILENAME_EXT_RE } from "@/lib/pc-image-extensions";
-import { resolveMockPcImageUrl } from "@/lib/mock-pc-url";
+import { resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
@@ -243,8 +243,13 @@ function itemHasPickerStock(c: StatusCounts | undefined) {
 
 function withResolvedPcImages<T extends { image_url?: string | null; back_image_url?: string | null }>(row: T): T {
   const front = typeof row.image_url === "string" ? resolveMockPcImageUrl(row.image_url) : row.image_url;
+  const stored = typeof row.back_image_url === "string" ? row.back_image_url : null;
   const back =
-    typeof row.back_image_url === "string" ? resolveMockPcImageUrl(row.back_image_url) : row.back_image_url;
+    typeof front === "string" && front
+      ? resolveMockPcBackUrl(front, stored)
+      : stored
+        ? resolveMockPcImageUrl(stored)
+        : row.back_image_url;
   return { ...row, image_url: front || null, back_image_url: back || null };
 }
 
@@ -3431,11 +3436,15 @@ const readContainPrefsKey = useMemo(
 
     const row = res.data as any;
 
+    const resolved = withResolvedPcImages({
+      image_url: row.image_url ?? null,
+      back_image_url: row.back_image_url ?? null,
+    });
     const meta: ItemMeta = {
       id: Number(row.id),
       name: row.name ?? null,
-      image_url: row.image_url ?? null,
-      back_image_url: row.back_image_url ?? null,
+      image_url: resolved.image_url ?? null,
+      back_image_url: resolved.back_image_url ?? null,
       group_id: typeof row.group_id === "number" ? row.group_id : null,
       album_id: typeof row.album_id === "number" ? row.album_id : null,
       version: typeof row.version === "string" ? row.version : null, // ✅
@@ -3775,7 +3784,7 @@ next[pid][sid] = {
   // 👇 AÑADE ESTA LÍNEA PARA GUARDAR LA TRASERA
   back_image_url: r.is_custom
     ? (r.custom_back_image_url ?? null)
-    : (itemData?.back_image_url ? resolveMockPcImageUrl(itemData.back_image_url) : null),
+    : resolveMockPcBackUrl(itemData?.image_url, itemData?.back_image_url),
   itemId: r.item_id,
   isCustom: !!r.is_custom,
   // ... resto igual
@@ -5921,8 +5930,10 @@ if (!itemsRes.error) {
     itemsById.set(id, {
       id,
       name: it.name,
-      image_url: it.image_url ? resolveMockPcImageUrl(it.image_url) : null,
-      back_image_url: it.back_image_url ? resolveMockPcImageUrl(it.back_image_url) : null,
+      ...withResolvedPcImages({
+        image_url: it.image_url ?? null,
+        back_image_url: it.back_image_url ?? null,
+      }),
       member: it.member ?? null,
       member_id: it.member_id ?? null,
     });
@@ -6279,13 +6290,17 @@ setSlotFlipH((prev) => ({ ...prev, [slotIndex]: false }));
 
 if (!itRes.error && itRes.data) {
  const it = itRes.data as DbItemRow & { member_id?: number | null };
+ const resolved = withResolvedPcImages({
+  image_url: it.image_url ?? null,
+  back_image_url: it.back_image_url ?? null,
+ });
  setSlotItems((prev) => ({
   ...prev,
   [slotIndex]: {
-    id: it.id,
-    name: it.name,
-    image_url: it.image_url ?? null,
-    back_image_url: it.back_image_url ?? null,
+  id: it.id,
+  name: it.name,
+  image_url: resolved.image_url ?? null,
+  back_image_url: resolved.back_image_url ?? null,
     member_id: it.member_id ?? null,
     member: it.member ?? null,
   },
@@ -7807,7 +7822,7 @@ const frontUrl = assigned?.is_custom
 
 const backUrl = assigned?.is_custom
   ? ((assigned as any).custom_back_image_url ?? DEFAULT_BACK_URL)
-  : (assigned?.back_image_url ? resolveMockPcImageUrl(assigned.back_image_url) : DEFAULT_BACK_URL);
+  : resolveMockPcBackUrl(assigned?.image_url, assigned?.back_image_url);
 
 
     
@@ -8478,12 +8493,10 @@ onClick={() => openItemModal(slotIndex, assigned)}
   overflow: modalZoom > 1 ? "visible" : "hidden",
   display: "flex", alignItems: "center", justifyContent: "center"
 }}> 
-  <img 
-    src={
-      assigned?.is_custom
-        ? (assigned.custom_back_image_url || "/mock-pcs/groups/default-back.png")
-        : (assigned?.back_image_url || "/mock-pcs/groups/default-back.png")
-    } 
+  <ImageWithExtensionFallback
+    src={backUrl}
+    frontSrcForBack={assigned?.is_custom ? undefined : assigned?.image_url ?? undefined}
+    fallbackSrc={DEFAULT_BACK_URL}
     style={{ 
       width: "100%", height: "100%", 
       objectFit: modalZoom > 1 ? "contain" : "cover", 
@@ -9643,7 +9656,7 @@ const currencySelectStyle: CSSProperties = {
 const frontImg = isCustom ? customImageUrl : (meta?.image_url ?? null);
 const backImg = isCustom
   ? ((assigned as any)?.custom_back_image_url ?? DEFAULT_BACK_URL)
-  : (meta?.back_image_url ?? DEFAULT_BACK_URL);
+  : resolveMockPcBackUrl(meta?.image_url ?? assigned?.image_url, meta?.back_image_url ?? assigned?.back_image_url);
   const modalObjectFit = modalZoom > 1 ? "contain" : "cover"; 
 const currentImgUrl = face === "front" ? frontImg : backImg;
 const imgUrl = face === "front" ? frontImg : backImg;
@@ -11518,7 +11531,7 @@ color: "var(--text-main)",
         const fImg = isCustom ? customImageUrl : (meta?.image_url ?? null);
         const bImg = isCustom 
           ? ((assigned as any)?.custom_back_image_url ?? DEFAULT_BACK_URL) 
-          : (meta?.back_image_url ?? DEFAULT_BACK_URL);
+          : resolveMockPcBackUrl(meta?.image_url ?? assigned?.image_url, meta?.back_image_url ?? assigned?.back_image_url);
 
         return ( 
           /* Contenedor de expansión: crea el espacio necesario para que el scroll llegue a los bordes */
@@ -11565,7 +11578,13 @@ color: "var(--text-main)",
                     </div> 
                     {/* BACK */} 
                     <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}> 
-                      <img src={bImg || DEFAULT_BACK_URL} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> 
+                      <ImageWithExtensionFallback
+                        src={bImg || DEFAULT_BACK_URL}
+                        frontSrcForBack={isCustom ? undefined : (meta?.image_url ?? assigned?.image_url) ?? undefined}
+                        fallbackSrc={DEFAULT_BACK_URL}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        alt=""
+                      /> 
                     </div> 
                   </div> 
                 </div> 

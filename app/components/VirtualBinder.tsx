@@ -3,6 +3,7 @@ import React, { forwardRef } from "react";
 import HTMLFlipBook from "react-pageflip";
 import { X, BookOpen, Bookmark } from "lucide-react";
 import { useGlobal } from "../context/GlobalContext"; // 👈 Añadido
+import ImageWithExtensionFallback from "./ImageWithExtensionFallback";
 
 type Photocard = {
   id: string | number;
@@ -308,10 +309,12 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
                           <div style={{ width: "100%", height: "100%", position: "relative" }}>
                             {pc ? (
                               <>
-                                <img 
-                                  src={finalSrc} 
-                                  alt="" 
-                                  style={{ width: "100%", height: "100%", objectFit: "cover", transform: `rotate(${pc.rotation || 0}deg) scaleX(${finalScaleX})`, transition: "all 0.3s ease" }} 
+                                <ImageWithExtensionFallback
+                                  src={finalSrc}
+                                  frontSrcForBack={side === "back" ? (frontImgSrc ?? undefined) : undefined}
+                                  fallbackSrc={side === "back" ? "/mock-pcs/groups/default-back.png" : "/mock-pcs/groups/not-available.png"}
+                                  alt=""
+                                  style={{ width: "100%", height: "100%", objectFit: "cover", transform: `rotate(${pc.rotation || 0}deg) scaleX(${finalScaleX})`, transition: "all 0.3s ease" }}
                                 />
                                 
                                {/* 🌟 ETIQUETA WISH */}

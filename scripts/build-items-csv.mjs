@@ -102,7 +102,8 @@ function stripExt(file) {
 
 function isBackFile(file) {
   const base = stripExt(file);
-  return /(?:^|-)back(?:-|$)/i.test(base);
+  if (/-front-/i.test(base)) return false;
+  return /(?:^|[-_ ])back(?:[-_ ]|$)/i.test(base);
 }
 
 /** Misma lógica que en Library: emparejar `seung-min` con front `seungmin`, etc. */
@@ -161,13 +162,14 @@ function indexBacks(files) {
     if (!/\.(apng|png|jpe?g|jfif|pjpeg|webp|gif|bmp|avif|svg|ico|tiff?|hei[cf])$/i.test(f)) continue;
     const base = stripExt(f).toLowerCase();
 
-    if (/(^|-)back-ot8$/.test(base)) {
+    const norm = base.replace(/\s+/g, "-");
+    if (/(?:^|-)back-ot8$/.test(norm)) {
       common = f;
       registerBackToken(byToken, "ot8", f);
       continue;
     }
 
-    const m = base.match(/-back-(.+)$/i);
+    const m = norm.match(/-back-(.+)$/i);
     if (m && m[1]) {
       const token = m[1].trim();
       if (token) registerBackToken(byToken, token, f);
@@ -209,6 +211,8 @@ function parseAlbumContentRest({ rel, group_slug, album_slug, prefixType, rest }
   const bucket = rest[0] || "";
   const tail = rest.slice(1);
 
+  if (/^merch$/i.test(bucket)) return emptyMeta;
+
   if (/^inclusions$/i.test(bucket)) {
     const version_slug = tail.length ? tail[tail.length - 1] : "default";
     const mid = tail.length >= 1 ? tail.slice(0, -1) : [];
@@ -216,7 +220,18 @@ function parseAlbumContentRest({ rel, group_slug, album_slug, prefixType, rest }
     return { rel, group_slug, album_slug, version_slug, type, isLeaf: true };
   }
 
-  if (/^pobs?$/i.test(bucket) || /^pop-ups?$/i.test(bucket) || /^pop[\s_-]?ups?$/i.test(bucket)) {
+  if (/^pobs?$/i.test(bucket)) {
+    const version_slug = tail.length ? tail[tail.length - 1] : bucket;
+    const mid = tail.length >= 1 ? tail.slice(0, -1) : [];
+    const type = [prefixType, bucket, ...mid].filter(Boolean).join("/");
+    return { rel, group_slug, album_slug, version_slug, type, isLeaf: true };
+  }
+
+  if (/^pop-ups?$/i.test(bucket) || /^pop[\s_-]?ups?$/i.test(bucket)) {
+    const joined = tail.join("/");
+    if (!/(photocards?|photo-?cards?|pobs?|polaroid|trading-cards?)/i.test(joined)) {
+      return emptyMeta;
+    }
     const version_slug = tail.length ? tail[tail.length - 1] : bucket;
     const mid = tail.length >= 1 ? tail.slice(0, -1) : [];
     const type = [prefixType, bucket, ...mid].filter(Boolean).join("/");

@@ -133,6 +133,42 @@ export function folderIsLibraryPhotocardsCollection(folder: FolderTreeAlbum): bo
   return folder.hasPhotocards || folder.hasPobs || folder.photocardsVersions.length > 0 || folder.pobVersions.length > 0;
 }
 
+const LIBRARY_PC_FOLDER =
+  /(^|\/)(photocards?|photo-?cards?|pobs?|polaroids?|photo-card-set|photocard-set|trading-cards?)(\/|$)/i;
+
+function decodeCatalogPath(raw: string): string {
+  const s = String(raw || "").split("?")[0];
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
+/** Merch (playing cards, pop-up goods, tour clothes) belongs on /merch, not Library. */
+export function itemIsMerchNotPhotocard(item: {
+  type?: string | null;
+  image_url?: string | null;
+  version?: string | null;
+}): boolean {
+  const type = String(item.type ?? "");
+  const version = String(item.version ?? "");
+  const url = decodeCatalogPath(String(item.image_url ?? ""));
+  const blob = `${type} ${url} ${version}`.toLowerCase();
+
+  if (/(^|\/)merch(\/|$)/i.test(type) || /\/merch\//i.test(url)) return true;
+
+  const popUp = /pop[\s_%-]*ups?/.test(blob);
+  if (popUp && !LIBRARY_PC_FOLDER.test(blob.replace(/\\/g, "/"))) return true;
+
+  if (/\/(events|eventos)\//i.test(url) || /(^|\/)events?\//i.test(type)) {
+    const looksLikePcFile = /\d{2,3}-(?:front|back)-/i.test(url);
+    if (!LIBRARY_PC_FOLDER.test(blob) && !looksLikePcFile) return true;
+  }
+
+  return false;
+}
+
 export function folderIsLibraryInclusionsCollection(folder: FolderTreeAlbum): boolean {
   return folder.hasInclusions || folder.inclusionVersions.length > 0;
 }

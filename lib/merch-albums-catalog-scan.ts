@@ -63,6 +63,13 @@ function humanizeSlug(s: string) {
     .join(" ");
 }
 
+/** Filename is a PC/merch back (`-back-ot8`, `-back-bang-chan`), not a front. */
+function isBackFilename(name: string) {
+  const base = name.replace(/\.[^.]+$/, "").toLowerCase();
+  if (/-front-/.test(base)) return false;
+  return /(?:^|[-_ ])back(?:[-_ ]|$)/.test(base);
+}
+
 function uuidFromPath(key: string) {
   const hash = createHash("sha256").update(key, "utf8").digest();
   const bytes = Buffer.from(hash.subarray(0, 16));
@@ -76,7 +83,7 @@ function listImageFronts(dir: string) {
   const files = fs.readdirSync(dir);
   return files
     .filter((f) => /\.(png|jpe?g|webp)$/i.test(f))
-    .filter((f) => !/-back\.(png|jpe?g|webp)$/i.test(f))
+    .filter((f) => !isBackFilename(f))
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 }
 
@@ -441,4 +448,115 @@ export function scanMerchAlbumsFromPublicAlbums(cwd: string = process.cwd()): Me
     seen.set(r.id, r);
   }
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
+}
+
+export type MerchProductCatalogRow = {
+  id: string;
+  name: string;
+  category: string;
+  group_name: string;
+  image_url: string;
+  rarity: string;
+  album_title: string | null;
+};
+
+const MERCH_SKIP_DIR = /^(templates|\.ds_store|desktop\.ini)$/i;
+const MERCH_PC_PATH =
+  /(^|\/)(photocards?|photo-?cards?|pobs?|polaroids?|photo-card-set|photocard-set|trading-cards?)(\/|$)/i;
+
+function merchProductCategory(rel: string, file: string): string {
+  const b = `${rel} ${file}`.toLowerCase();
+  if (/\bplush|\bpuppy-m|\bskzoo/.test(b) && /plush|doll/.test(b)) return "Peluches";
+  if (/t-shirt|hoodie|sleeve|shorts|bandana|\bcap\b|towel|\bshirt\b/.test(b)) return "Ropa";
+  if (/\/events?\/|\/eventos\/|\/tour\/|pop[\s_%-]*up/.test(b)) return "Tour Merch";
+  return "Accesorios";
+}
+
+function merchProductDedupeKey(rel: string): string {
+  return rel
+    .replace(/\\/g, "/")
+    .toLowerCase()
+    .replace(
+      /\/photocards\/events\/tour\/run-it\/stray-kids-world-tour-run-it-in-japan\//g,
+      "/photocards/events/tours/stray-kids-world-tour-run-it-in/japan/",
+    )
+    .replace(
+      /\/photocards\/events\/tour\/run-it\/stray-kids-world-tour-run-it-in-seoul\//g,
+      "/photocards/events/tours/stray-kids-world-tour-run-it-in/seoul/",
+    );
+}
+
+function isMerchProductRel(rel: string): boolean {
+  const n = rel.replace(/\\/g, "/");
+  if (/(^|\/)merch(\/|$)/i.test(n)) return true;
+  if (/pop[\s_%-]*ups?/i.test(n) && !MERCH_PC_PATH.test(n)) return true;
+  return false;
+}
+
+function walkMerchProductFiles(root: string, acc: string[] = []): string[] {
+  if (!fs.existsSync(root)) return acc;
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return acc;
+  }
+  for (const ent of entries) {
+    if (MERCH_SKIP_DIR.test(ent.name) || /^silvia/i.test(ent.name)) continue;
+    const abs = path.join(root, ent.name);
+    if (ent.isDirectory()) {
+      walkMerchProductFiles(abs, acc);
+      continue;
+    }
+    if (!/\.(png|jpe?g|webp)$/i.test(ent.name)) continue;
+    if (isBackFilename(ent.name)) continue;
+    if (/captura de pantalla/i.test(ent.name)) continue;
+    acc.push(abs);
+  }
+  return acc;
+}
+
+/** Playing cards, album merch, pop-up goods — catálogo de /merch, no Library. */
+export function scanMerchProductsFromMockPcs(cwd: string = process.cwd()): MerchProductCatalogRow[] {
+  const publicDir = path.join(cwd, "public");
+  const groupsRoot = path.join(publicDir, "mock-pcs", "groups");
+  if (!fs.existsSync(groupsRoot)) return [];
+  const rows: MerchProductCatalogRow[] = [];
+  const seen = new Set<string>();
+
+  for (const groupEnt of fs.readdirSync(groupsRoot, { withFileTypes: true })) {
+    if (!groupEnt.isDirectory() || MERCH_SKIP_DIR.test(groupEnt.name) || /^silvia/i.test(groupEnt.name)) continue;
+    const groupName = humanizeSlug(groupEnt.name);
+    const files = walkMerchProductFiles(path.join(groupsRoot, groupEnt.name));
+    for (const abs of files) {
+      const publicRel = path.relative(publicDir, abs).replace(/\\/g, "/");
+      if (!isMerchProductRel(publicRel)) continue;
+      if (/\/groups\/[^/]+\/albums?\//i.test(publicRel) && !/\/photocards\//i.test(publicRel)) continue;
+      if (/\/events\/tour\/run-it\//i.test(publicRel)) continue;
+      const dedupe = merchProductDedupeKey(publicRel);
+      if (seen.has(dedupe)) continue;
+      seen.add(dedupe);
+      const file = path.basename(abs);
+      const parent = path.basename(path.dirname(abs));
+      const albumGuess = publicRel.split("/").find((s, i, a) => {
+        const prev = (a[i - 1] || "").toLowerCase();
+        return /^(korean|japanese|taiwanese|korean-album|japanese-albums|taiwanese-albums)$/i.test(prev);
+      });
+      rows.push({
+        id: uuidFromPath(`merch-product:${dedupe}`),
+        name: humanizeSlug(parent) + " — " + humanizeSlug(file.replace(/\.[^.]+$/, "")),
+        category: merchProductCategory(publicRel, file),
+        group_name: groupName,
+        image_url: `/${publicRel
+          .split("/")
+          .filter(Boolean)
+          .map((seg) => encodeURIComponent(seg))
+          .join("/")}`,
+        rarity: "Común",
+        album_title: albumGuess ? humanizeSlug(albumGuess) : null,
+      });
+    }
+  }
+
+  return rows.sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
 }

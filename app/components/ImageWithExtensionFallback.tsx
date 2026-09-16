@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { buildMockPcImageCandidates } from "@/lib/mock-pc-url";
-import { encodeMockPcPathUrl } from "@/lib/mock-pc-url";
+import { buildMockPcBackCandidates, buildMockPcImageCandidates, encodeMockPcPathUrl } from "@/lib/mock-pc-url";
 
 type Props = React.ImgHTMLAttributes<HTMLImageElement> & {
   fallbackSrc?: string;
+  /** Front photocard URL — `src` is the stored back; candidates include member and OT8 backs. */
+  frontSrcForBack?: string;
 };
 
 function sniffImageMime(bytes: Uint8Array): string | null {
@@ -32,16 +33,24 @@ function sniffImageMime(bytes: Uint8Array): string | null {
 
 export default function ImageWithExtensionFallback({
   src,
-  fallbackSrc = "/mock-pcs/groups/not-available.png",
+  fallbackSrc,
+  frontSrcForBack,
   onError,
   loading = "lazy",
   decoding = "async",
   ...rest
 }: Props) {
-  const candidates = useMemo(
-    () => buildMockPcImageCandidates(typeof src === "string" ? src : undefined, fallbackSrc),
-    [src, fallbackSrc],
-  );
+  const resolvedFallback =
+    fallbackSrc ??
+    (frontSrcForBack ? "/mock-pcs/groups/default-back.png" : "/mock-pcs/groups/not-available.png");
+  const candidates = useMemo(() => {
+    const raw = typeof src === "string" ? src : undefined;
+    const front = String(frontSrcForBack || "").trim();
+    if (front && /^\/mock-pcs\//i.test(front)) {
+      return buildMockPcBackCandidates(front, raw, resolvedFallback);
+    }
+    return buildMockPcImageCandidates(raw, resolvedFallback);
+  }, [src, resolvedFallback, frontSrcForBack]);
   const [candidateIdx, setCandidateIdx] = useState(0);
   const [useFallback, setUseFallback] = useState(false);
   const [blobSrc, setBlobSrc] = useState<string | null>(null);
@@ -71,10 +80,10 @@ export default function ImageWithExtensionFallback({
       URL.revokeObjectURL(blobSrcRef.current);
       blobSrcRef.current = null;
     }
-  }, [src, fallbackSrc]);
+  }, [src, resolvedFallback, frontSrcForBack]);
 
   const fallbackEncoded =
-    encodeMockPcPathUrl(String(fallbackSrc).trim()) || String(fallbackSrc).trim();
+    encodeMockPcPathUrl(String(resolvedFallback).trim()) || String(resolvedFallback).trim();
 
   const displaySrc = blobSrc
     ? blobSrc

@@ -38,15 +38,23 @@ function buildManifest() {
     if (!rel || rel === ".") continue;
 
     const files = fs.readdirSync(dir);
+    const isBackName = (f) => {
+      const base = f.replace(/\.[^.]+$/, "").toLowerCase();
+      if (/-front-/.test(base)) return false;
+      return /(?:^|[-_ ])back(?:[-_ ]|$)/.test(base);
+    };
     const fronts = files
       .filter((f) => /\.(apng|png|jpe?g|jfif|pjpeg|webp|gif|bmp|avif|svg|ico|tiff?|hei[cf])$/i.test(f))
-      .filter((f) => !/-back\.(apng|png|jpe?g|jfif|pjpeg|webp|gif|bmp|avif|svg|ico|tiff?|hei[cf])$/i.test(f))
+      .filter((f) => !isBackName(f))
       .sort((a, b) =>
         a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
       );
     if (fronts.length === 0) continue;
 
-    const commonBack = files.find((f) => /-back\.(apng|png|jpe?g|jfif|pjpeg|webp|gif|bmp|avif|svg|ico|tiff?|hei[cf])$/i.test(f)) || null;
+    const commonBack =
+      files.find((f) => /(?:^|[-_ ])back[-_ ]?ot8\./i.test(f)) ||
+      files.find((f) => isBackName(f) && /(?:^|[-_ ])back\./i.test(f)) ||
+      null;
     manifest[rel] = { fronts, commonBack };
   }
 
