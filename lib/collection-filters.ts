@@ -117,13 +117,98 @@ export function extractCollectionYear(
   return d.getUTCFullYear();
 }
 
-export function normalizeCollectionName(name: string | null | undefined): string {
+export type CollectionRegionHint = "korea" | "japan" | "taiwan" | "unknown" | null | undefined;
+
+const SG_JAPAN_TITLE =
+  /\b(?:airful|your[-_\s]?hero|s318)\b|\b2026[-_\s]?force\b|(?:^|[-_\s/(])(?:japan(?:ese)?|\bjp\b)(?:[-_\s/)]|$)/i;
+const SG_KOREA_TITLE =
+  /\b(?:room[-_\s]?mates|perfect[-_\s]?day|street[-_\s]?kids|starlight|szks|mini[-_\s]?world)\b|(?:^|[-_\s/(])(?:korea(?:n)?|\bkr\b)(?:[-_\s/)]|$)/i;
+
+/** Korean vs Japanese (vs Taiwan) Season's Greetings — never collapse both into one era. */
+export function seasonsGreetingsRegionHint(
+  name: string | null | undefined,
+  regionHint?: CollectionRegionHint,
+): "korea" | "japan" | "taiwan" | null {
+  if (regionHint === "korea" || regionHint === "japan" || regionHint === "taiwan") {
+    return regionHint;
+  }
+  const raw = String(name || "");
+  const n = stripDiacritics(raw).toLowerCase();
+  if (!n) return null;
+  if (/seasons-greetings\/japanese(?:\/|$)/.test(n) || /\/japanese(?:-albums?)?(?:\/|$)/.test(n)) {
+    return "japan";
+  }
+  if (/seasons-greetings\/korean(?:\/|$)/.test(n) || /\/korean(?:-albums?)?(?:\/|$)/.test(n)) {
+    return "korea";
+  }
+  if (/seasons-greetings\/taiwanese(?:\/|$)/.test(n) || /\/taiwanese(?:-albums?)?(?:\/|$)/.test(n)) {
+    return "taiwan";
+  }
+  if (SG_JAPAN_TITLE.test(n)) return "japan";
+  if (SG_KOREA_TITLE.test(n)) return "korea";
+  if (/\btaiwan/.test(n)) return "taiwan";
+  return null;
+}
+
+function titleCaseWords(s: string): string {
+  return s
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => (w[0] ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}
+
+function seasonsGreetingsSubtitle(name: string): string {
+  const raw = String(name || "").trim();
+  const pretty = raw.match(/^season'?s?\s+greetings\s+(\d{4})(?:\s*[-–:]\s*(.+))?$/i);
+  const prefixed = raw.match(/^(?:seasons[- _]greetings[- _])(\d{4})([- _].+)?$/i);
+  const skz = raw.match(/^skz(\d{4})[- _]seasons[- _]greetings$/i);
+  const bare = raw.match(/^(\d{4})([- _].+)?$/);
+  let rest = "";
+  if (skz) rest = "";
+  else if (pretty) rest = pretty[2] || "";
+  else if (prefixed) rest = prefixed[2] || "";
+  else if (bare) rest = bare[2] || "";
+  rest = rest
+    .replace(/^[-_ ]+/, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\(\s*(?:korea|japan|taiwan|kr|jp)\s*\)/gi, " ")
+    .replace(/\b(?:korea(?:n)?|japan(?:ese)?|taiwan(?:ese)?|kr|jp)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return rest;
+}
+
+function regionSuffixLabel(region: "korea" | "japan" | "taiwan"): string {
+  if (region === "japan") return "Japan";
+  if (region === "taiwan") return "Taiwan";
+  return "Korea";
+}
+
+export function formatSeasonsGreetingsLabel(
+  name: string | null | undefined,
+  regionHint?: CollectionRegionHint,
+): string {
+  const raw = String(name || "").trim();
+  if (!raw) return "";
+  const y = extractCollectionYear(raw);
+  if (!y) return raw;
+  const region = seasonsGreetingsRegionHint(raw, regionHint);
+  const subtitle = titleCaseWords(seasonsGreetingsSubtitle(raw));
+  let out = `Season's Greetings ${y}`;
+  if (subtitle) out += ` - ${subtitle}`;
+  if (region) out += ` (${regionSuffixLabel(region)})`;
+  return out;
+}
+
+export function normalizeCollectionName(
+  name: string | null | undefined,
+  regionHint?: CollectionRegionHint,
+): string {
   const raw = String(name || "").trim();
   if (!raw) return "";
   if (!isSeasonsGreetings(raw)) return raw;
-  const y = extractCollectionYear(raw);
-  if (!y) return raw;
-  return `Season's Greetings ${y}`;
+  return formatSeasonsGreetingsLabel(raw, regionHint);
 }
 
 /** Nombres legibles para el desplegable de era / títulos derivados de slugs de carpeta (merch, etc.). */
@@ -171,8 +256,9 @@ const STRAY_KIDS_RELEASE_LABEL_PRETTIER: Array<[RegExp, string]> = [
 export function formatCollectionOptionLabel(
   name: string | null | undefined,
   _releaseDate?: string | null,
+  regionHint?: CollectionRegionHint,
 ): string {
-  const base = normalizeCollectionName(name);
+  const base = normalizeCollectionName(name, regionHint);
   const raw = String(base || "").trim();
   if (!raw) return "";
   const n = stripDiacritics(raw);
@@ -191,17 +277,29 @@ export function isNonAlbumCollectionTitle(name: string | null | undefined): bool
   return false;
 }
 
-/** Same Season's Greetings year (KR/JP/slug) collapses to one filter option. */
+function sgRemainderKey(name: string): string {
+  return stripDiacritics(String(name || "").toLowerCase())
+    .replace(/season'?s?\s*greetings?/g, " ")
+    .replace(/seasons?\s*greetings?/g, " ")
+    .replace(/(19|20)\d{2}/g, " ")
+    .replace(/\b(?:korea(?:n)?|japan(?:ese)?|taiwan(?:ese)?|kr|jp)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+/** Season's Greetings KR and JP of the same year stay separate filter options. */
 export function collectionOptionDedupeKey(
   name: string | null | undefined,
   releaseDate?: string | null,
+  regionHint?: CollectionRegionHint,
 ): string {
   const raw = String(name || "").trim();
   if (isSeasonsGreetings(raw)) {
     const y = extractCollectionYear(raw, releaseDate);
-    if (y) return `sg:${y}`;
+    const region = seasonsGreetingsRegionHint(raw, regionHint) ?? "unk";
+    const rest = sgRemainderKey(raw);
+    if (y) return `sg:${region}:${y}:${rest || "_"}`;
   }
-  return formatCollectionOptionLabel(raw, releaseDate).trim().toLowerCase();
+  return formatCollectionOptionLabel(raw, releaseDate, regionHint).trim().toLowerCase();
 }
 
 /** Reservado para filas demo que no deban mostrarse (p. ej. títulos de prueba). */
@@ -238,6 +336,15 @@ export function sortCollectionEntries<T extends SortEntry>(
       if (ay != null && by != null && ay !== by) return ay - by;
       if (ay != null && by == null) return -1;
       if (ay == null && by != null) return 1;
+      const regionRank = (n: string) => {
+        const r = seasonsGreetingsRegionHint(n);
+        if (r === "korea") return 0;
+        if (r === "japan") return 1;
+        if (r === "taiwan") return 2;
+        return 3;
+      };
+      const rr = regionRank(a.name) - regionRank(b.name);
+      if (rr !== 0) return rr;
       return aName.localeCompare(bName, "es", { sensitivity: "base", numeric: true });
     }
 

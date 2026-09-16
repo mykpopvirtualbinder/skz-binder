@@ -363,6 +363,27 @@ export function scanFolderTreeCatalog(cwd: string = process.cwd()): FolderTreeCa
     const keepWalking = args.depth < 1 || (GROUPING_FOLDER_NAMES.has(base) && args.depth < 3);
     if (keepWalking) {
       for (const child of names) {
+        if (child.trim().toLowerCase() === "seasons-greetings") {
+          const kindDir = path.join(args.dir, child);
+          for (const regionFolder of listDirs(kindDir)) {
+            const region = regionFromFolder(regionFolder) ?? args.region;
+            const regionDir = path.join(kindDir, regionFolder);
+            for (const yearRaw of listDirs(regionDir)) {
+              pushAlbum(
+                albums,
+                scanAlbumLikeDir({
+                  groupSlug: args.groupSlug,
+                  region,
+                  albumSlug: yearRaw.trim(),
+                  albumTitle: humanizeSlug(yearRaw),
+                  albumDir: path.join(regionDir, yearRaw),
+                  source: "seasons-greetings",
+                }),
+              );
+            }
+          }
+          continue;
+        }
         const childRegion = regionFromFolder(child) ?? args.region;
         walkLoose({
           groupSlug: args.groupSlug,

@@ -1,4 +1,4 @@
-import { collectionOptionDedupeKey, isSeasonsGreetings } from "./collection-filters";
+import { collectionOptionDedupeKey } from "./collection-filters";
 
 export type FolderAlbumRegion = "korea" | "japan" | "taiwan" | "unknown";
 export type FolderAlbumKind =
@@ -60,14 +60,11 @@ export function folderAlbumMatchesTitle(folder: FolderTreeAlbum, title: string):
   if (a && b && a === b) return true;
   const slug = compactFolderKey(folder.album_slug.replace(/&/g, "and"));
   if (slug && b && (slug === b || slug === compactFolderKey(t.replace(/&/g, "and")))) return true;
-  const da = collectionOptionDedupeKey(folder.album_title);
+  const da = collectionOptionDedupeKey(folder.album_title, null, folder.region);
   const db = collectionOptionDedupeKey(t);
   if (da && db && da === db) return true;
-  if (isSeasonsGreetings(folder.album_title) || isSeasonsGreetings(t)) {
-    const ya = da.startsWith("sg:") ? da : collectionOptionDedupeKey(folder.album_slug);
-    const yb = db.startsWith("sg:") ? db : collectionOptionDedupeKey(t);
-    if (ya && yb && ya === yb) return true;
-  }
+  const slugKey = collectionOptionDedupeKey(folder.album_slug, null, folder.region);
+  if (slugKey && db && slugKey === db) return true;
   return false;
 }
 

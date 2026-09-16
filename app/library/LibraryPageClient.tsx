@@ -14,6 +14,7 @@ import {
   extractCollectionYear,
   isNonAlbumCollectionTitle,
   collectionOptionDedupeKey,
+  formatSeasonsGreetingsLabel,
 } from "@/lib/collection-filters";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { avisarFavoritos } from "@/lib/avisos";
@@ -368,29 +369,14 @@ function prettySlugTitle(s: string) {
     })
     .join(" ");
 }
-function prettyAlbumDisplay(s: string | null) {
+function prettyAlbumDisplay(s: string | null, regionHint?: FolderTreeAlbum["region"] | null) {
   let raw = (s ?? "").trim();
   if (!raw) return "—";
 
   try { raw = decodeURIComponent(raw); } catch {}
 
-  // Seasons Greetings: "2022-room-mates", "skz2020-seasons-greetings", "seasons-greetings-2024-..."
-  const sgPrefixed = raw.match(/^(?:seasons[- _]greetings[- _])(\d{4})([- _].+)?$/i);
-  const sgBareYear = raw.match(/^(\d{4})([- _].+)?$/);
-  const sgSkz = raw.match(/^skz(\d{4})[- _]seasons[- _]greetings$/i);
-  const sgMatch = sgPrefixed || sgBareYear || sgSkz;
-  if (sgMatch) {
-    const year = sgMatch[1];
-    let rest = (sgMatch[2] || "").replace(/^[-_ ]+/, "").replace(/[-_]+/g, " ").trim();
-    if (sgSkz) rest = "";
-    const subtitle = rest
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
-    return subtitle
-      ? `Season's Greetings ${year} - ${subtitle}`
-      : `Season's Greetings ${year}`;
+  if (isSeasonsGreetings(raw)) {
+    return formatSeasonsGreetingsLabel(raw, regionHint);
   }
 
   const spaced = raw.replace(/[-_]+/g, " ").trim();
@@ -2250,7 +2236,22 @@ function itemBelongsToFolderAlbum(it: ItemRow, folder: FolderTreeAlbum): boolean
   if (folder.source === "memberships") return url.includes("/memberships/");
   if (folder.source === "collabs") return url.includes("/collabs/");
   if (folder.source === "seasons-greetings") {
-    return url.includes("seasons-greetings") || url.includes("/others/");
+    const isSgPath = url.includes("seasons-greetings") || url.includes("/others/");
+    if (!isSgPath) return false;
+    if (folder.region === "japan") {
+      return (
+        url.includes("/japanese/") ||
+        url.includes("airful") ||
+        url.includes("your-hero") ||
+        url.includes("/s318") ||
+        url.includes("2026-force")
+      );
+    }
+    if (folder.region === "korea") {
+      return url.includes("/korean/") && !url.includes("/japanese/");
+    }
+    if (folder.region === "taiwan") return url.includes("taiwan");
+    return true;
   }
   if (folder.source === "other") return true;
   return url.includes("/albums/") || url.includes("/album/");
@@ -2413,7 +2414,7 @@ const folderAlbumOptions = useMemo(() => {
     if (catalog === "photocards" && !folderIsLibraryPhotocardsCollection(f)) continue;
     const titleKey = compactFolderKey(f.album_title);
     const slugKey = compactFolderKey(f.album_slug);
-    const dedupeKey = collectionOptionDedupeKey(f.album_title);
+    const dedupeKey = collectionOptionDedupeKey(f.album_title, null, f.region);
     if ((titleKey && covered.has(titleKey)) || (slugKey && covered.has(slugKey)) || (dedupeKey && covered.has(dedupeKey))) {
       continue;
     }
@@ -2607,10 +2608,13 @@ const filtered = useMemo(() => {
   }, [filtered.length, q, fStatus, fMember, fUnit, fAlbum]);
 
   const contributeFolderLabel = useMemo(() => {
+    const folderHit = typeof fAlbum === "string" ? findFolderAlbumByFilterKey(folderTree, fAlbum) : undefined;
     const albumLabel =
       typeof fAlbum === "string"
         ? formatCollectionOptionLabel(
-            prettyAlbumDisplay(findFolderAlbumByFilterKey(folderTree, fAlbum)?.album_title ?? ""),
+            prettyAlbumDisplay(folderHit?.album_title ?? "", folderHit?.region),
+            null,
+            folderHit?.region,
           )
         : typeof fAlbum === "number"
           ? formatCollectionOptionLabel(prettyAlbumDisplay(albumById[fAlbum]?.name ?? ""), albumById[fAlbum]?.release_date ?? null)
@@ -3153,7 +3157,7 @@ const commitStockForItem = useCallback(
                 ))}
                 {folderAlbumOptions.map((f) => (
                   <option key={folderAlbumFilterKey(f)} value={folderAlbumFilterKey(f)}>
-                    {formatCollectionOptionLabel(prettyAlbumDisplay(f.album_title))}
+                    {formatCollectionOptionLabel(prettyAlbumDisplay(f.album_title, f.region), null, f.region)}
                   </option>
                 ))}
               </select>

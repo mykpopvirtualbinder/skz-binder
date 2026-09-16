@@ -71,6 +71,39 @@ function seasonsGreetingsMockPcRewrites() {
   return rules;
 }
 
+/** All In merch/playing-cards (and other album sidecars) live next to `album/`, not under `photocards/`. */
+function albumSidecarMockPcRewrites() {
+  const regions: Array<[string, string]> = [
+    ["korean", "korean-album"],
+    ["korean", "korean-albums"],
+    ["japanese", "japanese-albums"],
+    ["japanese", "japanese-album"],
+    ["taiwanese", "taiwanese-albums"],
+    ["taiwanese", "taiwanese-album"],
+  ];
+  const rules: { source: string; destination: string }[] = [];
+  for (const [region, folder] of regions) {
+    const pairs: Array<[string, string]> = [
+      ["merch", "merch"],
+      ["pobs", "pob"],
+      ["pob", "pob"],
+      ["pobs", "pobs"],
+      ["pop-ups", "pop-ups"],
+    ];
+    for (const [from, to] of pairs) {
+      rules.push({
+        source: `/mock-pcs/groups/:group/albums/${region}/:album/${from}/:path*`,
+        destination: `/mock-pcs/groups/:group/photocards/${folder}/:album/${to}/:path*`,
+      });
+      rules.push({
+        source: `/mock-pcs/groups/:group/album/${region}/:album/${from}/:path*`,
+        destination: `/mock-pcs/groups/:group/photocards/${folder}/:album/${to}/:path*`,
+      });
+    }
+  }
+  return rules;
+}
+
 /**
  * Los CSV / Supabase a veces usan el árbol viejo
  * (`/album/<región>/…`, `photocards/korean-albums/<álbum>/…`) mientras que
@@ -94,14 +127,93 @@ const nextConfig: NextConfig = {
           destination:
             "/mock-pcs/groups/:group/photocards/seasons-greetings/japanese/2026-force/photo-card-set/:path*",
         },
+        {
+          source: "/mock-pcs/groups/:group/album/korean/:album/photocards/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/korean-album/:album/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/album/japanese/:album/photocards/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/album/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/album/japanese/:album/album/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/album/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/albums/japanese/:album/album/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/album/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/album/japanese/:album/merch/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/merch/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/album/japanese/:album/pobs/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/pob/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/otros/seasons-greetings/:region/:year/inclusions/:path*",
+          destination: "/mock-pcs/groups/:group/inclusions/seasons-greetings/:region/:year/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/others/seasons-greetings/:region/:year/inclusions/:path*",
+          destination: "/mock-pcs/groups/:group/inclusions/seasons-greetings/:region/:year/:path*",
+        },
+        {
+          source:
+            "/mock-pcs/groups/:group/otros/seasons-greetings/korean/2023-szks-mini-world%20/inclusions/:path*",
+          destination:
+            "/mock-pcs/groups/:group/inclusions/seasons-greetings/korean/2023-szks-mini-world/:path*",
+        },
+        {
+          source:
+            "/mock-pcs/groups/:group/otros/seasons-greetings/korean/2025-the-street-kids/pobs/pob-polaroid-ktown4u/:path*",
+          destination:
+            "/mock-pcs/groups/:group/inclusions/seasons-greetings/korean/2025-the-street-kids/pob-polaroid-ktown4u/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/otros/seasons-greetings/:region/:year/pobs/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/seasons-greetings/:region/:year/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/others/seasons-greetings/:region/:year/pobs/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/seasons-greetings/:region/:year/:path*",
+        },
+        {
+          source:
+            "/mock-pcs/groups/:group/eventos/tour/run-it/stray-kids-world-tour-run-it-in-seoul/:path*",
+          destination:
+            "/mock-pcs/groups/:group/photocards/events/tours/stray-kids-world-tour-run-it-in/seoul/:path*",
+        },
+        {
+          source:
+            "/mock-pcs/groups/:group/eventos/tour/run-it/stray-kids-world-tour-run-it-in-japan/:path*",
+          destination:
+            "/mock-pcs/groups/:group/photocards/events/tours/stray-kids-world-tour-run-it-in/japan/:path*",
+        },
+        {
+          source:
+            "/mock-pcs/groups/:group/otros/seasons-greetings/korean/2025-the-street-kids/photocards/:path*",
+          destination:
+            "/mock-pcs/groups/:group/photocards/seasons-greetings/korean/2025-the-street-kids/set/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/otros/seasons-greetings/:region/:year/photocards/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/seasons-greetings/:region/:year/:path*",
+        },
+        {
+          source: "/mock-pcs/groups/:group/others/seasons-greetings/:region/:year/photocards/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/seasons-greetings/:region/:year/:path*",
+        },
         // New local tree → production tree (file missing on Vercel)
+        ...albumSidecarMockPcRewrites(),
         {
           source: "/mock-pcs/groups/:group/albums/korean/:album/photocards/:path*",
           destination: "/mock-pcs/groups/:group/photocards/korean-album/:album/:path*",
         },
         {
           source: "/mock-pcs/groups/:group/albums/japanese/:album/photocards/:path*",
-          destination: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/:path*",
+          destination: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/album/:path*",
         },
         {
           source: "/mock-pcs/groups/:group/albums/taiwanese/:album/photocards/:path*",
@@ -122,35 +234,6 @@ const nextConfig: NextConfig = {
         {
           source: "/mock-pcs/groups/:group/otros/seasons-greetings/:path*",
           destination: "/mock-pcs/groups/:group/photocards/seasons-greetings/:path*",
-        },
-        // Production tree → local tree (file missing on disk after reorg)
-        {
-          source: "/mock-pcs/groups/:group/photocards/korean-album/:album/:path*",
-          destination: "/mock-pcs/groups/:group/albums/korean/:album/photocards/:path*",
-        },
-        {
-          source: "/mock-pcs/groups/:group/photocards/korean-albums/:album/:path*",
-          destination: "/mock-pcs/groups/:group/albums/korean/:album/photocards/:path*",
-        },
-        {
-          source: "/mock-pcs/groups/:group/photocards/japanese-albums/:album/:path*",
-          destination: "/mock-pcs/groups/:group/albums/japanese/:album/photocards/:path*",
-        },
-        {
-          source: "/mock-pcs/groups/:group/photocards/japanese-album/:album/:path*",
-          destination: "/mock-pcs/groups/:group/albums/japanese/:album/photocards/:path*",
-        },
-        {
-          source: "/mock-pcs/groups/:group/photocards/taiwanese-albums/:album/:path*",
-          destination: "/mock-pcs/groups/:group/albums/taiwanese/:album/photocards/:path*",
-        },
-        {
-          source: "/mock-pcs/groups/:group/photocards/events/:path*",
-          destination: "/mock-pcs/groups/:group/events/:path*",
-        },
-        {
-          source: "/mock-pcs/groups/:group/photocards/seasons-greetings/:path*",
-          destination: "/mock-pcs/groups/:group/others/seasons-greetings/:path*",
         },
         {
           source: "/mock-pcs/groups/:group/album/:path*",

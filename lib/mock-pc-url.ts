@@ -27,7 +27,7 @@ export function encodeMockPcPathUrl(url: string): string {
 
 // --- Resolución de URLs mock-pcs (Season's Greetings, POB por año, etc.) ---
 
-const MAX_CANDIDATES = 12;
+const MAX_CANDIDATES = 32;
 
 function memberTailFromStem(stem: string): string | null {
   const m = stem.match(/-(?:front|back)-(.+)$/i);
@@ -175,8 +175,12 @@ function applySeasonsGreetingsDiskAliases(pathname: string): string {
   p = p.replace(/\/seasons-greetings\/korean\/2025\//gi, "/seasons-greetings/korean/2025-the-street-kids/");
   p = p.replace(/\/seasons-greetings\/korean\/2026\//gi, "/seasons-greetings/korean/2026-starlight-super-club/");
   p = p.replace(
-    /\/seasons-greetings\/korean\/2023-szks-mini-world\//gi,
-    "/seasons-greetings/korean/2023-szks-mini-world%20/",
+    /\/photocards\/seasons-greetings\/korean\/2023-szks-mini-world\//gi,
+    "/photocards/seasons-greetings/korean/2023-szks-mini-world%20/",
+  );
+  p = p.replace(
+    /\/inclusions\/seasons-greetings\/korean\/2023-szks-mini-world(?:%20| )\//gi,
+    "/inclusions/seasons-greetings/korean/2023-szks-mini-world/",
   );
 
   p = p.replace(
@@ -233,7 +237,9 @@ function applyYearAwarePobFolderAliases(v: string, push: (s: string) => void): v
 
 function regionAlbumFolders(region: string): string[] {
   const r = region.toLowerCase();
-  return [`${r}-album`, `${r}-albums`];
+  // Production: korean-album (singular), japanese-albums / taiwanese-albums (plural).
+  if (r === "korean") return [`${r}-album`, `${r}-albums`];
+  return [`${r}-albums`, `${r}-album`];
 }
 
 /** Collapse `/events/events/` from double eventos→events rewrites. */
@@ -246,6 +252,139 @@ function collapseDuplicateEventSegments(pathname: string): string {
  * Local disk after the reorg uses `albums/korean/…/photocards/…`.
  * Always offer both so images work on the deployed site and on localhost.
  */
+function firstPathSeg(rest: string): string {
+  return (rest.split("/")[0] || "").toLowerCase();
+}
+
+function restAfterFirst(rest: string): string {
+  return rest.split("/").slice(1).join("/");
+}
+
+const ALBUM_SIDECAR_FOLDERS = /^(merch|pobs?|pop-ups?|portadas-album|inclusions)$/i;
+
+const POB_FOLDER_ALIASES: Array<[RegExp, string]> = [
+  [/japan-fan-club-online-lottery/gi, "online-lottery"],
+  [/tower-record-lucky-draw/gi, "Tower-record-lucky-draw"],
+];
+
+function applyPobFolderAliases(pathname: string, push: (s: string) => void) {
+  for (const [from, to] of POB_FOLDER_ALIASES) {
+    from.lastIndex = 0;
+    if (from.test(pathname)) {
+      from.lastIndex = 0;
+      push(pathname.replace(from, to));
+    }
+    from.lastIndex = 0;
+  }
+}
+
+function sgYearFolderVariants(year: string): string[] {
+  const out: string[] = [];
+  const push = (y: string) => {
+    if (y && !out.includes(y)) out.push(y);
+  };
+  push(year);
+  let decoded = year;
+  try {
+    decoded = decodeURIComponent(year.replace(/\+/g, "%20"));
+  } catch {
+    decoded = year;
+  }
+  const trimmed = decoded.replace(/\s+$/g, "");
+  push(trimmed);
+  if (/2023-szks-mini-world/i.test(trimmed)) {
+    push(`${trimmed}%20`);
+    push(`${trimmed} `);
+  }
+  return out;
+}
+
+function pushAlbumDiskAliases(
+  push: (s: string) => void,
+  root: string,
+  region: string,
+  album: string,
+  rest: string,
+) {
+  const first = firstPathSeg(rest);
+  const after = restAfterFirst(rest);
+  const jp = /^(japanese|taiwanese)$/i.test(region);
+  for (const folder of regionAlbumFolders(region)) {
+    if (first === "photocards") {
+      if (jp) push(`${root}/photocards/${folder}/${album}/album/${after}`);
+      push(`${root}/photocards/${folder}/${album}/${after}`);
+      push(`${root}/albums/${region}/${album}/photocards/${after}`);
+      push(`${root}/album/${region}/${album}/photocards/${after}`);
+    } else if (first === "album") {
+      push(`${root}/photocards/${folder}/${album}/album/${after}`);
+      push(`${root}/photocards/${folder}/${album}/${after}`);
+      push(`${root}/albums/${region}/${album}/photocards/${after}`);
+      push(`${root}/albums/${region}/${album}/album/${after}`);
+    } else if (ALBUM_SIDECAR_FOLDERS.test(first)) {
+      const kinds = /^pobs?$/i.test(first) ? ["pob", "pobs"] : [first];
+      for (const k of kinds) {
+        push(`${root}/photocards/${folder}/${album}/${k}/${after}`);
+      }
+      if (/^pobs?$/i.test(first)) {
+        push(`${root}/photocards/${folder}/${album}/${after}`);
+      }
+      if (first === "inclusions") {
+        push(`${root}/inclusions/${folder}/${album}/${after}`);
+      }
+      push(`${root}/albums/${region}/${album}/${first}/${after}`);
+      push(`${root}/album/${region}/${album}/${first}/${after}`);
+    } else {
+      push(`${root}/photocards/${folder}/${album}/${rest}`);
+      if (jp) push(`${root}/photocards/${folder}/${album}/album/${rest}`);
+    }
+  }
+}
+
+function pushSeasonsGreetingsAliases(push: (s: string) => void, root: string, rest: string) {
+  push(`${root}/photocards/seasons-greetings/${rest}`);
+  push(`${root}/others/seasons-greetings/${rest}`);
+  push(`${root}/otros/seasons-greetings/${rest}`);
+
+  const m = rest.match(/^(korean|japanese|taiwanese)\/([^/]+)\/(.*)$/i);
+  if (!m) return;
+  const region = m[1];
+  const year = m[2];
+  const after = m[3];
+  const first = firstPathSeg(after);
+  const tail = restAfterFirst(after);
+
+  if (/2026-force/i.test(year) && /pop.*up.*force.*2026.*items/i.test(first)) {
+    push(`${root}/photocards/japanese-md/2026-force/${tail}`);
+    push(`${root}/photocards/seasons-greetings/japanese/2026-force/${tail.replace(/^photocards?\//i, "")}`);
+    push(`${root}/photocards/seasons-greetings/japanese/2026-force/photo-card-set/${restAfterFirst(tail)}`);
+  }
+
+  for (const y of sgYearFolderVariants(year)) {
+    const yearBase = `${root}/photocards/seasons-greetings/${region}/${y}`;
+    const yearOthers = `${root}/others/seasons-greetings/${region}/${y}`;
+    const yearInc = `${root}/inclusions/seasons-greetings/${region}/${y}`;
+
+    if (first === "photocards" || first === "pobs" || first === "pob") {
+      push(`${yearBase}/${tail}`);
+      push(`${yearInc}/${tail}`);
+      push(`${yearOthers}/${tail}`);
+      if (first === "photocards") {
+        push(`${yearBase}/set/${tail}`);
+        push(`${yearBase}/photocard-set/${tail}`);
+        push(`${yearBase}/photo-card-set/${tail}`);
+      }
+    }
+    if (first === "inclusions") {
+      push(`${yearInc}/${tail}`);
+      push(`${yearOthers}/inclusions/${tail}`);
+    }
+    if (!first) {
+      push(`${yearBase}/${after}`);
+      push(`${yearInc}/${after}`);
+    }
+  }
+}
+
 function layoutAliases(pathname: string): string[] {
   const out: string[] = [];
   const push = (s: string) => {
@@ -256,20 +395,38 @@ function layoutAliases(pathname: string): string[] {
   if (!p) return out;
   push(p);
 
-  const albumsPc = p.match(
-    /^(.*\/groups\/[^/]+)\/albums\/(korean|japanese|taiwanese)\/([^/]+)\/photocards\/(.*)$/i,
+  const albumsAny = p.match(
+    /^(.*\/groups\/[^/]+)\/albums?\/(korean|japanese|taiwanese)\/([^/]+)\/(.*)$/i,
   );
-  if (albumsPc) {
-    for (const folder of regionAlbumFolders(albumsPc[2])) {
-      push(`${albumsPc[1]}/photocards/${folder}/${albumsPc[3]}/${albumsPc[4]}`);
-    }
+  if (albumsAny) {
+    pushAlbumDiskAliases(push, albumsAny[1], albumsAny[2].toLowerCase(), albumsAny[3], albumsAny[4]);
   }
 
   const pcAlbum = p.match(
     /^(.*\/groups\/[^/]+)\/photocards\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,
   );
   if (pcAlbum) {
-    push(`${pcAlbum[1]}/albums/${pcAlbum[2].toLowerCase()}/${pcAlbum[3]}/photocards/${pcAlbum[4]}`);
+    const rest = pcAlbum[4];
+    const first = firstPathSeg(rest);
+    const after = restAfterFirst(rest);
+    const region = pcAlbum[2].toLowerCase();
+    const root = pcAlbum[1];
+    const album = pcAlbum[3];
+    if (ALBUM_SIDECAR_FOLDERS.test(first)) {
+      const kinds = /^pobs?$/i.test(first) ? ["pob", "pobs"] : [first];
+      for (const k of kinds) {
+        push(`${root}/albums/${region}/${album}/${k}/${after}`);
+        push(`${root}/album/${region}/${album}/${k}/${after}`);
+      }
+    } else if (first === "album") {
+      push(`${root}/albums/${region}/${album}/photocards/${after}`);
+      push(`${root}/albums/${region}/${album}/album/${after}`);
+      push(`${root}/album/${region}/${album}/album/${after}`);
+    } else {
+      push(`${root}/albums/${region}/${album}/photocards/${rest}`);
+      push(`${root}/albums/${region}/${album}/${rest}`);
+      push(`${root}/photocards/${pcAlbum[2]}/${album}/album/${rest}`);
+    }
   }
 
   const albumsInc = p.match(
@@ -308,27 +465,43 @@ function layoutAliases(pathname: string): string[] {
     push(`${eventos[1]}/events/${rest}`);
   }
 
+  const runIt = p.match(
+    /^(.*\/groups\/[^/]+)\/(?:photocards\/events|events|eventos)\/tour\/run-it\/stray-kids-world-tour-run-it-in-(seoul|japan)\/(.*)$/i,
+  );
+  if (runIt) {
+    push(
+      `${runIt[1]}/photocards/events/tours/stray-kids-world-tour-run-it-in/${runIt[2].toLowerCase()}/${runIt[3]}`,
+    );
+    push(
+      `${runIt[1]}/events/tours/stray-kids-world-tour-run-it-in/${runIt[2].toLowerCase()}/${runIt[3]}`,
+    );
+    push(
+      `${runIt[1]}/photocards/events/tour/run-it/stray-kids-world-tour-run-it-in-${runIt[2].toLowerCase()}/${runIt[3]}`,
+    );
+  }
+
   const pcSg = p.match(/^(.*\/groups\/[^/]+)\/photocards\/seasons-greetings\/(.*)$/i);
   if (pcSg) {
-    push(`${pcSg[1]}/others/seasons-greetings/${pcSg[2]}`);
-    push(`${pcSg[1]}/otros/seasons-greetings/${pcSg[2]}`);
+    pushSeasonsGreetingsAliases(push, pcSg[1], pcSg[2]);
   }
 
   const othersSg = p.match(/^(.*\/groups\/[^/]+)\/others\/seasons-greetings\/(.*)$/i);
   if (othersSg) {
-    push(`${othersSg[1]}/photocards/seasons-greetings/${othersSg[2]}`);
+    pushSeasonsGreetingsAliases(push, othersSg[1], othersSg[2]);
   }
 
   const otrosSg = p.match(/^(.*\/groups\/[^/]+)\/otros\/seasons-greetings\/(.*)$/i);
   if (otrosSg) {
-    push(`${otrosSg[1]}/photocards/seasons-greetings/${otrosSg[2]}`);
-    push(`${otrosSg[1]}/others/seasons-greetings/${otrosSg[2]}`);
+    pushSeasonsGreetingsAliases(push, otrosSg[1], otrosSg[2]);
   }
 
   const groupAlbum = p.match(/^(.*\/groups\/[^/]+)\/album\/(.*)$/i);
   if (groupAlbum && !/\/albums\//i.test(p)) {
     push(`${groupAlbum[1]}/albums/${groupAlbum[2]}`);
   }
+
+  applyPobFolderAliases(p, push);
+  for (const extra of [...out]) applyPobFolderAliases(extra, push);
 
   return out;
 }
@@ -345,13 +518,6 @@ function remapLegacyMockPcDiskPath(pathname: string): string {
     .replace(/^(.*\/groups\/[^/]+)\/otros\//i, "$1/others/")
     .replace(/^(.*\/groups\/[^/]+)\/eventos\//i, "$1/photocards/events/")
     .replace(/^(.*\/groups\/[^/]+)\/events\/events\//i, "$1/photocards/events/");
-
-  const sg = p.match(
-    /^(.*\/groups\/[^/]+)\/photocards\/seasons-greetings\/(korean|japanese|taiwanese)\/([^/]+)\/(.*)$/i,
-  );
-  if (sg) {
-    p = `${sg[1]}/photocards/seasons-greetings/${sg[2]}/${sg[3]}/${seasonsGreetingsRestSuffix(sg[4])}`;
-  }
 
   let decoded = p;
   try {
@@ -408,7 +574,18 @@ function pathVariants(v: string): string[] {
     ["/seasons-greetings/korean/2024/", "/seasons-greetings/korean/2024-perfect-day/"],
     ["/seasons-greetings/korean/2025/", "/seasons-greetings/korean/2025-the-street-kids/"],
     ["/seasons-greetings/korean/2026/", "/seasons-greetings/korean/2026-starlight-super-club/"],
-    ["/seasons-greetings/korean/2023-szks-mini-world/", "/seasons-greetings/korean/2023-szks-mini-world%20/"],
+    [
+      "/photocards/seasons-greetings/korean/2023-szks-mini-world/",
+      "/photocards/seasons-greetings/korean/2023-szks-mini-world%20/",
+    ],
+    [
+      "/inclusions/seasons-greetings/korean/2023-szks-mini-world%20/",
+      "/inclusions/seasons-greetings/korean/2023-szks-mini-world/",
+    ],
+    [
+      "/inclusions/seasons-greetings/korean/2023-szks-mini-world /",
+      "/inclusions/seasons-greetings/korean/2023-szks-mini-world/",
+    ],
     ["/2024-perfect-day/photocards/polaroid/", "/2024-perfect-day/photocards/polaroid%20/"],
     ["/2024-perfect-day/polaroid/", "/2024-perfect-day/photocards/polaroid%20/"],
     ["/pob-polaroid-unit/", "/pob-polaroids-unit/"],
@@ -494,16 +671,42 @@ function stemPrefixVariants(stem: string, url: string): string[] {
   return out;
 }
 
+function productionLayoutScore(pathname: string): number {
+  const p = String(pathname || "");
+  let score = 0;
+  if (/\/groups\/[^/]+\/photocards\/(korean-album|japanese-albums|taiwanese-albums|seasons-greetings|events|japanese-md)\//i.test(p)) {
+    score += 20;
+  }
+  if (/\/groups\/[^/]+\/inclusions\/seasons-greetings\//i.test(p)) score += 22;
+  if (/\/photocards\/seasons-greetings\/[^/]+\/[^/]+\/inclusions\//i.test(p)) score -= 16;
+  if (/\/photocards\/(?:korean-album|japanese-albums|taiwanese-albums)\/[^/]+\/inclusions\//i.test(p)) score -= 16;
+  if (/\/groups\/[^/]+\/inclusions\/(?:korean-album|japanese-albums|taiwanese-albums)\//i.test(p)) score += 22;
+  if (/\/seasons-greetings\/[^/]+\/[^/]+\/photocards\//i.test(p)) score -= 8;
+  if (/\/seasons-greetings\/[^/]+\/[^/]+\/pobs\//i.test(p)) score -= 4;
+  if (/\/inclusions\/seasons-greetings\/.*polaroid/i.test(p)) score += 6;
+  if (/\/inclusions\/seasons-greetings\/korean\/2023-szks-mini-world(?:%20| )/i.test(p)) score -= 12;
+  if (/pop.*up.*force.*2026/i.test(p)) score -= 12;
+  if (/\/photocards\/japanese-md\//i.test(p)) score += 8;
+  if (/\/photocards\/japanese-albums\/[^/]+\/album\//i.test(p)) score += 6;
+  if (/\/albums?\//i.test(p) && !/\/photocards\/(korean-album|japanese-albums)\//i.test(p)) score -= 5;
+  return score;
+}
+
 function pathContext(url: string): string {
   const variants = pathVariants(url);
-  return (
-    variants.find((p) => p.includes("/pob-polaroids-unit/")) ??
-    variants.find((p) => /\/groups\/[^/]+\/photocards\//i.test(p) && !/\/events\/events\//i.test(p)) ??
-    variants.find((p) => !/\/events\/events\//i.test(p)) ??
-    applyPobPolaroidsUnitFolder(url) ??
-    variants[0] ??
-    url
-  );
+  const unit = variants.find((p) => p.includes("/pob-polaroids-unit/"));
+  if (unit) return unit;
+  let best = variants[0] ?? url;
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (const p of variants) {
+    if (/\/events\/events\//i.test(p)) continue;
+    const score = productionLayoutScore(p);
+    if (score > bestScore) {
+      bestScore = score;
+      best = p;
+    }
+  }
+  return applyPobPolaroidsUnitFolder(best) ?? best;
 }
 
 function normalizeStemAndTail(encoded: string, rawUrl: string): string {
@@ -519,12 +722,7 @@ function normalizeStemAndTail(encoded: string, rawUrl: string): string {
   const unitFixed = applyPobPolaroidsUnitFolder(file);
   if (unitFixed) file = unitFixed;
 
-  const paths = pathVariants(file);
-  const best =
-    paths.find((p) => p.includes("/pob-polaroids-unit/")) ??
-    applyPobPolaroidsUnitFolder(file) ??
-    paths[0] ??
-    file;
+  const best = pathContext(file);
 
   const bestSe = splitPcImageStemExt(best);
   if (!bestSe) return best;
@@ -576,13 +774,15 @@ export function buildMockPcImageCandidates(
 
   const decoded = decodeMockPcInput(raw);
   const base = encodeMockPcPathUrl(decoded);
-  push(base);
-  for (const alias of layoutAliases(decoded)) {
-    push(encodeMockPcPathUrl(alias));
-  }
-
   const resolved = normalizeMockPcUrl(base);
   const canonical = normalizeStemAndTail(base, raw);
+  push(canonical);
+  push(resolved);
+  const scoredAliases = layoutAliases(decoded)
+    .map((alias) => encodeMockPcPathUrl(alias))
+    .sort((a, b) => productionLayoutScore(b) - productionLayoutScore(a));
+  for (const alias of scoredAliases) push(alias);
+  push(base);
 
   const pushStemVariants = (file: string) => {
     const se = splitPcImageStemExt(file);

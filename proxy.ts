@@ -1,45 +1,94 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function regionProdFolder(region: string): string {
+  const r = region.toLowerCase();
+  if (r === "korean") return "korean-album";
+  return `${r}-albums`;
+}
+
 function remapLegacyAlbumTreePath(pathname: string): string | null {
   // Production files live under /photocards and /inclusions. Never move those
-  // to /albums or the deployed site 404s.
+  // away to /albums or the deployed site 404s.
   if (/\/groups\/[^/]+\/(photocards|inclusions)\//i.test(pathname)) {
     const collapsed = pathname.replace(/\/events\/events\//gi, "/events/");
     return collapsed !== pathname ? collapsed : null;
   }
 
-  let next = pathname
-    .replace(/\/events\/events\//gi, "/events/")
-    .replace(/^(.*\/groups\/[^/]+)\/album\//i, "$1/albums/")
-    .replace(/^(.*\/groups\/[^/]+)\/otros\//i, "$1/others/")
-    .replace(/^(.*\/groups\/[^/]+)\/eventos\//i, "$1/photocards/events/");
+  let next = pathname.replace(/\/events\/events\//gi, "/events/");
 
-  const albumPc = next.match(
-    /^(.*\/groups\/[^/]+)\/photocards\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,
+  const sgLegacy = next.match(
+    /^(.*\/groups\/[^/]+)\/(?:otros|others)\/seasons-greetings\/(korean|japanese|taiwanese)\/([^/]+)\/(.*)$/i,
   );
-  if (albumPc) {
-    next = `${albumPc[1]}/albums/${albumPc[2].toLowerCase()}/${albumPc[3]}/photocards/${albumPc[4]}`;
-  } else {
-    const albumInc = next.match(
-      /^(.*\/groups\/[^/]+)\/inclusions\/(korean|japanese|taiwanese)-albums?\/([^/]+)\/(.*)$/i,
-    );
-    if (albumInc) {
-      next = `${albumInc[1]}/albums/${albumInc[2].toLowerCase()}/${albumInc[3]}/inclusions/${albumInc[4]}`;
+  if (sgLegacy) {
+    const rest = sgLegacy[4];
+    const first = (rest.split("/")[0] || "").toLowerCase();
+    const tail = rest.split("/").slice(1).join("/");
+    const region = sgLegacy[2];
+    let year = sgLegacy[3];
+    try {
+      year = decodeURIComponent(year.replace(/\+/g, "%20"));
+    } catch {
+      /* keep */
+    }
+    const yearTrimmed = year.replace(/\s+$/g, "");
+    const yearPhotocards =
+      /2023-szks-mini-world/i.test(yearTrimmed) && !/\s$/.test(year)
+        ? `${yearTrimmed}%20`
+        : year;
+    if (first === "inclusions") {
+      next = `${sgLegacy[1]}/inclusions/seasons-greetings/${region}/${yearTrimmed}/${tail}`;
+    } else if (/pop.*up.*force.*2026.*items/i.test(first)) {
+      next = `${sgLegacy[1]}/photocards/japanese-md/2026-force/${tail}`;
+    } else if (first === "photocards" || first === "pobs" || first === "pob") {
+      const polaroid = /polaroid/i.test(tail.split("/")[0] || "");
+      if (polaroid) {
+        next = `${sgLegacy[1]}/inclusions/seasons-greetings/${region}/${yearTrimmed}/${tail}`;
+      } else if (first === "photocards" && !tail.includes("/")) {
+        next = `${sgLegacy[1]}/photocards/seasons-greetings/${region}/${yearPhotocards}/set/${tail}`;
+      } else {
+        next = `${sgLegacy[1]}/photocards/seasons-greetings/${region}/${yearPhotocards}/${tail}`;
+      }
+    } else {
+      next = `${sgLegacy[1]}/photocards/seasons-greetings/${region}/${yearPhotocards}/${rest}`;
     }
   }
-  const sg = next.match(
-    /^(.*\/groups\/[^/]+)\/photocards\/seasons-greetings\/(korean|japanese|taiwanese)\/([^/]+)\/(.*)$/i,
+
+  const albumTree = next.match(
+    /^(.*\/groups\/[^/]+)\/albums?\/(korean|japanese|taiwanese)\/([^/]+)\/(.*)$/i,
   );
-  if (sg && !/\/others\/seasons-greetings\//i.test(next)) {
-    const rest = sg[4];
-    const alreadyBucket = /^(photocards|inclusions|pobs?|pop-ups?)\//i.test(rest);
-    const first = rest.split("/")[0] || "";
-    const isPob =
-      /^pob/i.test(first) || /polaroid-pob/i.test(first) || /^photo-card-fanclub/i.test(first);
-    const suffix = alreadyBucket ? rest : isPob ? `pobs/${rest}` : `photocards/${rest}`;
-    next = `${sg[1]}/others/seasons-greetings/${sg[2]}/${sg[3]}/${suffix}`;
+  if (albumTree) {
+    const root = albumTree[1];
+    const region = albumTree[2].toLowerCase();
+    const album = albumTree[3];
+    const rest = albumTree[4];
+    const first = (rest.split("/")[0] || "").toLowerCase();
+    const tail = rest.split("/").slice(1).join("/");
+    const folder = regionProdFolder(region);
+    if (first === "photocards") {
+      next =
+        region === "korean"
+          ? `${root}/photocards/${folder}/${album}/${tail}`
+          : `${root}/photocards/${folder}/${album}/album/${tail}`;
+    } else if (first === "album") {
+      next = `${root}/photocards/${folder}/${album}/album/${tail}`;
+    } else if (first === "merch" || first === "pop-ups" || first === "pop-up") {
+      next = `${root}/photocards/${folder}/${album}/${first}/${tail}`;
+    } else if (first === "pob" || first === "pobs") {
+      next = `${root}/photocards/${folder}/${album}/pob/${tail}`;
+    } else if (first === "inclusions") {
+      next = `${root}/inclusions/${folder}/${album}/${tail}`;
+    }
   }
+
+  next = next
+    .replace(/^(.*\/groups\/[^/]+)\/eventos\//i, "$1/photocards/events/")
+    .replace(
+      /\/photocards\/events\/tour\/run-it\/stray-kids-world-tour-run-it-in-(seoul|japan)\//gi,
+      "/photocards/events/tours/stray-kids-world-tour-run-it-in/$1/",
+    )
+    .replace(/\/japan-fan-club-online-lottery\//gi, "/online-lottery/")
+    .replace(/\/tower-record-lucky-draw\//gi, "/Tower-record-lucky-draw/");
 
   let aliased = next
     .replace(/\/seasons-greetings\/korean\/2022\//gi, "/seasons-greetings/korean/2022-room-mates/")
@@ -47,8 +96,12 @@ function remapLegacyAlbumTreePath(pathname: string): string | null {
     .replace(/\/seasons-greetings\/korean\/2025\//gi, "/seasons-greetings/korean/2025-the-street-kids/")
     .replace(/\/seasons-greetings\/korean\/2026\//gi, "/seasons-greetings/korean/2026-starlight-super-club/")
     .replace(
-      /\/seasons-greetings\/korean\/2023-szks-mini-world\//gi,
-      "/seasons-greetings/korean/2023-szks-mini-world%20/",
+      /\/photocards\/seasons-greetings\/korean\/2023-szks-mini-world\//gi,
+      "/photocards/seasons-greetings/korean/2023-szks-mini-world%20/",
+    )
+    .replace(
+      /\/inclusions\/seasons-greetings\/korean\/2023-szks-mini-world(?:%20| )\//gi,
+      "/inclusions/seasons-greetings/korean/2023-szks-mini-world/",
     )
     .replace(
       /\/2024-perfect-day\/photocards\/polaroid\//gi,
