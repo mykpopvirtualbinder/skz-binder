@@ -12,7 +12,8 @@ import {
   Heart, Flag, CheckCircle, FilePlus, X,
   Trash2, ChevronLeft, ChevronRight, ExternalLink, Sparkles, UserX,
   ListFilter, Undo2, Search, RefreshCw,
-  Crown, Ban, HelpCircle, MailOpen, ChevronDown, ChevronUp, Tags
+  Crown, Ban, HelpCircle, MailOpen, ChevronDown, ChevronUp, Tags,
+  KeyRound, Unlock, Lock, LogOut
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -71,6 +72,40 @@ function deriveUserBucket(u: AdminOverviewUser): AdminAccountBucket {
   if (!u.email_confirmed) return "pendiente";
   if (u.is_restricted) return "restringido";
   return "alta";
+}
+
+function compactActionStyle(kind: "default" | "danger" | "success" | "warning" | "primary" = "default"): React.CSSProperties {
+  const map = {
+    default: { bg: "var(--bg-main)", fg: "var(--color-primary)", bd: "var(--color-border)" },
+    danger: { bg: "var(--state-danger-bg)", fg: "var(--state-danger-fg)", bd: "var(--state-danger-border)" },
+    success: { bg: "var(--state-success-bg)", fg: "var(--state-success-fg)", bd: "var(--state-success-border)" },
+    warning: { bg: "var(--state-warning-bg)", fg: "var(--state-warning-fg)", bd: "var(--state-warning-border)" },
+    primary: { bg: "var(--color-primary)", fg: "var(--bg-card)", bd: "var(--color-primary)" },
+  }[kind];
+  return {
+    background: map.bg,
+    color: map.fg,
+    border: `1px solid ${map.bd}`,
+    padding: "5px 8px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    fontWeight: 800,
+    fontSize: "11px",
+    lineHeight: 1.15,
+    whiteSpace: "nowrap",
+  };
+}
+
+function AdminUserActionGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 }}>
+      <div style={{ fontSize: "9px", fontWeight: 900, letterSpacing: "0.08em", color: "var(--text-muted)" }}>{label}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", alignItems: "center" }}>{children}</div>
+    </div>
+  );
 }
 
 function AdminPanelContent() {
@@ -1072,6 +1107,98 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     }
   };
 
+  const runUserAuthAction = async (
+    p: AdminOverviewUser,
+    action: "reset_password" | "unlock_login" | "lock_login" | "confirm_email" | "sign_out_all",
+  ) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
+    const res = await fetch("/api/admin/user-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ user_id: p.user_id, action }),
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      message?: string;
+      recovery_link?: string | null;
+      is_banned?: boolean;
+      email_confirmed?: boolean;
+    };
+    if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+    if (action === "unlock_login") sincronizarCambioUsuario(p.user_id, { is_banned: false });
+    if (action === "lock_login") sincronizarCambioUsuario(p.user_id, { is_banned: true });
+    if (action === "confirm_email") sincronizarCambioUsuario(p.user_id, { email_confirmed: true });
+    if (json.recovery_link && typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(json.recovery_link);
+      } catch {
+        /* ignore clipboard failures */
+      }
+    }
+    showAlert(
+      "Listo",
+      json.recovery_link
+        ? `${json.message || "Acción completada."}\n\nEnlace (también copiado si el navegador lo permite):\n${json.recovery_link}`
+        : json.message || "Acción completada.",
+    );
+  };
+
+  const confirmUserAuthAction = (
+    p: AdminOverviewUser,
+    action: "reset_password" | "unlock_login" | "lock_login" | "confirm_email" | "sign_out_all",
+    title: string,
+    message: string,
+    e: React.MouseEvent,
+  ) => {
+    e.stopPropagation();
+    setConfirmDialog({
+      title,
+      message,
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          await runUserAuthAction(p, action);
+        } catch (err: any) {
+          showAlert("Error", err?.message || "No se pudo completar la acción.");
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
+
+  const toggleFeaturedArtist = async (p: AdminOverviewUser, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
+      const body = {
+        user_id: p.user_id,
+        is_premium: !!p.is_premium,
+        is_artist: !!p.is_artist,
+        is_featured_artist: !p.is_featured_artist,
+        is_restricted: !!p.is_restricted,
+        plan_type: p.plan_type || "free",
+        puntos: Math.max(0, Number(p.puntos) || 0),
+        strikes: Math.min(99, Math.max(0, Number(p.strikes) || 0)),
+      };
+      const res = await fetch("/api/admin/update-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(body),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+      sincronizarCambioUsuario(p.user_id, { is_featured_artist: !p.is_featured_artist });
+      showAlert("Éxito", !p.is_featured_artist ? "Usuario marcado como Artista Estrella." : "Usuario quitado de Artista Estrella.");
+    } catch (err: any) {
+      showAlert("Error", err.message || "No se pudo actualizar Artista Estrella.");
+    }
+  };
+
   const catalogAuthHeaders = async (): Promise<HeadersInit> => {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
@@ -1943,28 +2070,41 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
   const renderAdminUserCard = (p: AdminOverviewUser) => {
     const bucket = deriveUserBucket(p);
+    const who = p.display_name || p.email || "usuario";
     const bucketColor =
-      bucket === "alta"
-        ? "var(--state-success-fg)"
-        : bucket === "pendiente"
-          ? "var(--state-warning-fg)"
-          : bucket === "restringido"
-            ? "var(--state-danger-fg)"
-            : "var(--text-muted)";
+      p.is_banned && !p.is_deleted
+        ? "var(--state-danger-fg)"
+        : bucket === "alta"
+          ? "var(--state-success-fg)"
+          : bucket === "pendiente"
+            ? "var(--state-warning-fg)"
+            : bucket === "restringido"
+              ? "var(--state-danger-fg)"
+              : "var(--text-muted)";
     const bucketText =
-      bucket === "alta" ? "ALTA" : bucket === "pendiente" ? "PENDIENTE" : bucket === "restringido" ? "RESTRINGIDO" : "BAJA";
+      p.is_deleted
+        ? "ELIMINADA"
+        : p.is_banned
+          ? "BLOQUEADO"
+          : bucket === "alta"
+            ? "ALTA"
+            : bucket === "pendiente"
+              ? "PENDIENTE"
+              : bucket === "restringido"
+                ? "RESTRINGIDO"
+                : "BAJA";
     const actionsOpen = openUserActionsId === p.user_id;
     return (
-      <div key={p.user_id} style={{ padding: "16px 20px", borderBottom: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", gap: actionsOpen ? "15px" : "0", background: actionsOpen ? "var(--bg-soft)" : "transparent" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+      <div key={p.user_id} style={{ padding: "10px 14px", borderBottom: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", gap: actionsOpen ? "10px" : "0", background: actionsOpen ? "var(--bg-soft)" : "transparent" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              <span style={{ fontWeight: 900, color: p.is_restricted ? "var(--state-danger-fg)" : "var(--text-main)", fontSize: "16px", textDecoration: p.is_restricted ? "line-through" : "none" }}>
-                {p.display_name || p.email || p.user_id.slice(0, 8)} {p.is_premium && <span title="Usuario Premium">👑</span>} {p.is_artist && <span title="Artista Verificado">✨</span>} {p.is_featured_artist && <span title="Artista Estrella">🌟</span>} {p.is_restricted && <span title="Cuenta Restringida">🛑</span>}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 900, color: p.is_restricted || p.is_banned ? "var(--state-danger-fg)" : "var(--text-main)", fontSize: "14px", textDecoration: p.is_restricted ? "line-through" : "none" }}>
+                {p.display_name || p.email || p.user_id.slice(0, 8)} {p.is_premium && <span title="Usuario Premium">👑</span>} {p.is_artist && <span title="Artista Verificado">✨</span>} {p.is_featured_artist && <span title="Artista Estrella">🌟</span>} {p.is_restricted && <span title="Cuenta Restringida">🛑</span>} {p.is_banned && <span title="Login bloqueado">🔒</span>}
               </span>
-              <span style={{ fontSize: "11px", fontWeight: 900, color: bucketColor }}>{bucketText}</span>
+              <span style={{ fontSize: "10px", fontWeight: 900, color: bucketColor }}>{bucketText}</span>
             </div>
-            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700, marginTop: "4px" }}>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 700, marginTop: "2px" }}>
               {p.email || "Sin email"} · Alta: {formatAdminDate(p.created_at)} · Último acceso: {formatAdminDate(p.last_sign_in_at)}
             </div>
           </div>
@@ -1972,141 +2112,180 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             type="button"
             aria-expanded={actionsOpen}
             onClick={() => setOpenUserActionsId(actionsOpen ? null : p.user_id)}
-            style={{ background: actionsOpen ? "var(--color-primary)" : "var(--bg-main)", color: actionsOpen ? "var(--bg-card)" : "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: "10px", padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, fontSize: "12px", flexShrink: 0 }}
+            style={{ ...compactActionStyle(actionsOpen ? "primary" : "default"), flexShrink: 0 }}
           >
-            {actionsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {actionsOpen ? "Ocultar acciones" : "Ver acciones"}
+            {actionsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {actionsOpen ? "Cerrar" : "Acciones"}
           </button>
         </div>
 
         {actionsOpen && (
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-          <button
-            type="button"
-            onClick={() => router.push(`/user/${p.user_id}`)}
-            style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: "10px", padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, fontSize: "12px" }}
-          >
-            <ExternalLink size={14} /> Ver perfil
-          </button>
-          {p.is_premium ? (
-            <button onClick={(e) => togglePremium(p, "free", e)} style={{ background: "var(--state-warning-bg)", color: "var(--state-warning-fg)", border: "1px solid var(--state-warning-border)", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 900, fontSize: "12px" }}>
-              <Crown size={14} /> QUITAR PREMIUM ({p.plan_type === "anual" ? "A" : "M"})
-            </button>
-          ) : (
-            <div style={{ display: "flex", gap: "5px" }}>
-              <button onClick={(e) => togglePremium(p, "mensual", e)} style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, fontSize: "12px" }}>
-                <Crown size={14} /> + MES
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {!p.is_deleted && (
+            <AdminUserActionGroup label="ACCESO">
+              <button
+                type="button"
+                onClick={(e) =>
+                  confirmUserAuthAction(
+                    p,
+                    "reset_password",
+                    "Restablecer contraseña",
+                    `Se enviará un email a ${p.email || who} para que elija una nueva contraseña.`,
+                    e,
+                  )
+                }
+                style={compactActionStyle()}
+              >
+                <KeyRound size={12} /> Restablecer contraseña
               </button>
-              <button onClick={(e) => togglePremium(p, "anual", e)} style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, fontSize: "12px" }}>
-                <Crown size={14} /> + AÑO
+              {p.is_banned ? (
+                <button
+                  type="button"
+                  onClick={(e) =>
+                    confirmUserAuthAction(
+                      p,
+                      "unlock_login",
+                      "Desbloquear inicio de sesión",
+                      `¿Desbloquear el acceso de ${who}? Podrá volver a entrar con su email y contraseña.`,
+                      e,
+                    )
+                  }
+                  style={compactActionStyle("success")}
+                >
+                  <Unlock size={12} /> Desbloquear login
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) =>
+                    confirmUserAuthAction(
+                      p,
+                      "lock_login",
+                      "Bloquear inicio de sesión",
+                      `¿Bloquear el acceso de ${who}? La cuenta no se borra, pero no podrá iniciar sesión. Luego puedes desbloquearla.`,
+                      e,
+                    )
+                  }
+                  style={compactActionStyle("warning")}
+                >
+                  <Lock size={12} /> Bloquear login
+                </button>
+              )}
+              {!p.email_confirmed && (
+                <button
+                  type="button"
+                  onClick={(e) =>
+                    confirmUserAuthAction(
+                      p,
+                      "confirm_email",
+                      "Confirmar email",
+                      `¿Marcar el email de ${who} como confirmado? Útil si no le llega el correo de verificación.`,
+                      e,
+                    )
+                  }
+                  style={compactActionStyle("success")}
+                >
+                  <MailOpen size={12} /> Confirmar email
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(e) =>
+                  confirmUserAuthAction(
+                    p,
+                    "sign_out_all",
+                    "Cerrar todas las sesiones",
+                    `¿Cerrar todas las sesiones de ${who}? Tendrá que volver a iniciar sesión en todos sus dispositivos. Útil si cree que le han robado la cuenta.`,
+                    e,
+                  )
+                }
+                style={compactActionStyle()}
+              >
+                <LogOut size={12} /> Cerrar sesiones
               </button>
-            </div>
+            </AdminUserActionGroup>
           )}
 
-          <button onClick={(e) => toggleStatus(p.user_id, p.display_name || p.email || "usuario", "is_artist", p.is_artist, e)} style={{ background: p.is_artist ? "var(--state-success-bg)" : "var(--bg-soft)", color: p.is_artist ? "var(--state-success-fg)" : "var(--color-primary)", border: p.is_artist ? "1px solid var(--state-success-border)" : "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, fontSize: "12px" }}>
-            <Star size={14} /> {p.is_artist ? "QUITAR ARTISTA" : "HACER ARTISTA"}
-          </button>
-          <button
-            onClick={async (e) => {
-              e.stopPropagation();
-              try {
-                const { data: sessionData } = await supabase.auth.getSession();
-                const accessToken = sessionData.session?.access_token;
-                if (!accessToken) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
-                const body = {
-                  user_id: p.user_id,
-                  is_premium: !!p.is_premium,
-                  is_artist: !!p.is_artist,
-                  is_featured_artist: !p.is_featured_artist,
-                  is_restricted: !!p.is_restricted,
-                  plan_type: p.plan_type || "free",
-                  puntos: Math.max(0, Number(p.puntos) || 0),
-                  strikes: Math.min(99, Math.max(0, Number(p.strikes) || 0)),
-                };
-                const res = await fetch("/api/admin/update-profile", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-                  body: JSON.stringify(body),
-                });
-                const json = (await res.json().catch(() => ({}))) as { error?: string };
-                if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-                sincronizarCambioUsuario(p.user_id, { is_featured_artist: !p.is_featured_artist });
-                showAlert("Éxito", !p.is_featured_artist ? "Usuario marcado como Artista Estrella." : "Usuario quitado de Artista Estrella.");
-              } catch (err: any) {
-                showAlert("Error", err.message || "No se pudo actualizar Artista Estrella.");
-              }
-            }}
-            style={{
-              background: p.is_featured_artist ? "var(--state-warning-bg)" : "var(--bg-soft)",
-              color: p.is_featured_artist ? "var(--state-warning-fg)" : "var(--color-primary)",
-              border: p.is_featured_artist ? "1px solid var(--state-warning-border)" : "1px solid var(--color-border)",
-              padding: "8px 12px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontWeight: 800,
-              fontSize: "12px",
-            }}
-          >
-            <Sparkles size={14} /> {p.is_featured_artist ? "QUITAR ARTISTA ESTRELLA" : "HACER ARTISTA ESTRELLA"}
-          </button>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-main)", padding: "6px 12px", borderRadius: "10px", border: "1px solid var(--color-border)" }}>
-            <span style={{ fontSize: "11px", fontWeight: 900, color: "var(--color-primary)" }}>K-OINS:</span>
-            <input
-              type="number"
-              defaultValue={p.puntos || 0}
-              id={`pts-${p.user_id}`}
-              style={{ width: "60px", textAlign: "center", fontWeight: 900, border: "1px solid var(--color-border)", borderRadius: "6px", padding: "4px" }}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const val = (document.getElementById(`pts-${p.user_id}`) as HTMLInputElement).value;
-                updatePuntosExact(p.user_id, p.display_name || p.email || "usuario", parseInt(val || "0", 10), e);
-              }}
-              style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", borderRadius: "6px", padding: "5px 10px", cursor: "pointer", fontSize: "11px", fontWeight: "bold" }}
-            >
-              AJUSTAR KOINS
+          <AdminUserActionGroup label="CUENTA">
+            <button type="button" onClick={() => router.push(`/user/${p.user_id}`)} style={compactActionStyle()}>
+              <ExternalLink size={12} /> Perfil
             </button>
-          </div>
-
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-            <button onClick={(e) => openStrikeModal(p, e)} disabled={p.strikes >= 3} style={{ background: p.strikes >= 3 ? "var(--state-disabled-bg)" : "var(--state-danger-bg)", color: p.strikes >= 3 ? "var(--state-disabled-fg)" : "var(--state-danger-fg)", border: `1px solid ${p.strikes >= 3 ? "var(--state-disabled-border)" : "var(--state-danger-border)"}`, padding: "8px 12px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 900, fontSize: "12px" }}>
-              <ShieldAlert size={14} /> STRIKE ({p.strikes || 0}/3)
+            {p.is_premium ? (
+              <button onClick={(e) => togglePremium(p, "free", e)} style={compactActionStyle("warning")}>
+                <Crown size={12} /> Quitar premium
+              </button>
+            ) : (
+              <>
+                <button onClick={(e) => togglePremium(p, "mensual", e)} style={compactActionStyle()}>
+                  <Crown size={12} /> + Mes
+                </button>
+                <button onClick={(e) => togglePremium(p, "anual", e)} style={compactActionStyle()}>
+                  <Crown size={12} /> + Año
+                </button>
+              </>
+            )}
+            <button onClick={(e) => toggleStatus(p.user_id, who, "is_artist", p.is_artist, e)} style={compactActionStyle(p.is_artist ? "success" : "default")}>
+              <Star size={12} /> {p.is_artist ? "Quitar artista" : "Artista"}
             </button>
-            <button onClick={(e) => verHistorialStrikes(p, e)} style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 900, fontSize: "12px" }}>
-              <FileText size={14} /> HISTORIAL
+            <button onClick={(e) => void toggleFeaturedArtist(p, e)} style={compactActionStyle(p.is_featured_artist ? "warning" : "default")}>
+              <Sparkles size={12} /> {p.is_featured_artist ? "Quitar estrella" : "Estrella"}
+            </button>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "var(--bg-main)", padding: "3px 6px", borderRadius: "6px", border: "1px solid var(--color-border)" }}>
+              <span style={{ fontSize: "10px", fontWeight: 900, color: "var(--color-primary)" }}>K-oins</span>
+              <input
+                type="number"
+                defaultValue={p.puntos || 0}
+                id={`pts-${p.user_id}`}
+                style={{ width: "52px", textAlign: "center", fontWeight: 800, border: "1px solid var(--color-border)", borderRadius: "4px", padding: "2px 4px", fontSize: "11px" }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const val = (document.getElementById(`pts-${p.user_id}`) as HTMLInputElement).value;
+                  updatePuntosExact(p.user_id, who, parseInt(val || "0", 10), e);
+                }}
+                style={{ ...compactActionStyle("primary"), padding: "3px 6px" }}
+              >
+                OK
+              </button>
+            </div>
+          </AdminUserActionGroup>
+
+          <AdminUserActionGroup label="MODERACIÓN">
+            <button onClick={(e) => openStrikeModal(p, e)} disabled={p.strikes >= 3} style={{ ...compactActionStyle(p.strikes >= 3 ? "default" : "danger"), opacity: p.strikes >= 3 ? 0.55 : 1, cursor: p.strikes >= 3 ? "not-allowed" : "pointer" }}>
+              <ShieldAlert size={12} /> Strike {p.strikes || 0}/3
+            </button>
+            <button onClick={(e) => verHistorialStrikes(p, e)} style={compactActionStyle()}>
+              <FileText size={12} /> Historial
             </button>
             {p.strikes > 0 && (
-              <button onClick={(e) => resetStrikes(p, e)} style={{ background: "var(--state-danger-bg)", color: "var(--state-danger-fg)", border: "1px solid var(--state-danger-border)", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 900, fontSize: "12px" }}>
-                <Undo2 size={14} /> RESET
+              <button onClick={(e) => resetStrikes(p, e)} style={compactActionStyle("danger")}>
+                <Undo2 size={12} /> Reset strikes
               </button>
             )}
             {p.is_restricted && (
-              <button onClick={(e) => removerRestriccion(p, e)} style={{ background: "var(--state-success-bg)", color: "var(--state-success-fg)", border: "1px solid var(--state-success-border)", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 900, fontSize: "12px" }}>
-                <CheckCircle size={14} /> PERDONAR
+              <button onClick={(e) => removerRestriccion(p, e)} style={compactActionStyle("success")}>
+                <CheckCircle size={12} /> Perdonar
               </button>
             )}
-          </div>
-
-          <button type="button" onClick={(e) => fulminarUsuario(p.user_id, p.display_name || p.email || "usuario", e)} style={{ background: "var(--text-main)", color: "var(--bg-card)", border: "none", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontWeight: 900, fontSize: "12px", marginLeft: "auto" }}>
-            <AlertTriangle size={14} /> FULMINAR
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              void guardarUsuarioPerfil(p);
-            }}
-            disabled={loading}
-            style={{ background: "var(--state-info-bg)", color: "var(--state-info-fg)", border: "1px solid var(--state-info-border)", padding: "8px 12px", borderRadius: "8px", cursor: loading ? "wait" : "pointer", fontWeight: 900, fontSize: "12px", display: "flex", alignItems: "center", gap: "6px", opacity: loading ? 0.75 : 1 }}
-          >
-            <Save size={14} /> Guardar
-          </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void guardarUsuarioPerfil(p);
+              }}
+              disabled={loading}
+              style={{ ...compactActionStyle(), opacity: loading ? 0.75 : 1, cursor: loading ? "wait" : "pointer" }}
+            >
+              <Save size={12} /> Guardar
+            </button>
+            {!p.is_deleted && (
+              <button type="button" onClick={(e) => fulminarUsuario(p.user_id, who, e)} style={compactActionStyle("danger")}>
+                <AlertTriangle size={12} /> Fulminar
+              </button>
+            )}
+          </AdminUserActionGroup>
         </div>
         )}
       </div>
