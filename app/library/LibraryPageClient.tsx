@@ -5,6 +5,7 @@ import Header from "../components/header";
 import AdRailLayout from "../components/AdRailLayout";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
 import { isMockPcBackPath, resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
+import { memberIsIn, prettyMemberLabel as formatMemberLabel, queryLooksLikeIn } from "@/lib/member-labels";
 
 import { useGlobal } from "../context/GlobalContext";
 import {
@@ -189,13 +190,9 @@ function matchesQuery(it: ItemRow, query: string) {
     return memberWords.some((w) => w.includes(t)) || nameWords.some((w) => w.includes(t));
   }
 
-  // "in" (I.N): no usar .includes() sobre versión ni sobre "seungmin"/"changbin" (contienen "in").
-  if (tokens.length === 1 && tokens[0] === "in") {
-    const pool = [...memberWords, ...nameWords];
-    return pool.some((w) => {
-      const sq = memberSlugSquish(w);
-      return sq === "in" || memberInCanon(sq) === "in";
-    });
+  // "I.N" / "i.n" / "in" / "jeongin": no usar .includes() (hyunjin, seungmin, changbin contienen "in").
+  if (queryLooksLikeIn(query)) {
+    return memberIsIn(it.member) || memberIsIn(it.name);
   }
 
   const words = [...nameWords, ...memberWords, ...versionWords];
@@ -296,64 +293,7 @@ function prettyVersionLabel(s: string | null) {
 }
 
 function prettyMemberLabel(memberRaw: string | null) {
-  const raw = (memberRaw ?? "").trim();
-  if (!raw) return "—";
-
-  const cleaned = raw
-    .replace(/[|]/g, " ")
-    .replace(/[,_]/g, " ")
-    .replace(/[+/]/g, " ")
-    .replace(/-/g, " ")
-    .trim();
-
-  const tokens = cleaned.split(/\s+/).filter(Boolean);
-
-  const map: Record<string, string> = {
-    bang: "Bang",
-    chan: "Chan",
-    bangchan: "Bang Chan",
-    bangchanfelix: "Bang Chan · Felix",
-    lee: "Lee",
-    know: "Know",
-    leeknow: "Lee Know",
-    changbin: "Changbin",
-    hyunjin: "Hyunjin",
-    han: "Han",
-    felix: "Felix",
-    seungmin: "Seungmin",
-    in: "I.N",
-    "i.n": "I.N",
-    jeongin: "I.N",
-  };
-
-  const joined = tokens.join("");
-  if (map[joined]) return map[joined];
-
-  const out: string[] = [];
-  for (let i = 0; i < tokens.length; i++) {
-    const a = tokens[i];
-    const b = tokens[i + 1];
-
-    if (a === "bang" && b === "chan") {
-      out.push("Bang Chan");
-      i++;
-      continue;
-    }
-    if (a === "lee" && b === "know") {
-      out.push("Lee Know");
-      i++;
-      continue;
-    }
-    if (a === "in") {
-      out.push("I.N");
-      continue;
-    }
-
-    out.push(map[a] ?? toNiceTitle(a));
-  }
-
-  const uniq = Array.from(new Set(out.filter(Boolean)));
-  return uniq.join(" · ") || "—";
+  return formatMemberLabel(memberRaw) || "—";
 }
 
 function prettySlugTitle(s: string) {

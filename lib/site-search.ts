@@ -18,7 +18,7 @@ export type SiteSearchHit = {
 
 export function sanitizeSearchQuery(raw: string): string {
   return String(raw || "")
-    .replace(/[%_,()]/g, " ")
+    .replace(/[%(),]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 64);

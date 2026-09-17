@@ -5,6 +5,13 @@ import { isMockPcBackPath } from "@/lib/mock-pc-url";
 import { scanMerchProductsFromMockPcs } from "@/lib/merch-albums-catalog-scan";
 import { merchRowMatchesQuery } from "@/lib/merch-item-search";
 import {
+  memberIsIn,
+  memberSearchAliases,
+  prettyMemberLabel,
+  prettyVersionLabel,
+  queryLooksLikeIn,
+} from "@/lib/member-labels";
+import {
   sanitizeSearchQuery,
   SITE_SEARCH_SHOP,
   type SiteSearchHit,
@@ -48,6 +55,35 @@ function textMatches(q: string, ...parts: Array<string | null | undefined>): boo
   return tokens.every((t) => hay.includes(t));
 }
 
+function itemsOrFilter(q: string): string {
+  const aliases = memberSearchAliases(q);
+  const values = Array.from(new Set([q, ...aliases].map((v) => v.trim()).filter(Boolean)));
+  const parts: string[] = [];
+  for (const field of ["name", "member", "version"]) {
+    for (const v of values) {
+      if (queryLooksLikeIn(q) && (v === "in" || v.toLowerCase() === "in")) {
+        parts.push(`${field}.eq.in`);
+        parts.push(`${field}.eq.I.N`);
+        parts.push(`${field}.eq.i.n`);
+        parts.push(`${field}.eq.i-n`);
+        continue;
+      }
+      parts.push(`${field}.ilike.%${v}%`);
+    }
+  }
+  if (queryLooksLikeIn(q)) {
+    parts.push("member.ilike.jeongin", "name.ilike.jeongin");
+  }
+  return parts.slice(0, 20).join(",");
+}
+
+function photocardTitle(name: string | null, member: string | null): string {
+  const memberLabel = prettyMemberLabel(member);
+  const nameLabel = prettyMemberLabel(name);
+  if (memberLabel && nameLabel && nameLabel !== memberLabel) return `${memberLabel} · ${nameLabel}`;
+  return memberLabel || nameLabel || name || "Photocard";
+}
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = sanitizeSearchQuery(url.searchParams.get("q") || "");
@@ -56,7 +92,15 @@ export async function GET(req: Request) {
   }
 
   const like = `%${q}%`;
-  const results: SiteSearchHit[] = [];
+  const buckets: Record<SiteSearchHit["type"], SiteSearchHit[]> = {
+    user: [],
+    photocard: [],
+    merch: [],
+    fanart: [],
+    album: [],
+    group: [],
+    shop: [],
+  };
 
   try {
     const admin = createServiceRoleClient();
@@ -64,8 +108,8 @@ export async function GET(req: Request) {
       admin
         .from("items")
         .select("id, name, image_url, member, version, type")
-        .or(`name.ilike.${like},member.ilike.${like},version.ilike.${like}`)
-        .limit(24),
+        .or(itemsOrFilter(q))
+        .limit(40),
       admin
         .from("fanarts")
         .select("id, title, artist_name, image_url, thumbnail_url, category")
@@ -80,26 +124,28 @@ export async function GET(req: Request) {
     for (const row of itemsRes.data || []) {
       if (isMockPcBackPath(asString(row.image_url))) continue;
       if (itemIsMerchNotPhotocard(row)) continue;
-      const name = asString(row.name) || asString(row.member) || `PC #${row.id}`;
       const member = asString(row.member);
-      const version = asString(row.version);
-      results.push({
+      const name = asString(row.name);
+      if (queryLooksLikeIn(q) && !memberIsIn(member) && !memberIsIn(name)) continue;
+      const version = prettyVersionLabel(asString(row.version));
+      buckets.photocard.push({
         type: "photocard",
         id: String(row.id),
-        title: name,
-        subtitle: [member, version].filter(Boolean).join(" · ") || "Photocard",
+        title: photocardTitle(name, member),
+        subtitle: version || "Photocard",
         image: asString(row.image_url),
         href: `/library?q=${encodeURIComponent(String(row.id))}`,
       });
-      if (results.filter((r) => r.type === "photocard").length >= 8) break;
+      if (buckets.photocard.length >= 8) break;
     }
 
     try {
       const merchHits = merchRows()
         .filter((row) => merchRowMatchesQuery(row, q))
+        .filter((row) => !queryLooksLikeIn(q) || memberIsIn(row.name) || memberIsIn(row.image_url))
         .slice(0, 6);
       for (const row of merchHits) {
-        results.push({
+        buckets.merch.push({
           type: "merch",
           id: row.id,
           title: row.name,
@@ -113,7 +159,7 @@ export async function GET(req: Request) {
     }
 
     for (const row of fanartRes.data || []) {
-      results.push({
+      buckets.fanart.push({
         type: "fanart",
         id: String(row.id),
         title: asString(row.title) || "Fanart",
@@ -125,7 +171,7 @@ export async function GET(req: Request) {
 
     for (const row of albumsRes.data || []) {
       const name = asString(row.name) || `Álbum ${row.id}`;
-      results.push({
+      buckets.album.push({
         type: "album",
         id: String(row.id),
         title: name,
@@ -137,7 +183,7 @@ export async function GET(req: Request) {
 
     for (const row of groupsRes.data || []) {
       const name = asString(row.name) || `Grupo ${row.id}`;
-      results.push({
+      buckets.group.push({
         type: "group",
         id: String(row.id),
         title: name,
@@ -148,7 +194,7 @@ export async function GET(req: Request) {
     }
 
     for (const row of usersRes.data || []) {
-      results.push({
+      buckets.user.push({
         type: "user",
         id: String(row.user_id),
         title: asString(row.display_name) || "Usuario",
@@ -160,7 +206,7 @@ export async function GET(req: Request) {
 
     for (const shop of SITE_SEARCH_SHOP) {
       if (!textMatches(q, shop.title, shop.subtitle, "shop", "tienda", "koins", "binder")) continue;
-      results.push({
+      buckets.shop.push({
         type: "shop",
         id: shop.id,
         title: shop.title,
@@ -170,18 +216,17 @@ export async function GET(req: Request) {
       });
     }
 
-    const order: Record<SiteSearchHit["type"], number> = {
-      photocard: 0,
-      merch: 1,
-      fanart: 2,
-      album: 3,
-      group: 4,
-      user: 5,
-      shop: 6,
-    };
-    results.sort((a, b) => order[a.type] - order[b.type] || a.title.localeCompare(b.title, "es"));
+    const results = [
+      ...buckets.user.slice(0, 6),
+      ...buckets.photocard.slice(0, 8),
+      ...buckets.merch.slice(0, 6),
+      ...buckets.fanart.slice(0, 4),
+      ...buckets.album.slice(0, 3),
+      ...buckets.group.slice(0, 2),
+      ...buckets.shop.slice(0, 2),
+    ];
 
-    return NextResponse.json({ results: results.slice(0, 24) });
+    return NextResponse.json({ results });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error";
     return NextResponse.json({ error: msg }, { status: 500 });
