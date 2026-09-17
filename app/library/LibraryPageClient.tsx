@@ -408,25 +408,51 @@ function MetaRow({
   value: string;
 }) {
   return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-muted)", fontSize: 12 }}>
-        <span
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        minWidth: 0,
+        padding: "6px 10px",
+        borderRadius: 14,
+        background: "var(--bg-card)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          flex: "0 0 auto",
+          borderRadius: 10,
+          border: "1px solid var(--state-disabled-border)",
+          background: "linear-gradient(180deg, var(--bg-card), var(--bg-soft))",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--text-muted)",
+        }}
+      >
+        {icon}
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)", lineHeight: 1.15 }}>{label}</div>
+        <div
           style={{
-            width: 22,
-            height: 22,
-            borderRadius: 10,
-            border: "1px solid var(--state-disabled-border)",
-            background: "linear-gradient(180deg, var(--bg-card), var(--bg-soft))",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
+            fontSize: 13,
+            fontWeight: 950,
+            color: "var(--text-main)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: 168,
           }}
         >
-          {icon}
-        </span>
-        <span style={{ fontWeight: 900 }}>{label}</span>
+          {value || "—"}
+        </div>
       </div>
-      <div style={{ fontWeight: 900, color: "var(--text-main)", textAlign: "left" }}>{value || "—"}</div>    </>
+    </div>
   );
 }
 function InfoLine({ icon, text }: { icon: ReactNode; text: string }) {
@@ -497,6 +523,100 @@ function StockTooltip({ title = "Mini resumen ✨", lines, t }: { title?: string
   );
 }
 
+function stockDraftFromCounts(counts: StatusCounts): Record<PersistStatus, number> {
+  return {
+    have: counts.have ?? 0,
+    wtt: counts.wtt ?? 0,
+    wts: counts.wts ?? 0,
+    on_its_way: counts.on_its_way ?? 0,
+    wishlist: counts.wish ?? 0,
+  };
+}
+
+function applyStockDelta(prev: Record<PersistStatus, number>, s: PersistStatus, delta: number): Record<PersistStatus, number> {
+  const currentVal = prev[s] ?? 0;
+  const nextVal = Math.max(0, currentVal + delta);
+  const next = { ...prev, [s]: nextVal };
+  if (s !== "wishlist" && nextVal > 0) next.wishlist = 0;
+  if (s === "wishlist" && nextVal > 0) {
+    next.have = 0;
+    next.wtt = 0;
+    next.wts = 0;
+    next.on_its_way = 0;
+  }
+  return next;
+}
+
+function stockStatusLabel(s: PersistStatus, t: (k: string) => string): string {
+  if (s === "have") return t("library.status_have");
+  if (s === "on_its_way") return t("library.status_otw");
+  if (s === "wishlist") return t("library.status_wish");
+  return s.toUpperCase();
+}
+
+function StockQtyRows({
+  draft,
+  disabled,
+  onDelta,
+  t,
+}: {
+  draft: Record<PersistStatus, number>;
+  disabled?: boolean;
+  onDelta: (s: PersistStatus, delta: number) => void;
+  t: (k: string) => string;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {(["have", "wtt", "wts", "on_its_way", "wishlist"] as PersistStatus[]).map((s) => (
+        <div key={s} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 900, color: "var(--library-stock-row-label-fg)" }}>
+            {stockStatusLabel(s, t)}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onDelta(s, -1)}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                border: "1px solid var(--library-stock-step-minus-border)",
+                background: "var(--library-stock-step-minus-bg)",
+                color: "var(--library-stock-step-minus-fg)",
+                fontWeight: 900,
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled ? 0.55 : 1,
+              }}
+            >
+              -
+            </button>
+            <span style={{ minWidth: 25, textAlign: "center", fontWeight: 950, fontSize: 14, color: "var(--library-stock-qty-fg)" }}>{draft[s]}</span>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onDelta(s, 1)}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                border: "1px solid var(--library-stock-step-minus-border)",
+                background: "var(--library-stock-step-minus-bg)",
+                color: "var(--library-stock-step-minus-fg)",
+                fontWeight: 900,
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled ? 0.55 : 1,
+              }}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Stock dropdown
  */
@@ -514,27 +634,10 @@ function StockDropdown({
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const [openToLeft, setOpenToLeft] = useState(false);
+  const [draft, setDraft] = useState<Record<PersistStatus, number>>(() => stockDraftFromCounts(counts));
 
-  // Inicializamos el borrador con los valores actuales
-  const [draft, setDraft] = useState<Record<PersistStatus, number>>({
-    have: counts.have ?? 0,
-    wtt: counts.wtt ?? 0,
-    wts: counts.wts ?? 0,
-    on_its_way: counts.on_its_way ?? 0,
-    wishlist: counts.wish ?? 0,
-  });
-
-  // Sincronizar si cierras y abres o si cambian los datos externos
   useEffect(() => {
-    if (!open) {
-      setDraft({
-        have: counts.have ?? 0,
-        wtt: counts.wtt ?? 0,
-        wts: counts.wts ?? 0,
-        on_its_way: counts.on_its_way ?? 0,
-        wishlist: counts.wish ?? 0,
-      });
-    }
+    if (!open) setDraft(stockDraftFromCounts(counts));
   }, [counts, open]);
 
   useEffect(() => {
@@ -545,21 +648,6 @@ function StockDropdown({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
-
-  const handleQtyChange = (s: PersistStatus, delta: number) => {
-    setDraft(prev => {
-      const currentVal = prev[s] ?? 0;
-      const nextVal = Math.max(0, currentVal + delta);
-      const next = { ...prev, [s]: nextVal };
-
-      // Lógica excluyente: Si hay stock físico, no hay wishlist y viceversa
-      if (s !== "wishlist" && nextVal > 0) next.wishlist = 0;
-      if (s === "wishlist" && nextVal > 0) {
-        next.have = 0; next.wtt = 0; next.wts = 0; next.on_its_way = 0;
-      }
-      return next;
-    });
-  };
 
   const total = (draft.have || 0) + (draft.wtt || 0) + (draft.wts || 0) + (draft.on_its_way || 0);
 
@@ -599,20 +687,7 @@ function StockDropdown({
           width: 280, background: "var(--bg-card)", border: "1px solid var(--color-border)",
           borderRadius: 20, padding: 16, boxShadow: "0 15px 40px color-mix(in srgb, var(--color-primary) 18%, transparent)"
         }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {(["have", "wtt", "wts", "on_its_way", "wishlist"] as PersistStatus[]).map((s) => (
-              <div key={s} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 12, fontWeight: 900, color: "var(--library-stock-row-label-fg)" }}>
-                  {s === "have" ? t('library.status_have') : s === "on_its_way" ? t('library.status_otw') : s.toUpperCase()}
-                </span>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <button type="button" onClick={() => handleQtyChange(s, -1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--library-stock-step-minus-border)", background: "var(--library-stock-step-minus-bg)", color: "var(--library-stock-step-minus-fg)", fontWeight: 900, cursor: "pointer" }}>-</button>
-                  <span style={{ minWidth: 25, textAlign: "center", fontWeight: 950, fontSize: 14, color: "var(--library-stock-qty-fg)" }}>{draft[s]}</span>
-                  <button type="button" onClick={() => handleQtyChange(s, 1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--library-stock-step-minus-border)", background: "var(--library-stock-step-minus-bg)", color: "var(--library-stock-step-minus-fg)", fontWeight: 900, cursor: "pointer" }}>+</button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <StockQtyRows draft={draft} disabled={disabled} onDelta={(s, d) => setDraft((prev) => applyStockDelta(prev, s, d))} t={t} />
           <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
             <button type="button" onClick={() => setOpen(false)} style={{ flex: 1, padding: "10px", borderRadius: 12, border: "1px solid var(--library-stock-cancel-border)", background: "var(--library-stock-cancel-bg)", color: "var(--library-stock-cancel-fg)", fontWeight: 900, cursor: "pointer" }}>{t('common.cancel')}</button>
             <button type="button" onClick={async () => { await onCommit(draft); setOpen(false); }} style={{ flex: 1, padding: "10px", borderRadius: 12, border: "none", background: "var(--library-stock-save-bg)", color: "var(--library-stock-save-fg)", fontWeight: 900, cursor: "pointer" }}>{t('common.save')}</button>
@@ -977,6 +1052,7 @@ function ItemModal({
   onAlert,
   uiLang = "es",
   hideBinder,
+  onCommitStock,
 }: {
   item: ItemRow;
   counts: StatusCounts;
@@ -997,9 +1073,12 @@ function ItemModal({
   onAlert?: (title: string, message: string) => void;
   uiLang?: string;
   hideBinder?: boolean;
+  onCommitStock?: (next: Record<PersistStatus, number>) => Promise<void>;
 }) {
   const [face, setFace] = useState<"front" | "back">("front");
   const [rot, setRot] = useState(0);
+  const [stockDraft, setStockDraft] = useState<Record<PersistStatus, number>>(() => stockDraftFromCounts(counts));
+  const [stockSaving, setStockSaving] = useState(false);
   const [userPrice, setUserPrice] = useState<string>("");
   const [marketRefUsd, setMarketRefUsd] = useState<string>("");
   const [marketViewCur, setMarketViewCur] = useState<string>("EUR");
@@ -1017,6 +1096,10 @@ function ItemModal({
       setMarketViewCur(localStorage.getItem(`binder:currency:${item.id}`) || "EUR");
     }
   }, [item.id]);
+
+  useEffect(() => {
+    setStockDraft(stockDraftFromCounts(counts));
+  }, [counts.have, counts.wtt, counts.wts, counts.on_its_way, counts.wish]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1121,6 +1204,19 @@ function ItemModal({
   const uiWttDisplay = counts.wtt;
   const uiWishlist = counts.wish;
   const wttDisabled = isViewingOtherUser || uiWishlist > 0;
+  const stockBaseline = stockDraftFromCounts(counts);
+  const stockDirty = (Object.keys(stockBaseline) as PersistStatus[]).some((k) => stockDraft[k] !== stockBaseline[k]);
+  const stockEditsDisabled = isViewingOtherUser || !onCommitStock || stockSaving;
+
+  const saveStockDraft = async () => {
+    if (!onCommitStock || isViewingOtherUser || stockSaving) return;
+    setStockSaving(true);
+    try {
+      await onCommitStock(stockDraft);
+    } finally {
+      setStockSaving(false);
+    }
+  };
 
  const handleUploadFile = async (file: File) => {
     try {
@@ -1262,26 +1358,36 @@ function ItemModal({
           boxShadow: "0 30px 80px color-mix(in srgb, var(--text-main) 22%, transparent)",
           overflow: "hidden",
           display: "grid",
-          gridTemplateRows: "62px auto",
+          gridTemplateRows: "auto auto",
         }}
       >
         {/* HEADER */}
         <div
+          className="library-item-modal-header"
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "space-between",
             gap: 12,
-            padding: "12px 16px",
+            padding: "10px 16px",
             borderBottom: "1px solid var(--color-border)",
             background: "var(--bg-soft)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 20, fontWeight: 950, color: "var(--color-primary)", whiteSpace: "pre-line", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis" }}>
-              {title}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+              <div style={{ fontSize: 18, fontWeight: 950, color: "var(--color-primary)", whiteSpace: "nowrap", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis" }}>
+                {title}
+              </div>
+              {!hideBinder && inBinder > 0 && <PinBadge t={t} />}
             </div>
-            {!hideBinder && inBinder > 0 && <PinBadge t={t} />}
+            <div className="library-item-modal-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
+              <MetaRow icon={<Users size={16} strokeWidth={2.2} />} label={t("binders.picker.group")} value={prettySlug(groupName)} />
+              <MetaRow icon={<Disc3 size={16} strokeWidth={2.2} />} label={t("binders.picker.album")} value={prettyAlbumDisplay(albumName)} />
+              <MetaRow icon={<Mic2 size={16} strokeWidth={2.2} />} label={t("binders.picker.version")} value={prettySlugTitle(item.version ?? "")} />
+              <MetaRow icon={<User size={16} strokeWidth={2.2} />} label={t("binders.picker.member")} value={title || "-"} />
+              <MetaRow icon={<Layers size={16} strokeWidth={2.2} />} label={t("binders.picker.type")} value={unitLabel} />
+            </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
@@ -1469,32 +1575,60 @@ function ItemModal({
           {/* DER: INFO, STOCK, NOTAS Y WTT */}
           <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
             
-            {/* META INFO */}
+            {/* STOCK Y PRECIO */}
             <div style={{ padding: 14, ...subtleCard }}>
-              <div className="library-item-meta-grid" style={{ display: "grid", gridTemplateColumns: "130px 1fr", rowGap: 10, columnGap: 12 }}>
-                <MetaRow icon={<Users size={16} strokeWidth={2.2} />} label={t("binders.picker.group")} value={prettySlug(groupName)} />
-                <MetaRow icon={<Disc3 size={16} strokeWidth={2.2} />} label={t("binders.picker.album")} value={prettyAlbumDisplay(albumName)} />
-                <MetaRow icon={<Mic2 size={16} strokeWidth={2.2} />} label={t("binders.picker.version")} value={prettySlugTitle(item.version ?? "")} />
-                <MetaRow icon={<User size={16} strokeWidth={2.2} />} label={t("binders.picker.member")} value={title || "-"} />
-                <MetaRow icon={<Layers size={16} strokeWidth={2.2} />} label={t("binders.picker.type")} value={unitLabel} />
-              </div>
-            </div>
-
-            {/* STOCK Y PRECIO (alineado con modal de binder) */}
-            <div style={{ marginTop: 14, padding: 14, ...subtleCard }}>
-              <div style={{ fontWeight: 950, marginBottom: 10, color: "var(--color-primary)" }}>{t("binders.item_info.price_title")}</div>
-              <div className="library-stock-row" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 950, marginBottom: 10, color: "var(--color-primary)" }}>{t('library.stock_title')}</div>
-                  <div style={{ fontSize: 13, color: "var(--text-main)", lineHeight: 1.7 }}>
-                    {t('library.status_have')}: <b>{counts.have}</b> <br />
-                    {t("binders.statuses.wtt")}: <b>{counts.wtt}</b> <br />
-                    {t("binders.statuses.wts")}: <b>{counts.wts}</b> <br />
-                    {t('library.status_otw')}: <b>{counts.on_its_way}</b> <br />
-                    {t('library.status_wish')}: <b>{counts.wish}</b>
-                  </div>
+              <div className="library-item-stock-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
+                <div>
+                  <div style={{ fontWeight: 950, marginBottom: 12, color: "var(--color-primary)" }}>{t('library.stock_title')}</div>
+                  <StockQtyRows
+                    draft={stockDraft}
+                    disabled={stockEditsDisabled}
+                    onDelta={(s, d) => setStockDraft((prev) => applyStockDelta(prev, s, d))}
+                    t={t}
+                  />
+                  {!isViewingOtherUser && onCommitStock ? (
+                    <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+                      <button
+                        type="button"
+                        disabled={!stockDirty || stockSaving}
+                        onClick={() => setStockDraft(stockDraftFromCounts(counts))}
+                        style={{
+                          flex: 1,
+                          padding: "10px",
+                          borderRadius: 12,
+                          border: "1px solid var(--library-stock-cancel-border)",
+                          background: "var(--library-stock-cancel-bg)",
+                          color: "var(--library-stock-cancel-fg)",
+                          fontWeight: 900,
+                          cursor: !stockDirty || stockSaving ? "not-allowed" : "pointer",
+                          opacity: !stockDirty || stockSaving ? 0.55 : 1,
+                        }}
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!stockDirty || stockSaving}
+                        onClick={() => void saveStockDraft()}
+                        style={{
+                          flex: 1,
+                          padding: "10px",
+                          borderRadius: 12,
+                          border: "none",
+                          background: "var(--library-stock-save-bg)",
+                          color: "var(--library-stock-save-fg)",
+                          fontWeight: 900,
+                          cursor: !stockDirty || stockSaving ? "not-allowed" : "pointer",
+                          opacity: !stockDirty || stockSaving ? 0.55 : 1,
+                        }}
+                      >
+                        {stockSaving ? "…" : t('common.save')}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="library-stock-price-col" style={{ minWidth: 200, maxWidth: 280, flex: "1 1 200px", display: "grid", gap: 10, alignContent: "start" }}>
+                <div className="library-stock-price-col" style={{ minWidth: 0, display: "grid", gap: 10, alignContent: "start" }}>
+                  <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>{t("binders.item_info.price_title")}</div>
                   <div style={{ borderRadius: 14, border: "1px solid var(--color-border)", background: "var(--bg-card)", padding: 8 }}>
                     <div style={{ fontWeight: 950, marginBottom: 6, color: "var(--color-primary)", fontSize: 12 }}>{t("binders.item_info.your_price")}</div>
                     <input
@@ -3593,6 +3727,7 @@ return (
     t={t}
     onAlert={showAlert}
     uiLang={profile?.language ?? "es"}
+    onCommitStock={(next) => commitStockForItem(it.id, next)}
   />
 );
 

@@ -1725,6 +1725,10 @@ textarea:disabled {
     height: auto !important;
   }
 
+  .library-item-stock-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   .library-item-modal-overlay {
     align-items: flex-start !important;
     padding: 72px 10px 10px !important;
@@ -1852,6 +1856,10 @@ textarea:disabled {
   }
 
   .library-item-meta-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .library-item-stock-grid {
     grid-template-columns: 1fr !important;
   }
 
