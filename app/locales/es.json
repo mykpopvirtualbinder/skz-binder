@@ -124,7 +124,11 @@
       "stock_market_price": "Precio medio de mercado",
       "price_unset": "Sin fijar",
       "notes_placeholder": "Escribe una nota breve (máx. 2 líneas)",
-      "btn_my_trades": "Mis trades"
+      "btn_my_trades": "Mis trades",
+      "inspect": "Ampliar photocard",
+      "inspect_hint": "Pincha la foto para ampliarla",
+      "inspect_zoom_in": "Acercar",
+      "inspect_zoom_out": "Alejar"
     },
     "report": {
       "title": "Reportar contenido",

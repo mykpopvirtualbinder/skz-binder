@@ -124,7 +124,11 @@
       "stock_market_price": "Average price (market)",
       "price_unset": "Unset",
       "notes_placeholder": "Write a short note (max. 2 lines)",
-      "btn_my_trades": "My trades"
+      "btn_my_trades": "My trades",
+      "inspect": "Enlarge photocard",
+      "inspect_hint": "Tap the photo to zoom in",
+      "inspect_zoom_in": "Zoom in",
+      "inspect_zoom_out": "Zoom out"
     },
     "report": {
       "title": "Report content",

@@ -62,6 +62,10 @@ import {
   Handshake,
   Search,
   Gift,
+  Ticket,
+  Calendar,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 const filterLabelStyle: React.CSSProperties = {
   fontSize: 12,
@@ -396,6 +400,246 @@ function collectionNameFilterLabel(kind: Exclude<LibraryCollectionKind, "all">, 
     other: "library.filters.pick_other",
   };
   return t(keys[kind]) || collectionKindLabel(kind, t);
+}
+
+function collectionKindForItem(item: ItemRow, albumName: string): Exclude<LibraryCollectionKind, "all"> {
+  const fromItem = itemLibraryCollectionKind(item);
+  if (fromItem !== "other") return fromItem;
+  return dbAlbumCollectionKind(albumName);
+}
+
+function collectionChipLabel(kind: Exclude<LibraryCollectionKind, "all">, t: (k: string) => string): string {
+  if (kind === "albums") return t("binders.picker.album") || "Álbum";
+  return collectionKindLabel(kind, t);
+}
+
+function collectionChipIcon(kind: Exclude<LibraryCollectionKind, "all">) {
+  const props = { size: 16, strokeWidth: 2.2 };
+  if (kind === "tours") return <Ticket {...props} />;
+  if (kind === "merch") return <Gift {...props} />;
+  if (kind === "seasons-greetings") return <Gift {...props} />;
+  if (kind === "pop-ups") return <Sparkles {...props} />;
+  if (kind === "memberships") return <Heart {...props} />;
+  if (kind === "collabs") return <Handshake {...props} />;
+  if (kind === "events") return <Calendar {...props} />;
+  if (kind === "other") return <Layers {...props} />;
+  return <Disc3 {...props} />;
+}
+
+const INSPECT_ZOOM_MIN = 1;
+const INSPECT_ZOOM_MAX = 4.5;
+const INSPECT_ZOOM_STEP = 0.25;
+
+function clampInspectZoom(z: number) {
+  return Math.min(INSPECT_ZOOM_MAX, Math.max(INSPECT_ZOOM_MIN, Math.round(z * 100) / 100));
+}
+
+function PcInspectLightbox({
+  src,
+  rot,
+  t,
+  onClose,
+}: {
+  src: string;
+  rot: number;
+  t: (k: string) => string;
+  onClose: () => void;
+}) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+
+  const applyZoom = (next: number) => {
+    const z = clampInspectZoom(next);
+    setZoom(z);
+    if (z <= 1) setPan({ x: 0, y: 0 });
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("library.modal.inspect") || t("binders.zoom")}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+      onWheel={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        applyZoom(zoom + (e.deltaY < 0 ? INSPECT_ZOOM_STEP : -INSPECT_ZOOM_STEP));
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 10050,
+        background: "var(--overlay-heavy)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "absolute",
+          top: 14,
+          left: "50%",
+          transform: "translateX(-50%)",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          zIndex: 2,
+          padding: "8px 10px",
+          borderRadius: 16,
+          background: "var(--bg-card)",
+          border: "1px solid var(--color-border)",
+          boxShadow: "0 10px 28px color-mix(in srgb, var(--text-main) 18%, transparent)",
+        }}
+      >
+        <span style={{ fontWeight: 900, fontSize: 12, color: "var(--color-primary)", padding: "0 4px" }}>
+          {t("binders.zoom")} {Math.round(zoom * 100)}%
+        </span>
+        <button
+          type="button"
+          onClick={() => applyZoom(zoom - INSPECT_ZOOM_STEP)}
+          disabled={zoom <= INSPECT_ZOOM_MIN}
+          title={t("library.modal.inspect_zoom_out") || "−"}
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            border: "1px solid var(--color-border)",
+            background: "var(--bg-soft)",
+            color: "var(--color-primary)",
+            cursor: zoom <= INSPECT_ZOOM_MIN ? "not-allowed" : "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: zoom <= INSPECT_ZOOM_MIN ? 0.45 : 1,
+          }}
+        >
+          <ZoomOut size={16} strokeWidth={2.4} />
+        </button>
+        <button
+          type="button"
+          onClick={() => applyZoom(zoom + INSPECT_ZOOM_STEP)}
+          disabled={zoom >= INSPECT_ZOOM_MAX}
+          title={t("library.modal.inspect_zoom_in") || "+"}
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            border: "1px solid var(--color-border)",
+            background: "var(--bg-soft)",
+            color: "var(--color-primary)",
+            cursor: zoom >= INSPECT_ZOOM_MAX ? "not-allowed" : "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: zoom >= INSPECT_ZOOM_MAX ? 0.45 : 1,
+          }}
+        >
+          <ZoomIn size={16} strokeWidth={2.4} />
+        </button>
+        <button
+          type="button"
+          onClick={() => applyZoom(1)}
+          disabled={zoom <= 1 && pan.x === 0 && pan.y === 0}
+          style={{
+            height: 34,
+            padding: "0 10px",
+            borderRadius: 10,
+            border: "1px solid var(--color-border)",
+            background: "var(--bg-soft)",
+            color: "var(--color-primary)",
+            fontWeight: 900,
+            fontSize: 11,
+            cursor: zoom <= 1 ? "not-allowed" : "pointer",
+            opacity: zoom <= 1 ? 0.45 : 1,
+          }}
+        >
+          {t("binders.actions.reset")}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          title={t("common.close")}
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 10,
+            border: "1px solid var(--color-border)",
+            background: "var(--bg-soft)",
+            color: "var(--color-primary)",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          ✕
+        </button>
+      </div>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => {
+          if (zoom <= 1) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          dragRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+        }}
+        onPointerMove={(e) => {
+          if (!dragRef.current) return;
+          setPan({
+            x: dragRef.current.panX + (e.clientX - dragRef.current.x),
+            y: dragRef.current.panY + (e.clientY - dragRef.current.y),
+          });
+        }}
+        onPointerUp={() => {
+          dragRef.current = null;
+        }}
+        onPointerCancel={() => {
+          dragRef.current = null;
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          applyZoom(zoom > 1 ? 1 : 2.25);
+        }}
+        style={{
+          flex: 1,
+          width: "100%",
+          minHeight: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: zoom > 1 ? "hidden" : "visible",
+          cursor: zoom > 1 ? "grab" : "zoom-in",
+          borderRadius: 18,
+          paddingTop: 56,
+        }}
+      >
+        <ImageWithExtensionFallback
+          key={`inspect-${src}`}
+          src={src}
+          alt=""
+          draggable={false}
+          style={{
+            height: "min(80vh, 860px)",
+            width: "auto",
+            maxWidth: "min(92vw, 720px)",
+            objectFit: "contain",
+            borderRadius: 16,
+            boxShadow: "0 24px 70px color-mix(in srgb, var(--text-main) 35%, transparent)",
+            transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rot}deg) scale(${zoom})`,
+            transformOrigin: "center center",
+            transition: "transform 120ms ease",
+            userSelect: "none",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function MetaRow({
@@ -1079,6 +1323,7 @@ function ItemModal({
   const [rot, setRot] = useState(0);
   const [stockDraft, setStockDraft] = useState<Record<PersistStatus, number>>(() => stockDraftFromCounts(counts));
   const [stockSaving, setStockSaving] = useState(false);
+  const [inspectOpen, setInspectOpen] = useState(false);
   const [userPrice, setUserPrice] = useState<string>("");
   const [marketRefUsd, setMarketRefUsd] = useState<string>("");
   const [marketViewCur, setMarketViewCur] = useState<string>("EUR");
@@ -1200,6 +1445,9 @@ function ItemModal({
 
   const unitType = unitTypeFromMember(item.member);
   const unitLabel = unitType === "ot8" ? t('library.filters.ot8') : unitType === "unit" ? t('library.filters.unit') : t('library.filters.single');
+  const collectionKind = collectionKindForItem(item, albumName);
+  const collectionLabel = collectionChipLabel(collectionKind, t);
+  const inspectSrc = (face === "front" ? item.image_url : (item.back_image_url ?? DEFAULT_BACK_URL)) || "";
 
   const uiWttDisplay = counts.wtt;
   const uiWishlist = counts.wish;
@@ -1284,6 +1532,8 @@ function ItemModal({
           if (reportOpen) {
             setReportOpen(false);
             resetReport();
+          } else if (inspectOpen) {
+            setInspectOpen(false);
           } else {
             // Si no, Esc cierra toda la ventana de la PC
             onClose();
@@ -1303,7 +1553,7 @@ function ItemModal({
 
       window.addEventListener("keydown", onKeyDown);
       return () => window.removeEventListener("keydown", onKeyDown);
-    }, [onClose, reportOpen, reportSent]); // Asegúrate de incluir reportSent en las dependencias si lo usas
+    }, [onClose, reportOpen, reportSent, inspectOpen]);
     // 👆 FIN ATAJOS DE TECLADO 👆
   // Helpers UI
   const headerIconBtn: React.CSSProperties = {
@@ -1332,7 +1582,10 @@ function ItemModal({
   return (
     <div
       className="library-item-modal-overlay"
-      onClick={onClose}
+      onClick={() => {
+        if (inspectOpen) return;
+        onClose();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -1366,7 +1619,7 @@ function ItemModal({
           className="library-item-modal-header"
           style={{
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: "center",
             justifyContent: "space-between",
             gap: 12,
             padding: "10px 16px",
@@ -1374,20 +1627,13 @@ function ItemModal({
             background: "var(--bg-soft)",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-              <div style={{ fontSize: 18, fontWeight: 950, color: "var(--color-primary)", whiteSpace: "nowrap", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis" }}>
-                {title}
-              </div>
-              {!hideBinder && inBinder > 0 && <PinBadge t={t} />}
-            </div>
-            <div className="library-item-modal-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
-              <MetaRow icon={<Users size={16} strokeWidth={2.2} />} label={t("binders.picker.group")} value={prettySlug(groupName)} />
-              <MetaRow icon={<Disc3 size={16} strokeWidth={2.2} />} label={t("binders.picker.album")} value={prettyAlbumDisplay(albumName)} />
-              <MetaRow icon={<Mic2 size={16} strokeWidth={2.2} />} label={t("binders.picker.version")} value={prettySlugTitle(item.version ?? "")} />
-              <MetaRow icon={<User size={16} strokeWidth={2.2} />} label={t("binders.picker.member")} value={title || "-"} />
-              <MetaRow icon={<Layers size={16} strokeWidth={2.2} />} label={t("binders.picker.type")} value={unitLabel} />
-            </div>
+          <div className="library-item-modal-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0, flex: 1, alignItems: "center" }}>
+            <MetaRow icon={<Users size={16} strokeWidth={2.2} />} label={t("binders.picker.group")} value={prettySlug(groupName)} />
+            <MetaRow icon={collectionChipIcon(collectionKind)} label={collectionLabel} value={prettyAlbumDisplay(albumName)} />
+            <MetaRow icon={<Mic2 size={16} strokeWidth={2.2} />} label={t("binders.picker.version")} value={prettySlugTitle(item.version ?? "")} />
+            <MetaRow icon={<User size={16} strokeWidth={2.2} />} label={t("binders.picker.member")} value={title || "-"} />
+            <MetaRow icon={<Layers size={16} strokeWidth={2.2} />} label={t("binders.picker.type")} value={unitLabel} />
+            {!hideBinder && inBinder > 0 && <PinBadge t={t} />}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
@@ -1437,7 +1683,22 @@ function ItemModal({
           
           {/* IZQ: PREVIEW FOTO */}
           <div style={{ position: "relative", background: "var(--bg-main)", padding: 10, borderRight: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
-            <div style={{ width: "100%", maxWidth: 320, aspectRatio: "2 / 3", position: "relative", perspective: 1100, background: "transparent", margin: "auto 0" }}>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                if (!inspectSrc) return;
+                setInspectOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if ((e.key === "Enter" || e.key === " ") && inspectSrc) {
+                  e.preventDefault();
+                  setInspectOpen(true);
+                }
+              }}
+              title={t("library.modal.inspect_hint") || t("binders.zoom")}
+              style={{ width: "100%", maxWidth: 320, aspectRatio: "2 / 3", position: "relative", perspective: 1100, background: "transparent", margin: "auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
+            >
               <div
                 style={{
                   position: "absolute",
@@ -1483,6 +1744,30 @@ function ItemModal({
                   )}
                 </div>
               </div>
+              {inspectSrc ? (
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    bottom: 10,
+                    zIndex: 4,
+                    width: 32,
+                    height: 32,
+                    borderRadius: 10,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "color-mix(in srgb, var(--bg-card) 88%, transparent)",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-primary)",
+                    boxShadow: "0 4px 12px color-mix(in srgb, var(--text-main) 12%, transparent)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <ZoomIn size={16} strokeWidth={2.4} />
+                </div>
+              ) : null}
             </div>
 
             {/* CONTROLES */}
@@ -1492,6 +1777,9 @@ function ItemModal({
               </button>
               <button type="button" onClick={() => setRot((r) => (r + 270) % 360)} style={headerIconBtn}>⟲</button>
               <button type="button" onClick={() => setRot((r) => (r + 90) % 360)} style={headerIconBtn}>⟳</button>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11, fontWeight: 800, color: "var(--text-muted)" }}>
+              {t("library.modal.inspect_hint")}
             </div>
 
             {/* UPLOAD */}
@@ -1777,6 +2065,10 @@ function ItemModal({
           </div>
         </div>
       </div>
+
+      {inspectOpen && inspectSrc ? (
+        <PcInspectLightbox src={inspectSrc} rot={rot} t={t} onClose={() => setInspectOpen(false)} />
+      ) : null}
 
         {/* ✅ MODAL REPORT */}
         {reportOpen && (
