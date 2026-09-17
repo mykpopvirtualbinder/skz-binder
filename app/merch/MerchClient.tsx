@@ -33,6 +33,12 @@ import {
   type FolderTreeCatalog,
 } from "@/lib/folder-tree-catalog-shared";
 import {
+  merchGoodsMeta,
+  merchGoodsNameMatches,
+  MERCH_GOODS_KIND_ORDER,
+  type MerchGoodsKind,
+} from "@/lib/merch-collection-meta";
+import {
   Search, Package, CheckCircle2, Star, Loader2,
   Repeat2, DollarSign, LayoutGrid, Archive, Truck, X, Info, Coins, Users, Disc3, Mic2, Layers, MapPin,
 } from "lucide-react";
@@ -110,6 +116,46 @@ function merchAlbumKindOptionLabel(k: string, t: (key: string) => string): strin
   const translated = t(i18nKey);
   if (translated && translated !== i18nKey) return translated;
   return formatPhysicalMerchLabel(k);
+}
+
+function merchGoodsKindLabel(kind: MerchGoodsKind, t: (key: string) => string): string {
+  const keys: Record<MerchGoodsKind, string> = {
+    albums: "merch.kind_albums",
+    tours: "merch.kind_tours",
+    "pop-ups": "merch.kind_popups",
+    events: "merch.kind_events",
+    other: "merch.kind_other",
+  };
+  const fallbacks: Record<MerchGoodsKind, string> = {
+    albums: "Álbum",
+    tours: "Tour",
+    "pop-ups": "Pop-ups",
+    events: "Eventos",
+    other: "Otros",
+  };
+  return t(keys[kind]) || fallbacks[kind];
+}
+
+function merchGoodsCollectionFilterLabel(kind: MerchGoodsKind, t: (key: string) => string): string {
+  const keys: Record<MerchGoodsKind, string> = {
+    albums: "merch.pick_album",
+    tours: "merch.pick_tour",
+    "pop-ups": "merch.pick_popup",
+    events: "merch.pick_event",
+    other: "merch.pick_other",
+  };
+  return t(keys[kind]) || merchGoodsKindLabel(kind, t);
+}
+
+function uniqueLabelList(values: string[]): string[] {
+  const map = new Map<string, string>();
+  for (const raw of values) {
+    const v = String(raw || "").trim();
+    if (!v) continue;
+    const k = compactFolderKey(v);
+    if (k && !map.has(k)) map.set(k, v);
+  }
+  return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base", numeric: true }));
 }
 
 function merchStockFilterPillLabel(status: string, t: (key: string) => string): string {
@@ -272,6 +318,9 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   const [showCompactFilters, setShowCompactFilters] = useState(false);
  
   const [activeGroup, setActiveGroup] = useState("Todos");
+  const [fMerchKind, setFMerchKind] = useState<"all" | MerchGoodsKind>("all");
+  const [fMerchCollection, setFMerchCollection] = useState("all");
+  const [fMerchSet, setFMerchSet] = useState("all");
   const [loading, setLoading] = useState(true);
   const [merchCatalog, setMerchCatalog] = useState<MerchItem[]>([]);
   const [folderTree, setFolderTree] = useState<FolderTreeCatalog>({ albums: [] });
@@ -340,7 +389,10 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     let merged = catalog ?? [];
     if (variant === "merch") {
       try {
-        const productsRes = await fetch("/api/merch-products-catalog", { cache: "no-store" });
+        const [productsRes, treeRes] = await Promise.all([
+          fetch("/api/merch-products-catalog", { cache: "no-store" }),
+          fetch("/api/folder-tree-catalog", { cache: "no-store" }),
+        ]);
         if (productsRes.ok) {
           const extra = (await productsRes.json()) as MerchItem[];
           if (Array.isArray(extra) && extra.length > 0) {
@@ -354,6 +406,10 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
               if (row.image_url) seenUrl.add(row.image_url);
             }
           }
+        }
+        if (treeRes.ok) {
+          const tree = (await treeRes.json()) as FolderTreeCatalog;
+          if (tree && Array.isArray(tree.albums)) setFolderTree(tree);
         }
       } catch {
         /* offline o API no disponible */
@@ -657,6 +713,48 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     () => merchCatalog.filter((i) => !isAlbumItem(i) && !isInclusionItem(i)),
     [merchCatalog]
   );
+
+  const merchGoodsKindOptions = useMemo(() => {
+    const present = new Set<MerchGoodsKind>();
+    for (const item of merchCatalogItems) present.add(merchGoodsMeta(item).kind);
+    for (const f of folderTree.albums) {
+      if (f.source === "tours") present.add("tours");
+      if (f.source === "pop-ups") present.add("pop-ups");
+      if (f.source === "events") present.add("events");
+    }
+    return MERCH_GOODS_KIND_ORDER.filter((k) => present.has(k));
+  }, [merchCatalogItems, folderTree]);
+
+  const merchGoodsCollectionOptions = useMemo(() => {
+    const names: string[] = [];
+    for (const item of merchCatalogItems) {
+      const meta = merchGoodsMeta(item);
+      if (fMerchKind !== "all" && meta.kind !== fMerchKind) continue;
+      if (meta.collection) names.push(meta.collection);
+    }
+    if (fMerchKind === "all" || fMerchKind === "tours") {
+      for (const f of folderTree.albums) if (f.source === "tours") names.push(f.album_title);
+    }
+    if (fMerchKind === "all" || fMerchKind === "pop-ups") {
+      for (const f of folderTree.albums) if (f.source === "pop-ups") names.push(f.album_title);
+    }
+    if (fMerchKind === "all" || fMerchKind === "events") {
+      for (const f of folderTree.albums) if (f.source === "events") names.push(f.album_title);
+    }
+    return uniqueLabelList(names);
+  }, [merchCatalogItems, folderTree, fMerchKind]);
+
+  const merchGoodsSetOptions = useMemo(() => {
+    if (fMerchKind === "all") return [];
+    const names: string[] = [];
+    for (const item of merchCatalogItems) {
+      const meta = merchGoodsMeta(item);
+      if (meta.kind !== fMerchKind) continue;
+      if (fMerchCollection !== "all" && !merchGoodsNameMatches(meta.collection, fMerchCollection)) continue;
+      if (meta.productSet) names.push(meta.productSet);
+    }
+    return uniqueLabelList(names);
+  }, [merchCatalogItems, fMerchKind, fMerchCollection]);
   const albumLikeCatalogItems = activeTab === "inclusiones" ? inclusionCatalogItems : albumCatalogItems;
 
   const merchFolderSlice = useMemo(() => {
@@ -845,6 +943,15 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     setAlbumFilterSlot4("Todos");
   }, [albumFilterKind]);
 
+  useEffect(() => {
+    setFMerchCollection("all");
+    setFMerchSet("all");
+  }, [fMerchKind]);
+
+  useEffect(() => {
+    setFMerchSet("all");
+  }, [fMerchCollection]);
+
   const filteredMerch = useMemo(() => {
     const selectedCategory = MERCH_CATEGORY_OPTIONS.find((c) => c.id === activeCategory);
     const items = merchCatalog.filter((item) => {
@@ -859,6 +966,14 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
         activeTab === "albumes" || activeTab === "inclusiones"
           ? albumFilterGroup === "Todos" || albumRowMatchesMerchGroupFilter(item.group_name, albumFilterGroup)
           : activeGroup === "Todos" || item.group_name === activeGroup;
+
+      let matchesGoodsFilters = true;
+      if (activeTab === "catalogo_merch" || activeTab === "mi_coleccion") {
+        const meta = merchGoodsMeta(item);
+        if (fMerchKind !== "all" && meta.kind !== fMerchKind) matchesGoodsFilters = false;
+        if (fMerchCollection !== "all" && !merchGoodsNameMatches(meta.collection, fMerchCollection)) matchesGoodsFilters = false;
+        if (fMerchSet !== "all" && !merchGoodsNameMatches(meta.productSet, fMerchSet)) matchesGoodsFilters = false;
+      }
 
       let matchesAlbumFilters = true;
       if (activeTab === "albumes" || activeTab === "inclusiones") {
@@ -906,6 +1021,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
         matchesSearch &&
         matchesCategory &&
         matchesGroup &&
+        matchesGoodsFilters &&
         matchesAlbumFilters &&
         matchesTabSlice &&
         matchesTab &&
@@ -922,6 +1038,9 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     activeTab,
     activeCategory,
     activeGroup,
+    fMerchKind,
+    fMerchCollection,
+    fMerchSet,
     albumFilterGroup,
     albumFilterRegion,
     albumFilterAlbum,
@@ -985,6 +1104,9 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     activeCategory !== "all" ||
     activeStatus !== "Todos" ||
     activeGroup !== "Todos" ||
+    fMerchKind !== "all" ||
+    fMerchCollection !== "all" ||
+    fMerchSet !== "all" ||
     albumFilterGroup !== "Todos" ||
     albumFilterRegion !== "Todos" ||
     albumFilterAlbum !== "Todos" ||
@@ -996,6 +1118,9 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     setActiveCategory("all");
     setActiveStatus("Todos");
     setActiveGroup("Todos");
+    setFMerchKind("all");
+    setFMerchCollection("all");
+    setFMerchSet("all");
     setAlbumFilterGroup("Todos");
     setAlbumFilterRegion("Todos");
     setAlbumFilterAlbum("Todos");
@@ -1007,6 +1132,11 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     if (search.trim()) return false;
     if (activeStatus !== "Todos") return false;
     if (albumFilterSlot4 !== "Todos") return false;
+    if (activeTab === "catalogo_merch") {
+      if (activeCategory !== "all") return false;
+      if (fMerchKind === "all" && fMerchCollection === "all") return false;
+      return true;
+    }
     if (activeTab !== "albumes" && activeTab !== "inclusiones") return false;
     if (albumFilterAlbum === "Todos" && albumFilterKind === "Todos") return false;
     if (activeTab === "inclusiones") {
@@ -1022,6 +1152,9 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     activeStatus,
     albumFilterSlot4,
     activeTab,
+    activeCategory,
+    fMerchKind,
+    fMerchCollection,
     albumFilterAlbum,
     albumFilterKind,
     merchFolderSlice,
@@ -1247,14 +1380,62 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             )}
             
             {(activeTab === "catalogo_merch" || activeTab === "mi_coleccion") && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "stretch" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={MERCH_ALBUM_FILTER_LABEL}><Users size={13} /> {t("merch.album_filter_group")}</label>
             <select 
               value={activeGroup} 
               onChange={(e) => setActiveGroup(e.target.value)} 
-              style={{ padding: "8px 12px", borderRadius: "12px", border: "1px solid var(--accent-vibe-pink)", outline: "none", color: "var(--accent-vibe-pink)", fontWeight: 800, background: "var(--bg-card)" }}
+              style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "140px" }}
             >
               <option value="Todos">{t("merch.filter_all_groups")}</option>
               {allDbGroups.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={MERCH_ALBUM_FILTER_LABEL}><Disc3 size={13} /> {t("merch.goods_kind")}</label>
+              <select
+                value={fMerchKind}
+                onChange={(e) => setFMerchKind(e.target.value as "all" | MerchGoodsKind)}
+                style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "150px" }}
+              >
+                <option value="all">{t("merch.categories.all")}</option>
+                {merchGoodsKindOptions.map((k) => (
+                  <option key={k} value={k}>{merchGoodsKindLabel(k, t)}</option>
+                ))}
+              </select>
+            </div>
+            {fMerchKind !== "all" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={MERCH_ALBUM_FILTER_LABEL}><Layers size={13} /> {merchGoodsCollectionFilterLabel(fMerchKind, t)}</label>
+                <select
+                  value={fMerchCollection}
+                  onChange={(e) => setFMerchCollection(e.target.value)}
+                  style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "170px" }}
+                >
+                  <option value="all">{t("merch.filter_all_collections")}</option>
+                  {merchGoodsCollectionOptions.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {fMerchKind !== "all" && merchGoodsSetOptions.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={MERCH_ALBUM_FILTER_LABEL}><Package size={13} /> {t("merch.goods_set")}</label>
+                <select
+                  value={fMerchSet}
+                  onChange={(e) => setFMerchSet(e.target.value)}
+                  style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "160px" }}
+                >
+                  <option value="all">{t("common.all")}</option>
+                  {merchGoodsSetOptions.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            </div>
             )}
             
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>

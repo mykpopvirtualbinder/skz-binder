@@ -430,7 +430,7 @@ function collectionKindLabel(kind: Exclude<LibraryCollectionKind, "all">, t: (ke
     other: "library.filters.kind_other",
   };
   const fallbacks: Record<Exclude<LibraryCollectionKind, "all">, string> = {
-    albums: "Regular PCs",
+    albums: "Album photocards",
     "seasons-greetings": "Season's Greetings",
     tours: "Tour",
     merch: "Merch",

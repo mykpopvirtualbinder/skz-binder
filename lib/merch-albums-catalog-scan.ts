@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import { pathHasLibraryPcsUnderMerch } from "./folder-tree-catalog-shared";
+import { merchGoodsCollectionName, merchPathLooksLikeLibraryPhotocard } from "./merch-collection-meta";
 
 export type MerchAlbumCatalogRow = {
   id: string;
@@ -462,8 +463,6 @@ export type MerchProductCatalogRow = {
 };
 
 const MERCH_SKIP_DIR = /^(templates|\.ds_store|desktop\.ini)$/i;
-const MERCH_PC_PATH =
-  /(^|\/)(photocards?|photo-?cards?|pobs?|polaroids?|photo-card-set|photocard-set|trading-cards?)(\/|$)/i;
 
 function merchProductCategory(rel: string, file: string): string {
   const b = `${rel} ${file}`.toLowerCase();
@@ -479,6 +478,8 @@ function merchProductDedupeKey(rel: string): string {
     .toLowerCase()
     .replace(/\/albums\/japanese\//g, "/photocards/japanese-albums/")
     .replace(/\/albums\/korean\//g, "/photocards/korean-album/")
+    .replace(/\/groups\/([^/]+)\/events\/pop-ups\//g, "/groups/$1/photocards/events/pop-ups/")
+    .replace(/\/groups\/([^/]+)\/others\/seasons-greetings\//g, "/groups/$1/photocards/seasons-greetings/")
     .replace(
       /\/events\/tours\/stray-kids-world-tour-run-it-in\/japan\//g,
       "/photocards/events/tour/run-it/stray-kids-world-tour-run-it-in-japan/",
@@ -509,7 +510,9 @@ function isMerchProductRel(rel: string): boolean {
     if (pathHasLibraryPcsUnderMerch(n)) return false;
     return true;
   }
-  if (/pop[\s_%-]*ups?/i.test(n) && !MERCH_PC_PATH.test(n)) return true;
+  if (merchPathLooksLikeLibraryPhotocard(n)) return false;
+  if (/pop[\s_%-]*ups?/i.test(n)) return true;
+  if (/(^|\/)(tours?|tour)(\/|$)/i.test(n)) return true;
   return false;
 }
 
@@ -566,18 +569,23 @@ export function scanMerchProductsFromMockPcs(cwd: string = process.cwd()): Merch
         const prev = (a[i - 1] || "").toLowerCase();
         return /^(korean|japanese|taiwanese|korean-album|japanese-albums|taiwanese-albums)$/i.test(prev);
       });
+      const image_url = `/${publicRel
+        .split("/")
+        .filter(Boolean)
+        .map((seg) => encodeURIComponent(seg))
+        .join("/")}`;
+      const collectionName = merchGoodsCollectionName({
+        image_url,
+        album_title: albumGuess ? humanizeSlug(albumGuess) : null,
+      });
       rows.push({
         id: uuidFromPath(`merch-product:${dedupe}`),
         name: humanizeSlug(parent) + " — " + humanizeSlug(file.replace(/\.[^.]+$/, "")),
         category: merchProductCategory(publicRel, file),
         group_name: groupName,
-        image_url: `/${publicRel
-          .split("/")
-          .filter(Boolean)
-          .map((seg) => encodeURIComponent(seg))
-          .join("/")}`,
+        image_url,
         rarity: "Común",
-        album_title: albumGuess ? humanizeSlug(albumGuess) : null,
+        album_title: collectionName || (albumGuess ? humanizeSlug(albumGuess) : null),
       });
     }
   }
