@@ -2,6 +2,7 @@
 
 import AdRailLayout from "../components/AdRailLayout";
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
@@ -303,6 +304,7 @@ const MERCH_ALBUM_FILTER_SELECT: React.CSSProperties = {
 
 export default function MerchClient({ variant = "merch" }: { variant?: "merch" | "albums" }) {
   const { profile, showAlert, t } = useGlobal(); // 👈 Añadido el 't' de traducciones
+  const merchSearchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<"catalogo_merch" | "albumes" | "inclusiones" | "mi_coleccion">(
     variant === "albums" ? "albumes" : "catalogo_merch",
   );
@@ -328,6 +330,11 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   const [allDbGroups, setAllDbGroups] = useState<string[]>([]);
   const [myInventory, setMyInventory] = useState<Record<string, MerchStatus>>({});
   const [wishMeta, setWishMeta] = useState<Record<string, WishPosterMeta>>({});
+
+  useEffect(() => {
+    const qParam = merchSearchParams.get("q");
+    if (qParam != null) setSearch(qParam);
+  }, [merchSearchParams]);
 
 // MODALES
   const [infoModal, setInfoModal] = useState<MerchItem | null>(null);

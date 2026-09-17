@@ -653,6 +653,14 @@
       "language": "Language",
       "theme": "Theme"
     },
+    "search_placeholder": "Search photocards, merch, fanart...",
+    "search_type_photocard": "Photocard",
+    "search_type_merch": "Merch",
+    "search_type_fanart": "Fanart",
+    "search_type_user": "User",
+    "search_type_album": "Album",
+    "search_type_group": "Group",
+    "search_type_shop": "Shop",
     "login_btn": "LOGIN",
     "cursors_modal": {
       "title": "VIP Cursors",

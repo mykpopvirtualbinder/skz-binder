@@ -19,6 +19,7 @@ import {
 } from "@/lib/theme-unlocks";
 import { useGlobal } from "../context/GlobalContext";
 import Link from "next/link";
+import type { SiteSearchHit } from "@/lib/site-search";
 
 /** Orden edad miembro → mascota; archivo en disco: `fileStem` si difiere del id (p. ej. FoxI.Ny → foxi.ny). */
 const SKZOO_CURSOR_BASE: { id: string; name: string; fileStem?: string }[] = [
@@ -312,6 +313,98 @@ function DesktopHeaderNavScroller({
   );
 }
 
+function siteSearchTypeLabel(type: SiteSearchHit["type"], t: (key: string) => string): string {
+  const key = `header.search_type_${type}`;
+  const label = t(key);
+  return label && label !== key ? label : type;
+}
+
+function HeaderSiteSearchDropdown({
+  query,
+  setQuery,
+  results,
+  loading,
+  inputRef,
+  onPick,
+  t,
+}: {
+  query: string;
+  setQuery: (v: string) => void;
+  results: SiteSearchHit[];
+  loading: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onPick: (hit: SiteSearchHit) => void;
+  t: (key: string) => string;
+}) {
+  return (
+    <div
+      className="header-dropdown-menu"
+      style={{
+        position: "absolute",
+        top: "calc(100% + 8px)",
+        right: 0,
+        width: 340,
+        maxWidth: "calc(100vw - 24px)",
+        background: "var(--bg-card)",
+        border: "1px solid var(--color-border)",
+        borderRadius: 12,
+        boxShadow: "var(--shadow-card)",
+        zIndex: 1300,
+        padding: 8,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-main)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }}>
+        <Search size={14} color="var(--text-muted)" />
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("header.search_placeholder")}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            if (results[0]) onPick(results[0]);
+          }}
+          style={{ width: "100%", border: "none", outline: "none", background: "transparent", color: "var(--text-main)", fontSize: 13 }}
+        />
+        {loading && <Loader2 size={14} className="spinner" color="var(--text-muted)" />}
+      </div>
+      {query.trim().length >= 2 && (
+        <div style={{ marginTop: 6, maxHeight: 360, overflowY: "auto" }}>
+          {results.length === 0 && !loading ? (
+            <div style={{ padding: "10px 12px", color: "var(--text-muted)", fontSize: 12 }}>{t("no_results")}</div>
+          ) : (
+            results.map((hit) => (
+              <button
+                key={`${hit.type}-${hit.id}`}
+                type="button"
+                onClick={() => onPick(hit)}
+                className="dropdown-item-hover"
+                style={{ width: "100%", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10 }}
+              >
+                {hit.image ? (
+                  <img src={hit.image} alt="" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", border: "1px solid var(--color-border)", flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-soft)", flexShrink: 0 }}>
+                    <Search size={12} color="var(--text-muted)" />
+                  </div>
+                )}
+                <span style={{ minWidth: 0, flex: 1 }}>
+                  <span style={{ display: "block", color: "var(--text-main)", fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hit.title}</span>
+                  <span style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {siteSearchTypeLabel(hit.type, t)}
+                    {hit.subtitle ? ` · ${hit.subtitle}` : ""}
+                  </span>
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
@@ -342,10 +435,10 @@ export default function Header() {
   const [isMobile, setIsMobile] = useState(false);
   const [unlockedThemes, setUnlockedThemes] = useState<Set<string>>(new Set());
   const [unlockedCursors, setUnlockedCursors] = useState<Set<string>>(new Set());
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-  const [userSearchResults, setUserSearchResults] = useState<Array<{ user_id: string; display_name: string | null; avatar_url: string | null }>>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SiteSearchHit[]>([]);
   const [userSearchOpen, setUserSearchOpen] = useState(false);
-  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const closeAllMenus = useCallback(() => {
     setProfileMenuOpen(false);
@@ -684,28 +777,26 @@ export default function Header() {
   };
 
   useEffect(() => {
-    const query = userSearchQuery.trim();
+    const query = searchQuery.trim();
     if (query.length < 2) {
-      setUserSearchResults([]);
-      setUserSearchLoading(false);
+      setSearchResults([]);
+      setSearchLoading(false);
       return;
     }
     const timeout = setTimeout(async () => {
-      setUserSearchLoading(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("user_id, display_name, avatar_url")
-        .ilike("display_name", `%${query}%`)
-        .limit(8);
-      if (!error) {
-        setUserSearchResults((data || []).filter((p: any) => p.user_id !== profile?.id));
-      } else {
-        setUserSearchResults([]);
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`/api/site-search?q=${encodeURIComponent(query)}`);
+        const json = (await res.json().catch(() => ({}))) as { results?: SiteSearchHit[] };
+        setSearchResults(Array.isArray(json.results) ? json.results : []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
       }
-      setUserSearchLoading(false);
     }, 250);
     return () => clearTimeout(timeout);
-  }, [userSearchQuery, profile?.id]);
+  }, [searchQuery]);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -852,7 +943,7 @@ export default function Header() {
           {/* ICONOS EN MÓVIL */}
           {isMobile && (
             <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-              {/* Buscar usuario móvil */}
+              {/* Buscar en el catálogo público */}
               <div ref={searchBoxRef} style={{ position: "relative" }}>
                 <button
                   type="button"
@@ -867,64 +958,19 @@ export default function Header() {
                   <Search size={16} />
                 </button>
                 {userSearchOpen && (
-                  <div
-                    className="header-dropdown-menu"
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 8px)",
-                      right: 0,
-                      width: 280,
-                      maxWidth: "calc(100vw - 24px)",
-                      background: "var(--bg-card)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: 12,
-                      boxShadow: "var(--shadow-card)",
-                      zIndex: 1300,
-                      padding: 8,
+                  <HeaderSiteSearchDropdown
+                    query={searchQuery}
+                    setQuery={setSearchQuery}
+                    results={searchResults}
+                    loading={searchLoading}
+                    inputRef={userSearchInputRef}
+                    t={t}
+                    onPick={(hit) => {
+                      setUserSearchOpen(false);
+                      setSearchQuery("");
+                      router.push(hit.href);
                     }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-main)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }}>
-                      <Search size={14} color="var(--text-muted)" />
-                      <input
-                        ref={userSearchInputRef}
-                        value={userSearchQuery}
-                        onChange={(e) => setUserSearchQuery(e.target.value)}
-                        placeholder={`${t("common.search")}...`}
-                        style={{ width: "100%", border: "none", outline: "none", background: "transparent", color: "var(--text-main)", fontSize: 13 }}
-                      />
-                      {userSearchLoading && <Loader2 size={14} className="spinner" color="var(--text-muted)" />}
-                    </div>
-                    {userSearchQuery.trim().length >= 2 && (
-                      <div style={{ marginTop: 6, maxHeight: 260, overflowY: "auto" }}>
-                        {userSearchResults.length === 0 && !userSearchLoading ? (
-                          <div style={{ padding: "10px 12px", color: "var(--text-muted)", fontSize: 12 }}>{t("no_results")}</div>
-                        ) : (
-                          userSearchResults.map((u) => (
-                            <button
-                              key={u.user_id}
-                              type="button"
-                              onClick={() => {
-                                setUserSearchOpen(false);
-                                setUserSearchQuery("");
-                                router.push(`/me?u=${u.user_id}`);
-                              }}
-                              className="dropdown-item-hover"
-                              style={{ width: "100%", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10 }}
-                            >
-                              {u.avatar_url ? (
-                                <img src={u.avatar_url} alt={u.display_name || "avatar"} style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--color-border)" }} />
-                              ) : (
-                                <div style={{ width: 24, height: 24, borderRadius: "50%", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-soft)", flexShrink: 0 }}>
-                                  <User size={12} color="var(--text-muted)" />
-                                </div>
-                              )}
-                              <span style={{ color: "var(--text-main)", fontSize: 13, fontWeight: 700 }}>{u.display_name || t("global.default_user_name")}</span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  />
                 )}
               </div>
               
@@ -1093,64 +1139,19 @@ export default function Header() {
                 <Search size={16} />
               </button>
               {userSearchOpen && (
-                <div
-                  className="header-dropdown-menu"
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 8px)",
-                    right: 0,
-                    width: 300,
-                    maxWidth: "calc(100vw - 24px)",
-                    background: "var(--bg-card)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 12,
-                    boxShadow: "var(--shadow-card)",
-                    zIndex: 1300,
-                    padding: 8,
+                <HeaderSiteSearchDropdown
+                  query={searchQuery}
+                  setQuery={setSearchQuery}
+                  results={searchResults}
+                  loading={searchLoading}
+                  inputRef={userSearchInputRef}
+                  t={t}
+                  onPick={(hit) => {
+                    setUserSearchOpen(false);
+                    setSearchQuery("");
+                    router.push(hit.href);
                   }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-main)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }}>
-                    <Search size={14} color="var(--text-muted)" />
-                    <input
-                      ref={userSearchInputRef}
-                      value={userSearchQuery}
-                      onChange={(e) => setUserSearchQuery(e.target.value)}
-                      placeholder={`${t("common.search")}...`}
-                      style={{ width: "100%", border: "none", outline: "none", background: "transparent", color: "var(--text-main)", fontSize: 13 }}
-                    />
-                    {userSearchLoading && <Loader2 size={14} className="spinner" color="var(--text-muted)" />}
-                  </div>
-                  {userSearchQuery.trim().length >= 2 && (
-                    <div style={{ marginTop: 6, maxHeight: 260, overflowY: "auto" }}>
-                      {userSearchResults.length === 0 && !userSearchLoading ? (
-                        <div style={{ padding: "10px 12px", color: "var(--text-muted)", fontSize: 12 }}>{t("no_results")}</div>
-                      ) : (
-                        userSearchResults.map((u) => (
-                          <button
-                            key={u.user_id}
-                            type="button"
-                            onClick={() => {
-                              setUserSearchOpen(false);
-                              setUserSearchQuery("");
-                              router.push(`/me?u=${u.user_id}`);
-                            }}
-                            className="dropdown-item-hover"
-                            style={{ width: "100%", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10 }}
-                          >
-                            {u.avatar_url ? (
-                              <img src={u.avatar_url} alt={u.display_name || "avatar"} style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--color-border)" }} />
-                            ) : (
-                              <div style={{ width: 24, height: 24, borderRadius: "50%", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-soft)", flexShrink: 0 }}>
-                                <User size={12} color="var(--text-muted)" />
-                              </div>
-                            )}
-                            <span style={{ color: "var(--text-main)", fontSize: 13, fontWeight: 700 }}>{u.display_name || t("global.default_user_name")}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
+                />
               )}
             </div>
             

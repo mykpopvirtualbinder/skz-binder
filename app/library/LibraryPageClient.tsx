@@ -1902,6 +1902,15 @@ function LibraryContent() {
         const [fUnit, setFUnit] = useState<UnitFilter>("all");
         const [fPobKind, setFPobKind] = useState<"all" | "regular" | "pob">("all");
         const [q, setQ] = useState("");
+        const librarySearchParams = useSearchParams();
+        useEffect(() => {
+          const qParam = librarySearchParams.get("q");
+          if (qParam != null) setQ(qParam);
+          const groupParam = librarySearchParams.get("group");
+          if (groupParam && /^\d+$/.test(groupParam)) setFGroup(Number(groupParam));
+          const albumParam = librarySearchParams.get("album");
+          if (albumParam && /^\d+$/.test(albumParam)) setFAlbum(Number(albumParam));
+        }, [librarySearchParams]);
         const [isMobileViewport, setIsMobileViewport] = useState(false);
         const [viewportWidth, setViewportWidth] = useState(1280);
         const [showFiltersPanel, setShowFiltersPanel] = useState(false);
@@ -3351,20 +3360,6 @@ const commitStockForItem = useCallback(
                 <option value="ot8">OT8</option>
               </select>
             </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={filterLabelStyle}><Search size={13} /> {t("common.search") || "Buscar"}</label>
-              <div style={{ position: "relative" }}>
-                <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
-                <input
-                  type="search"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder={t("binders.picker.search_placeholder") || "Buscar por nombre o id..."}
-                  style={{ padding: "8px 10px 8px 32px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}
-                />
-              </div>
-            </div>
           </div>
 
           <div
@@ -3384,7 +3379,7 @@ const commitStockForItem = useCallback(
                 type="search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder={t("binders.picker.search_placeholder") || "Buscar por nombre o id..."}
+                placeholder={t("library.search_placeholder") || "Buscar por nombre, miembro o versión..."}
                 style={{ padding: "8px 10px 8px 32px", borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", width: "100%", height: 42, boxShadow: "0 4px 12px var(--shadow-card)" }}
               />
             </div>
