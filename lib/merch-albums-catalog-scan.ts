@@ -539,7 +539,7 @@ function walkMerchProductFiles(root: string, acc: string[] = []): string[] {
   return acc;
 }
 
-/** Playing cards, album merch, pop-up goods — catálogo de /merch, no Library. */
+/** Playing cards, album merch, pop-up goods — catálogo de /merch. Polaroid-set y photocard-set van a Library. */
 export function scanMerchProductsFromMockPcs(cwd: string = process.cwd()): MerchProductCatalogRow[] {
   const publicDir = path.join(cwd, "public");
   const groupsRoot = path.join(publicDir, "mock-pcs", "groups");

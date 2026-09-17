@@ -157,14 +157,14 @@ export function folderIsLibraryPhotocardsCollection(folder: FolderTreeAlbum): bo
 }
 
 const LIBRARY_PC_FOLDER =
-  /(^|\/)(photocards?|photo-?cards?|pobs?|polaroids?|photo-card-set|photocard-set|trading-cards?)(\/|$)/i;
+  /(^|\/)(photocards?|photo-?cards?|pobs?|polaroids?|polaroid-set|photo-card-set|photocard-set|trading-cards?)(\/|$)/i;
 
 export function isLibraryPcFolderName(name: string): boolean {
   const n = String(name || "").trim();
   if (!n) return false;
-  if (/^(playing-cards?|polaroid-set|trading-card-case)$/i.test(n)) return false;
-  if (/^(photocards?|photo-?cards?|pobs?)$/i.test(n)) return true;
-  if (/photocard-set|photo-card-set/i.test(n)) return true;
+  if (/^(playing-cards?|trading-card-case)$/i.test(n)) return false;
+  if (/^(photocards?|photo-?cards?|pobs?|polaroid-set)$/i.test(n)) return true;
+  if (/photocard-set|photo-card-set|polaroid-set/i.test(n)) return true;
   if (/^trading-cards?(-[a-z0-9]+)?$/i.test(n)) return true;
   return false;
 }
@@ -200,7 +200,7 @@ function itemCatalogBlob(item: {
   return { url, blob: `${type} ${url} ${version}`.toLowerCase() };
 }
 
-/** Playing cards, polaroids and tour clothes stay on /merch. Photocard-sets under merch go to Library. */
+/** Playing cards and tour clothes stay on /merch. Photocard-sets and polaroid-sets under merch go to Library. */
 export function itemIsMerchNotPhotocard(item: {
   type?: string | null;
   image_url?: string | null;
