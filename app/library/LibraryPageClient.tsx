@@ -33,10 +33,14 @@ import {
   folderIsLibraryPhotocardsCollection,
   folderMatchesLibraryGroup,
   itemIsMerchNotPhotocard,
+  itemLibraryCollectionKind,
+  folderLibraryCollectionKind,
+  LIBRARY_COLLECTION_KIND_ORDER,
   folderVersionMatches,
   mergeVersionLabels,
   type FolderTreeAlbum,
   type FolderTreeCatalog,
+  type LibraryCollectionKind,
 } from "@/lib/folder-tree-catalog-shared";
 import {
   Users,
@@ -400,6 +404,58 @@ function libraryAlbumDedupeKey(
 ): string {
   if (!album) return "";
   return collectionOptionDedupeKey(prettyAlbumDisplay(album.name), album.release_date);
+}
+
+function dbAlbumCollectionKind(name: string | null | undefined): Exclude<LibraryCollectionKind, "all"> {
+  const raw = String(name || "");
+  if (isSeasonsGreetings(raw)) return "seasons-greetings";
+  if (isNonAlbumCollectionTitle(raw)) {
+    if (/\brun[\s._-]*it\b/i.test(raw)) return "tours";
+    if (/pop[\s._-]*ups?/i.test(raw)) return "pop-ups";
+    return "events";
+  }
+  return "albums";
+}
+
+function collectionKindLabel(kind: Exclude<LibraryCollectionKind, "all">, t: (key: string, vars?: Record<string, string>) => string): string {
+  const keys: Record<Exclude<LibraryCollectionKind, "all">, string> = {
+    albums: "library.filters.kind_albums",
+    "seasons-greetings": "library.filters.kind_sg",
+    tours: "library.filters.kind_tours",
+    merch: "library.filters.kind_merch",
+    "pop-ups": "library.filters.kind_popups",
+    memberships: "library.filters.kind_memberships",
+    collabs: "library.filters.kind_collabs",
+    events: "library.filters.kind_events",
+    other: "library.filters.kind_other",
+  };
+  const fallbacks: Record<Exclude<LibraryCollectionKind, "all">, string> = {
+    albums: "Regular PCs",
+    "seasons-greetings": "Season's Greetings",
+    tours: "Tour",
+    merch: "Merch",
+    "pop-ups": "Pop-ups",
+    memberships: "Memberships",
+    collabs: "Collabs",
+    events: "Eventos",
+    other: "Otros",
+  };
+  return t(keys[kind]) || fallbacks[kind];
+}
+
+function collectionNameFilterLabel(kind: Exclude<LibraryCollectionKind, "all">, t: (key: string, vars?: Record<string, string>) => string): string {
+  const keys: Record<Exclude<LibraryCollectionKind, "all">, string> = {
+    albums: "library.filters.pick_album",
+    "seasons-greetings": "library.filters.pick_sg",
+    tours: "library.filters.pick_tour",
+    merch: "library.filters.pick_merch",
+    "pop-ups": "library.filters.pick_popup",
+    memberships: "library.filters.pick_membership",
+    collabs: "library.filters.pick_collab",
+    events: "library.filters.pick_event",
+    other: "library.filters.pick_other",
+  };
+  return t(keys[kind]) || collectionKindLabel(kind, t);
 }
 
 function MetaRow({
@@ -1840,6 +1896,7 @@ function LibraryContent() {
         const [fStatus, setFStatus] = useState<StatusFilter>("all");
         const [fGroup, setFGroup] = useState<number | "all">("all");
         const [fAlbum, setFAlbum] = useState<number | "all" | string>("all");
+        const [fCollectionKind, setFCollectionKind] = useState<LibraryCollectionKind>("all");
         const [fVersion, setFVersion] = useState<string | "all">("all");
         const [fMember, setFMember] = useState<string | "all">("all");
         const [fUnit, setFUnit] = useState<UnitFilter>("all");
@@ -2207,8 +2264,8 @@ const flipWholePage = useCallback(() => {
   });
 }, [pageFace, items]);
 const opts = useMemo(
-  () => ({ fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, fPobKind, q }),
-  [fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, fPobKind, q]
+  () => ({ fStatus, fGroup, fCollectionKind, fAlbum, fVersion, fMember, fUnit, fPobKind, q }),
+  [fStatus, fGroup, fCollectionKind, fAlbum, fVersion, fMember, fUnit, fPobKind, q]
 );
 
 const fAlbumMatchingIds = useMemo(() => {
@@ -2240,7 +2297,21 @@ function itemBelongsToFolderAlbum(it: ItemRow, folder: FolderTreeAlbum): boolean
   const slugKey = compactFolderKey(folder.album_slug);
   const inPath = Boolean((titleKey && urlKey.includes(titleKey)) || (slugKey && urlKey.includes(slugKey)));
   if (!inPath) return false;
-  if (folder.source === "events") return url.includes("/events/");
+  if (folder.source === "events") return url.includes("/events/") && !/\/tours?\b/i.test(url);
+  if (folder.source === "tours") {
+    const tourish = /\/tours?\b|run[\s._-]*it/i.test(url);
+    if (!tourish) return false;
+    return (
+      inPath ||
+      urlKey.includes("runit") ||
+      compactFolderKey(folder.album_title).includes("runit") ||
+      compactFolderKey(folder.album_slug).includes("runit")
+    );
+  }
+  if (folder.source === "merch") {
+    return url.includes("/merch/") || /japanese[-_]?md/i.test(url);
+  }
+  if (folder.source === "pop-ups") return /pop[\s_%-]*ups?/i.test(url);
   if (folder.source === "memberships") return url.includes("/memberships/");
   if (folder.source === "collabs") return url.includes("/collabs/");
   if (folder.source === "seasons-greetings") {
@@ -2265,6 +2336,16 @@ function itemBelongsToFolderAlbum(it: ItemRow, folder: FolderTreeAlbum): boolean
   return url.includes("/albums/") || url.includes("/album/");
 }
 
+function itemMatchesCollectionKind(it: ItemRow, kind: LibraryCollectionKind): boolean {
+  if (kind === "all") return true;
+  if (itemLibraryCollectionKind(it) === kind) return true;
+  if (it.album_id != null) {
+    const albumName = albumById[it.album_id]?.name ?? "";
+    if (albumName && dbAlbumCollectionKind(albumName) === kind) return true;
+  }
+  return false;
+}
+
 function itemMatchesAlbumFilter(it: ItemRow, selected: number | "all" | string) {
   if (selected === "all") return true;
   if (typeof selected === "string") {
@@ -2283,6 +2364,7 @@ function matchesForOptions(
   opts: {
     fStatus: StatusFilter;
     fGroup: number | "all";
+    fCollectionKind: LibraryCollectionKind;
     fAlbum: number | "all" | string;
   }
 ) {
@@ -2298,6 +2380,8 @@ function matchesForOptions(
   // GROUP
   if (opts.fGroup !== "all" && (it.group_id ?? null) !== opts.fGroup) return false;
 
+  if (!itemMatchesCollectionKind(it, opts.fCollectionKind)) return false;
+
   // ALBUM
   if (!itemMatchesAlbumFilter(it, opts.fAlbum)) return false;
 
@@ -2308,33 +2392,34 @@ const universeForMember = useMemo(() => {
     const counts = invByItem[it.id] ?? emptyCounts();
 
     // status + group + album
-    if (!matchesForOptions(it, counts, { fStatus, fGroup, fAlbum })) return false;
+    if (!matchesForOptions(it, counts, { fStatus, fGroup, fCollectionKind, fAlbum })) return false;
 
     // version (solo si está seleccionada)
     if (fVersion !== "all" && !folderVersionMatches(it.version, fVersion)) return false;
 
     return true;
   });
-}, [items, invByItem, fStatus, fGroup, fAlbum, fAlbumMatchingIds, fVersion, folderTree]);
+}, [items, invByItem, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, folderTree, albumById]);
 
 const universeForGroup = useMemo(() => {
   return items.filter((it) =>
-    matchesForOptions(it, invByItem[it.id] ?? emptyCounts(), { fStatus, fGroup: "all", fAlbum: "all" })
+    matchesForOptions(it, invByItem[it.id] ?? emptyCounts(), { fStatus, fGroup: "all", fAlbum: "all", fCollectionKind: "all" })
   );
 }, [items, invByItem, fStatus]);
 
 const universeForAlbum = useMemo(() => {
   return items.filter((it) => {
     if (fGroup !== "all" && (it.group_id ?? null) !== fGroup) return false;
+    if (!itemMatchesCollectionKind(it, fCollectionKind)) return false;
     return true;
   });
-}, [items, fGroup]);
+}, [items, fGroup, fCollectionKind, albumById]);
 
 const universeForVersion = useMemo(() => {
   return items.filter((it) =>
-    matchesForOptions(it, invByItem[it.id] ?? emptyCounts(), { fStatus, fGroup, fAlbum })
+    matchesForOptions(it, invByItem[it.id] ?? emptyCounts(), { fStatus, fGroup, fAlbum, fCollectionKind })
   );
-}, [items, invByItem, fStatus, fGroup, fAlbum, fAlbumMatchingIds, folderTree]);
+}, [items, invByItem, fStatus, fGroup, fAlbum, fCollectionKind, fAlbumMatchingIds, folderTree, albumById]);
 
 const groupOptions = useMemo(() => {
   const s = new Set<number>();
@@ -2355,7 +2440,11 @@ const albumOptions = useMemo(() => {
   const allKnownAlbumIds = Object.keys(albumById)
     .map((k) => Number(k))
     .filter((n) => Number.isFinite(n) && n > 0)
-    .filter((id) => !isNonAlbumCollectionTitle(String(albumById[id]?.name ?? "")));
+    .filter((id) => {
+      const name = String(albumById[id]?.name ?? "");
+      if (fCollectionKind === "all") return !isNonAlbumCollectionTitle(name);
+      return dbAlbumCollectionKind(name) === fCollectionKind;
+    });
 
   const ids =
     fGroup === "all"
@@ -2402,7 +2491,7 @@ const albumOptions = useMemo(() => {
     seen.add(key);
     return true;
   });
-}, [universeForAlbum, albumById, fGroup, groupNameById]);
+}, [universeForAlbum, albumById, fGroup, groupNameById, fCollectionKind]);
 
 const folderAlbumOptions = useMemo(() => {
   const groupName = fGroup === "all" ? null : groupNameById[fGroup] ?? null;
@@ -2420,19 +2509,24 @@ const folderAlbumOptions = useMemo(() => {
     if (!folderMatchesLibraryGroup(f, groupName)) continue;
     if (catalog === "inclusions" && !folderIsLibraryInclusionsCollection(f)) continue;
     if (catalog === "photocards" && !folderIsLibraryPhotocardsCollection(f)) continue;
+    if (fCollectionKind !== "all" && folderLibraryCollectionKind(f) !== fCollectionKind) continue;
     const titleKey = compactFolderKey(f.album_title);
     const slugKey = compactFolderKey(f.album_slug);
     const dedupeKey = collectionOptionDedupeKey(f.album_title, null, f.region);
-    if ((titleKey && covered.has(titleKey)) || (slugKey && covered.has(slugKey)) || (dedupeKey && covered.has(dedupeKey))) {
-      continue;
+    const hideIfCoveredByAlbum =
+      fCollectionKind === "all" || fCollectionKind === "albums" || fCollectionKind === "seasons-greetings";
+    if (hideIfCoveredByAlbum) {
+      if ((titleKey && covered.has(titleKey)) || (slugKey && covered.has(slugKey)) || (dedupeKey && covered.has(dedupeKey))) {
+        continue;
+      }
+      const coveredByVisibleAlbum = Object.entries(albumById).some(([idStr, a]) => {
+        const id = Number(idStr);
+        if (!albumOptionIdSet.has(id)) return false;
+        if (fGroup !== "all" && a.group_id !== fGroup) return false;
+        return folderAlbumMatchesTitle(f, a.name);
+      });
+      if (coveredByVisibleAlbum) continue;
     }
-    const coveredByVisibleAlbum = Object.entries(albumById).some(([idStr, a]) => {
-      const id = Number(idStr);
-      if (!albumOptionIdSet.has(id)) return false;
-      if (fGroup !== "all" && a.group_id !== fGroup) return false;
-      return folderAlbumMatchesTitle(f, a.name);
-    });
-    if (coveredByVisibleAlbum) continue;
     extra.push(f);
   }
   extra.sort((a, b) => {
@@ -2442,7 +2536,34 @@ const folderAlbumOptions = useMemo(() => {
     return a.album_title.localeCompare(b.album_title, "es", { sensitivity: "base", numeric: true });
   });
   return extra;
-}, [folderTree, albumOptions, albumById, fGroup, groupNameById, catalog]);
+}, [folderTree, albumOptions, albumById, fGroup, groupNameById, catalog, fCollectionKind]);
+
+const collectionKindOptions = useMemo(() => {
+  const present = new Set<Exclude<LibraryCollectionKind, "all">>();
+  const groupName = fGroup === "all" ? null : groupNameById[fGroup] ?? null;
+  for (const f of folderTree.albums) {
+    if (!folderMatchesLibraryGroup(f, groupName)) continue;
+    if (catalog === "inclusions" && !folderIsLibraryInclusionsCollection(f)) continue;
+    if (catalog === "photocards" && !folderIsLibraryPhotocardsCollection(f)) continue;
+    present.add(folderLibraryCollectionKind(f));
+  }
+  for (const it of items) {
+    if (fGroup !== "all" && (it.group_id ?? null) !== fGroup) continue;
+    present.add(itemLibraryCollectionKind(it));
+  }
+  for (const [idStr, album] of Object.entries(albumById)) {
+    if (fGroup !== "all" && album.group_id !== fGroup) continue;
+    present.add(dbAlbumCollectionKind(album.name));
+    void idStr;
+  }
+  return LIBRARY_COLLECTION_KIND_ORDER.filter((k) => present.has(k));
+}, [folderTree, items, albumById, fGroup, groupNameById, catalog]);
+
+useEffect(() => {
+  setFAlbum("all");
+  setFVersion("all");
+  setFPobKind("all");
+}, [fCollectionKind]);
 
 useEffect(() => {
   if (fAlbum === "all") return;
@@ -2587,6 +2708,7 @@ const filtered = useMemo(() => {
     }
 
     if (fGroup !== "all" && (it.group_id ?? null) !== fGroup) return false;
+    if (!itemMatchesCollectionKind(it, fCollectionKind)) return false;
     if (!itemMatchesAlbumFilter(it, fAlbum)) return false;
     if (fVersion !== "all" && !folderVersionMatches(it.version, fVersion)) return false;
 
@@ -2604,16 +2726,16 @@ const filtered = useMemo(() => {
 
     return matchesQuery(it, q);
   });
-}, [items, invByItem, q, fStatus, fGroup, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, folderTree]);
+}, [items, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, folderTree, albumById]);
 
   const showContributeEmpty = useMemo(() => {
     if (filtered.length > 0) return false;
     if (q.trim()) return false;
     if (fStatus !== "all") return false;
     if (fMember !== "all" || fUnit !== "all") return false;
-    if (fAlbum === "all") return false;
+    if (fAlbum === "all" && fCollectionKind === "all") return false;
     return true;
-  }, [filtered.length, q, fStatus, fMember, fUnit, fAlbum]);
+  }, [filtered.length, q, fStatus, fMember, fUnit, fAlbum, fCollectionKind]);
 
   const contributeFolderLabel = useMemo(() => {
     const folderHit = typeof fAlbum === "string" ? findFolderAlbumByFilterKey(folderTree, fAlbum) : undefined;
@@ -3152,7 +3274,22 @@ const commitStockForItem = useCallback(
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={filterLabelStyle}><Disc3 size={13} /> {t("binders.picker.collection") || "Colección / Era"}</label>
+              <label style={filterLabelStyle}><Disc3 size={13} /> {t("library.filters.collection_kind") || t("binders.picker.collection") || "Colección"}</label>
+              <select
+                value={fCollectionKind}
+                onChange={(e) => setFCollectionKind(e.target.value as LibraryCollectionKind)}
+                style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}
+              >
+                <option value="all">{allLabel}</option>
+                {collectionKindOptions.map((kind) => (
+                  <option key={kind} value={kind}>{collectionKindLabel(kind, t)}</option>
+                ))}
+              </select>
+            </div>
+
+            {fCollectionKind !== "all" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={filterLabelStyle}><Disc3 size={13} /> {collectionNameFilterLabel(fCollectionKind, t)}</label>
               <select value={fAlbum === "all" ? "all" : String(fAlbum)} onChange={(e) => {
                 const v = e.target.value;
                 if (v === "all") setFAlbum("all");
@@ -3170,8 +3307,9 @@ const commitStockForItem = useCallback(
                 ))}
               </select>
             </div>
+            )}
 
-            {catalog === "photocards" && (
+            {catalog === "photocards" && (fCollectionKind === "all" || fCollectionKind === "albums" || fCollectionKind === "seasons-greetings") && (
             <div className="library-filter-field" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Gift size={13} /> {t("library.filters.pob_kind")}</label>
               <select value={fPobKind} onChange={(e) => setFPobKind(e.target.value as "all" | "regular" | "pob")} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
@@ -3182,6 +3320,7 @@ const commitStockForItem = useCallback(
             </div>
             )}
 
+            {fCollectionKind !== "all" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Layers size={13} /> {t("binders.picker.version") || "Versión"}</label>
               <select value={fVersion} onChange={(e) => setFVersion(e.target.value as string | "all")} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
@@ -3191,6 +3330,7 @@ const commitStockForItem = useCallback(
                 ))}
               </select>
             </div>
+            )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><User size={13} /> {t("binders.picker.member") || "Miembro"}</label>

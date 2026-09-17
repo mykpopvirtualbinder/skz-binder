@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
+import { pathHasLibraryPcsUnderMerch } from "./folder-tree-catalog-shared";
 
 export type MerchAlbumCatalogRow = {
   id: string;
@@ -476,6 +477,16 @@ function merchProductDedupeKey(rel: string): string {
   return rel
     .replace(/\\/g, "/")
     .toLowerCase()
+    .replace(/\/albums\/japanese\//g, "/photocards/japanese-albums/")
+    .replace(/\/albums\/korean\//g, "/photocards/korean-album/")
+    .replace(
+      /\/events\/tours\/stray-kids-world-tour-run-it-in\/japan\//g,
+      "/photocards/events/tour/run-it/stray-kids-world-tour-run-it-in-japan/",
+    )
+    .replace(
+      /\/events\/tours\/stray-kids-world-tour-run-it-in\/seoul\//g,
+      "/photocards/events/tour/run-it/stray-kids-world-tour-run-it-in-seoul/",
+    )
     .replace(
       /\/photocards\/events\/tour\/run-it\/stray-kids-world-tour-run-it-in-japan\//g,
       "/photocards/events/tours/stray-kids-world-tour-run-it-in/japan/",
@@ -486,9 +497,18 @@ function merchProductDedupeKey(rel: string): string {
     );
 }
 
+function merchPublicRelPriority(rel: string): number {
+  if (/\/photocards\//i.test(rel)) return 0;
+  if (/\/albums\//i.test(rel)) return 1;
+  return 2;
+}
+
 function isMerchProductRel(rel: string): boolean {
   const n = rel.replace(/\\/g, "/");
-  if (/(^|\/)merch(\/|$)/i.test(n)) return true;
+  if (/(^|\/)merch(\/|$)/i.test(n)) {
+    if (pathHasLibraryPcsUnderMerch(n)) return false;
+    return true;
+  }
   if (/pop[\s_%-]*ups?/i.test(n) && !MERCH_PC_PATH.test(n)) return true;
   return false;
 }
@@ -527,12 +547,16 @@ export function scanMerchProductsFromMockPcs(cwd: string = process.cwd()): Merch
   for (const groupEnt of fs.readdirSync(groupsRoot, { withFileTypes: true })) {
     if (!groupEnt.isDirectory() || MERCH_SKIP_DIR.test(groupEnt.name) || /^silvia/i.test(groupEnt.name)) continue;
     const groupName = humanizeSlug(groupEnt.name);
-    const files = walkMerchProductFiles(path.join(groupsRoot, groupEnt.name));
+    const files = walkMerchProductFiles(path.join(groupsRoot, groupEnt.name)).sort((a, b) => {
+      const ra = path.relative(publicDir, a).replace(/\\/g, "/");
+      const rb = path.relative(publicDir, b).replace(/\\/g, "/");
+      const pa = merchPublicRelPriority(ra) - merchPublicRelPriority(rb);
+      if (pa !== 0) return pa;
+      return ra.localeCompare(rb);
+    });
     for (const abs of files) {
       const publicRel = path.relative(publicDir, abs).replace(/\\/g, "/");
       if (!isMerchProductRel(publicRel)) continue;
-      if (/\/groups\/[^/]+\/albums?\//i.test(publicRel) && !/\/photocards\//i.test(publicRel)) continue;
-      if (/\/events\/tour\/run-it\//i.test(publicRel)) continue;
       const dedupe = merchProductDedupeKey(publicRel);
       if (seen.has(dedupe)) continue;
       seen.add(dedupe);

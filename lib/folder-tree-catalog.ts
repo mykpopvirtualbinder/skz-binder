@@ -6,6 +6,7 @@ import type {
   FolderTreeAlbum,
   FolderTreeCatalog,
 } from "./folder-tree-catalog-shared";
+import { isLibraryPcFolderName } from "./folder-tree-catalog-shared";
 
 export type {
   FolderAlbumKind,
@@ -26,6 +27,11 @@ export {
   folderIsLibraryPhotocardsCollection,
   folderIsLibraryInclusionsCollection,
   itemIsMerchNotPhotocard,
+  itemLibraryCollectionKind,
+  folderLibraryCollectionKind,
+  isLibraryPcFolderName,
+  pathHasLibraryPcsUnderMerch,
+  LIBRARY_COLLECTION_KIND_ORDER,
 } from "./folder-tree-catalog-shared";
 
 const ACCORDION_PACKAGING = new Set([
@@ -61,9 +67,9 @@ function humanizeSlug(s: string) {
 
 function regionFromFolder(name: string): FolderAlbumRegion | null {
   const n = String(name || "").trim().toLowerCase();
-  if (n === "korean" || n === "korea" || n === "seoul") return "korea";
-  if (n === "japanese" || n === "japan") return "japan";
-  if (n === "taiwanese" || n === "taiwan") return "taiwan";
+  if (n === "korean" || n === "korea" || n === "seoul" || /^korean[-_]?albums?$/.test(n)) return "korea";
+  if (n === "japanese" || n === "japan" || /^japanese[-_]?albums?$/.test(n)) return "japan";
+  if (n === "taiwanese" || n === "taiwan" || /^taiwanese[-_]?albums?$/.test(n)) return "taiwan";
   return null;
 }
 
@@ -184,8 +190,52 @@ function extraAlbumBucketVersions(albumDir: string, names: string[]): string[] {
   return out;
 }
 
-function pushAlbum(albums: FolderTreeAlbum[], row: FolderTreeAlbum) {
+function pushAlbum(albums: FolderTreeAlbum[], seen: Set<string>, row: FolderTreeAlbum) {
+  const key = `${row.group_slug}:${row.region}:${row.source}:${row.album_slug}`.toLowerCase();
+  if (seen.has(key)) return;
+  seen.add(key);
   albums.push(row);
+}
+
+function scanMerchPcSets(args: {
+  groupSlug: string;
+  region: FolderAlbumRegion;
+  albumSlug: string;
+  albumTitle: string;
+  albumDir: string;
+  albums: FolderTreeAlbum[];
+  seen: Set<string>;
+}) {
+  const merchName = listDirs(args.albumDir).find((n) => /^merch$/i.test(n));
+  if (!merchName) return;
+  const merchAbs = path.join(args.albumDir, merchName);
+  const stack: { abs: string; rel: string }[] = [{ abs: merchAbs, rel: "" }];
+  while (stack.length) {
+    const { abs, rel } = stack.pop()!;
+    for (const child of listDirs(abs)) {
+      const childAbs = path.join(abs, child);
+      const childRel = rel ? `${rel}/${child}` : child;
+      if (isLibraryPcFolderName(child)) {
+        pushAlbum(args.albums, args.seen, {
+          group_slug: args.groupSlug,
+          region: args.region,
+          album_slug: `${path.basename(args.albumDir).trim()}--merch--${childRel.replace(/\//g, "--").trim()}`,
+          album_title: `${args.albumTitle} — ${humanizeSlug(child)}`,
+          source: "merch",
+          hasPortadas: false,
+          hasPhotocards: true,
+          hasPobs: /^pobs?$/i.test(child),
+          hasInclusions: false,
+          portadasKinds: [],
+          photocardsVersions: slugsOrSelf(childAbs, child.trim()),
+          pobVersions: [],
+          inclusionVersions: [],
+        });
+        continue;
+      }
+      stack.push({ abs: childAbs, rel: childRel });
+    }
+  }
 }
 
 function scanAlbumLikeDir(args: {
@@ -273,7 +323,8 @@ function isAlbumLikeDir(names: string[]): boolean {
       /^photocards$/i.test(n) ||
       /^album$/i.test(n) ||
       /^pobs?$/i.test(n) ||
-      /^inclusions$/i.test(n),
+      /^inclusions$/i.test(n) ||
+      isLibraryPcFolderName(n),
   );
 }
 
@@ -285,29 +336,55 @@ const GROUPING_FOLDER_NAMES = new Set([
   "korea",
   "japan",
   "seoul",
+  "korean-album",
+  "korean-albums",
+  "japanese-albums",
+  "taiwanese-albums",
   "brands",
   "magazines",
   "pop-ups",
   "pop-up",
   "tours",
+  "tour",
+  "events",
+  "eventos",
   "collabs",
   "memberships",
   "seasons-greetings",
+  "japanese-md",
 ]);
 
 function sourceFromTopLevel(top: string, relParts: string[]): FolderAlbumSource {
   const t = top.trim().toLowerCase();
   if (t === "albums") return "albums";
-  if (t === "events") return "events";
-  const head = String(relParts[0] || "").toLowerCase();
-  if (head === "seasons-greetings") return "seasons-greetings";
-  if (head === "memberships") return "memberships";
-  if (head === "collabs") return "collabs";
+  const parts = relParts.map((p) => p.trim().toLowerCase());
+  const head = parts[0] || t;
+  if (head === "seasons-greetings" || parts.includes("seasons-greetings")) return "seasons-greetings";
+  if (head === "memberships" || parts.includes("memberships")) return "memberships";
+  if (head === "collabs" || parts.includes("collabs")) return "collabs";
+  if (head === "tours" || head === "tour" || parts.includes("tours") || parts.includes("tour")) return "tours";
+  if (head === "japanese-md" || parts.includes("japanese-md")) return "merch";
+  if (head === "pop-ups" || head === "pop-up" || parts.includes("pop-ups") || parts.includes("pop-up")) return "pop-ups";
+  if (t === "events" || t === "eventos" || head === "events" || head === "eventos") return "events";
+  if (
+    /^(korean|japanese|taiwanese)[-_]?albums?$/.test(head) ||
+    head === "korean" ||
+    head === "japanese" ||
+    head === "taiwanese"
+  ) {
+    return "albums";
+  }
+  if (t === "photocards" || t === "photocard") {
+    if (head !== t && /^(korean|japanese|taiwanese)[-_]?albums?$/.test(head)) return "albums";
+    if (parts.length > 0 && head !== t) return sourceFromTopLevel(head, parts.slice(1));
+    return "other";
+  }
   return "other";
 }
 
 function collectionTitle(dirName: string, parentName: string | undefined): string {
   const title = humanizeSlug(dirName);
+  if (parentName && /^japanese-md$/i.test(parentName)) return `${humanizeSlug(parentName)} — ${title}`;
   if (parentName && regionFromFolder(dirName)) return `${humanizeSlug(parentName)} ${title}`;
   return title;
 }
@@ -319,7 +396,20 @@ function collectionTitle(dirName: string, parentName: string | undefined): strin
 export function scanFolderTreeCatalog(cwd: string = process.cwd()): FolderTreeCatalog {
   const groupsRoot = path.join(cwd, "public", "mock-pcs", "groups");
   const albums: FolderTreeAlbum[] = [];
+  const seen = new Set<string>();
   if (!fs.existsSync(groupsRoot)) return { albums };
+
+  function addAlbumLike(args: {
+    groupSlug: string;
+    region: FolderAlbumRegion;
+    albumSlug: string;
+    albumTitle: string;
+    albumDir: string;
+    source: FolderAlbumSource;
+  }) {
+    pushAlbum(albums, seen, scanAlbumLikeDir(args));
+    scanMerchPcSets({ ...args, albums, seen });
+  }
 
   function walkLoose(args: {
     groupSlug: string;
@@ -333,22 +423,20 @@ export function scanFolderTreeCatalog(cwd: string = process.cwd()): FolderTreeCa
   }) {
     const names = listDirs(args.dir);
     if (isAlbumLikeDir(names)) {
-      pushAlbum(
-        albums,
-        scanAlbumLikeDir({
-          groupSlug: args.groupSlug,
-          region: args.region,
-          albumSlug: args.slug,
-          albumTitle: args.title,
-          albumDir: args.dir,
-          source: args.source,
-        }),
-      );
+      addAlbumLike({
+        groupSlug: args.groupSlug,
+        region: args.region,
+        albumSlug: args.slug,
+        albumTitle: args.title,
+        albumDir: args.dir,
+        source: args.source,
+      });
       return;
     }
     if (names.length === 0) {
       pushAlbum(
         albums,
+        seen,
         scanLooseCollection({
           groupSlug: args.groupSlug,
           region: args.region,
@@ -361,35 +449,42 @@ export function scanFolderTreeCatalog(cwd: string = process.cwd()): FolderTreeCa
       return;
     }
     const base = path.basename(args.dir).trim().toLowerCase();
-    const keepWalking = args.depth < 1 || (GROUPING_FOLDER_NAMES.has(base) && args.depth < 3);
+    const keepWalking = args.depth < 1 || (GROUPING_FOLDER_NAMES.has(base) && args.depth < 4);
     if (keepWalking) {
       for (const child of names) {
-        if (child.trim().toLowerCase() === "seasons-greetings") {
+        const childKey = child.trim().toLowerCase();
+        if (childKey === "seasons-greetings") {
           const kindDir = path.join(args.dir, child);
           for (const regionFolder of listDirs(kindDir)) {
             const region = regionFromFolder(regionFolder) ?? args.region;
             const regionDir = path.join(kindDir, regionFolder);
             for (const yearRaw of listDirs(regionDir)) {
-              pushAlbum(
-                albums,
-                scanAlbumLikeDir({
-                  groupSlug: args.groupSlug,
-                  region,
-                  albumSlug: yearRaw.trim(),
-                  albumTitle: humanizeSlug(yearRaw),
-                  albumDir: path.join(regionDir, yearRaw),
-                  source: "seasons-greetings",
-                }),
-              );
+              addAlbumLike({
+                groupSlug: args.groupSlug,
+                region,
+                albumSlug: yearRaw.trim(),
+                albumTitle: humanizeSlug(yearRaw),
+                albumDir: path.join(regionDir, yearRaw),
+                source: "seasons-greetings",
+              });
             }
           }
           continue;
         }
-        const childRegion = regionFromFolder(child) ?? args.region;
+        let childSource = args.source;
+        if (childKey === "tours" || childKey === "tour") childSource = "tours";
+        else if (childKey === "japanese-md") childSource = "merch";
+        else if (childKey === "pop-ups" || childKey === "pop-up") childSource = "pop-ups";
+        else if (childKey === "memberships") childSource = "memberships";
+        else if (childKey === "collabs") childSource = "collabs";
+        else if (childKey === "events" || childKey === "eventos") childSource = "events";
+        else if (/^(korean|japanese|taiwanese)[-_]?albums?$/.test(childKey)) childSource = "albums";
+        const childRegion =
+          childKey === "japanese-md" ? "japan" : regionFromFolder(child) ?? args.region;
         walkLoose({
           groupSlug: args.groupSlug,
           region: childRegion,
-          source: args.source,
+          source: childSource,
           slug: `${args.slug}-${child.trim()}`,
           title: collectionTitle(child, path.basename(args.dir)),
           dir: path.join(args.dir, child),
@@ -401,6 +496,7 @@ export function scanFolderTreeCatalog(cwd: string = process.cwd()): FolderTreeCa
     }
     pushAlbum(
       albums,
+      seen,
       scanLooseCollection({
         groupSlug: args.groupSlug,
         region: args.region,
@@ -410,6 +506,15 @@ export function scanFolderTreeCatalog(cwd: string = process.cwd()): FolderTreeCa
         source: args.source,
       }),
     );
+    scanMerchPcSets({
+      groupSlug: args.groupSlug,
+      region: args.region,
+      albumSlug: args.slug,
+      albumTitle: args.title,
+      albumDir: args.dir,
+      albums,
+      seen,
+    });
   }
 
   for (const groupSlug of listDirs(groupsRoot)) {
@@ -422,17 +527,14 @@ export function scanFolderTreeCatalog(cwd: string = process.cwd()): FolderTreeCa
         const regionDir = path.join(albumsRoot, regionFolder);
         for (const albumSlugRaw of listDirs(regionDir)) {
           const albumSlug = albumSlugRaw.trim();
-          pushAlbum(
-            albums,
-            scanAlbumLikeDir({
-              groupSlug,
-              region,
-              albumSlug,
-              albumTitle: humanizeSlug(albumSlug),
-              albumDir: path.join(regionDir, albumSlugRaw),
-              source: "albums",
-            }),
-          );
+          addAlbumLike({
+            groupSlug,
+            region,
+            albumSlug,
+            albumTitle: humanizeSlug(albumSlug),
+            albumDir: path.join(regionDir, albumSlugRaw),
+            source: "albums",
+          });
         }
       }
     }
@@ -450,17 +552,14 @@ export function scanFolderTreeCatalog(cwd: string = process.cwd()): FolderTreeCa
               const region = regionFromFolder(regionFolder) ?? "unknown";
               const regionDir = path.join(kindDir, regionFolder);
               for (const yearRaw of listDirs(regionDir)) {
-                pushAlbum(
-                  albums,
-                  scanAlbumLikeDir({
-                    groupSlug,
-                    region,
-                    albumSlug: yearRaw.trim(),
-                    albumTitle: humanizeSlug(yearRaw),
-                    albumDir: path.join(regionDir, yearRaw),
-                    source: "seasons-greetings",
-                  }),
-                );
+                addAlbumLike({
+                  groupSlug,
+                  region,
+                  albumSlug: yearRaw.trim(),
+                  albumTitle: humanizeSlug(yearRaw),
+                  albumDir: path.join(regionDir, yearRaw),
+                  source: "seasons-greetings",
+                });
               }
             }
             continue;
@@ -472,6 +571,24 @@ export function scanFolderTreeCatalog(cwd: string = process.cwd()): FolderTreeCa
             slug: kind.trim(),
             title: humanizeSlug(kind),
             dir: kindDir,
+            depth: 1,
+            parentName: kind,
+          });
+        }
+        continue;
+      }
+      if (t === "events" || t === "eventos") {
+        for (const kind of listDirs(topDir)) {
+          const k = kind.trim().toLowerCase();
+          const source: FolderAlbumSource =
+            k === "tours" || k === "tour" ? "tours" : k === "pop-ups" || k === "pop-up" ? "pop-ups" : "events";
+          walkLoose({
+            groupSlug,
+            region: "korea",
+            source,
+            slug: kind.trim(),
+            title: humanizeSlug(kind),
+            dir: path.join(topDir, kind),
             depth: 1,
             parentName: kind,
           });
