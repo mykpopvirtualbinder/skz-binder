@@ -65,17 +65,13 @@ export async function GET(req: Request) {
         .from("items")
         .select("id, name, image_url, member, version, type")
         .or(`name.ilike.${like},member.ilike.${like},version.ilike.${like}`)
-        .limit(24)
-        .then((r) => r)
-        .catch(() => ({ data: [] as never[], error: true })),
+        .limit(24),
       admin
         .from("fanarts")
         .select("id, title, artist_name, image_url, thumbnail_url, category")
         .eq("active", true)
         .or(`title.ilike.${like},artist_name.ilike.${like}`)
-        .limit(8)
-        .then((r) => r)
-        .catch(() => ({ data: [] as never[], error: true })),
+        .limit(8),
       admin.from("profiles").select("user_id, display_name, avatar_url").ilike("display_name", like).limit(8),
       admin.from("albums").select("id, name").ilike("name", like).limit(6),
       admin.from("groups").select("id, name").ilike("name", like).limit(4),
