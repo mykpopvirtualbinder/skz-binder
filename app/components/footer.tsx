@@ -5,7 +5,6 @@ import { useGlobal } from "../context/GlobalContext";
 
 const footerColumnTitle: React.CSSProperties = { 
   fontSize: "13px", 
-  color: "var(--color-primary)", 
   fontWeight: 900, 
   textTransform: "uppercase", 
   marginBottom: "15px", 
@@ -14,20 +13,18 @@ const footerColumnTitle: React.CSSProperties = {
 
 const footerLinkStyle: React.CSSProperties = { 
   fontSize: "12px", 
-  color: "var(--text-muted)", 
   textDecoration: "none", 
   fontWeight: 500, 
   marginBottom: "8px", 
   display: "block",
-  transition: "opacity 0.2s"
+  transition: "opacity 0.2s, color 0.2s"
 };
 
 export default function Footer() {
-  // Añadimos 'profile' para que el Footer reaccione a los cambios de tema e idioma en tiempo real
-  const { profile, t } = useGlobal(); 
+  const { t } = useGlobal(); 
 
   return (
-    <footer style={{ 
+    <footer className="site-footer" style={{ 
       width: "100%", 
       backgroundColor: "var(--bg-card)", 
       borderTop: "1px solid var(--color-border)", 
@@ -47,47 +44,41 @@ export default function Footer() {
         alignItems: "start",
         width: "100%"
       }}>
-        {/* Columna 1: Branding */}
         <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-          <span className="tan-font" style={{ color: "var(--text-muted)", fontSize: "24px", letterSpacing: "1px" }}>
+          <span className="tan-font site-footer-brand" data-nav="home" style={{ fontSize: "24px", letterSpacing: "1px" }}>
             {t('footer.brand')}
           </span>
-          <p style={{ fontSize: "14px", color: "var(--color-primary)", fontWeight: 600, maxWidth: "250px", lineHeight: "1.5" }}>
+          <p className="site-footer-desc" style={{ fontSize: "14px", fontWeight: 600, maxWidth: "250px", lineHeight: "1.5" }}>
             {t('footer.description')}
           </p>
         </div>
 
-        {/* Columna 2: Legal */}
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <span style={footerColumnTitle}>{t('footer.legal_title')}</span>
-          <a href="/terms" style={footerLinkStyle}>{t('footer.terms')}</a>
-          {/* ¡ARREGLADO! Ahora sí lleva a las páginas correctas */}
-          <a href="/community-rules" style={footerLinkStyle}>{t('footer.community_rules')}</a>
-          <a href="/copyright" style={footerLinkStyle}>{t('footer.copyright_notice')}</a>
+          <span className="site-footer-title" data-nav="albums" style={footerColumnTitle}>{t('footer.legal_title')}</span>
+          <a href="/terms" className="site-footer-link" data-nav="albums" style={footerLinkStyle}>{t('footer.terms')}</a>
+          <a href="/community-rules" className="site-footer-link" data-nav="fanzone" style={footerLinkStyle}>{t('footer.community_rules')}</a>
+          <a href="/copyright" className="site-footer-link" data-nav="library" style={footerLinkStyle}>{t('footer.copyright_notice')}</a>
         </div>
 
-        {/* Columna 3: Marketplace */}
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <span style={footerColumnTitle}>{t('footer.market_title')}</span>
-          <a href="/market-rules" style={footerLinkStyle}>{t('footer.market_rules')}</a>
-          <a href="/anti-scam" style={footerLinkStyle}>{t('footer.anti_scam')}</a>
-          <a href="/privacy" style={footerLinkStyle}>{t('footer.privacy')}</a>
+          <span className="site-footer-title" data-nav="market" style={footerColumnTitle}>{t('footer.market_title')}</span>
+          <a href="/market-rules" className="site-footer-link" data-nav="market" style={footerLinkStyle}>{t('footer.market_rules')}</a>
+          <a href="/anti-scam" className="site-footer-link" data-nav="merch" style={footerLinkStyle}>{t('footer.anti_scam')}</a>
+          <a href="/privacy" className="site-footer-link" data-nav="fanart" style={footerLinkStyle}>{t('footer.privacy')}</a>
         </div>
 
-        {/* Columna 4: Soporte */}
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <span style={footerColumnTitle}>{t('footer.support_title')}</span>
-          <a href="/faq" style={footerLinkStyle}>{t('footer.faq')}</a>
-          <a href="/report" style={{ ...footerLinkStyle, fontWeight: 900, textDecoration: "underline", color: "var(--color-primary)" }}>
+          <span className="site-footer-title" data-nav="shop" style={footerColumnTitle}>{t('footer.support_title')}</span>
+          <a href="/faq" className="site-footer-link" data-nav="binders" style={footerLinkStyle}>{t('footer.faq')}</a>
+          <a href="/report" className="site-footer-link site-footer-link--strong" data-nav="home" style={{ ...footerLinkStyle, fontWeight: 900, textDecoration: "underline" }}>
             {t('footer.report_abuse')}
           </a>
-          <a href="mailto:info@mykpopbinder.com" style={footerLinkStyle}>info@mykpopbinder.com</a>
+          <a href="mailto:info@mykpopbinder.com" className="site-footer-link" data-nav="fanart" style={footerLinkStyle}>info@mykpopbinder.com</a>
         </div>
       </div>
 
-      {/* Fila Inferior */}
       <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "20px", textAlign: "center" }}>
-        <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700 }}>
+        <span className="site-footer-copy">
           © {new Date().getFullYear()} {t('footer.copyright_text')}
         </span>
       </div>

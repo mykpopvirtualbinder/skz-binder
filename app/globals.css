@@ -1535,6 +1535,100 @@ html[data-theme="gay_pride"]::before {
 [data-theme="iris_bloom"] .mobile-more-sheet a[data-nav="shop"],
 [data-theme="gay_pride"] .mobile-more-sheet a[data-nav="shop"] { --nav-link: var(--nav-shop); }
 
+.site-footer-brand {
+  color: var(--text-muted);
+}
+.site-footer-desc {
+  color: var(--color-primary);
+}
+.site-footer-title {
+  color: var(--color-primary);
+}
+.site-footer-link {
+  color: var(--text-muted);
+}
+.site-footer-link:hover {
+  opacity: 0.8;
+}
+.site-footer-link--strong {
+  color: var(--color-primary);
+}
+.site-footer-copy {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+[data-theme="iris_bloom"] .site-footer-brand,
+[data-theme="gay_pride"] .site-footer-brand {
+  background: var(--gradient-pride);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-theme="iris_bloom"] .site-footer-desc,
+[data-theme="gay_pride"] .site-footer-desc {
+  color: var(--text-main);
+}
+[data-theme="iris_bloom"] .site-footer-title[data-nav],
+[data-theme="gay_pride"] .site-footer-title[data-nav],
+[data-theme="iris_bloom"] .site-footer-link[data-nav],
+[data-theme="gay_pride"] .site-footer-link[data-nav] {
+  color: var(--nav-link);
+}
+[data-theme="iris_bloom"] .site-footer-link[data-nav],
+[data-theme="gay_pride"] .site-footer-link[data-nav] {
+  color: color-mix(in srgb, var(--nav-link) 82%, var(--text-muted));
+}
+[data-theme="iris_bloom"] .site-footer-link[data-nav]:hover,
+[data-theme="gay_pride"] .site-footer-link[data-nav]:hover {
+  color: var(--nav-link);
+  opacity: 1;
+}
+[data-theme="iris_bloom"] .site-footer-title[data-nav="home"],
+[data-theme="gay_pride"] .site-footer-title[data-nav="home"],
+[data-theme="iris_bloom"] .site-footer-link[data-nav="home"],
+[data-theme="gay_pride"] .site-footer-link[data-nav="home"] { --nav-link: var(--nav-home); }
+[data-theme="iris_bloom"] .site-footer-title[data-nav="library"],
+[data-theme="gay_pride"] .site-footer-title[data-nav="library"],
+[data-theme="iris_bloom"] .site-footer-link[data-nav="library"],
+[data-theme="gay_pride"] .site-footer-link[data-nav="library"] { --nav-link: var(--nav-library); }
+[data-theme="iris_bloom"] .site-footer-title[data-nav="albums"],
+[data-theme="gay_pride"] .site-footer-title[data-nav="albums"],
+[data-theme="iris_bloom"] .site-footer-link[data-nav="albums"],
+[data-theme="gay_pride"] .site-footer-link[data-nav="albums"] { --nav-link: var(--nav-albums); }
+[data-theme="iris_bloom"] .site-footer-title[data-nav="merch"],
+[data-theme="gay_pride"] .site-footer-title[data-nav="merch"],
+[data-theme="iris_bloom"] .site-footer-link[data-nav="merch"],
+[data-theme="gay_pride"] .site-footer-link[data-nav="merch"] { --nav-link: var(--nav-merch); }
+[data-theme="iris_bloom"] .site-footer-title[data-nav="market"],
+[data-theme="gay_pride"] .site-footer-title[data-nav="market"],
+[data-theme="iris_bloom"] .site-footer-link[data-nav="market"],
+[data-theme="gay_pride"] .site-footer-link[data-nav="market"] { --nav-link: var(--nav-market); }
+[data-theme="iris_bloom"] .site-footer-title[data-nav="fanart"],
+[data-theme="gay_pride"] .site-footer-title[data-nav="fanart"],
+[data-theme="iris_bloom"] .site-footer-link[data-nav="fanart"],
+[data-theme="gay_pride"] .site-footer-link[data-nav="fanart"] { --nav-link: var(--nav-fanart); }
+[data-theme="iris_bloom"] .site-footer-title[data-nav="fanzone"],
+[data-theme="gay_pride"] .site-footer-title[data-nav="fanzone"],
+[data-theme="iris_bloom"] .site-footer-link[data-nav="fanzone"],
+[data-theme="gay_pride"] .site-footer-link[data-nav="fanzone"] { --nav-link: var(--nav-fanzone); }
+[data-theme="iris_bloom"] .site-footer-title[data-nav="shop"],
+[data-theme="gay_pride"] .site-footer-title[data-nav="shop"],
+[data-theme="iris_bloom"] .site-footer-link[data-nav="shop"],
+[data-theme="gay_pride"] .site-footer-link[data-nav="shop"] { --nav-link: var(--nav-shop); }
+[data-theme="iris_bloom"] .site-footer-title[data-nav="binders"],
+[data-theme="gay_pride"] .site-footer-title[data-nav="binders"],
+[data-theme="iris_bloom"] .site-footer-link[data-nav="binders"],
+[data-theme="gay_pride"] .site-footer-link[data-nav="binders"] { --nav-link: var(--nav-binders); }
+[data-theme="iris_bloom"] .site-footer-copy,
+[data-theme="gay_pride"] .site-footer-copy {
+  background: var(--gradient-pride);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 /* Punteros: flecha por tema + manita click por tema (3x más grande). */
 html {
   cursor: var(--site-ui-cursor, auto);
