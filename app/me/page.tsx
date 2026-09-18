@@ -12,7 +12,7 @@ import {
   type VipBadgeSectionKey,
 } from "./ui/AvatarModalInsigniasSection";
 import { isAdminTeamEmail, isSiteAdminSession } from "@/lib/admin-emails";
-import { getThemeUnlockCost, isVipThemeKey, unlockKeyForTheme } from "@/lib/theme-unlocks";
+import { getThemeUnlockCost, isVipThemeKey, normalizeThemeId, unlockKeyForTheme } from "@/lib/theme-unlocks";
 import Footer from "../components/footer";
 import Header from "../components/header"; // 👈 Añadido el Header
 import {
@@ -49,7 +49,7 @@ type Profile = {
   puntos?: number;
   is_adult?: boolean | null;
   language?: string | null;
-  theme_preference?: "pastel" | "dark" | "vibrant" | "minimal" | "k_pride" | "gay_pride";
+  theme_preference?: "pastel" | "dark" | "vibrant" | "minimal" | "k_pride" | "iris_bloom" | "gay_pride";
 };
 
 type WallPost = {
@@ -2726,9 +2726,9 @@ function MePageContent() {
                 </label>
                 <select
                   style={{ ...inputStyle }}
-                  value={formData.theme_preference || "pastel"}
+                  value={normalizeThemeId(formData.theme_preference || "pastel")}
                   onChange={async (e) => {
-                    const newTheme = e.target.value as Profile["theme_preference"];
+                    const newTheme = normalizeThemeId(e.target.value) as Profile["theme_preference"];
                     const needsUnlock =
                       isVipThemeKey(String(newTheme || "")) &&
                       !profile?.is_premium &&
@@ -2793,7 +2793,7 @@ function MePageContent() {
                   <option value="dark">{t("global.themes.dark")}</option>
                   <option value="vibrant">{t("global.themes.vibrant")}</option>
                   <option value="k_pride">{t("global.themes.k_pride")}</option>
-                  <option value="gay_pride">{t("global.themes.gay_pride")}</option>
+                  <option value="iris_bloom">{t("global.themes.iris_bloom")}</option>
                 </select>
                 {!profile?.is_premium && !isAdmin && (
                   <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "6px", fontWeight: 600 }}>{t("me.settings.theme_vip_hint")}</p>

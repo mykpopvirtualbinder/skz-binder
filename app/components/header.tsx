@@ -14,6 +14,7 @@ import {
   getCursorUnlockCost,
   getThemeUnlockCost,
   isVipThemeKey,
+  normalizeThemeId,
   unlockKeyForCursor,
   unlockKeyForTheme,
 } from "@/lib/theme-unlocks";
@@ -158,7 +159,7 @@ const THEME_OPTIONS = [
   { id: 'vibrant', name: 'Anime Vibrant', vip: true, color: 'var(--theme-chip-vibrant)' },
   { id: 'minimal', name: 'Korean Café', vip: true, color: 'var(--theme-chip-minimal)' },
   { id: 'k_pride', name: 'K-Pride', vip: true, color: 'var(--theme-chip-kpride)' },
-  { id: 'gay_pride', name: 'Gay Pride', vip: true, color: 'var(--theme-chip-gaypride)' }
+  { id: 'iris_bloom', name: 'Iris Bloom', vip: true, color: 'var(--theme-chip-irisbloom)' }
 ];
 
 type NavLinkItem = { name: string; path: string };
@@ -413,7 +414,7 @@ export default function Header() {
   const { profile, showAlert, showConfirm, t, refreshGlobal } = useGlobal();
   const [activeTheme, setActiveTheme] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("theme") || document.documentElement.getAttribute("data-theme") || "pastel";
+      return normalizeThemeId(localStorage.getItem("theme") || document.documentElement.getAttribute("data-theme") || "pastel");
     }
     return "pastel";
   });
@@ -550,7 +551,7 @@ export default function Header() {
         .map((r: any) => String(r.unlock_key || ""))
         .filter((k: string) => k.startsWith("theme:"))
         .map((k: string) => k.replace(/^theme:/, ""));
-      setUnlockedThemes(new Set(keys));
+      setUnlockedThemes(new Set(keys.map((id) => normalizeThemeId(id))));
     };
     void loadThemeUnlocks();
   }, [user?.id]);
@@ -830,6 +831,7 @@ export default function Header() {
   };
 
   const changeTheme = async (themeId: string, isVip: boolean) => {
+    themeId = normalizeThemeId(themeId);
     const needsUnlock = isVipThemeKey(themeId) && !profile?.is_premium && !isAdmin && !unlockedThemes.has(themeId);
     if (needsUnlock) {
       const cost = getThemeUnlockCost(themeId);

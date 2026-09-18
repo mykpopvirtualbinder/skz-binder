@@ -14,6 +14,7 @@ import ja from "../locales/ja.json";
 import ko from "../locales/ko.json";
 import zh from "../locales/zh.json";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { normalizeThemeId } from "@/lib/theme-unlocks";
 import { resolveProfileAvatarUrl } from "@/lib/default-profile-avatar";
 import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 
@@ -266,7 +267,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
           }
 
           const localTheme = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
-          const preferredTheme = localTheme || profileData.theme_preference || "pastel";
+          const preferredTheme = normalizeThemeId(localTheme || profileData.theme_preference || "pastel");
           const activeTheme = isPremiumUser ? preferredTheme : "pastel";
           document.documentElement.setAttribute("data-theme", activeTheme);
           

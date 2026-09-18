@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useGlobal } from "../context/GlobalContext"; // 👈 Importamos el contexto
 import { supabase } from "@/lib/supabase";
-import { getThemeUnlockCost, isVipThemeKey, unlockKeyForTheme } from "@/lib/theme-unlocks";
+import { getThemeUnlockCost, isVipThemeKey, normalizeThemeId, unlockKeyForTheme } from "@/lib/theme-unlocks";
 
 const THEMES = [
   { key: "pastel", label: "Soft Pastel" },
@@ -10,7 +10,7 @@ const THEMES = [
   { key: "vibrant", label: "Anime Vibrant" },
   { key: "minimal", label: "Korean Café" },
   { key: "k_pride", label: "K-Pride" },
-  { key: "gay_pride", label: "Gay Pride" },
+  { key: "iris_bloom", label: "Iris Bloom" },
 ];
 
 export default function ThemeSelector() {
@@ -18,7 +18,8 @@ export default function ThemeSelector() {
   const [theme, setTheme] = useState("pastel");
 
   useEffect(() => {
-    const saved = typeof window !== "undefined" && localStorage.getItem("theme");
+    const savedRaw = typeof window !== "undefined" && localStorage.getItem("theme");
+    const saved = savedRaw ? normalizeThemeId(savedRaw) : "";
     if (saved && THEMES.some(t => t.key === saved)) {
       setTheme(saved);
       document.documentElement.setAttribute("data-theme", saved);
@@ -27,7 +28,7 @@ export default function ThemeSelector() {
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const run = async () => {
-      const value = e.target.value;
+      const value = normalizeThemeId(e.target.value);
       const needsUnlock = isVipThemeKey(value) && !profile?.is_premium;
       if (needsUnlock) {
         const { data: authData } = await supabase.auth.getUser();

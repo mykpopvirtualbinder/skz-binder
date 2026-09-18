@@ -3,6 +3,7 @@ export const VIP_THEME_COSTS: Record<string, number> = {
   vibrant: 600,
   minimal: 500,
   k_pride: 800,
+  iris_bloom: 800,
   gay_pride: 800,
 };
 
@@ -24,11 +25,16 @@ export const VIP_LAYOUT_COSTS: Record<string, number> = {
 };
 
 export function isVipThemeKey(themeId: string): boolean {
-  return themeId !== "pastel";
+  return normalizeThemeId(themeId) !== "pastel";
+}
+
+export function normalizeThemeId(themeId: string): string {
+  if (themeId === "gay_pride") return "iris_bloom";
+  return themeId;
 }
 
 export function unlockKeyForTheme(themeId: string): string {
-  return `theme:${themeId}`;
+  return `theme:${normalizeThemeId(themeId)}`;
 }
 
 export function getThemeUnlockCost(themeId: string): number {
