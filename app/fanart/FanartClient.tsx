@@ -111,6 +111,19 @@ function FanArtContent() {
   // --- ESTADOS DEL VISOR ---
   const [viewingArt, setViewingArt] = useState<FanArtPost | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const fullscreenOpenedAt = useRef(0);
+
+  const openFullscreen = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    fullscreenOpenedAt.current = Date.now();
+    setIsFullscreen(true);
+  };
+
+  const closeFullscreen = () => {
+    if (Date.now() - fullscreenOpenedAt.current < 400) return;
+    setIsFullscreen(false);
+  };
 
   const highlightId = searchParams.get("highlight");
 
@@ -320,17 +333,19 @@ function FanArtContent() {
           return;
         }
       }
-      if (viewingArt) {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          setViewingArt(null);
-          return;
-        }
-      }
       if (isFullscreen) {
         if (e.key === "Escape") {
           e.preventDefault();
           setIsFullscreen(false);
+          return;
+        }
+      }
+      if (viewingArt) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setIsFullscreen(false);
+          setViewingArt(null);
+          return;
         }
       }
     };
@@ -825,7 +840,7 @@ function FanArtContent() {
             <div style={{ flex: 1, overflowY: "auto", padding: "30px" }}>
               <div style={{ width: "100%", background: viewingArt.content_text ? "var(--bg-main)" : "var(--text-main)", borderRadius: "15px", overflow: "hidden", display: "flex", justifyContent: "center", position: "relative" }} onContextMenu={(e) => e.preventDefault()}>
                 
-                <button type="button" onClick={() => setIsFullscreen(true)} style={{ position: "absolute", top: "15px", right: "15px", background: `color-mix(in srgb, ${ACC.violet} 22%, var(--overlay-strong))`, color: ACC.cyan, border: `1px solid color-mix(in srgb, ${ACC.cyan} 45%, transparent)`, borderRadius: "10px", padding: "8px", cursor: "pointer", zIndex: 10, backdropFilter: "blur(4px)", display: "flex", alignItems: "center", gap: "5px", fontWeight: 800, fontSize: "12px", transition: "0.2s" }}>
+                <button type="button" onClick={openFullscreen} style={{ position: "absolute", top: "15px", right: "15px", background: `color-mix(in srgb, ${ACC.violet} 22%, var(--overlay-strong))`, color: ACC.cyan, border: `1px solid color-mix(in srgb, ${ACC.cyan} 45%, transparent)`, borderRadius: "10px", padding: "8px", cursor: "pointer", zIndex: 10, backdropFilter: "blur(4px)", display: "flex", alignItems: "center", gap: "5px", fontWeight: 800, fontSize: "12px", transition: "0.2s" }}>
                   <Maximize2 size={16} strokeWidth={2.2} /> {t('fanart.view_fullscreen')}
                 </button>
 
@@ -988,7 +1003,7 @@ function FanArtContent() {
 
       {/* ✅ EL MODO LECTURA FULLSCREEN */}
       {isFullscreen && viewingArt && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-heavy)", zIndex: 20000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={() => setIsFullscreen(false)}>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-heavy)", zIndex: 20000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={(e) => { if (e.target === e.currentTarget) closeFullscreen(); }}>
           <div className="fanart-modal-shell" style={{ backgroundColor: "var(--bg-card)", width: "100%", maxWidth: "1000px", height: "90vh", borderRadius: "24px", display: "flex", flexDirection: "column", position: "relative", boxShadow: "0 25px 50px var(--overlay-medium)", overflow: "hidden", border: `1px solid color-mix(in srgb, ${ACC.cyan} 30%, var(--color-border))` }} onClick={e => e.stopPropagation()}>
             
             <div style={{ padding: "20px", borderBottom: "1px solid var(--color-border)", backgroundColor: "var(--bg-main)", display: "flex", justifyContent: "center", alignItems: "center", gap: "25px", flexWrap: "wrap", position: "relative" }}>
@@ -1052,7 +1067,7 @@ function FanArtContent() {
                 </select>
               </div>
 
-              <button type="button" onClick={() => setIsFullscreen(false)} style={{ position: "absolute", right: "20px", top: "20px", border: `1px solid color-mix(in srgb, ${ACC.pink} 35%, var(--color-border))`, background: "var(--bg-soft)", borderRadius: "50%", padding: "8px", cursor: "pointer" }}>
+              <button type="button" onClick={closeFullscreen} style={{ position: "absolute", right: "20px", top: "20px", border: `1px solid color-mix(in srgb, ${ACC.pink} 35%, var(--color-border))`, background: "var(--bg-soft)", borderRadius: "50%", padding: "8px", cursor: "pointer" }}>
                 <X size={24} color={ACC.pink} />
               </button>
             </div>
@@ -1063,6 +1078,9 @@ function FanArtContent() {
                  <h1 className="tan-font" style={{ color: ACC.violet, fontSize: "30px", textAlign: "center", marginBottom: "40px", lineHeight: "1.2", letterSpacing: "1px" }}>
                   {viewingArt.title}
                 </h1>
+                  <div style={{ fontFamily: "Georgia, serif", fontSize: "20px", lineHeight: "1.9", color: "var(--text-main)", whiteSpace: "pre-wrap", textAlign: "left" }}>
+                    {viewingArt.content_text}
+                  </div>
 
                   {chapters.length > 1 && (
                     <div style={{ marginTop: "60px", paddingTop: "30px", borderTop: "1px dashed var(--color-border)", display: "flex", justifyContent: "space-between", gap: "20px" }}>
