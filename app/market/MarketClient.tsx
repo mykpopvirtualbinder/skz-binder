@@ -1040,11 +1040,11 @@ const openPublicProfile = async (userId: string) => {
                 marginBottom: "10px",
               }}
             >
-              <Sparkles size={28} color="var(--color-primary)" />
+              <Sparkles size={28} color="var(--nav-market, var(--color-primary))" />
               <h1
                 style={{
                   fontSize: "36px",
-                  color: "var(--color-primary)",
+                  color: "var(--nav-market, var(--color-primary))",
                   margin: 0,
                   fontFamily: "'Tan-Font', sans-serif",
                 }}
@@ -1789,7 +1789,7 @@ const openPublicProfile = async (userId: string) => {
                 <>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "20px 20px 0 20px", gap: "12px" }}>
                     <div>
-                      <h2 className="tan-font" style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", lineHeight: 1.2 }}>
+                      <h2 className="tan-font" style={{ color: "var(--nav-market, var(--color-primary))", margin: 0, fontSize: "20px", lineHeight: 1.2 }}>
                         {t("market.deep_link_modal_title")}
                       </h2>
                       <div style={{ fontSize: "11px", fontWeight: 800, color: "var(--text-muted)", marginTop: "6px" }}>
@@ -1944,7 +1944,7 @@ const openPublicProfile = async (userId: string) => {
         <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", padding: "20px" }}>
           <div style={{ background: "var(--bg-card)", padding: "25px", borderRadius: "24px", width: "100%", maxWidth: "420px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 10px 40px var(--shadow-card)", border: "1px solid var(--color-border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px", alignItems: "center" }}>
-              <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontFamily: "'Tan-Font', sans-serif" }}>
+              <h2 style={{ color: "var(--nav-market, var(--color-primary))", margin: 0, fontSize: "20px", fontFamily: "'Tan-Font', sans-serif" }}>
                 {contactFlow === "wts_buy" ? t("market.wts_buy_title") : t("market.propose_trade")}
               </h2>
               <X onClick={() => { setShowContactModal(false); setOfferKoins(false); setKoinsAmount(""); }} style={{ cursor: "pointer", color: "var(--text-muted)" }} />
@@ -2024,7 +2024,7 @@ const openPublicProfile = async (userId: string) => {
         <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", padding: "20px" }}>
           <div style={{ background: "var(--bg-card)", padding: "25px", borderRadius: "24px", width: "100%", maxWidth: "440px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 10px 40px var(--shadow-card)", border: "1px solid var(--color-border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px", alignItems: "center" }}>
-              <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontFamily: "'Tan-Font', sans-serif" }}>
+              <h2 style={{ color: "var(--nav-market, var(--color-primary))", margin: 0, fontSize: "20px", fontFamily: "'Tan-Font', sans-serif" }}>
                 {t("market.wts_offer_title")}
               </h2>
               <X onClick={() => { setShowOfferModal(false); setOfferKoins(false); setKoinsAmount(""); setOfferPrice(""); setOfferedItems([]); }} style={{ cursor: "pointer", color: "var(--text-muted)" }} />
