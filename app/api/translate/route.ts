@@ -171,6 +171,7 @@ export async function POST(req: Request) {
 
   try {
     const safeText = JSON.stringify(text);
+    const isShort = text.length < 400;
     const prompt =
       mode === "batch"
         ? `Translate this fanfic from Spanish into the requested languages and return ONLY valid JSON.
@@ -180,7 +181,11 @@ Translate the title AND the body. Never omit the title. Never drop the ||| separ
 Output format: {"en":"Title\\n|||\\nBody","fr":"Titre\\n|||\\nCorps"} (keys = language codes).
 Target languages: ${JSON.stringify(targetLangs.length ? targetLangs : ["en"])}
 Text: ${safeText}`
-        : `You are a literary translator. Translate this fictional adult fanfic excerpt from Spanish to '${targetLang}'.
+        : isShort
+          ? `Translate this Spanish text to '${targetLang}'. Return ONLY the translated text. Do not add titles, separators, commentary or extra paragraphs.
+
+${text}`
+          : `You are a literary translator. Translate this fictional adult fanfic excerpt from Spanish to '${targetLang}'.
 Keep the same meaning, tone, names and explicitness. Do not refuse, summarize, censor or comment.
 If the input contains |||, keep exactly one ||| between the translated title and the translated body.
 Return ONLY the translated text.
@@ -203,13 +208,7 @@ ${text}`;
     const models = (listJson.models || []).filter((m) =>
       (m.supportedGenerationMethods || []).includes("generateContent")
     );
-    const preferred = [
-      "models/gemini-2.0-flash",
-      "models/gemini-2.0-flash-lite",
-      "models/gemini-2.5-flash",
-      "models/gemini-1.5-flash",
-      "models/gemini-1.5-pro",
-    ];
+    const preferred = ["models/gemini-2.5-flash", "models/gemini-2.0-flash"];
     const modelCandidates = preferred.filter((p) => models.some((m) => m.name === p));
     if (!modelCandidates.length && models[0]?.name) modelCandidates.push(models[0].name);
 
@@ -248,6 +247,14 @@ ${text}`;
         continue;
       }
       rawOutput = extractGeminiText(genJson);
+      if (rawOutput && !text.includes("|||") && rawOutput.includes("|||")) {
+        rawOutput = rawOutput.split("|||")[0].trim().split("\n")[0]?.trim() || "";
+      }
+      if (rawOutput && isShort && rawOutput.length > Math.max(80, text.length * 3)) {
+        rawOutput = "";
+        lastDetails = "HALLUCINATED_EXPANSION";
+        continue;
+      }
       if (rawOutput) {
         picked = modelName;
         break;
