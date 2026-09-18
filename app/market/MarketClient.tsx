@@ -1030,6 +1030,7 @@ const openPublicProfile = async (userId: string) => {
           padding: "40px 20px",
         }}
       >
+          <div style={{ ["--color-primary"]: "var(--nav-market)" } as React.CSSProperties}>
           <div className="market-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "20px", flexWrap: "wrap", gap: "20px" }}>
          <div style={{ maxWidth: "600px" }}>
             <div
@@ -1499,6 +1500,7 @@ const openPublicProfile = async (userId: string) => {
             WTS
           </button>
         </div>
+          </div>
 
         {loading ? (
           <div style={{ display: "flex", justifyContent: "center", padding: "100px" }}>
