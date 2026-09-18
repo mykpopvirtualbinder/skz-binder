@@ -650,7 +650,8 @@
       "dark": "Midnight Neon",
       "vibrant": "Anime Vibrant",
       "minimal": "Korean Café",
-      "k_pride": "K-Pride"
+      "k_pride": "K-Pride",
+      "gay_pride": "Gay Pride"
     }
   },
   "virtual_binder": {
@@ -798,7 +799,10 @@
     "replying_to": "Rispondendo al thread...",
     "comment_placeholder": "Scrivi qualcosa di carino...",
     "join_artist_title": "Unisciti come artista",
-    "join_artist_subtitle": "Inviaci i tuoi dati e le tue opere per la revisione"
+    "join_artist_subtitle": "Inviaci i tuoi dati e le tue opere per la revisione",
+    "no_permission_comment": "Non hai i permessi per cancellare questo commento.",
+    "no_permission_delete": "Non hai i permessi per cancellare le opere altrui.",
+    "verified_artist": "Artista verificato"
   },
   "fanzone": {
     "whats_on_mind": "Cosa ti passa per la testa oggi? Menziona digitando @...",
@@ -2051,7 +2055,8 @@
       "dark": "🖤 Dark / Girl Crush (VIP)",
       "vibrant": "🎨 Y2K / Bubblegum (VIP)",
       "minimal": "☕ Korean Cafe (VIP)",
-      "k_pride": "🇰🇷 K-Pride (VIP)"
+      "k_pride": "🇰🇷 K-Pride (VIP)",
+      "gay_pride": "🏳️‍🌈 Gay Pride (VIP)"
     },
     "header": {
       "logo_alt": "Logo di My Kpop Binder",
@@ -2156,5 +2161,44 @@
     "upload_cover": "Carica copertina",
     "nsfw": "Contenuto +18",
     "btn_publish": "Pubblica"
+  },
+  "ads": {
+    "badge": "Pubblicità",
+    "fallback": {
+      "desktop_left": {
+        "title": "Il tuo shop K-pop qui",
+        "subtitle": "Promuovi album, merch ed eventi"
+      },
+      "desktop_right": {
+        "title": "Spazio per artisti",
+        "subtitle": "Commissioni, print e fanart sponsorizzata"
+      },
+      "desktop_left_2": {
+        "title": "Eventi e cupsleeves",
+        "subtitle": "Promuovi il tuo evento K-pop locale"
+      },
+      "desktop_right_2": {
+        "title": "Negozi consigliati",
+        "subtitle": "Merch ufficiale e fanmade di fiducia"
+      },
+      "tablet": {
+        "title": "Annunciati su MyKpopBinder",
+        "subtitle": "Raggiungi una vera community K-pop"
+      },
+      "mobile_top": {
+        "title": "Sponsorizzato",
+        "subtitle": "Negozi partner e artisti"
+      },
+      "mobile_bottom": {
+        "title": "Prenota il tuo spazio",
+        "subtitle": "Pubblicità per aziende K-pop"
+      }
+    }
+  },
+  "vip": {
+    "unlocked_title": "Sbloccato",
+    "unlock_theme_need": "Ti servono {cost} K-oins per sbloccare questo tema.",
+    "unlock_theme_confirm": "Sbloccare \"{name}\" per {cost} K-oins?",
+    "unlock_theme_done": "Tema sbloccato per {cost} K-oins."
   }
 }

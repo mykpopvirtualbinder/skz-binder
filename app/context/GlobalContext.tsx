@@ -62,7 +62,8 @@ type GlobalContextType = {
   showAlert: (title: string, message: string, onClose?: () => void) => void;
   showPrompt: (title: string, message: string, onConfirm: (reason: string, isAnonymous: boolean) => void) => void;
   showConfirm: (title: string, message: string) => Promise<boolean>;
-  t: (path: string) => string; 
+  t: (path: string, vars?: Record<string, string | number>) => string;
+  uiLanguage: string;
 };
 
 const GlobalContext = createContext<GlobalContextType | null>(null);
@@ -91,7 +92,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   };
 
   // 🌟 EL MOTOR DE IDIOMAS 🌟
-  const t = useCallback((path: string) => {
+  const t = useCallback((path: string, vars?: Record<string, string | number>) => {
     const sessionLang = getSessionLanguageOverride();
     const lang = sessionLang || profile?.language || "es";
     const dict = DICTIONARIES[lang] || DICTIONARIES["es"];
@@ -106,21 +107,30 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       return result;
     };
 
+    const applyVars = (value: any) => {
+      if (typeof value !== "string" || !vars) return value as any;
+      return value.replace(/\{(\w+)\}/g, (_, key: string) =>
+        vars[key] === undefined || vars[key] === null ? `{${key}}` : String(vars[key])
+      ) as any;
+    };
+
     const localized = readPath(dict, path);
-    if (localized !== undefined && localized !== null && localized !== "") return localized as any;
+    if (localized !== undefined && localized !== null && localized !== "") return applyVars(localized);
 
     if (lang !== "en") {
       const fallbackEn = readPath(DICTIONARIES["en"], path);
-      if (fallbackEn !== undefined && fallbackEn !== null && fallbackEn !== "") return fallbackEn as any;
+      if (fallbackEn !== undefined && fallbackEn !== null && fallbackEn !== "") return applyVars(fallbackEn);
     }
 
     if (lang !== "es") {
       const fallbackEs = readPath(DICTIONARIES["es"], path);
-      if (fallbackEs !== undefined && fallbackEs !== null && fallbackEs !== "") return fallbackEs as any;
+      if (fallbackEs !== undefined && fallbackEs !== null && fallbackEs !== "") return applyVars(fallbackEs);
     }
 
     return path;
   }, [profile?.language]);
+
+  const uiLanguage = getSessionLanguageOverride() || profile?.language || "es";
 
   // 🌟 FUNCIÓN PARA LANZAR LA ALERTA 🌟
   const showAlert = useCallback((title: string, message: string, onClose?: () => void) => {
@@ -344,7 +354,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GlobalContext.Provider 
-      value={{ profile, setProfile, userBiases, setUserBiases, refreshGlobal, checkIsBias, t, showAlert, showPrompt, showConfirm }}
+      value={{ profile, setProfile, userBiases, setUserBiases, refreshGlobal, checkIsBias, t, uiLanguage, showAlert, showPrompt, showConfirm }}
     >
       {children}
 

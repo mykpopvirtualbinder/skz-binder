@@ -650,7 +650,8 @@
       "dark": "Midnight Neon",
       "vibrant": "Anime Vibrant",
       "minimal": "Korean Café",
-      "k_pride": "K-Pride"
+      "k_pride": "K-Pride",
+      "gay_pride": "Gay Pride"
     }
   },
   "virtual_binder": {
@@ -798,7 +799,10 @@
     "replying_to": "Membalas ke utas...",
     "comment_placeholder": "Tulis sesuatu yang manis...",
     "join_artist_title": "Bergabung sebagai artis",
-    "join_artist_subtitle": "Kirimkan detail dan karyamu untuk ditinjau"
+    "join_artist_subtitle": "Kirimkan detail dan karyamu untuk ditinjau",
+    "no_permission_comment": "Kamu tidak punya izin untuk menghapus komentar ini.",
+    "no_permission_delete": "Kamu tidak punya izin untuk menghapus karya orang lain.",
+    "verified_artist": "Seniman terverifikasi"
   },
   "fanzone": {
     "whats_on_mind": "Apa yang ada di pikiranmu hari ini? Sebutkan dengan mengetik @...",
@@ -2051,7 +2055,8 @@
       "dark": "🖤 Dark / Girl Crush (VIP)",
       "vibrant": "🎨 Y2K / Bubblegum (VIP)",
       "minimal": "☕ Korean Cafe (VIP)",
-      "k_pride": "🇰🇷 K-Pride (VIP)"
+      "k_pride": "🇰🇷 K-Pride (VIP)",
+      "gay_pride": "🏳️‍🌈 Gay Pride (VIP)"
     },
     "header": {
       "logo_alt": "Logo My Kpop Binder",
@@ -2156,5 +2161,44 @@
     "upload_cover": "Unggah sampul",
     "nsfw": "Konten +18",
     "btn_publish": "Publikasikan"
+  },
+  "ads": {
+    "badge": "Iklan",
+    "fallback": {
+      "desktop_left": {
+        "title": "Toko K-pop kamu di sini",
+        "subtitle": "Promosikan album, merch, dan event"
+      },
+      "desktop_right": {
+        "title": "Ruang untuk seniman",
+        "subtitle": "Komisi, print, dan fanart bersponsor"
+      },
+      "desktop_left_2": {
+        "title": "Event dan cupsleeve",
+        "subtitle": "Promosikan event K-pop lokalmu"
+      },
+      "desktop_right_2": {
+        "title": "Toko rekomendasi",
+        "subtitle": "Merch resmi dan fanmade terpercaya"
+      },
+      "tablet": {
+        "title": "Beriklan di MyKpopBinder",
+        "subtitle": "Jangkau komunitas K-pop yang nyata"
+      },
+      "mobile_top": {
+        "title": "Bersponsor",
+        "subtitle": "Toko partner dan seniman"
+      },
+      "mobile_bottom": {
+        "title": "Pesan slotmu",
+        "subtitle": "Iklan untuk bisnis K-pop"
+      }
+    }
+  },
+  "vip": {
+    "unlocked_title": "Terbuka",
+    "unlock_theme_need": "Kamu butuh {cost} K-oins untuk membuka tema ini.",
+    "unlock_theme_confirm": "Buka \"{name}\" seharga {cost} K-oins?",
+    "unlock_theme_done": "Tema dibuka seharga {cost} K-oins."
   }
 }

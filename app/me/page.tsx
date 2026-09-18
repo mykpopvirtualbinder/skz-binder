@@ -49,7 +49,7 @@ type Profile = {
   puntos?: number;
   is_adult?: boolean | null;
   language?: string | null;
-  theme_preference?: "pastel" | "dark" | "vibrant" | "minimal" | "k_pride";
+  theme_preference?: "pastel" | "dark" | "vibrant" | "minimal" | "k_pride" | "gay_pride";
 };
 
 type WallPost = {
@@ -2748,12 +2748,12 @@ function MePageContent() {
                         const cost = getThemeUnlockCost(String(newTheme));
                         const balance = Number(profile?.puntos || 0);
                         if (balance < cost) {
-                          showAlert(t("common.error"), `Necesitas ${cost} K-oins para desbloquear este tema.`);
+                          showAlert(t("common.error"), t("vip.unlock_theme_need", { cost }));
                           return;
                         }
                         const ok = await showConfirm(
                           t("shop.confirm_modal.btn_confirm"),
-                          `Desbloquear este tema por ${cost} K-oins?`,
+                          t("vip.unlock_theme_confirm", { name: t(`theme_selector.themes.${String(newTheme)}`), cost }),
                         );
                         if (!ok) return;
                         const { error: unlockErr } = await supabase
@@ -2788,11 +2788,12 @@ function MePageContent() {
                     }
                   }}
                 >
-                  <option value="pastel">🌸 Soft Pastel</option>
-                  <option value="minimal">☕ Korean Café</option>
-                  <option value="dark">🖤 Midnight Neon</option>
-                  <option value="vibrant">🎨 Anime Vibrant</option>
-                  <option value="k_pride">🇰🇷 K-Pride</option>
+                  <option value="pastel">{t("global.themes.pastel")}</option>
+                  <option value="minimal">{t("global.themes.minimal")}</option>
+                  <option value="dark">{t("global.themes.dark")}</option>
+                  <option value="vibrant">{t("global.themes.vibrant")}</option>
+                  <option value="k_pride">{t("global.themes.k_pride")}</option>
+                  <option value="gay_pride">{t("global.themes.gay_pride")}</option>
                 </select>
                 {!profile?.is_premium && !isAdmin && (
                   <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "6px", fontWeight: 600 }}>{t("me.settings.theme_vip_hint")}</p>

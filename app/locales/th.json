@@ -455,7 +455,8 @@
       "dark": "ดาร์ก / เกิร์ลครัช",
       "vibrant": "Y2K",
       "minimal": "คาเฟ่เกาหลี",
-      "k_pride": "K-Pride"
+      "k_pride": "K-Pride",
+      "gay_pride": "Gay Pride"
     }
   },
   "virtual_binder": {
@@ -603,7 +604,10 @@
     "replying_to": "Respondiendo al hilo...",
     "comment_placeholder": "Escribe algo bonito...",
     "join_artist_title": "Únete como artista",
-    "join_artist_subtitle": "Envíanos tus datos y obras para revisión"
+    "join_artist_subtitle": "Envíanos tus datos y obras para revisión",
+    "no_permission_comment": "คุณไม่มีสิทธิ์ลบความคิดเห็นนี้",
+    "no_permission_delete": "คุณไม่มีสิทธิ์ลบผลงานของผู้อื่น",
+    "verified_artist": "ศิลปินที่ยืนยันแล้ว"
   },
   "fanzone": {
     "whats_on_mind": "วันนี้คุณคิดอะไรอยู่? แท็กเพื่อนด้วย @...",
@@ -2015,7 +2019,8 @@
       "dark": "🖤 ดาร์ก / เกิร์ลครัช (VIP)",
       "vibrant": "🎨 Y2K / บับเบิ้ลกัม (VIP)",
       "minimal": "☕ คาเฟ่เกาหลี (VIP)",
-      "k_pride": "🇰🇷 K-Pride (VIP)"
+      "k_pride": "🇰🇷 K-Pride (VIP)",
+      "gay_pride": "🏳️‍🌈 Gay Pride (VIP)"
     },
     "header": {
       "logo_alt": "โลโก้ My Kpop Binder",
@@ -2157,5 +2162,44 @@
     "upload_cover": "Subir portada",
     "nsfw": "Contenido +18",
     "btn_publish": "Publicar"
+  },
+  "ads": {
+    "badge": "โฆษณา",
+    "fallback": {
+      "desktop_left": {
+        "title": "ร้าน K-pop ของคุณที่นี่",
+        "subtitle": "โปรโมตอัลบั้ม เมิร์ช และอีเวนต์"
+      },
+      "desktop_right": {
+        "title": "พื้นที่สำหรับศิลปิน",
+        "subtitle": "งานคอมมิชชัน พริ้นต์ และแฟนอาร์ตสปอนเซอร์"
+      },
+      "desktop_left_2": {
+        "title": "อีเวนต์และคัพสลีฟ",
+        "subtitle": "โปรโมตอีเวนต์ K-pop ในพื้นที่ของคุณ"
+      },
+      "desktop_right_2": {
+        "title": "ร้านแนะนำ",
+        "subtitle": "เมิร์ชทางการและแฟนเมดที่ไว้ใจได้"
+      },
+      "tablet": {
+        "title": "ลงโฆษณาใน MyKpopBinder",
+        "subtitle": "เข้าถึงชุมชน K-pop จริง"
+      },
+      "mobile_top": {
+        "title": "สนับสนุนโดย",
+        "subtitle": "ร้านค้าและศิลปินพาร์ทเนอร์"
+      },
+      "mobile_bottom": {
+        "title": "จองพื้นที่ของคุณ",
+        "subtitle": "โฆษณาสำหรับธุรกิจ K-pop"
+      }
+    }
+  },
+  "vip": {
+    "unlocked_title": "ปลดล็อกแล้ว",
+    "unlock_theme_need": "คุณต้องมี {cost} K-oins เพื่อปลดล็อกธีมนี้",
+    "unlock_theme_confirm": "ปลดล็อก \"{name}\" ในราคา {cost} K-oins?",
+    "unlock_theme_done": "ปลดล็อกธีมแล้วในราคา {cost} K-oins"
   }
 }

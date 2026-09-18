@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { canModerateGlobalContent } from "@/lib/admin-emails";
 import { useGlobal } from "@/app/context/GlobalContext";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getUiLanguage } from "@/lib/fanfic-translation";
 
 type FanArtPost = {
   id: string;
@@ -72,7 +73,7 @@ const LANGUAGES = [
 ];
 
 function FanArtContent() {
-  const { profile: activeUser, showAlert, showPrompt, showConfirm, t } = useGlobal(); // 👈 t() importado
+  const { profile: activeUser, showAlert, showPrompt, showConfirm, t, uiLanguage } = useGlobal();
   
   const [localProfile, setLocalProfile] = useState<any>(null);
   const router = useRouter();
@@ -141,8 +142,39 @@ function FanArtContent() {
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [loadingChapters, setLoadingChapters] = useState(false);
   const [currentLang, setCurrentLang] = useState('es');
+  const [translatedTitles, setTranslatedTitles] = useState<Record<string, string>>({});
 
-  const fetchChapters = async (obraId: string) => {
+  const applyTranslation = (titulo?: string | null, contenido?: string | null) => {
+    setViewingArt((prev) =>
+      prev
+        ? {
+            ...prev,
+            title: titulo || prev.title,
+            content_text: contenido ?? prev.content_text,
+          }
+        : prev
+    );
+  };
+
+  const loadSpecificChapter = async (chapterId: string, langCode: string) => {
+    const { data } = await supabase
+      .from('traducciones')
+      .select('contenido, titulo')
+      .eq('capitulo_id', chapterId)
+      .eq('idioma', langCode)
+      .maybeSingle();
+
+    if (data) {
+      applyTranslation(data.titulo, data.contenido);
+      return true;
+    }
+    if (langCode !== 'es') {
+      showAlert(t("common.error"), t("fanart.translation_unavailable"));
+    }
+    return false;
+  };
+
+  const fetchChapters = async (obraId: string, langCode: string) => {
     setLoadingChapters(true);
     const { data } = await supabase
       .from('capitulos')
@@ -153,6 +185,7 @@ function FanArtContent() {
     if (data && data.length > 0) {
       setChapters(data);
       setCurrentChapterIndex(0);
+      await loadSpecificChapter(data[0].id, langCode);
     } else {
       setChapters([]);
     }
@@ -161,52 +194,71 @@ function FanArtContent() {
 
   useEffect(() => {
     if (viewingArt && viewingArt.category === "Fanfics") {
-      setCurrentLang('es'); 
-      fetchChapters(viewingArt.id);
+      const lang = getUiLanguage(uiLanguage);
+      setCurrentLang(lang);
+      fetchChapters(viewingArt.id, lang);
     } else {
       setChapters([]);
     }
   }, [viewingArt?.id]);
 
-  const loadSpecificChapter = async (chapterId: string, langCode: string) => {
-    const { data } = await supabase
-      .from('traducciones')
-      .select('contenido, titulo')
-      .eq('capitulo_id', chapterId)
-      .eq('idioma', langCode)
-      .maybeSingle();
-
-    if (data && viewingArt) {
-      setViewingArt({
-        ...viewingArt,
-        content_text: data.contenido,
-        title: data.titulo
-      });
-    } else if (langCode !== 'es') {
-      alert(t("fanart.translation_unavailable"));
+  useEffect(() => {
+    const fanficIds = artworks
+      .filter((art) => art.category === "Fanfics" || !!art.content_text)
+      .map((art) => art.id);
+    const lang = getUiLanguage(uiLanguage);
+    if (!fanficIds.length) {
+      setTranslatedTitles({});
+      return;
     }
-  };
+    let alive = true;
+    (async () => {
+      const { data: caps } = await supabase
+        .from("capitulos")
+        .select("id, obra_id")
+        .in("obra_id", fanficIds)
+        .eq("numero_capitulo", 1);
+      if (!alive || !caps?.length) return;
+      const { data: rows } = await supabase
+        .from("traducciones")
+        .select("capitulo_id, titulo")
+        .in("capitulo_id", caps.map((c: { id: string }) => c.id))
+        .eq("idioma", lang);
+      const capToObra = Object.fromEntries(caps.map((c: { id: string; obra_id: string }) => [c.id, c.obra_id]));
+      const next: Record<string, string> = {};
+      for (const row of rows || []) {
+        const obraId = capToObra[row.capitulo_id];
+        if (obraId && row.titulo) next[obraId] = row.titulo;
+      }
+      if (alive) setTranslatedTitles(next);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [artworks, uiLanguage]);
 
   const handleLanguageChange = async (newLang: string) => {
     setCurrentLang(newLang);
-    let filterId = viewingArt!.id;
-    if (chapters.length > 0) {
-      filterId = chapters[currentChapterIndex].id;
+    const chapterId = chapters[currentChapterIndex]?.id ?? chapters[0]?.id;
+    if (!chapterId) {
+      showAlert(t("common.error"), t("fanart.translation_unavailable"));
+      return;
     }
-
-    const { data } = await supabase
-      .from('traducciones')
-      .select('contenido, titulo')
-      .eq(chapters.length > 0 ? 'capitulo_id' : 'obra_id', filterId) 
-      .eq('idioma', newLang)
-      .maybeSingle();
-    
-    if (data) {
-      setViewingArt({ ...viewingArt!, content_text: data.contenido, title: data.titulo });
-    } else {
-      alert(t("fanart.translation_unavailable"));
-    }
+    await loadSpecificChapter(chapterId, newLang);
   };
+
+  const categoryLabel = (dbCategory: string) => {
+    const map: Record<string, string> = {
+      "Arte 2D": t("fanart.filters.2d"),
+      "Arte 3D": t("fanart.filters.3d"),
+      "Artesanía": t("fanart.filters.crafts"),
+      "Fanfics": t("fanart.filters.fanfics"),
+      "Multimedia": t("fanart.filters.multimedia"),
+    };
+    return map[dbCategory] || dbCategory;
+  };
+
+  const displayTitle = (art: { id: string; title: string }) => translatedTitles[art.id] || art.title;
 
   // --- RESTO DE ESTADOS ---
   const [comments, setComments] = useState<any[]>([]);
@@ -367,7 +419,7 @@ function FanArtContent() {
       .single();
     const isOwner = commentRow?.user_id === activeUser.id;
     if (!isOwner && !canModerateAllContent) {
-      return showAlert(t("common.error"), "No tienes permisos para borrar este comentario.");
+      return showAlert(t("common.error"), t("fanart.no_permission_comment"));
     }
     const { error } = await supabase.from('fanart_comments').delete().eq('id', commentId);
     if (error) return showAlert(t("common.error"), `${t("common.error")}: ${error.message}`);
@@ -384,7 +436,7 @@ function FanArtContent() {
       (activeUser as { email?: string | null } | null)?.email
     );
     if (!canModerateAllContent) {
-      return showAlert(t("common.error"), "No tienes permisos para borrar obras ajenas.");
+      return showAlert(t("common.error"), t("fanart.no_permission_delete"));
     }
     const { error } = await supabase.from('fanarts').delete().eq('id', artId);
     if (error) return showAlert(t("common.error"), `${t("common.error")}: ${error.message}`);
@@ -782,7 +834,7 @@ function FanArtContent() {
                   ) : art.media_type === 'video' ? (
                     <div style={{ textAlign: 'center', color: ACC.orange }}><Film size={48} strokeWidth={2} /><p style={{ fontSize: '11px', fontWeight: 900, marginTop: 5, color: ACC.orange }}>{t('fanart.multimedia')}</p></div>
                   ) : art.media_type === 'pdf' ? (
-                    <div style={{ textAlign: 'center', color: ACC.violet }}><FileText size={48} strokeWidth={2} /><p style={{ fontSize: '11px', fontWeight: 900, marginTop: 5, color: ACC.violet }}>FANFIC (PDF)</p></div>
+                    <div style={{ textAlign: 'center', color: ACC.violet }}><FileText size={48} strokeWidth={2} /><p style={{ fontSize: '11px', fontWeight: 900, marginTop: 5, color: ACC.violet }}>{t("fanart.card.fanfic_pdf")}</p></div>
                   ) : (
                     <img src={art.image_url} alt={art.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} className="art-img" />
                   )}
@@ -790,8 +842,8 @@ function FanArtContent() {
                   <div className="view-overlay" style={{ position: "absolute", inset: 0, backgroundColor: `color-mix(in srgb, ${ACC.violet} 18%, var(--overlay-strong))`, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.3s" }}><Eye size={32} color={ACC.cyan} strokeWidth={2.2} /></div>
                 </div>
                 <div style={{ padding: "20px" }}>
-                  <span style={{ fontSize: "10px", fontWeight: 900, color: ACC.pink, textTransform: "uppercase", letterSpacing: "1px" }}>{art.category}</span>
-                  <h3 style={{ color: ACC.violet, fontWeight: 900, fontSize: "16px", margin: "5px 0 15px 0", lineHeight: "1.3" }}>{art.title}</h3>
+                  <span style={{ fontSize: "10px", fontWeight: 900, color: ACC.pink, textTransform: "uppercase", letterSpacing: "1px" }}>{categoryLabel(art.category)}</span>
+                  <h3 style={{ color: ACC.violet, fontWeight: 900, fontSize: "16px", margin: "5px 0 15px 0", lineHeight: "1.3" }}>{displayTitle(art)}</h3>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <img 
                       src={art.profiles?.avatar_url || `https://ui-avatars.com/api/?name=${art.profiles?.display_name || 'U'}&background=ffd9e6&color=8C659C`} 
@@ -800,7 +852,7 @@ function FanArtContent() {
                     />
                     <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-main)", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: "6px" }}>
                       {art.profiles?.display_name || art.artist_name || t("global.default_user_name")}
-                      {art.profiles?.is_artist && <span title="Artista Verificado">🎨</span>}
+                      {art.profiles?.is_artist && <span title={t("fanart.verified_artist")}>🎨</span>}
                     </span>
                     
                     <div style={{ display: "flex", gap: "10px", color: "var(--text-muted)" }}>
@@ -898,6 +950,7 @@ function FanArtContent() {
                         <span style={{ fontSize: "16px" }}>🌍</span>
                         <select 
                           value={currentLang}
+                          disabled={loadingChapters}
                           onChange={(e) => handleLanguageChange(e.target.value)}
                           style={{ border: "none", outline: "none", background: "transparent", fontWeight: 900, color: ACC.violet, fontSize: "13px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px" }}
                         >
@@ -1058,6 +1111,7 @@ function FanArtContent() {
                 <span style={{ fontSize: "16px" }}>🌍</span>
                 <select 
                   value={currentLang}
+                  disabled={loadingChapters}
                   onChange={(e) => handleLanguageChange(e.target.value)}
                   style={{ border: "none", outline: "none", background: "transparent", fontWeight: 900, color: ACC.violet, fontSize: "14px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px" }}
                 >

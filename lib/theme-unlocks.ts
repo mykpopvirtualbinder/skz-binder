@@ -3,6 +3,7 @@ export const VIP_THEME_COSTS: Record<string, number> = {
   vibrant: 600,
   minimal: 500,
   k_pride: 800,
+  gay_pride: 800,
 };
 
 export const VIP_CURSOR_COSTS: Record<string, number> = {

@@ -455,7 +455,8 @@
       "dark": "暗黑风",
       "vibrant": "Y2K",
       "minimal": "韩系咖啡馆",
-      "k_pride": "K-Pride"
+      "k_pride": "K-Pride",
+      "gay_pride": "同志骄傲"
     }
   },
   "virtual_binder": {
@@ -603,7 +604,10 @@
     "replying_to": "Respondiendo al hilo...",
     "comment_placeholder": "Escribe algo bonito...",
     "join_artist_title": "Únete como artista",
-    "join_artist_subtitle": "Envíanos tus datos y obras para revisión"
+    "join_artist_subtitle": "Envíanos tus datos y obras para revisión",
+    "no_permission_comment": "你没有权限删除这条评论。",
+    "no_permission_delete": "你没有权限删除他人的作品。",
+    "verified_artist": "认证艺术家"
   },
   "fanzone": {
     "whats_on_mind": "今天在想什么？使用 @ 来提到某人...",
@@ -2015,7 +2019,8 @@
       "dark": "🖤 暗黑女团风 (VIP)",
       "vibrant": "🎨 Y2K 辣妹风 (VIP)",
       "minimal": "☕ 韩系咖啡馆 (VIP)",
-      "k_pride": "🇰🇷 K-Pride (VIP)"
+      "k_pride": "🇰🇷 K-Pride (VIP)",
+      "gay_pride": "🏳️‍🌈 同志骄傲 (VIP)"
     },
     "header": {
       "logo_alt": "My Kpop Binder Logo",
@@ -2157,5 +2162,44 @@
     "upload_cover": "Subir portada",
     "nsfw": "Contenido +18",
     "btn_publish": "Publicar"
+  },
+  "ads": {
+    "badge": "广告",
+    "fallback": {
+      "desktop_left": {
+        "title": "你的 K-pop 店铺在这里",
+        "subtitle": "推广专辑、周边和活动"
+      },
+      "desktop_right": {
+        "title": "艺术家空间",
+        "subtitle": "约稿、打印和赞助饭绘"
+      },
+      "desktop_left_2": {
+        "title": "活动与杯套",
+        "subtitle": "推广你的本地 K-pop 活动"
+      },
+      "desktop_right_2": {
+        "title": "推荐店铺",
+        "subtitle": "可信的官方与同人周边"
+      },
+      "tablet": {
+        "title": "在 MyKpopBinder 投放广告",
+        "subtitle": "触达真实的 K-pop 社区"
+      },
+      "mobile_top": {
+        "title": "赞助",
+        "subtitle": "合作店铺与艺术家"
+      },
+      "mobile_bottom": {
+        "title": "预订你的广告位",
+        "subtitle": "面向 K-pop 商家的广告"
+      }
+    }
+  },
+  "vip": {
+    "unlocked_title": "已解锁",
+    "unlock_theme_need": "解锁该主题需要 {cost} K-oins。",
+    "unlock_theme_confirm": "用 {cost} K-oins 解锁“{name}”？",
+    "unlock_theme_done": "已用 {cost} K-oins 解锁主题。"
   }
 }

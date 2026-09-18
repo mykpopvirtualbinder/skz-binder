@@ -16,6 +16,7 @@ import {
   KeyRound, Unlock, Lock, LogOut
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { splitTitleBody } from "@/lib/fanfic-translation";
 
 
 
@@ -1964,26 +1965,23 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
         if (errC || !newCap) throw new Error("Error creando capítulo: " + errC?.message);
 
-        const rowsTraducciones = IDIOMAS_CODIGOS.map(lang => {
-          let tituloFinal = formData.title;
-          let contenidoFinal = formData.content_text;
-
-          if (lang !== 'es' && traduccionesIA?.[lang]) {
-            const partes = traduccionesIA[lang].split('|||');
-            if (partes.length >= 2) {
-              tituloFinal = partes[0].trim();
-              contenidoFinal = partes.slice(1).join('|||').trim();
-            } else {
-              contenidoFinal = traduccionesIA[lang];
-            }
+        const rowsTraducciones = IDIOMAS_CODIGOS.flatMap(lang => {
+          if (lang === 'es') {
+            return [{
+              capitulo_id: newCap.id,
+              idioma: lang,
+              titulo: formData.title,
+              contenido: formData.content_text
+            }];
           }
-
-          return {
+          if (!traduccionesIA?.[lang]) return [];
+          const parsed = splitTitleBody(traduccionesIA[lang], formData.title, formData.content_text);
+          return [{
             capitulo_id: newCap.id,
             idioma: lang,
-            titulo: tituloFinal,
-            contenido: contenidoFinal
-          };
+            titulo: parsed.title,
+            contenido: parsed.body
+          }];
         });
 
         const { error: errT } = await supabase.from('traducciones').insert(rowsTraducciones);

@@ -10,6 +10,7 @@ const THEMES = [
   { key: "vibrant", label: "Anime Vibrant" },
   { key: "minimal", label: "Korean Café" },
   { key: "k_pride", label: "K-Pride" },
+  { key: "gay_pride", label: "Gay Pride" },
 ];
 
 export default function ThemeSelector() {
@@ -43,12 +44,12 @@ export default function ThemeSelector() {
           const cost = getThemeUnlockCost(value);
           const balance = Number(profile?.puntos || 0);
           if (balance < cost) {
-            showAlert(t("common.error"), `Necesitas ${cost} K-oins para desbloquear este tema.`);
+            showAlert(t("common.error"), t("vip.unlock_theme_need", { cost }));
             return;
           }
           const ok = await showConfirm(
             t("shop.confirm_modal.btn_confirm"),
-            `Desbloquear este tema por ${cost} K-oins?`,
+            t("vip.unlock_theme_confirm", { name: t(`theme_selector.themes.${value}`), cost }),
           );
           if (!ok) return;
           const { error: unlockErr } = await supabase
@@ -91,7 +92,7 @@ export default function ThemeSelector() {
       >
         {THEMES.map(t_obj => (
           <option key={t_obj.key} value={t_obj.key}>
-            {t_obj.label}
+            {t(`theme_selector.themes.${t_obj.key}`)}
           </option>
         ))}
       </select>

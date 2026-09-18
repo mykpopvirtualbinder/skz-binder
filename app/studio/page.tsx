@@ -11,11 +11,7 @@ import {
 } from "lucide-react";
 
 import Header from "../components/header"; // 👈 Añadimos el Header
-
-// --- CONFIGURACIÓN DE LA IA ---
-import { GoogleGenerativeAI } from "@google/generative-ai";
-const genAI = new GoogleGenerativeAI("AIzaSyC6H9eNHZdiCC2N2BELWgANO19yuM5-yn0");
-const modelIA = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+import { splitTitleBody } from "@/lib/fanfic-translation";
 const STUDIO_ACCENT = {
   cyan: "#66d9ef",
   violet: "#ae81ff",
@@ -76,11 +72,21 @@ export default function CreatorStudio() {
   };
 
   const traducirTodoJSON = async (texto: string, intentos = 3): Promise<Record<string, string> | null> => {
+    const IDIOMAS_DESTINO = ['en', 'fr', 'de', 'it', 'pt', 'id', 'th', 'ko', 'zh', 'ja'];
     for (let i = 0; i < intentos; i++) {
       try {
-        const prompt = `Traduce el siguiente texto de un fanfic a estos 10 idiomas: en, fr, de, it, pt, id, th, ko, zh, ja. Devuelve un objeto JSON válido. Texto: \n\n ${texto}`;
-        const result = await modelIA.generateContent({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } });
-        return JSON.parse(result.response.text());
+        const res = await fetch("/api/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "batch",
+            text: texto,
+            targetLangs: IDIOMAS_DESTINO,
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error((json as { error?: string })?.error || "TRANSLATION_REQUEST_FAILED");
+        return ((json as { translations?: Record<string, string> })?.translations || null);
       } catch (error) {
         if (i === intentos - 1) return null; 
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -128,17 +134,17 @@ export default function CreatorStudio() {
         if (errC || !newCap) throw new Error("Error al crear el capítulo: " + errC?.message);
 
         const IDIOMAS_CODIGOS = ['es', 'en', 'fr', 'de', 'it', 'pt', 'id', 'th', 'ko', 'zh', 'ja'];
-        const rowsTraducciones = IDIOMAS_CODIGOS.map(lang => {
-          let tF = formData.title; let cF = formData.content_text;
-          if (lang !== 'es' && traduccionesIA[lang]) {
-            const partes = traduccionesIA[lang].split('|||');
-            if (partes.length >= 2) { tF = partes[0].trim(); cF = partes.slice(1).join('|||').trim(); } 
-            else { cF = traduccionesIA[lang]; }
+        const rowsTraducciones = IDIOMAS_CODIGOS.flatMap(lang => {
+          if (lang === 'es') {
+            return [{ capitulo_id: newCap.id, idioma: lang, titulo: formData.title, contenido: formData.content_text }];
           }
-          return { capitulo_id: newCap.id, idioma: lang, titulo: tF, contenido: cF };
+          if (!traduccionesIA?.[lang]) return [];
+          const parsed = splitTitleBody(traduccionesIA[lang], formData.title, formData.content_text);
+          return [{ capitulo_id: newCap.id, idioma: lang, titulo: parsed.title, contenido: parsed.body }];
         });
 
-        await supabase.from('traducciones').insert(rowsTraducciones);
+        const { error: errT } = await supabase.from('traducciones').insert(rowsTraducciones);
+        if (errT) throw new Error(errT.message);
 
         if (isNewStory) {
           if (thumbFile) { finalThumbUrl = await uploadToStorage(thumbFile); mainUrl = finalThumbUrl; }

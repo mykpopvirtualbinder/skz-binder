@@ -157,7 +157,8 @@ const THEME_OPTIONS = [
   { id: 'dark', name: 'Midnight Neon', vip: true, color: 'var(--theme-chip-dark)' }, // 👈 Cambiado a vip: true
   { id: 'vibrant', name: 'Anime Vibrant', vip: true, color: 'var(--theme-chip-vibrant)' },
   { id: 'minimal', name: 'Korean Café', vip: true, color: 'var(--theme-chip-minimal)' },
-  { id: 'k_pride', name: 'K-Pride', vip: true, color: 'var(--theme-chip-kpride)' }
+  { id: 'k_pride', name: 'K-Pride', vip: true, color: 'var(--theme-chip-kpride)' },
+  { id: 'gay_pride', name: 'Gay Pride', vip: true, color: 'var(--theme-chip-gaypride)' }
 ];
 
 type NavLinkItem = { name: string; path: string };
@@ -834,12 +835,12 @@ export default function Header() {
       const cost = getThemeUnlockCost(themeId);
       const balance = Number(profile?.puntos || 0);
       if (balance < cost) {
-        showAlert(t("common.error"), `Necesitas ${cost} K-oins para desbloquear este tema.`);
+        showAlert(t("common.error"), t("vip.unlock_theme_need", { cost }));
         return;
       }
       const ok = await showConfirm(
         t("shop.confirm_modal.btn_confirm"),
-        `Desbloquear "${THEME_OPTIONS.find((t) => t.id === themeId)?.name || themeId}" por ${cost} K-oins?`,
+        t("vip.unlock_theme_confirm", { name: t(`theme_selector.themes.${themeId}`), cost }),
       );
       if (!ok) return;
       if (!user?.id || !profile?.id) return;
@@ -870,7 +871,7 @@ export default function Header() {
         parsed.puntos = nextKoins;
         localStorage.setItem("me:profile", JSON.stringify(parsed));
       }
-      showAlert("Desbloqueado", `Tema desbloqueado por ${cost} K-oins.`);
+      showAlert(t("vip.unlocked_title"), t("vip.unlock_theme_done", { cost }));
     }
     document.documentElement.setAttribute('data-theme', themeId);
     localStorage.setItem('theme', themeId);
@@ -1200,7 +1201,7 @@ export default function Header() {
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                         <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: themeOpt.color, flexShrink: 0 }} />
                         <span style={{ fontWeight: activeTheme === themeOpt.id ? "900" : "600", color: "var(--color-primary)" }}>
-                          {themeOpt.name}
+                          {t(`theme_selector.themes.${themeOpt.id}`)}
                         </span>
                       </div>
                       {themeOpt.vip && (<span style={{ width: 20, height: 20, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "color-mix(in srgb, var(--state-warning-bg) 70%, var(--bg-card) 30%)", boxShadow: "0 0 0 1px color-mix(in srgb, var(--state-warning-border) 60%, transparent), 0 4px 10px color-mix(in srgb, var(--state-warning-fg) 40%, transparent)" }}><Crown size={13} color="var(--state-warning-fg)" fill="var(--state-warning-border)" /></span>)}

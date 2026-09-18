@@ -692,7 +692,8 @@
       "dark": "Midnight Neon",
       "vibrant": "Anime Vibrant",
       "minimal": "Korean Café",
-      "k_pride": "K-Pride"
+      "k_pride": "K-Pride",
+      "gay_pride": "Gay Pride"
     }
   },
   "virtual_binder": {
@@ -842,7 +843,10 @@
     "replying_to": "Replying to thread...",
     "comment_placeholder": "Write something nice...",
     "join_artist_title": "Join as an artist",
-    "join_artist_subtitle": "Send us your details and works for review"
+    "join_artist_subtitle": "Send us your details and works for review",
+    "no_permission_comment": "You don't have permission to delete this comment.",
+    "no_permission_delete": "You don't have permission to delete someone else's work.",
+    "verified_artist": "Verified artist"
   },
   "fanzone": {
     "whats_on_mind": "What's on your mind today? Mention by typing @...",
@@ -1074,26 +1078,7 @@
     "btn_favorite": "Favorite",
     "deep_link_modal_title": "Listing",
     "deep_link_modal_hint": "From a notification",
-    "filters": {
-      "all": "All",
-      "album_content": "Album Content",
-      "merchandising": "Merchandising",
-      "category": "Category",
-      "group": "Group",
-      "album": "Album",
-      "version": "Version",
-      "member": "Member",
-      "type": "Type",
-      "related_to": "Related to",
-      "any": "Any",
-      "event": "Event",
-      "tour": "Tour",
-      "related_options": {
-        "album": "An Album",
-        "event": "An Event / Pop-up",
-        "tour": "A Tour"
-      }
-    },
+    "filters": "Filters",
     "price_converter": {
       "label": "PRICE",
       "negotiable": "(Negotiable)",
@@ -1141,7 +1126,6 @@
     "filter_all": "All",
     "filter_pc": "Photocards",
     "filter_merch": "Filter merch",
-    "filters": "Filters",
     "clear_filters_action": "Clear filters",
     "all": "All",
     "label_category": "Category",
@@ -2142,7 +2126,8 @@
       "dark": "🖤 Dark / Girl Crush (VIP)",
       "vibrant": "🎨 Y2K / Bubblegum (VIP)",
       "minimal": "☕ Korean Cafe (VIP)",
-      "k_pride": "🇰🇷 K-Pride (VIP)"
+      "k_pride": "🇰🇷 K-Pride (VIP)",
+      "gay_pride": "🏳️‍🌈 Gay Pride (VIP)"
     },
     "header": {
       "logo_alt": "My Kpop Binder Logo",
@@ -2247,5 +2232,44 @@
     "upload_cover": "Upload cover",
     "nsfw": "+18 Content",
     "btn_publish": "Publish"
+  },
+  "ads": {
+    "badge": "Advertisement",
+    "fallback": {
+      "desktop_left": {
+        "title": "Your K-pop shop here",
+        "subtitle": "Promote albums, merch and events"
+      },
+      "desktop_right": {
+        "title": "Space for artists",
+        "subtitle": "Commissions, prints and sponsored fanart"
+      },
+      "desktop_left_2": {
+        "title": "Events and cupsleeves",
+        "subtitle": "Promote your local K-pop event"
+      },
+      "desktop_right_2": {
+        "title": "Recommended shops",
+        "subtitle": "Trusted official and fanmade merch"
+      },
+      "tablet": {
+        "title": "Advertise on MyKpopBinder",
+        "subtitle": "Reach a real K-pop community"
+      },
+      "mobile_top": {
+        "title": "Sponsored",
+        "subtitle": "Partner shops and artists"
+      },
+      "mobile_bottom": {
+        "title": "Book your slot",
+        "subtitle": "Advertising for K-pop businesses"
+      }
+    }
+  },
+  "vip": {
+    "unlocked_title": "Unlocked",
+    "unlock_theme_need": "You need {cost} K-oins to unlock this theme.",
+    "unlock_theme_confirm": "Unlock \"{name}\" for {cost} K-oins?",
+    "unlock_theme_done": "Theme unlocked for {cost} K-oins."
   }
 }

@@ -455,7 +455,8 @@
       "dark": "다크 모드",
       "vibrant": "Y2K",
       "minimal": "코리안 카페",
-      "k_pride": "K-Pride"
+      "k_pride": "K-Pride",
+      "gay_pride": "게이 프라이드"
     }
   },
   "virtual_binder": {
@@ -603,7 +604,10 @@
     "replying_to": "Respondiendo al hilo...",
     "comment_placeholder": "Escribe algo bonito...",
     "join_artist_title": "Únete como artista",
-    "join_artist_subtitle": "Envíanos tus datos y obras para revisión"
+    "join_artist_subtitle": "Envíanos tus datos y obras para revisión",
+    "no_permission_comment": "이 댓글을 삭제할 권한이 없어요.",
+    "no_permission_delete": "다른 사람의 작품을 삭제할 권한이 없어요.",
+    "verified_artist": "인증된 아티스트"
   },
   "fanzone": {
     "whats_on_mind": "오늘 어떤 생각을 하고 계신가요? @로 멘션해보세요...",
@@ -2015,7 +2019,8 @@
       "dark": "🖤 다크 모드 (VIP)",
       "vibrant": "🎨 Y2K / 팝 (VIP)",
       "minimal": "☕ 코리안 카페 (VIP)",
-      "k_pride": "🇰🇷 K-Pride (VIP)"
+      "k_pride": "🇰🇷 K-Pride (VIP)",
+      "gay_pride": "🏳️‍🌈 게이 프라이드 (VIP)"
     },
     "header": {
       "logo_alt": "My Kpop Binder 로고",
@@ -2157,5 +2162,44 @@
     "upload_cover": "Subir portada",
     "nsfw": "Contenido +18",
     "btn_publish": "Publicar"
+  },
+  "ads": {
+    "badge": "광고",
+    "fallback": {
+      "desktop_left": {
+        "title": "여기에 K-pop 샵을",
+        "subtitle": "앨범, 굿즈, 이벤트를 홍보하세요"
+      },
+      "desktop_right": {
+        "title": "아티스트를 위한 공간",
+        "subtitle": "커미션, 프린트, 스폰서 팬아트"
+      },
+      "desktop_left_2": {
+        "title": "이벤트와 컵슬리브",
+        "subtitle": "지역 K-pop 이벤트를 홍보하세요"
+      },
+      "desktop_right_2": {
+        "title": "추천 샵",
+        "subtitle": "믿을 수 있는 공식·팬메이드 굿즈"
+      },
+      "tablet": {
+        "title": "MyKpopBinder에 광고하기",
+        "subtitle": "진짜 K-pop 커뮤니티에 닿으세요"
+      },
+      "mobile_top": {
+        "title": "스폰서",
+        "subtitle": "파트너 샵과 아티스트"
+      },
+      "mobile_bottom": {
+        "title": "자리를 예약하세요",
+        "subtitle": "K-pop 비즈니스를 위한 광고"
+      }
+    }
+  },
+  "vip": {
+    "unlocked_title": "잠금 해제됨",
+    "unlock_theme_need": "이 테마를 잠금 해제하려면 {cost} K-oins가 필요해요.",
+    "unlock_theme_confirm": "\"{name}\"을(를) {cost} K-oins에 잠금 해제할까요?",
+    "unlock_theme_done": "{cost} K-oins로 테마가 잠금 해제되었어요."
   }
 }

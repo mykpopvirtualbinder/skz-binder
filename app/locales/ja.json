@@ -650,7 +650,8 @@
       "dark": "Midnight Neon",
       "vibrant": "Anime Vibrant",
       "minimal": "Korean Café",
-      "k_pride": "K-Pride"
+      "k_pride": "K-Pride",
+      "gay_pride": "Gay Pride"
     }
   },
   "virtual_binder": {
@@ -798,7 +799,10 @@
     "replying_to": "スレッドに返信中...",
     "comment_placeholder": "素敵なコメントを書きましょう...",
     "join_artist_title": "アーティストとして参加",
-    "join_artist_subtitle": "審査のためにあなたの詳細と作品をお送りください"
+    "join_artist_subtitle": "審査のためにあなたの詳細と作品をお送りください",
+    "no_permission_comment": "このコメントを削除する権限がありません。",
+    "no_permission_delete": "他人の作品を削除する権限がありません。",
+    "verified_artist": "認証済みアーティスト"
   },
   "fanzone": {
     "whats_on_mind": "今日は何を考えていますか？「@」を入力してメンション...",
@@ -2051,7 +2055,8 @@
       "dark": "🖤 Dark / Girl Crush (VIP)",
       "vibrant": "🎨 Y2K / Bubblegum (VIP)",
       "minimal": "☕ Korean Cafe (VIP)",
-      "k_pride": "🇰🇷 K-Pride (VIP)"
+      "k_pride": "🇰🇷 K-Pride (VIP)",
+      "gay_pride": "🏳️‍🌈 Gay Pride (VIP)"
     },
     "header": {
       "logo_alt": "My Kpop Binder ロゴ",
@@ -2156,5 +2161,44 @@
     "upload_cover": "カバーをアップロード",
     "nsfw": "+18 コンテンツ",
     "btn_publish": "公開"
+  },
+  "ads": {
+    "badge": "広告",
+    "fallback": {
+      "desktop_left": {
+        "title": "あなたのK-POPショップをここに",
+        "subtitle": "アルバム・グッズ・イベントを宣伝"
+      },
+      "desktop_right": {
+        "title": "アーティストのためのスペース",
+        "subtitle": "依頼・プリント・スポンサードファンアート"
+      },
+      "desktop_left_2": {
+        "title": "イベントとカップスリーブ",
+        "subtitle": "地元のK-POPイベントを宣伝"
+      },
+      "desktop_right_2": {
+        "title": "おすすめショップ",
+        "subtitle": "信頼できる公式・ファンメイドグッズ"
+      },
+      "tablet": {
+        "title": "MyKpopBinderで広告",
+        "subtitle": "本物のK-POPコミュニティに届く"
+      },
+      "mobile_top": {
+        "title": "スポンサー",
+        "subtitle": "パートナーショップとアーティスト"
+      },
+      "mobile_bottom": {
+        "title": "枠を予約",
+        "subtitle": "K-POP企業向け広告"
+      }
+    }
+  },
+  "vip": {
+    "unlocked_title": "解除しました",
+    "unlock_theme_need": "このテーマを解除するには {cost} K-oins が必要です。",
+    "unlock_theme_confirm": "「{name}」を {cost} K-oins で解除しますか？",
+    "unlock_theme_done": "{cost} K-oins でテーマを解除しました。"
   }
 }

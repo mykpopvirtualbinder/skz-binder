@@ -13,6 +13,8 @@ export type AdCampaign = {
   id: string;
   title: string;
   subtitle?: string | null;
+  titleKey?: string;
+  subtitleKey?: string;
   image_url?: string | null;
   target_url: string;
   placement: AdPlacement;
@@ -26,6 +28,8 @@ const FALLBACK_ADS: AdCampaign[] = [
     id: "fallback-desktop-left",
     title: "Tu tienda K-pop aqui",
     subtitle: "Promociona albums, merch y eventos",
+    titleKey: "ads.fallback.desktop_left.title",
+    subtitleKey: "ads.fallback.desktop_left.subtitle",
     image_url: null,
     target_url: "/report",
     placement: "sidebar_left",
@@ -37,6 +41,8 @@ const FALLBACK_ADS: AdCampaign[] = [
     id: "fallback-desktop-right",
     title: "Espacio para artistas",
     subtitle: "Comisiones, prints y fanart patrocinado",
+    titleKey: "ads.fallback.desktop_right.title",
+    subtitleKey: "ads.fallback.desktop_right.subtitle",
     image_url: null,
     target_url: "/studio",
     placement: "sidebar_right",
@@ -48,6 +54,8 @@ const FALLBACK_ADS: AdCampaign[] = [
     id: "fallback-desktop-left-2",
     title: "Eventos y cupsleeves",
     subtitle: "Promociona tu evento K-pop local",
+    titleKey: "ads.fallback.desktop_left_2.title",
+    subtitleKey: "ads.fallback.desktop_left_2.subtitle",
     image_url: null,
     target_url: "/fanzone",
     placement: "sidebar_left",
@@ -59,6 +67,8 @@ const FALLBACK_ADS: AdCampaign[] = [
     id: "fallback-desktop-right-2",
     title: "Tiendas recomendadas",
     subtitle: "Merch oficial y fanmade de confianza",
+    titleKey: "ads.fallback.desktop_right_2.title",
+    subtitleKey: "ads.fallback.desktop_right_2.subtitle",
     image_url: null,
     target_url: "/merch",
     placement: "sidebar_right",
@@ -70,6 +80,8 @@ const FALLBACK_ADS: AdCampaign[] = [
     id: "fallback-tablet",
     title: "Anunciate en MyKpopBinder",
     subtitle: "Llega a una comunidad kpop real",
+    titleKey: "ads.fallback.tablet.title",
+    subtitleKey: "ads.fallback.tablet.subtitle",
     image_url: null,
     target_url: "/report",
     placement: "tablet_sidebar",
@@ -81,6 +93,8 @@ const FALLBACK_ADS: AdCampaign[] = [
     id: "fallback-mobile-top",
     title: "Patrocinado",
     subtitle: "Comercios amigos y artistas",
+    titleKey: "ads.fallback.mobile_top.title",
+    subtitleKey: "ads.fallback.mobile_top.subtitle",
     image_url: null,
     target_url: "/report",
     placement: "mobile_inline_top",
@@ -92,6 +106,8 @@ const FALLBACK_ADS: AdCampaign[] = [
     id: "fallback-mobile-bottom",
     title: "Reserva tu espacio",
     subtitle: "Publicidad para empresas K-pop",
+    titleKey: "ads.fallback.mobile_bottom.title",
+    subtitleKey: "ads.fallback.mobile_bottom.subtitle",
     image_url: null,
     target_url: "/report",
     placement: "mobile_inline_bottom",

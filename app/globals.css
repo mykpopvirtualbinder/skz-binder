@@ -674,6 +674,7 @@ body {
   --theme-chip-vibrant: #FF5C00;
   --theme-chip-minimal: #A89F91;
   --theme-chip-kpride: #CD2E3A;
+  --theme-chip-gaypride: #D5006D;
 
   /* Acentos UI merch / market / fanart (coherent con Soft Pastel) */
   --accent-vibe-pink: #d67fb8;
@@ -1277,6 +1278,133 @@ body {
   --library-card-action-info-fg: #cd2e3a;
   --library-card-action-shadow-flip: color-mix(in srgb, #0047a0 28%, transparent);
   --library-card-action-shadow-info: color-mix(in srgb, #cd2e3a 26%, transparent);
+  --library-stock-trigger-fg: var(--text-heading);
+  --library-stock-row-label-fg: var(--text-heading);
+  --library-stock-qty-fg: var(--text-main);
+  --library-stock-step-minus-fg: var(--color-secondary);
+  --library-stock-step-minus-border: color-mix(in srgb, var(--color-secondary) 45%, var(--color-border));
+  --library-stock-step-minus-bg: color-mix(in srgb, var(--color-secondary) 12%, var(--bg-main));
+  --library-stock-step-plus-fg: var(--library-stock-step-minus-fg);
+  --library-stock-step-plus-border: var(--library-stock-step-minus-border);
+  --library-stock-step-plus-bg: var(--library-stock-step-minus-bg);
+  --library-stock-cancel-border: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+  --library-stock-cancel-bg: color-mix(in srgb, var(--color-primary) 8%, var(--bg-main));
+  --library-stock-cancel-fg: var(--color-primary);
+  --library-stock-save-bg: var(--modal-cta-gradient);
+  --library-stock-save-fg: var(--modal-cta-fg);
+
+  --site-ui-cursor: url("/cursors/k-pride.png") 4 1, auto;
+  --site-ui-pointer-cursor: url("/cursors/pointer-k-pride.png") 30 30, pointer;
+}
+
+/* 6. TEMA GAY PRIDE (VIP) */
+[data-theme="gay_pride"] {
+  --bg-main: #fff7fb;
+  --bg-card: #ffffff;
+  --bg-soft: #f6e9f2;
+
+  --text-main: #2a1030;
+  --text-muted: #6b3d62;
+
+  --color-primary: #d5006d;
+  --color-secondary: #24408e;
+  --color-accent: #ff8c00;
+  --color-accent-blue: #24408e;
+  --color-accent-orange: #ff8c00;
+  --color-border: color-mix(in srgb, #d5006d 28%, #ead3e4);
+  --state-success-bg: #eef8ef;
+  --state-success-fg: #008026;
+  --state-success-border: #7cbc8a;
+  --state-warning-bg: #fff6e0;
+  --state-warning-fg: #b45309;
+  --state-warning-border: #ffb347;
+  --state-danger-bg: #fff0f3;
+  --state-danger-fg: #e40303;
+  --state-danger-border: #f5a0a8;
+  --state-info-bg: #eef1fb;
+  --state-info-fg: #24408e;
+  --state-info-border: #24408e;
+  --state-disabled-bg: #E2E8F0;
+  --state-disabled-fg: #64748b;
+  --state-disabled-border: #CBD5E1;
+  --overlay-heavy: rgba(42, 16, 48, 0.88);
+  --overlay-strong: rgba(42, 16, 48, 0.55);
+  --overlay-medium: rgba(42, 16, 48, 0.35);
+  --overlay-soft: rgba(213, 0, 109, 0.18);
+  --overlay-faint: rgba(213, 0, 109, 0.1);
+  --surface-float: rgba(255,255,255,0.92);
+  --surface-float-strong: rgba(255,255,255,0.97);
+  --surface-frost: rgba(255,255,255,0.76);
+
+  --shadow-card: rgba(213, 0, 109, 0.14);
+
+  --gradient-pride: linear-gradient(135deg, #e40303 0%, #ff8c00 18%, #ffed00 36%, #008026 54%, #24408e 72%, #732982 100%);
+
+  --text-heading: #d5006d;
+  --text-subheading: #24408e;
+  --accent-vibe-pink: #d5006d;
+  --accent-vibe-cyan: #24408e;
+  --accent-vibe-violet: #732982;
+  --accent-vibe-orange: #ff8c00;
+  --accent-vibe-green: #008026;
+  --accent-vibe-purple: #732982;
+  --modal-cta-gradient: var(--gradient-pride);
+  --modal-cta-fg: #ffffff;
+  --modal-cta-shadow: 0 4px 18px color-mix(in srgb, #732982 28%, transparent);
+
+  --binder-btn-outline-border: color-mix(in srgb, #d5006d 40%, #e7c8dc);
+  --binder-btn-outline-bg: #ffffff;
+  --binder-btn-outline-fg: #d5006d;
+  --binder-btn-outline-shadow: 0 2px 10px rgba(213, 0, 109, 0.08);
+  --binder-btn-separator-bg: var(--gradient-pride);
+  --binder-btn-separator-fg: #ffffff;
+  --binder-btn-save-bg: var(--gradient-pride);
+  --binder-btn-save-fg: #ffffff;
+  --binder-btn-save-shadow: 0 4px 14px rgba(115, 41, 130, 0.22);
+  --binder-btn-delete-border: var(--state-danger-border);
+  --binder-btn-delete-bg: var(--state-danger-bg);
+  --binder-btn-delete-fg: var(--state-danger-fg);
+  --binder-btn-undo-border: color-mix(in srgb, #24408e 30%, #e7c8dc);
+  --binder-btn-undo-bg: #fff7fb;
+  --binder-btn-undo-fg: #24408e;
+  --binder-toggle-track-on: #d5006d;
+  --binder-slot-status-empty-border: #ead3e4;
+  --binder-slot-status-empty-bg: #fff7fb;
+  --binder-mini-empty-bg: linear-gradient(
+    168deg,
+    color-mix(in srgb, #e40303 8%, #ffffff),
+    color-mix(in srgb, #24408e 8%, #fff7fb)
+  );
+  --binder-thumb-idle-bg: linear-gradient(165deg, #ffffff, #fff7fb);
+  --binder-thumb-idle-border: #ead3e4;
+  --binder-thumb-idle-shadow: 0 3px 12px rgba(213, 0, 109, 0.08);
+  --binder-thumb-active-glow: rgba(213, 0, 109, 0.22);
+  --binder-palette-1: #e40303;
+  --binder-palette-2: #ff8c00;
+  --binder-palette-3: #ffed00;
+  --binder-palette-4: #008026;
+  --binder-palette-5: #24408e;
+  --binder-palette-6: #732982;
+  --binder-palette-7: #d5006d;
+  --binder-palette-8: #2a1030;
+
+  --ad-slot-top-line: linear-gradient(90deg, #e40303, #ff8c00, #ffed00, #008026, #24408e, #732982);
+  --ad-slot-title-color: #732982;
+  --ad-slot-subtitle-color: var(--text-muted);
+  --ad-slot-badge-fg: #d5006d;
+  --ad-slot-badge-bg: color-mix(in srgb, #d5006d 8%, var(--bg-soft));
+  --ad-slot-badge-border: color-mix(in srgb, #732982 20%, var(--color-border));
+  --shop-tab-suscripcion: #e40303;
+  --shop-tab-binders: #ff8c00;
+  --shop-tab-paginas: #008026;
+  --shop-tab-separadores: #24408e;
+  --shop-tab-koins: #732982;
+
+  --library-filter-label: var(--text-heading);
+  --library-card-action-flip-fg: #24408e;
+  --library-card-action-info-fg: #d5006d;
+  --library-card-action-shadow-flip: color-mix(in srgb, #24408e 28%, transparent);
+  --library-card-action-shadow-info: color-mix(in srgb, #d5006d 26%, transparent);
   --library-stock-trigger-fg: var(--text-heading);
   --library-stock-row-label-fg: var(--text-heading);
   --library-stock-qty-fg: var(--text-main);

@@ -47,11 +47,14 @@ export async function POST(req: Request) {
     const safeText = JSON.stringify(text);
     const prompt =
       mode === "batch"
-        ? `Translate this fanfic text from Spanish into the requested languages and return ONLY valid JSON.
-Output format: {"en":"...","fr":"..."} (keys must be language codes, values translated text).
+        ? `Translate this fanfic from Spanish into the requested languages and return ONLY valid JSON.
+The input is always: TITLE, then a line with exactly |||, then BODY.
+For EVERY language value you MUST keep that exact structure: translated TITLE, newline, |||, newline, translated BODY.
+Translate the title AND the body. Never omit the title. Never drop the ||| separator. Never add extra |||.
+Output format: {"en":"Title\\n|||\\nBody","fr":"Titre\\n|||\\nCorps"} (keys = language codes).
 Target languages: ${JSON.stringify(targetLangs.length ? targetLangs : ["en"])}
 Text: ${safeText}`
-        : `Translate this chat message to '${targetLang}'. Return ONLY the translated text.\nMessage: ${safeText}`;
+        : `Translate this text to '${targetLang}'. If the input contains |||, keep exactly one ||| between the translated title and the translated body. Return ONLY the translated text.\nMessage: ${safeText}`;
     const listRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
       { method: "GET" }
@@ -116,8 +119,9 @@ Text: ${safeText}`
     }
     if (mode === "batch") {
       let translations: Record<string, string> = {};
+      const cleaned = rawOutput.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
       try {
-        translations = JSON.parse(rawOutput) as Record<string, string>;
+        translations = JSON.parse(cleaned) as Record<string, string>;
       } catch {
         return NextResponse.json(
           { error: "Invalid JSON from translation model", reason: "INVALID_MODEL_JSON" },

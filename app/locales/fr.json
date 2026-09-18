@@ -650,7 +650,8 @@
       "dark": "Midnight Neon",
       "vibrant": "Anime Vibrant",
       "minimal": "Korean Café",
-      "k_pride": "K-Pride"
+      "k_pride": "K-Pride",
+      "gay_pride": "Gay Pride"
     }
   },
   "virtual_binder": {
@@ -798,7 +799,10 @@
     "replying_to": "En réponse au fil...",
     "comment_placeholder": "Écris quelque chose de sympa...",
     "join_artist_title": "Rejoins-nous en tant qu'artiste",
-    "join_artist_subtitle": "Envoie-nous tes informations et tes œuvres pour examen"
+    "join_artist_subtitle": "Envoie-nous tes informations et tes œuvres pour examen",
+    "no_permission_comment": "Tu n'as pas la permission de supprimer ce commentaire.",
+    "no_permission_delete": "Tu n'as pas la permission de supprimer les œuvres des autres.",
+    "verified_artist": "Artiste vérifié"
   },
   "fanzone": {
     "whats_on_mind": "Qu'as-tu en tête aujourd'hui ? Mentionne en tapant @...",
@@ -2051,7 +2055,8 @@
       "dark": "🖤 Dark / Girl Crush (VIP)",
       "vibrant": "🎨 Y2K / Bubblegum (VIP)",
       "minimal": "☕ Korean Cafe (VIP)",
-      "k_pride": "🇰🇷 K-Pride (VIP)"
+      "k_pride": "🇰🇷 K-Pride (VIP)",
+      "gay_pride": "🏳️‍🌈 Gay Pride (VIP)"
     },
     "header": {
       "logo_alt": "Logo de My Kpop Binder",
@@ -2156,5 +2161,44 @@
     "upload_cover": "Télécharger la couverture",
     "nsfw": "Contenu +18",
     "btn_publish": "Publier"
+  },
+  "ads": {
+    "badge": "Publicité",
+    "fallback": {
+      "desktop_left": {
+        "title": "Votre boutique K-pop ici",
+        "subtitle": "Promouvez albums, merch et événements"
+      },
+      "desktop_right": {
+        "title": "Espace artistes",
+        "subtitle": "Commissions, prints et fanart sponsorisé"
+      },
+      "desktop_left_2": {
+        "title": "Événements et cupsleeves",
+        "subtitle": "Promouvez votre événement K-pop local"
+      },
+      "desktop_right_2": {
+        "title": "Boutiques recommandées",
+        "subtitle": "Merch officiel et fanmade de confiance"
+      },
+      "tablet": {
+        "title": "Annoncez-vous sur MyKpopBinder",
+        "subtitle": "Rejoignez une vraie communauté K-pop"
+      },
+      "mobile_top": {
+        "title": "Sponsorisé",
+        "subtitle": "Commerces partenaires et artistes"
+      },
+      "mobile_bottom": {
+        "title": "Réservez votre espace",
+        "subtitle": "Publicité pour les entreprises K-pop"
+      }
+    }
+  },
+  "vip": {
+    "unlocked_title": "Débloqué",
+    "unlock_theme_need": "Il te faut {cost} K-oins pour débloquer ce thème.",
+    "unlock_theme_confirm": "Débloquer « {name} » pour {cost} K-oins ?",
+    "unlock_theme_done": "Thème débloqué pour {cost} K-oins."
   }
 }
