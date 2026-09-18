@@ -32,6 +32,15 @@ function extractGeminiText(genJson: GeminiGenerateJson): string {
     .trim();
 }
 
+function missingTargetScript(text: string, lang: string): boolean {
+  const code = fallbackLang(lang);
+  if (code === "ja") return !/[\u3040-\u30ff\u3400-\u9fff]/.test(text);
+  if (code === "ko") return !/[\uac00-\ud7af]/.test(text);
+  if (code === "zh-CN" || code === "zh") return !/[\u3400-\u9fff]/.test(text);
+  if (code === "th") return !/[\u0e00-\u0e7f]/.test(text);
+  return false;
+}
+
 function fallbackLang(code: string): string {
   if (code === "zh") return "zh-CN";
   if (code === "jp") return "ja";
@@ -253,6 +262,11 @@ ${text}`;
       if (rawOutput && isShort && rawOutput.length > Math.max(80, text.length * 3)) {
         rawOutput = "";
         lastDetails = "HALLUCINATED_EXPANSION";
+        continue;
+      }
+      if (rawOutput && (rawOutput === text || missingTargetScript(rawOutput, targetLang))) {
+        rawOutput = "";
+        lastDetails = "UNTRANSLATED_OUTPUT";
         continue;
       }
       if (rawOutput) {
