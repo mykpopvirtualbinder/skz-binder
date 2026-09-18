@@ -7,6 +7,132 @@ type TranslateBody = {
   targetLangs?: string[];
 };
 
+type GeminiGenerateJson = {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+    finishReason?: string;
+  }>;
+  promptFeedback?: { blockReason?: string };
+  error?: { message?: string };
+};
+
+const SAFETY_SETTINGS = [
+  { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_NONE" },
+];
+
+function extractGeminiText(genJson: GeminiGenerateJson): string {
+  const parts = genJson?.candidates?.[0]?.content?.parts || [];
+  return parts
+    .map((part) => String(part?.text || ""))
+    .join("")
+    .trim();
+}
+
+function fallbackLang(code: string): string {
+  if (code === "zh") return "zh-CN";
+  if (code === "jp") return "ja";
+  if (code === "kr") return "ko";
+  return code;
+}
+
+function splitFallbackChunks(text: string, maxLen = 450): string[] {
+  const parts = String(text || "").split(/(\n+)/);
+  const chunks: string[] = [];
+  let buf = "";
+  const pushBuf = () => {
+    if (buf) chunks.push(buf);
+    buf = "";
+  };
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.length > maxLen) {
+      pushBuf();
+      for (let i = 0; i < part.length; i += maxLen) {
+        chunks.push(part.slice(i, i + maxLen));
+      }
+      continue;
+    }
+    const next = buf + part;
+    if (next.length > maxLen) {
+      pushBuf();
+      buf = part;
+    } else {
+      buf = next;
+    }
+  }
+  pushBuf();
+  return chunks.length ? chunks : [""];
+}
+
+function parseGtxPayload(data: unknown): string {
+  if (!Array.isArray(data) || !Array.isArray(data[0])) return "";
+  return data[0]
+    .map((row) => (Array.isArray(row) ? String(row[0] || "") : ""))
+    .join("")
+    .trim();
+}
+
+async function translateWithGtx(text: string, targetLang: string): Promise<string> {
+  const tl = fallbackLang(targetLang);
+  const pieces = splitFallbackChunks(text);
+  const out: string[] = [];
+  for (const piece of pieces) {
+    if (!piece.trim()) {
+      out.push(piece);
+      continue;
+    }
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=es&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(piece)}`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+    });
+    if (!res.ok) throw new Error(`GTX_${res.status}`);
+    const translated = parseGtxPayload(await res.json().catch(() => null));
+    if (!translated) throw new Error("GTX_EMPTY");
+    out.push(translated);
+  }
+  return out.join("").trim();
+}
+
+async function translateWithMyMemory(text: string, targetLang: string): Promise<string> {
+  const tl = fallbackLang(targetLang);
+  const pieces = splitFallbackChunks(text, 400);
+  const out: string[] = [];
+  for (const piece of pieces) {
+    if (!piece.trim()) {
+      out.push(piece);
+      continue;
+    }
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(piece)}&langpair=es|${encodeURIComponent(tl)}`;
+    const res = await fetch(url);
+    const json = (await res.json().catch(() => ({}))) as {
+      responseData?: { translatedText?: string };
+    };
+    const translated = String(json?.responseData?.translatedText || "").trim();
+    if (!res.ok || !translated) throw new Error(`MYMEMORY_${res.status || "EMPTY"}`);
+    out.push(translated);
+  }
+  return out.join("").trim();
+}
+
+async function translateWithFallback(text: string, targetLang: string): Promise<{
+  translation: string;
+  provider: string;
+}> {
+  try {
+    const translation = await translateWithGtx(text, targetLang);
+    if (translation) return { translation, provider: "gtx" };
+  } catch {
+    /* try next */
+  }
+  const translation = await translateWithMyMemory(text, targetLang);
+  if (!translation) throw new Error("FALLBACK_EMPTY");
+  return { translation, provider: "mymemory" };
+}
+
 export async function POST(req: Request) {
   const apiKey =
     process.env.GEMINI_API_KEY ||
@@ -58,7 +184,8 @@ Text: ${safeText}`
 Keep the same meaning, tone, names and explicitness. Do not refuse, summarize, censor or comment.
 If the input contains |||, keep exactly one ||| between the translated title and the translated body.
 Return ONLY the translated text.
-Message: ${safeText}`;
+
+${text}`;
     const listRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
       { method: "GET" }
@@ -77,59 +204,78 @@ Message: ${safeText}`;
       (m.supportedGenerationMethods || []).includes("generateContent")
     );
     const preferred = [
-      "models/gemini-2.5-flash",
       "models/gemini-2.0-flash",
       "models/gemini-2.0-flash-lite",
+      "models/gemini-2.5-flash",
       "models/gemini-1.5-flash",
       "models/gemini-1.5-pro",
     ];
-    const picked =
-      preferred.find((p) => models.some((m) => m.name === p)) ||
-      models[0]?.name;
+    const modelCandidates = preferred.filter((p) => models.some((m) => m.name === p));
+    if (!modelCandidates.length && models[0]?.name) modelCandidates.push(models[0].name);
 
-    if (!picked) {
+    if (!modelCandidates.length) {
       return NextResponse.json(
         { error: "No compatible model available", reason: "MODEL_UNAVAILABLE" },
         { status: 502 }
       );
     }
 
-    const genRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${picked}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2 },
-          safetySettings: [
-            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_NONE" },
-          ],
-        }),
-      }
-    );
-    const genJson = (await genRes.json().catch(() => ({}))) as {
-      candidates?: Array<{
-        content?: { parts?: Array<{ text?: string }> };
-        finishReason?: string;
-      }>;
-      error?: { message?: string };
-    };
-    if (!genRes.ok) {
-      throw new Error(
-        `GENERATE_FAILED_${genRes.status}: ${genJson?.error?.message || "unknown"}`
+    let picked = "";
+    let rawOutput = "";
+    let lastDetails = "";
+    for (const modelName of modelCandidates) {
+      const genRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 8192,
+              ...(modelName.includes("2.5")
+                ? { thinkingConfig: { thinkingBudget: 0 } }
+                : {}),
+            },
+            safetySettings: SAFETY_SETTINGS,
+          }),
+        }
       );
+      const genJson = (await genRes.json().catch(() => ({}))) as GeminiGenerateJson;
+      if (!genRes.ok) {
+        lastDetails = `GENERATE_FAILED_${genRes.status}: ${genJson?.error?.message || "unknown"}`;
+        continue;
+      }
+      rawOutput = extractGeminiText(genJson);
+      if (rawOutput) {
+        picked = modelName;
+        break;
+      }
+      lastDetails = [
+        genJson?.candidates?.[0]?.finishReason || "UNKNOWN",
+        genJson?.promptFeedback?.blockReason || "",
+      ]
+        .filter(Boolean)
+        .join(" ");
     }
-    const rawOutput =
-      genJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+
+    if (!rawOutput && mode === "single") {
+      try {
+        const fallback = await translateWithFallback(text, targetLang);
+        return NextResponse.json({
+          translation: fallback.translation,
+          model: "fallback",
+          provider: fallback.provider,
+        });
+      } catch (fallbackError) {
+        lastDetails = `${lastDetails} FALLBACK:${String(fallbackError || "")}`.trim();
+      }
+    }
+
     if (!rawOutput) {
-      const finishReason = genJson?.candidates?.[0]?.finishReason || "UNKNOWN";
       return NextResponse.json(
-        { error: "Empty translation", reason: "EMPTY_TRANSLATION", details: finishReason },
+        { error: "Empty translation", reason: "EMPTY_TRANSLATION", details: lastDetails },
         { status: 502 }
       );
     }
