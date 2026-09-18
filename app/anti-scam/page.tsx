@@ -48,7 +48,7 @@ export default function AntiScamPage() {
       transition: "background-color 0.3s ease" // Suavizamos el cambio de color
     }}>
       
-      <main className="legal-page" style={{ width: "100%", maxWidth: "900px", margin: "24px auto", padding: "0 40px", flex: 1 }}>
+      <main className="legal-page" data-nav="merch" style={{ width: "100%", maxWidth: "900px", margin: "24px auto", padding: "0 40px", flex: 1 }}>
         
         {/* TITULAR GIGANTE TRADUCIDO */}
         <div style={{ marginBottom: "60px" }}>

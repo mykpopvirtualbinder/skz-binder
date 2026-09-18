@@ -40,7 +40,7 @@ export default function FAQPage() {
       transition: "background-color 0.3s ease" 
     }}>
       
-      <main className="legal-page" style={{ width: "100%", maxWidth: "900px", margin: "24px auto 40px auto", padding: "0 40px", flex: 1 }}>
+      <main className="legal-page" data-nav="binders" style={{ width: "100%", maxWidth: "900px", margin: "24px auto 40px auto", padding: "0 40px", flex: 1 }}>
         
         {/* TÍTULO */}
         <div style={{ marginBottom: "60px" }}>

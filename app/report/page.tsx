@@ -139,7 +139,7 @@ export default function ReportPage() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-main)", display: "flex", flexDirection: "column", color: "var(--text-main)", transition: "background-color 0.3s ease" }}>
       
-      <main className="legal-page" style={{ width: "100%", maxWidth: "900px", margin: "24px auto", padding: "0 40px", flex: 1 }}>
+      <main className="legal-page" data-nav="home" style={{ width: "100%", maxWidth: "900px", margin: "24px auto", padding: "0 40px", flex: 1 }}>
         
         <div style={{ marginBottom: "60px" }}>
           <h1 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "64px", lineHeight: "0.8", margin: 0 }}>

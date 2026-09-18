@@ -1629,6 +1629,35 @@ html[data-theme="gay_pride"]::before {
   color: transparent;
 }
 
+[data-theme="iris_bloom"] .legal-page[data-nav],
+[data-theme="gay_pride"] .legal-page[data-nav] {
+  --color-primary: var(--nav-link);
+  --text-heading: var(--nav-link);
+  --color-secondary: var(--nav-link);
+  --text-main: color-mix(in srgb, var(--nav-link) 62%, #1a1a1a);
+  --text-muted: color-mix(in srgb, var(--nav-link) 50%, #5a5a5a);
+  --color-border: color-mix(in srgb, var(--nav-link) 30%, #d4d4d4);
+  color: var(--text-main);
+}
+[data-theme="iris_bloom"] .legal-page[data-nav="home"],
+[data-theme="gay_pride"] .legal-page[data-nav="home"] { --nav-link: var(--nav-home); }
+[data-theme="iris_bloom"] .legal-page[data-nav="library"],
+[data-theme="gay_pride"] .legal-page[data-nav="library"] { --nav-link: var(--nav-library); }
+[data-theme="iris_bloom"] .legal-page[data-nav="albums"],
+[data-theme="gay_pride"] .legal-page[data-nav="albums"] { --nav-link: var(--nav-albums); }
+[data-theme="iris_bloom"] .legal-page[data-nav="merch"],
+[data-theme="gay_pride"] .legal-page[data-nav="merch"] { --nav-link: var(--nav-merch); }
+[data-theme="iris_bloom"] .legal-page[data-nav="market"],
+[data-theme="gay_pride"] .legal-page[data-nav="market"] { --nav-link: var(--nav-market); }
+[data-theme="iris_bloom"] .legal-page[data-nav="fanart"],
+[data-theme="gay_pride"] .legal-page[data-nav="fanart"] { --nav-link: var(--nav-fanart); }
+[data-theme="iris_bloom"] .legal-page[data-nav="fanzone"],
+[data-theme="gay_pride"] .legal-page[data-nav="fanzone"] { --nav-link: var(--nav-fanzone); }
+[data-theme="iris_bloom"] .legal-page[data-nav="shop"],
+[data-theme="gay_pride"] .legal-page[data-nav="shop"] { --nav-link: var(--nav-shop); }
+[data-theme="iris_bloom"] .legal-page[data-nav="binders"],
+[data-theme="gay_pride"] .legal-page[data-nav="binders"] { --nav-link: var(--nav-binders); }
+
 /* Punteros: flecha por tema + manita click por tema (3x más grande). */
 html {
   cursor: var(--site-ui-cursor, auto);
