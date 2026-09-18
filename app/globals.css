@@ -674,8 +674,8 @@ body {
   --theme-chip-vibrant: #FF5C00;
   --theme-chip-minimal: #A89F91;
   --theme-chip-kpride: #CD2E3A;
-  --theme-chip-irisbloom: #b8a0c8;
-  --theme-chip-gaypride: #b8a0c8;
+  --theme-chip-irisbloom: #7b48a0;
+  --theme-chip-gaypride: #7b48a0;
 
   /* Acentos UI merch / market / fanart (coherent con Soft Pastel) */
   --accent-vibe-pink: #d67fb8;
@@ -1298,125 +1298,125 @@ body {
   --site-ui-pointer-cursor: url("/cursors/pointer-k-pride.png") 30 30, pointer;
 }
 
-/* 6. TEMA IRIS BLOOM (VIP) — bandera LGTBIQ+ en pastel */
+/* 6. TEMA IRIS BLOOM (VIP) — arcoíris LGTBIQ+ a saturación media */
 [data-theme="iris_bloom"],
 [data-theme="gay_pride"] {
-  --bg-main: #f6f1f4;
-  --bg-card: #fbf8fa;
-  --bg-soft: #eee6ec;
+  --bg-main: #f4eef2;
+  --bg-card: #fbf7f9;
+  --bg-soft: #eadfe8;
 
-  --text-main: #3f3644;
-  --text-muted: #7a6b78;
+  --text-main: #32283a;
+  --text-muted: #6e5d74;
 
-  --color-primary: #8a6b93;
-  --color-secondary: #7d93b8;
-  --color-accent: #d4a07a;
-  --color-accent-blue: #7d93b8;
-  --color-accent-orange: #d4a07a;
-  --color-border: color-mix(in srgb, #9a7eae 26%, #e4d8e0);
-  --state-success-bg: #eef4ef;
-  --state-success-fg: #4f7a5c;
-  --state-success-border: #a8c4b0;
-  --state-warning-bg: #f8f1e4;
-  --state-warning-fg: #8a6840;
-  --state-warning-border: #e0c49a;
-  --state-danger-bg: #f6ecee;
-  --state-danger-fg: #a56b72;
-  --state-danger-border: #d4a0a6;
-  --state-info-bg: #eef1f6;
-  --state-info-fg: #6b82a8;
-  --state-info-border: #9aafd0;
+  --color-primary: #7b48a0;
+  --color-secondary: #3d6cb5;
+  --color-accent: #d8883c;
+  --color-accent-blue: #3d6cb5;
+  --color-accent-orange: #d8883c;
+  --color-border: color-mix(in srgb, #7b48a0 28%, #ddd0dc);
+  --state-success-bg: #e8f3eb;
+  --state-success-fg: #2f7a4a;
+  --state-success-border: #6fb388;
+  --state-warning-bg: #f8eedc;
+  --state-warning-fg: #9a5c1e;
+  --state-warning-border: #e0a85a;
+  --state-danger-bg: #f8e8ea;
+  --state-danger-fg: #b44552;
+  --state-danger-border: #d98a92;
+  --state-info-bg: #e8eef8;
+  --state-info-fg: #3d6cb5;
+  --state-info-border: #3d6cb5;
   --state-disabled-bg: #E2E8F0;
   --state-disabled-fg: #64748b;
   --state-disabled-border: #CBD5E1;
-  --overlay-heavy: rgba(63, 54, 68, 0.84);
-  --overlay-strong: rgba(63, 54, 68, 0.5);
-  --overlay-medium: rgba(63, 54, 68, 0.32);
-  --overlay-soft: rgba(138, 107, 147, 0.16);
-  --overlay-faint: rgba(138, 107, 147, 0.08);
-  --surface-float: rgba(251,248,250,0.94);
-  --surface-float-strong: rgba(251,248,250,0.98);
-  --surface-frost: rgba(251,248,250,0.78);
+  --overlay-heavy: rgba(50, 40, 58, 0.86);
+  --overlay-strong: rgba(50, 40, 58, 0.52);
+  --overlay-medium: rgba(50, 40, 58, 0.34);
+  --overlay-soft: rgba(123, 72, 160, 0.18);
+  --overlay-faint: rgba(123, 72, 160, 0.1);
+  --surface-float: rgba(251,247,249,0.94);
+  --surface-float-strong: rgba(251,247,249,0.98);
+  --surface-frost: rgba(251,247,249,0.78);
 
-  --shadow-card: rgba(138, 107, 147, 0.1);
+  --shadow-card: rgba(123, 72, 160, 0.14);
 
   --gradient-pride: linear-gradient(
     135deg,
-    #d4a0a6 0%,
-    #e0b894 14%,
-    #e6d4a0 28%,
-    #a8c4b0 42%,
-    #9aafd0 57%,
-    #b8a0c8 72%,
-    #e4b7c8 86%,
-    #a9c4d8 100%
+    #c45c66 0%,
+    #d8883c 16%,
+    #d4b43c 32%,
+    #3d9a62 48%,
+    #3d6cb5 64%,
+    #7b48a0 80%,
+    #e07aa8 90%,
+    #5a9ec8 100%
   );
 
-  --text-heading: #8a6b93;
-  --text-subheading: #7d93b8;
-  --accent-vibe-pink: #c98990;
-  --accent-vibe-cyan: #7d93b8;
-  --accent-vibe-violet: #9a7eae;
-  --accent-vibe-orange: #d4a07a;
-  --accent-vibe-green: #88a392;
-  --accent-vibe-purple: #9a7eae;
+  --text-heading: #7b48a0;
+  --text-subheading: #3d6cb5;
+  --accent-vibe-pink: #c45c66;
+  --accent-vibe-cyan: #3d6cb5;
+  --accent-vibe-violet: #7b48a0;
+  --accent-vibe-orange: #d8883c;
+  --accent-vibe-green: #3d9a62;
+  --accent-vibe-purple: #7b48a0;
   --modal-cta-gradient: var(--gradient-pride);
-  --modal-cta-fg: #3f3644;
-  --modal-cta-shadow: 0 4px 16px color-mix(in srgb, #9a7eae 22%, transparent);
+  --modal-cta-fg: #ffffff;
+  --modal-cta-shadow: 0 4px 18px color-mix(in srgb, #7b48a0 28%, transparent);
 
-  --binder-btn-outline-border: color-mix(in srgb, #8a6b93 36%, #e4d8e0);
-  --binder-btn-outline-bg: #fbf8fa;
-  --binder-btn-outline-fg: #8a6b93;
-  --binder-btn-outline-shadow: 0 2px 10px rgba(138, 107, 147, 0.08);
+  --binder-btn-outline-border: color-mix(in srgb, #7b48a0 40%, #ddd0dc);
+  --binder-btn-outline-bg: #fbf7f9;
+  --binder-btn-outline-fg: #7b48a0;
+  --binder-btn-outline-shadow: 0 2px 10px rgba(123, 72, 160, 0.1);
   --binder-btn-separator-bg: var(--gradient-pride);
-  --binder-btn-separator-fg: #3f3644;
+  --binder-btn-separator-fg: #ffffff;
   --binder-btn-save-bg: var(--gradient-pride);
-  --binder-btn-save-fg: #3f3644;
-  --binder-btn-save-shadow: 0 4px 14px rgba(154, 126, 174, 0.18);
+  --binder-btn-save-fg: #ffffff;
+  --binder-btn-save-shadow: 0 4px 14px rgba(123, 72, 160, 0.22);
   --binder-btn-delete-border: var(--state-danger-border);
   --binder-btn-delete-bg: var(--state-danger-bg);
   --binder-btn-delete-fg: var(--state-danger-fg);
-  --binder-btn-undo-border: color-mix(in srgb, #7d93b8 30%, #e4d8e0);
-  --binder-btn-undo-bg: #f6f1f4;
-  --binder-btn-undo-fg: #7d93b8;
-  --binder-toggle-track-on: #9a7eae;
-  --binder-slot-status-empty-border: #e4d8e0;
-  --binder-slot-status-empty-bg: #f6f1f4;
+  --binder-btn-undo-border: color-mix(in srgb, #3d6cb5 32%, #ddd0dc);
+  --binder-btn-undo-bg: #f4eef2;
+  --binder-btn-undo-fg: #3d6cb5;
+  --binder-toggle-track-on: #7b48a0;
+  --binder-slot-status-empty-border: #ddd0dc;
+  --binder-slot-status-empty-bg: #f4eef2;
   --binder-mini-empty-bg: linear-gradient(
     168deg,
-    color-mix(in srgb, #d4a0a6 10%, #ffffff),
-    color-mix(in srgb, #9aafd0 10%, #f6f1f4)
+    color-mix(in srgb, #c45c66 12%, #ffffff),
+    color-mix(in srgb, #3d6cb5 12%, #f4eef2)
   );
-  --binder-thumb-idle-bg: linear-gradient(165deg, #ffffff, #f6f1f4);
-  --binder-thumb-idle-border: #e4d8e0;
-  --binder-thumb-idle-shadow: 0 3px 12px rgba(138, 107, 147, 0.08);
-  --binder-thumb-active-glow: rgba(154, 126, 174, 0.18);
-  --binder-palette-1: #c98990;
-  --binder-palette-2: #d4a07a;
-  --binder-palette-3: #d8c48a;
-  --binder-palette-4: #88a392;
-  --binder-palette-5: #7d93b8;
-  --binder-palette-6: #9a7eae;
-  --binder-palette-7: #e4b7c8;
-  --binder-palette-8: #a9c4d8;
+  --binder-thumb-idle-bg: linear-gradient(165deg, #ffffff, #f4eef2);
+  --binder-thumb-idle-border: #ddd0dc;
+  --binder-thumb-idle-shadow: 0 3px 12px rgba(123, 72, 160, 0.1);
+  --binder-thumb-active-glow: rgba(123, 72, 160, 0.22);
+  --binder-palette-1: #c45c66;
+  --binder-palette-2: #d8883c;
+  --binder-palette-3: #d4b43c;
+  --binder-palette-4: #3d9a62;
+  --binder-palette-5: #3d6cb5;
+  --binder-palette-6: #7b48a0;
+  --binder-palette-7: #e07aa8;
+  --binder-palette-8: #5a9ec8;
 
-  --ad-slot-top-line: linear-gradient(90deg, #d4a0a6, #e0b894, #e6d4a0, #a8c4b0, #9aafd0, #b8a0c8, #e4b7c8, #a9c4d8);
-  --ad-slot-title-color: #8a6b93;
+  --ad-slot-top-line: linear-gradient(90deg, #c45c66, #d8883c, #d4b43c, #3d9a62, #3d6cb5, #7b48a0, #e07aa8, #5a9ec8);
+  --ad-slot-title-color: #7b48a0;
   --ad-slot-subtitle-color: var(--text-muted);
-  --ad-slot-badge-fg: #8a6b93;
-  --ad-slot-badge-bg: color-mix(in srgb, #9a7eae 8%, var(--bg-soft));
-  --ad-slot-badge-border: color-mix(in srgb, #9a7eae 20%, var(--color-border));
-  --shop-tab-suscripcion: #c98990;
-  --shop-tab-binders: #d4a07a;
-  --shop-tab-paginas: #88a392;
-  --shop-tab-separadores: #7d93b8;
-  --shop-tab-koins: #9a7eae;
+  --ad-slot-badge-fg: #7b48a0;
+  --ad-slot-badge-bg: color-mix(in srgb, #7b48a0 10%, var(--bg-soft));
+  --ad-slot-badge-border: color-mix(in srgb, #7b48a0 22%, var(--color-border));
+  --shop-tab-suscripcion: #c45c66;
+  --shop-tab-binders: #d8883c;
+  --shop-tab-paginas: #3d9a62;
+  --shop-tab-separadores: #3d6cb5;
+  --shop-tab-koins: #7b48a0;
 
   --library-filter-label: var(--text-heading);
-  --library-card-action-flip-fg: #7d93b8;
-  --library-card-action-info-fg: #8a6b93;
-  --library-card-action-shadow-flip: color-mix(in srgb, #7d93b8 24%, transparent);
-  --library-card-action-shadow-info: color-mix(in srgb, #8a6b93 22%, transparent);
+  --library-card-action-flip-fg: #3d6cb5;
+  --library-card-action-info-fg: #c45c66;
+  --library-card-action-shadow-flip: color-mix(in srgb, #3d6cb5 26%, transparent);
+  --library-card-action-shadow-info: color-mix(in srgb, #c45c66 24%, transparent);
   --library-stock-trigger-fg: var(--text-heading);
   --library-stock-row-label-fg: var(--text-heading);
   --library-stock-qty-fg: var(--text-main);
