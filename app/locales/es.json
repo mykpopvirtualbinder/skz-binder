@@ -818,6 +818,8 @@
       "upload_error": "Hubo un problema al enviar la solicitud: "
     },
     "translation_unavailable": "Traducción no disponible en este momento.",
+    "translating": "Traduciendo este capítulo…",
+    "translating_progress": "Traduciendo… {current}/{total}",
     "translation_collapsed_tooltip": "Traductor colapsado, prueba más tarde.",
     "translation_recommendation_banner": "Recomendación: usa \"Ver traducción\" por mensaje para máxima estabilidad. El botón global \"Traducir\" traduce todo automáticamente y puede tardar más.",
     "confirm_delete_comment": "¿Seguro que quieres borrar este comentario? Se borrarán también sus respuestas.",

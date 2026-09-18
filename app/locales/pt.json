@@ -581,6 +581,8 @@
       "upload_error": "Houve um problema ao enviar a candidatura: "
     },
     "translation_unavailable": "Traducción no disponible en este momento.",
+    "translating": "A traduzir este capítulo…",
+    "translating_progress": "A traduzir… {current}/{total}",
     "confirm_delete_comment": "¿Seguro que quieres borrar este comentario? Se borrarán también sus respuestas.",
     "admin_delete_warn": "¡ATENCIÓN ADMIN: ¿Seguro que quieres eliminar esta publicación por completo? Esta acción NO se puede deshacer.",
     "post_deleted": "La publicación ha sido eliminada con éxito.",

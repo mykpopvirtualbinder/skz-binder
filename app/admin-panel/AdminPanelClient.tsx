@@ -1976,6 +1976,12 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
           }
           if (!traduccionesIA?.[lang]) return [];
           const parsed = splitTitleBody(traduccionesIA[lang], formData.title, formData.content_text);
+          if (
+            parsed.title.trim() === formData.title.trim() &&
+            parsed.body.trim() === formData.content_text.trim()
+          ) {
+            return [];
+          }
           return [{
             capitulo_id: newCap.id,
             idioma: lang,

@@ -776,6 +776,8 @@
       "upload_error": "C'è stato un problema durante l'invio della richiesta: "
     },
     "translation_unavailable": "Traduzione non disponibile al momento.",
+    "translating": "Traduzione del capitolo in corso…",
+    "translating_progress": "Traduzione… {current}/{total}",
     "confirm_delete_comment": "Sei sicuro di voler eliminare questo commento? Anche le risposte verranno eliminate.",
     "admin_delete_warn": "ATTENZIONE ADMIN: Sei sicuro di voler eliminare completamente questo post? Questa azione NON può essere annullata.",
     "post_deleted": "Il post è stato eliminato con successo.",

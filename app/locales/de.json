@@ -776,6 +776,8 @@
       "upload_error": "Es gab ein Problem beim Senden der Anfrage: "
     },
     "translation_unavailable": "Übersetzung momentan nicht verfügbar.",
+    "translating": "Dieses Kapitel wird übersetzt…",
+    "translating_progress": "Übersetzung… {current}/{total}",
     "confirm_delete_comment": "Bist du sicher, dass du diesen Kommentar löschen willst? Antworten werden auch gelöscht.",
     "admin_delete_warn": "ACHTUNG ADMIN: Beitrag komplett löschen? Dies kann NICHT rückgängig gemacht werden.",
     "post_deleted": "Der Beitrag wurde erfolgreich gelöscht.",

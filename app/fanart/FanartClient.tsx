@@ -13,7 +13,12 @@ import { supabase } from "@/lib/supabase";
 import { canModerateGlobalContent } from "@/lib/admin-emails";
 import { useGlobal } from "@/app/context/GlobalContext";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getUiLanguage } from "@/lib/fanfic-translation";
+import {
+  getUiLanguage,
+  looksUntranslated,
+  persistFanficTranslation,
+  translateFanficLive,
+} from "@/lib/fanfic-translation";
 
 type FanArtPost = {
   id: string;
@@ -143,6 +148,8 @@ function FanArtContent() {
   const [loadingChapters, setLoadingChapters] = useState(false);
   const [currentLang, setCurrentLang] = useState('es');
   const [translatedTitles, setTranslatedTitles] = useState<Record<string, string>>({});
+  const [translating, setTranslating] = useState(false);
+  const [translationProgress, setTranslationProgress] = useState<{ current: number; total: number } | null>(null);
 
   const applyTranslation = (titulo?: string | null, contenido?: string | null) => {
     setViewingArt((prev) =>
@@ -156,22 +163,67 @@ function FanArtContent() {
     );
   };
 
-  const loadSpecificChapter = async (chapterId: string, langCode: string) => {
-    const { data } = await supabase
-      .from('traducciones')
-      .select('contenido, titulo')
-      .eq('capitulo_id', chapterId)
-      .eq('idioma', langCode)
-      .maybeSingle();
+  const loadSpecificChapter = async (chapterId: string, langCode: string, obraId?: string) => {
+    const [{ data: original }, { data }] = await Promise.all([
+      supabase
+        .from("traducciones")
+        .select("contenido, titulo")
+        .eq("capitulo_id", chapterId)
+        .eq("idioma", "es")
+        .maybeSingle(),
+      supabase
+        .from("traducciones")
+        .select("contenido, titulo")
+        .eq("capitulo_id", chapterId)
+        .eq("idioma", langCode)
+        .maybeSingle(),
+    ]);
 
-    if (data) {
+    const source = original || data;
+    if (langCode === "es") {
+      if (source) applyTranslation(source.titulo, source.contenido);
+      return !!source;
+    }
+
+    if (data && !looksUntranslated(data, original || source)) {
       applyTranslation(data.titulo, data.contenido);
+      if (data.titulo) {
+        setTranslatedTitles((prev) => ({ ...prev, [String(obraId || viewingArt?.id || "")]: data.titulo as string }));
+      }
       return true;
     }
-    if (langCode !== 'es') {
+
+    const sourceTitle = source?.titulo || viewingArt?.title || "";
+    const sourceBody = source?.contenido || viewingArt?.content_text || "";
+    if (!sourceTitle && !sourceBody) {
       showAlert(t("common.error"), t("fanart.translation_unavailable"));
+      return false;
     }
-    return false;
+
+    setTranslating(true);
+    setTranslationProgress({ current: 0, total: 1 });
+    try {
+      const live = await translateFanficLive(sourceTitle, sourceBody, langCode, (current, total) => {
+        setTranslationProgress({ current, total });
+      });
+      applyTranslation(live.title, live.body);
+      setTranslatedTitles((prev) => ({ ...prev, [String(obraId || viewingArt?.id || "")]: live.title }));
+      await persistFanficTranslation({
+        capituloId: chapterId,
+        idioma: langCode,
+        titulo: live.title,
+        contenido: live.body,
+      });
+      return true;
+    } catch (err) {
+      console.error(err);
+      showAlert(t("common.error"), t("fanart.translation_unavailable"));
+      if (source) applyTranslation(source.titulo, source.contenido);
+      return false;
+    } finally {
+      setTranslating(false);
+      setTranslationProgress(null);
+    }
   };
 
   const fetchChapters = async (obraId: string, langCode: string) => {
@@ -185,7 +237,7 @@ function FanArtContent() {
     if (data && data.length > 0) {
       setChapters(data);
       setCurrentChapterIndex(0);
-      await loadSpecificChapter(data[0].id, langCode);
+      await loadSpecificChapter(data[0].id, langCode, obraId);
     } else {
       setChapters([]);
     }
@@ -200,7 +252,7 @@ function FanArtContent() {
     } else {
       setChapters([]);
     }
-  }, [viewingArt?.id]);
+  }, [viewingArt?.id, uiLanguage]);
 
   useEffect(() => {
     const fanficIds = artworks
@@ -225,12 +277,34 @@ function FanArtContent() {
         .in("capitulo_id", caps.map((c: { id: string }) => c.id))
         .eq("idioma", lang);
       const capToObra = Object.fromEntries(caps.map((c: { id: string; obra_id: string }) => [c.id, c.obra_id]));
+      const originals = Object.fromEntries(artworks.map((a) => [a.id, a.title]));
       const next: Record<string, string> = {};
       for (const row of rows || []) {
         const obraId = capToObra[row.capitulo_id];
-        if (obraId && row.titulo) next[obraId] = row.titulo;
+        if (!obraId || !row.titulo) continue;
+        if (String(row.titulo).trim() !== String(originals[obraId] || "").trim()) {
+          next[obraId] = row.titulo;
+        }
       }
       if (alive) setTranslatedTitles(next);
+      if (lang !== "es") {
+        for (const art of artworks.filter((a) => a.category === "Fanfics" || !!a.content_text)) {
+          if (!alive || next[art.id] || !art.title) continue;
+          try {
+            const res = await fetch("/api/translate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mode: "single", text: art.title, targetLang: lang }),
+            });
+            const json = (await res.json().catch(() => ({}))) as { translation?: string };
+            const title = String(json.translation || "").trim();
+            if (!alive || !title || title === art.title) continue;
+            setTranslatedTitles((prev) => ({ ...prev, [art.id]: title }));
+          } catch {
+            /* keep original card title */
+          }
+        }
+      }
     })();
     return () => {
       alive = false;
@@ -950,7 +1024,7 @@ function FanArtContent() {
                         <span style={{ fontSize: "16px" }}>🌍</span>
                         <select 
                           value={currentLang}
-                          disabled={loadingChapters}
+                          disabled={loadingChapters || translating}
                           onChange={(e) => handleLanguageChange(e.target.value)}
                           style={{ border: "none", outline: "none", background: "transparent", fontWeight: 900, color: ACC.violet, fontSize: "13px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px" }}
                         >
@@ -962,9 +1036,13 @@ function FanArtContent() {
                     </div>
 
                     <h1 className="tan-font" style={{ color: ACC.violet, marginBottom: "30px", fontSize: "26px", textAlign: "center", letterSpacing: "1px" }}>
-                      {viewingArt.title}
+                      {translating
+                        ? (translationProgress
+                            ? t("fanart.translating_progress", { current: translationProgress.current, total: translationProgress.total })
+                            : t("fanart.translating"))
+                        : viewingArt.title}
                     </h1>
-                    {viewingArt.content_text}
+                    {translating ? t("fanart.translating") : viewingArt.content_text}
 
                     {chapters.length > 1 && (
                       <div style={{ marginTop: "40px", paddingTop: "20px", borderTop: "1px dashed var(--color-border)", display: "flex", justifyContent: "space-between", gap: "15px" }}>
@@ -1111,7 +1189,7 @@ function FanArtContent() {
                 <span style={{ fontSize: "16px" }}>🌍</span>
                 <select 
                   value={currentLang}
-                  disabled={loadingChapters}
+                  disabled={loadingChapters || translating}
                   onChange={(e) => handleLanguageChange(e.target.value)}
                   style={{ border: "none", outline: "none", background: "transparent", fontWeight: 900, color: ACC.violet, fontSize: "14px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "1px" }}
                 >
@@ -1130,10 +1208,14 @@ function FanArtContent() {
               {viewingArt.content_text ? (
                 <article style={{ maxWidth: "800px", margin: "0 auto" }}>
                  <h1 className="tan-font" style={{ color: ACC.violet, fontSize: "30px", textAlign: "center", marginBottom: "40px", lineHeight: "1.2", letterSpacing: "1px" }}>
-                  {viewingArt.title}
+                  {translating
+                    ? (translationProgress
+                        ? t("fanart.translating_progress", { current: translationProgress.current, total: translationProgress.total })
+                        : t("fanart.translating"))
+                    : viewingArt.title}
                 </h1>
                   <div style={{ fontFamily: "Georgia, serif", fontSize: "20px", lineHeight: "1.9", color: "var(--text-main)", whiteSpace: "pre-wrap", textAlign: "left" }}>
-                    {viewingArt.content_text}
+                    {translating ? t("fanart.translating") : viewingArt.content_text}
                   </div>
 
                   {chapters.length > 1 && (

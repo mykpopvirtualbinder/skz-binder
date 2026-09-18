@@ -776,6 +776,8 @@
       "upload_error": "リクエストの送信中に問題が発生しました："
     },
     "translation_unavailable": "現在、翻訳は利用できません。",
+    "translating": "この章を翻訳しています…",
+    "translating_progress": "翻訳中… {current}/{total}",
     "confirm_delete_comment": "本当にこのコメントを削除しますか？返信も削除されます。",
     "admin_delete_warn": "【ADMIN注意】この投稿を完全に削除してもよろしいですか？この操作は元に戻せません。",
     "post_deleted": "投稿は正常に削除されました。",

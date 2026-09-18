@@ -581,6 +581,8 @@
       "upload_error": "신청서 제출 중 문제가 발생했습니다: "
     },
     "translation_unavailable": "Traducción no disponible en este momento.",
+    "translating": "이 챕터를 번역하는 중…",
+    "translating_progress": "번역 중… {current}/{total}",
     "confirm_delete_comment": "¿Seguro que quieres borrar este comentario? Se borrarán también sus respuestas.",
     "admin_delete_warn": "¡ATENCIÓN ADMIN: ¿Seguro que quieres eliminar esta publicación por completo? Esta acción NO se puede deshacer.",
     "post_deleted": "La publicación ha sido eliminada con éxito.",

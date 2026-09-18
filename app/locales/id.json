@@ -776,6 +776,8 @@
       "upload_error": "Terjadi masalah saat mengirim permintaan: "
     },
     "translation_unavailable": "Terjemahan belum tersedia saat ini.",
+    "translating": "Menerjemahkan bab ini…",
+    "translating_progress": "Menerjemahkan… {current}/{total}",
     "confirm_delete_comment": "Yakin ingin menghapus komentar ini? Balasannya juga akan dihapus.",
     "admin_delete_warn": "PERHATIAN ADMIN: Yakin ingin menghapus postingan ini sepenuhnya? Tindakan ini TIDAK DAPAT dibatalkan.",
     "post_deleted": "Postingan telah berhasil dihapus.",

@@ -776,6 +776,8 @@
       "upload_error": "Il y a eu un problème lors de l'envoi de la demande : "
     },
     "translation_unavailable": "Traduction indisponible pour le moment.",
+    "translating": "Traduction de ce chapitre…",
+    "translating_progress": "Traduction… {current}/{total}",
     "confirm_delete_comment": "Es-tu sûr(e) de vouloir supprimer ce commentaire ? Ses réponses seront également supprimées.",
     "admin_delete_warn": "ATTENTION ADMIN : Es-tu sûr de vouloir complètement supprimer cette publication ? Cette action NE PEUT PAS être annulée.",
     "post_deleted": "La publication a été supprimée avec succès.",
