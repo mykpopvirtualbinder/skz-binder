@@ -164,6 +164,22 @@ const THEME_OPTIONS = [
 
 type NavLinkItem = { name: string; path: string };
 
+const NAV_COLOR_KEY: Record<string, string> = {
+  "/": "home",
+  "/library": "library",
+  "/albums": "albums",
+  "/merch": "merch",
+  "/market": "market",
+  "/fanart": "fanart",
+  "/fanzone": "fanzone",
+  "/shop": "shop",
+  "/binders": "binders",
+};
+
+function navColorKey(path: string) {
+  return NAV_COLOR_KEY[path] || "";
+}
+
 function navItemScrollMetrics(scroller: HTMLElement, item: HTMLElement) {
   const scrollerRect = scroller.getBoundingClientRect();
   const itemRect = item.getBoundingClientRect();
@@ -292,6 +308,7 @@ function DesktopHeaderNavScroller({
                 key={link.path}
                 href={link.path}
                 className={`tan-font header-nav-link${isActive ? " header-nav-link--active" : ""}`}
+                data-nav={navColorKey(link.path) || undefined}
                 onPointerDown={closeAllMenus}
               >
                 {link.name}
@@ -1219,7 +1236,7 @@ export default function Header() {
                 <div className="site-header__toolbar-divider" />
 
                 <div className="site-header__action-cluster">
-                <Link href="/binders" className="action-btn-mini" style={{ color: "var(--header-btn-profile)" }} title={t('header.dropdown.my_binders')}>
+                <Link href="/binders" className="action-btn-mini" style={{ color: "var(--nav-binders, var(--header-btn-profile))" }} title={t('header.dropdown.my_binders')}>
                   <BookHeart size={16} />
                 </Link>
 
@@ -1483,8 +1500,8 @@ export default function Header() {
             ].map((link) => {
               const Icon = link.icon;
               return (
-                <Link key={link.path} href={link.path} className="more-link" onClick={closeAllMenus}>
-                  <Icon size={18} color="var(--color-primary)" />
+                <Link key={link.path} href={link.path} className="more-link" data-nav={navColorKey(link.path) || undefined} onClick={closeAllMenus}>
+                  <Icon size={18} color="currentColor" />
                   {link.name}
                 </Link>
               );
@@ -1505,6 +1522,7 @@ export default function Header() {
             <Link
               key={link.path}
               href={link.path}
+              data-nav={navColorKey(link.path) || undefined}
               className={isActive ? "is-active" : ""}
               onClick={closeAllMenus}
             >
