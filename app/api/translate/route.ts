@@ -54,7 +54,11 @@ Translate the title AND the body. Never omit the title. Never drop the ||| separ
 Output format: {"en":"Title\\n|||\\nBody","fr":"Titre\\n|||\\nCorps"} (keys = language codes).
 Target languages: ${JSON.stringify(targetLangs.length ? targetLangs : ["en"])}
 Text: ${safeText}`
-        : `Translate this text to '${targetLang}'. If the input contains |||, keep exactly one ||| between the translated title and the translated body. Return ONLY the translated text.\nMessage: ${safeText}`;
+        : `You are a literary translator. Translate this fictional adult fanfic excerpt from Spanish to '${targetLang}'.
+Keep the same meaning, tone, names and explicitness. Do not refuse, summarize, censor or comment.
+If the input contains |||, keep exactly one ||| between the translated title and the translated body.
+Return ONLY the translated text.
+Message: ${safeText}`;
     const listRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
       { method: "GET" }
@@ -97,11 +101,22 @@ Text: ${safeText}`
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_NONE" },
+          ],
         }),
       }
     );
     const genJson = (await genRes.json().catch(() => ({}))) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+        finishReason?: string;
+      }>;
       error?: { message?: string };
     };
     if (!genRes.ok) {
@@ -112,8 +127,9 @@ Text: ${safeText}`
     const rawOutput =
       genJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
     if (!rawOutput) {
+      const finishReason = genJson?.candidates?.[0]?.finishReason || "UNKNOWN";
       return NextResponse.json(
-        { error: "Empty translation", reason: "EMPTY_TRANSLATION" },
+        { error: "Empty translation", reason: "EMPTY_TRANSLATION", details: finishReason },
         { status: 502 }
       );
     }
