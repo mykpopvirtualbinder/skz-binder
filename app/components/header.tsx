@@ -1201,7 +1201,7 @@ export default function Header() {
                   {THEME_OPTIONS.map(themeOpt => (
                     <button key={themeOpt.id} onClick={() => changeTheme(themeOpt.id, themeOpt.vip)} style={{ ...dropdownItemStyle, justifyContent: "space-between", border: activeTheme === themeOpt.id ? "1px solid var(--color-primary)" : "1px solid transparent", background: activeTheme === themeOpt.id ? "var(--bg-soft)" : "transparent" }} className="dropdown-item-hover">
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: themeOpt.color, flexShrink: 0 }} />
+                        <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: themeOpt.color, flexShrink: 0 }} />
                         <span style={{ fontWeight: activeTheme === themeOpt.id ? "900" : "600", color: "var(--color-primary)" }}>
                           {t(`theme_selector.themes.${themeOpt.id}`)}
                         </span>

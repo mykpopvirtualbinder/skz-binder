@@ -674,8 +674,8 @@ body {
   --theme-chip-vibrant: #FF5C00;
   --theme-chip-minimal: #A89F91;
   --theme-chip-kpride: #CD2E3A;
-  --theme-chip-irisbloom: #7b48a0;
-  --theme-chip-gaypride: #7b48a0;
+  --theme-chip-irisbloom: conic-gradient(from 210deg, #e5394a, #f08a2a, #f0c92a, #3db86a, #2eb8c9, #3d7ee8, #c44ec8, #e5394a);
+  --theme-chip-gaypride: conic-gradient(from 210deg, #e5394a, #f08a2a, #f0c92a, #3db86a, #2eb8c9, #3d7ee8, #c44ec8, #e5394a);
 
   /* Acentos UI merch / market / fanart (coherent con Soft Pastel) */
   --accent-vibe-pink: #d67fb8;
@@ -1298,127 +1298,132 @@ body {
   --site-ui-pointer-cursor: url("/cursors/pointer-k-pride.png") 30 30, pointer;
 }
 
-/* 6. TEMA IRIS BLOOM (VIP) — arcoíris LGTBIQ+ a saturación media */
+/* 6. TEMA IRIS BLOOM (VIP) — papel en escala de grises + pelo arcoíris */
 [data-theme="iris_bloom"],
 [data-theme="gay_pride"] {
-  --bg-main: #f4eef2;
-  --bg-card: #fbf7f9;
-  --bg-soft: #eadfe8;
+  --bg-main: #f2f2f2;
+  --bg-card: #ffffff;
+  --bg-soft: #e6e6e6;
 
-  --text-main: #32283a;
-  --text-muted: #6e5d74;
+  --text-main: #1c1c1c;
+  --text-muted: #6a6a6a;
 
-  --color-primary: #7b48a0;
-  --color-secondary: #3d6cb5;
-  --color-accent: #d8883c;
-  --color-accent-blue: #3d6cb5;
-  --color-accent-orange: #d8883c;
-  --color-border: color-mix(in srgb, #7b48a0 28%, #ddd0dc);
-  --state-success-bg: #e8f3eb;
-  --state-success-fg: #2f7a4a;
-  --state-success-border: #6fb388;
-  --state-warning-bg: #f8eedc;
-  --state-warning-fg: #9a5c1e;
-  --state-warning-border: #e0a85a;
+  --color-primary: #e5394a;
+  --color-secondary: #3d7ee8;
+  --color-accent: #f0c92a;
+  --color-accent-blue: #2eb8c9;
+  --color-accent-orange: #f08a2a;
+  --color-border: #d4d4d4;
+  --state-success-bg: #e8f6ee;
+  --state-success-fg: #2f8a4e;
+  --state-success-border: #3db86a;
+  --state-warning-bg: #f8f1dc;
+  --state-warning-fg: #b36b12;
+  --state-warning-border: #f0c92a;
   --state-danger-bg: #f8e8ea;
-  --state-danger-fg: #b44552;
-  --state-danger-border: #d98a92;
-  --state-info-bg: #e8eef8;
-  --state-info-fg: #3d6cb5;
-  --state-info-border: #3d6cb5;
+  --state-danger-fg: #e5394a;
+  --state-danger-border: #f08a9a;
+  --state-info-bg: #e8f3f8;
+  --state-info-fg: #3d7ee8;
+  --state-info-border: #2eb8c9;
   --state-disabled-bg: #E2E8F0;
   --state-disabled-fg: #64748b;
   --state-disabled-border: #CBD5E1;
-  --overlay-heavy: rgba(50, 40, 58, 0.86);
-  --overlay-strong: rgba(50, 40, 58, 0.52);
-  --overlay-medium: rgba(50, 40, 58, 0.34);
-  --overlay-soft: rgba(123, 72, 160, 0.18);
-  --overlay-faint: rgba(123, 72, 160, 0.1);
-  --surface-float: rgba(251,247,249,0.94);
-  --surface-float-strong: rgba(251,247,249,0.98);
-  --surface-frost: rgba(251,247,249,0.78);
+  --overlay-heavy: rgba(20, 20, 20, 0.86);
+  --overlay-strong: rgba(20, 20, 20, 0.52);
+  --overlay-medium: rgba(20, 20, 20, 0.34);
+  --overlay-soft: rgba(20, 20, 20, 0.16);
+  --overlay-faint: rgba(20, 20, 20, 0.08);
+  --surface-float: rgba(255,255,255,0.94);
+  --surface-float-strong: rgba(255,255,255,0.98);
+  --surface-frost: rgba(255,255,255,0.78);
 
-  --shadow-card: rgba(123, 72, 160, 0.14);
+  --shadow-card: rgba(0, 0, 0, 0.1);
 
   --gradient-pride: linear-gradient(
     135deg,
-    #c45c66 0%,
-    #d8883c 16%,
-    #d4b43c 32%,
-    #3d9a62 48%,
-    #3d6cb5 64%,
-    #7b48a0 80%,
-    #e07aa8 90%,
-    #5a9ec8 100%
+    #e5394a 0%,
+    #f08a2a 14%,
+    #f0c92a 28%,
+    #3db86a 42%,
+    #2eb8c9 56%,
+    #3d7ee8 70%,
+    #7b48d4 84%,
+    #c44ec8 100%
   );
 
-  --text-heading: #7b48a0;
-  --text-subheading: #3d6cb5;
-  --accent-vibe-pink: #c45c66;
-  --accent-vibe-cyan: #3d6cb5;
-  --accent-vibe-violet: #7b48a0;
-  --accent-vibe-orange: #d8883c;
-  --accent-vibe-green: #3d9a62;
-  --accent-vibe-purple: #7b48a0;
+  --text-heading: #1c1c1c;
+  --text-subheading: #3d7ee8;
+  --accent-vibe-pink: #e5394a;
+  --accent-vibe-cyan: #2eb8c9;
+  --accent-vibe-violet: #7b48d4;
+  --accent-vibe-orange: #f08a2a;
+  --accent-vibe-green: #3db86a;
+  --accent-vibe-purple: #c44ec8;
   --modal-cta-gradient: var(--gradient-pride);
   --modal-cta-fg: #ffffff;
-  --modal-cta-shadow: 0 4px 18px color-mix(in srgb, #7b48a0 28%, transparent);
+  --modal-cta-shadow: 0 4px 18px color-mix(in srgb, #3d7ee8 24%, transparent);
 
-  --binder-btn-outline-border: color-mix(in srgb, #7b48a0 40%, #ddd0dc);
-  --binder-btn-outline-bg: #fbf7f9;
-  --binder-btn-outline-fg: #7b48a0;
-  --binder-btn-outline-shadow: 0 2px 10px rgba(123, 72, 160, 0.1);
+  --header-btn-default: #e5394a;
+  --header-btn-lang: #3db86a;
+  --header-btn-theme: #f08a2a;
+  --header-btn-profile: #3d7ee8;
+
+  --binder-btn-outline-border: #cfcfcf;
+  --binder-btn-outline-bg: #ffffff;
+  --binder-btn-outline-fg: #1c1c1c;
+  --binder-btn-outline-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
   --binder-btn-separator-bg: var(--gradient-pride);
   --binder-btn-separator-fg: #ffffff;
   --binder-btn-save-bg: var(--gradient-pride);
   --binder-btn-save-fg: #ffffff;
-  --binder-btn-save-shadow: 0 4px 14px rgba(123, 72, 160, 0.22);
+  --binder-btn-save-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
   --binder-btn-delete-border: var(--state-danger-border);
   --binder-btn-delete-bg: var(--state-danger-bg);
   --binder-btn-delete-fg: var(--state-danger-fg);
-  --binder-btn-undo-border: color-mix(in srgb, #3d6cb5 32%, #ddd0dc);
-  --binder-btn-undo-bg: #f4eef2;
-  --binder-btn-undo-fg: #3d6cb5;
-  --binder-toggle-track-on: #7b48a0;
-  --binder-slot-status-empty-border: #ddd0dc;
-  --binder-slot-status-empty-bg: #f4eef2;
+  --binder-btn-undo-border: #cfcfcf;
+  --binder-btn-undo-bg: #f2f2f2;
+  --binder-btn-undo-fg: #3d7ee8;
+  --binder-toggle-track-on: #3d7ee8;
+  --binder-slot-status-empty-border: #d8d8d8;
+  --binder-slot-status-empty-bg: #f2f2f2;
   --binder-mini-empty-bg: linear-gradient(
     168deg,
-    color-mix(in srgb, #c45c66 12%, #ffffff),
-    color-mix(in srgb, #3d6cb5 12%, #f4eef2)
+    color-mix(in srgb, #e5394a 10%, #ffffff),
+    color-mix(in srgb, #3d7ee8 10%, #f2f2f2)
   );
-  --binder-thumb-idle-bg: linear-gradient(165deg, #ffffff, #f4eef2);
-  --binder-thumb-idle-border: #ddd0dc;
-  --binder-thumb-idle-shadow: 0 3px 12px rgba(123, 72, 160, 0.1);
-  --binder-thumb-active-glow: rgba(123, 72, 160, 0.22);
-  --binder-palette-1: #c45c66;
-  --binder-palette-2: #d8883c;
-  --binder-palette-3: #d4b43c;
-  --binder-palette-4: #3d9a62;
-  --binder-palette-5: #3d6cb5;
-  --binder-palette-6: #7b48a0;
-  --binder-palette-7: #e07aa8;
-  --binder-palette-8: #5a9ec8;
+  --binder-thumb-idle-bg: linear-gradient(165deg, #ffffff, #f2f2f2);
+  --binder-thumb-idle-border: #d8d8d8;
+  --binder-thumb-idle-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  --binder-thumb-active-glow: rgba(229, 57, 74, 0.22);
+  --binder-palette-1: #e5394a;
+  --binder-palette-2: #f08a2a;
+  --binder-palette-3: #f0c92a;
+  --binder-palette-4: #3db86a;
+  --binder-palette-5: #2eb8c9;
+  --binder-palette-6: #3d7ee8;
+  --binder-palette-7: #7b48d4;
+  --binder-palette-8: #c44ec8;
 
-  --ad-slot-top-line: linear-gradient(90deg, #c45c66, #d8883c, #d4b43c, #3d9a62, #3d6cb5, #7b48a0, #e07aa8, #5a9ec8);
-  --ad-slot-title-color: #7b48a0;
+  --ad-slot-top-line: var(--gradient-pride);
+  --ad-slot-title-color: #1c1c1c;
   --ad-slot-subtitle-color: var(--text-muted);
-  --ad-slot-badge-fg: #7b48a0;
-  --ad-slot-badge-bg: color-mix(in srgb, #7b48a0 10%, var(--bg-soft));
-  --ad-slot-badge-border: color-mix(in srgb, #7b48a0 22%, var(--color-border));
-  --shop-tab-suscripcion: #c45c66;
-  --shop-tab-binders: #d8883c;
-  --shop-tab-paginas: #3d9a62;
-  --shop-tab-separadores: #3d6cb5;
-  --shop-tab-koins: #7b48a0;
+  --ad-slot-badge-fg: #e5394a;
+  --ad-slot-badge-bg: color-mix(in srgb, #e5394a 8%, var(--bg-soft));
+  --ad-slot-badge-border: color-mix(in srgb, #3d7ee8 20%, var(--color-border));
+  --shop-tab-suscripcion: #e5394a;
+  --shop-tab-binders: #f08a2a;
+  --shop-tab-paginas: #3db86a;
+  --shop-tab-separadores: #3d7ee8;
+  --shop-tab-koins: #c44ec8;
 
-  --library-filter-label: var(--text-heading);
-  --library-card-action-flip-fg: #3d6cb5;
-  --library-card-action-info-fg: #c45c66;
-  --library-card-action-shadow-flip: color-mix(in srgb, #3d6cb5 26%, transparent);
-  --library-card-action-shadow-info: color-mix(in srgb, #c45c66 24%, transparent);
-  --library-stock-trigger-fg: var(--text-heading);
-  --library-stock-row-label-fg: var(--text-heading);
+  --library-filter-label: #e5394a;
+  --library-card-action-flip-fg: #3d7ee8;
+  --library-card-action-info-fg: #e5394a;
+  --library-card-action-shadow-flip: color-mix(in srgb, #3d7ee8 26%, transparent);
+  --library-card-action-shadow-info: color-mix(in srgb, #e5394a 24%, transparent);
+  --library-stock-trigger-fg: #1c1c1c;
+  --library-stock-row-label-fg: #1c1c1c;
   --library-stock-qty-fg: var(--text-main);
   --library-stock-step-minus-fg: var(--color-secondary);
   --library-stock-step-minus-border: color-mix(in srgb, var(--color-secondary) 45%, var(--color-border));
@@ -1434,6 +1439,19 @@ body {
 
   --site-ui-cursor: url("/cursors/k-pride.png") 4 1, auto;
   --site-ui-pointer-cursor: url("/cursors/pointer-k-pride.png") 30 30, pointer;
+}
+
+html[data-theme="iris_bloom"]::before,
+html[data-theme="gay_pride"]::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #e5394a, #f08a2a, #f0c92a, #3db86a, #2eb8c9, #3d7ee8, #7b48d4, #c44ec8);
+  z-index: 100000;
+  pointer-events: none;
 }
 
 /* Punteros: flecha por tema + manita click por tema (3x más grande). */
