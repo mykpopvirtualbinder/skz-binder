@@ -150,6 +150,12 @@ function FanArtContent() {
   const [translatedTitles, setTranslatedTitles] = useState<Record<string, string>>({});
   const [translating, setTranslating] = useState(false);
   const [translationProgress, setTranslationProgress] = useState<{ current: number; total: number } | null>(null);
+  const [waitNotice, setWaitNotice] = useState<{
+    chapterId: string;
+    langCode: string;
+    obraId?: string;
+  } | null>(null);
+  const acceptedWaitRef = useRef<Set<string>>(new Set());
 
   const applyTranslation = (titulo?: string | null, contenido?: string | null) => {
     setViewingArt((prev) =>
@@ -163,7 +169,12 @@ function FanArtContent() {
     );
   };
 
-  const loadSpecificChapter = async (chapterId: string, langCode: string, obraId?: string) => {
+  const loadSpecificChapter = async (
+    chapterId: string,
+    langCode: string,
+    obraId?: string,
+    opts?: { acceptWait?: boolean }
+  ) => {
     const [{ data: original }, { data }] = await Promise.all([
       supabase
         .from("traducciones")
@@ -199,6 +210,15 @@ function FanArtContent() {
       showAlert(t("common.error"), t("fanart.translation_unavailable"));
       return false;
     }
+
+    const waitKey = `${chapterId}:${langCode}`;
+    if (!opts?.acceptWait && !acceptedWaitRef.current.has(waitKey)) {
+      if (source) applyTranslation(source.titulo, source.contenido);
+      setWaitNotice({ chapterId, langCode, obraId });
+      return false;
+    }
+    acceptedWaitRef.current.add(waitKey);
+    setWaitNotice(null);
 
     setTranslating(true);
     setTranslationProgress({ current: 0, total: 1 });
@@ -251,6 +271,7 @@ function FanArtContent() {
       fetchChapters(viewingArt.id, lang);
     } else {
       setChapters([]);
+      setWaitNotice(null);
     }
   }, [viewingArt?.id, uiLanguage]);
 
@@ -998,10 +1019,10 @@ function FanArtContent() {
                               loadSpecificChapter(newId, currentLang); 
                               document.querySelector('.pcReaderScrollNormal')?.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
-                            style={{ border: "none", outline: "none", background: "transparent", fontWeight: 900, color: ACC.violet, fontSize: "13px", cursor: "pointer", textAlign: "center", textTransform: "uppercase", letterSpacing: "1px" }}
+                            style={{ border: "none", outline: "none", background: "transparent", fontWeight: 900, color: ACC.violet, fontSize: "13px", cursor: "pointer", textAlign: "center", letterSpacing: "0.4px" }}
                           >
                             {chapters.map((c) => (
-                              <option key={c.id} value={c.id}>Capítulo {c.numero_capitulo}</option>
+                              <option key={c.id} value={c.id}>{t("fanart.chapter_n", { n: c.numero_capitulo })}</option>
                             ))}
                           </select>
 
@@ -1163,10 +1184,10 @@ function FanArtContent() {
                       loadSpecificChapter(newId, currentLang); 
                       document.querySelector('.pcReaderScroll')?.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    style={{ border: "none", outline: "none", background: "transparent", fontWeight: 900, color: ACC.violet, fontSize: "14px", cursor: "pointer", textAlign: "center", textTransform: "uppercase", letterSpacing: "1px" }}
+                    style={{ border: "none", outline: "none", background: "transparent", fontWeight: 900, color: ACC.violet, fontSize: "14px", cursor: "pointer", textAlign: "center", letterSpacing: "0.4px" }}
                   >
                     {chapters.map((c) => (
-                      <option key={c.id} value={c.id}>Capítulo {c.numero_capitulo}</option>
+                      <option key={c.id} value={c.id}>{t("fanart.chapter_n", { n: c.numero_capitulo })}</option>
                     ))}
                   </select>
 
@@ -1342,6 +1363,47 @@ function FanArtContent() {
           100% { background-color: transparent; transform: scale(1); }
         }
       `}</style>
+      {waitNotice && viewingArt && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 40000, background: "var(--overlay-heavy)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="fanart-modal-shell"
+            style={{ width: "100%", maxWidth: "460px", background: "var(--bg-card)", borderRadius: "28px", padding: "32px 28px 24px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 35%, var(--color-border))`, boxShadow: "0 24px 60px var(--shadow-card)", textAlign: "center" }}
+          >
+            <p style={{ fontSize: "42px", margin: "0 0 12px" }}>☕</p>
+            <h2 className="tan-font" style={{ margin: "0 0 14px", color: ACC.violet, fontSize: "26px", letterSpacing: "0.03em" }}>
+              {t("fanart.wait_title")}
+            </h2>
+            <p style={{ margin: "0 0 24px", color: "var(--text-main)", lineHeight: 1.65, fontSize: "15px", fontWeight: 600 }}>
+              {t("fanart.wait_body")}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const pending = waitNotice;
+                loadSpecificChapter(pending.chapterId, pending.langCode, pending.obraId, { acceptWait: true });
+              }}
+              style={{ width: "100%", background: FANART_CTA_GRAD, color: "var(--modal-cta-fg)", border: "none", padding: "14px 18px", borderRadius: "14px", fontWeight: 900, fontSize: "15px", cursor: "pointer", boxShadow: FANART_CTA_SHADOW }}
+            >
+              {t("fanart.wait_confirm")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const pending = waitNotice;
+                setCurrentLang("es");
+                setWaitNotice(null);
+                loadSpecificChapter(pending.chapterId, "es", pending.obraId);
+              }}
+              style={{ width: "100%", marginTop: "10px", background: "transparent", color: ACC.cyan, border: "none", padding: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer" }}
+            >
+              {t("fanart.wait_original")}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

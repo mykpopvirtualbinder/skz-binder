@@ -598,8 +598,8 @@
     "multimedia": "Multimedia",
     "no_content": "Vaya, aún no hay contenido en esta categoría.",
     "view_fullscreen": "Ver en grande",
-    "prev_chapter": "Capítulo anterior",
-    "next_chapter": "Siguiente capítulo",
+    "prev_chapter": "이전 챕터",
+    "next_chapter": "다음 챕터",
     "by": "Por",
     "contact_artist": "Contactar artista",
     "community_comments": "Comentarios de la comunidad",
@@ -610,7 +610,12 @@
     "join_artist_subtitle": "Envíanos tus datos y obras para revisión",
     "no_permission_comment": "이 댓글을 삭제할 권한이 없어요.",
     "no_permission_delete": "다른 사람의 작품을 삭제할 권한이 없어요.",
-    "verified_artist": "인증된 아티스트"
+    "verified_artist": "인증된 아티스트",
+    "chapter_n": "챕터 {n}",
+    "wait_title": "잠시만요, 꽤 긴 이야기예요 ✨",
+    "wait_body": "이 팬픽은 꽤 길어서, 번역기가 자연스럽게 다듬는 데 시간이 조금 필요해요. 멈춘 게 아니라 열심히 일하는 중이에요. 편하게 앉아 최애 곡 하나 틀어 두고 기다려 주세요. 금방 준비할게요.",
+    "wait_confirm": "기다릴게요",
+    "wait_original": "스페인어로 읽기"
   },
   "fanzone": {
     "whats_on_mind": "오늘 어떤 생각을 하고 계신가요? @로 멘션해보세요...",

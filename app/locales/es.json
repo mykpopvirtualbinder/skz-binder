@@ -849,7 +849,12 @@
     "join_artist_subtitle": "Envíanos tus datos y obras para revisión",
     "no_permission_comment": "No tienes permisos para borrar este comentario.",
     "no_permission_delete": "No tienes permisos para borrar obras ajenas.",
-    "verified_artist": "Artista verificado"
+    "verified_artist": "Artista verificado",
+    "chapter_n": "Capítulo {n}",
+    "wait_title": "Un momentito, que esto es largo ✨",
+    "wait_body": "Este fanfic es un buen tocho y el traductor necesita un ratito para dejarlo natural en tu idioma. No se ha quedado pillado: está currando. Ponte cómoda, pon tu canción favorita y en un rato lo tienes listo.",
+    "wait_confirm": "De acuerdo, espero",
+    "wait_original": "Leer en español"
   },
   "fanzone": {
     "whats_on_mind": "¿Qué tienes en mente hoy? Menciona escribiendo @...",

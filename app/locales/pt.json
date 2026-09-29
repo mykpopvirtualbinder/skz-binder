@@ -599,7 +599,7 @@
     "no_content": "Vaya, aún no hay contenido en esta categoría.",
     "view_fullscreen": "Ver en grande",
     "prev_chapter": "Capítulo anterior",
-    "next_chapter": "Siguiente capítulo",
+    "next_chapter": "Próximo capítulo",
     "by": "Por",
     "contact_artist": "Contactar artista",
     "community_comments": "Comentarios de la comunidad",
@@ -610,7 +610,12 @@
     "join_artist_subtitle": "Envíanos tus datos y obras para revisión",
     "no_permission_comment": "Não tens permissão para apagar este comentário.",
     "no_permission_delete": "Não tens permissão para apagar obras de outras pessoas.",
-    "verified_artist": "Artista verificado"
+    "verified_artist": "Artista verificado",
+    "chapter_n": "Capítulo {n}",
+    "wait_title": "Um momentinho, isto é comprido ✨",
+    "wait_body": "Este fanfic é bem comprido e o tradutor precisa de um tempinho para ficar natural no teu idioma. Não ficou preso: está a trabalhar. Põe-te confortável, mete a tua música favorita e já vem.",
+    "wait_confirm": "Está bem, espero",
+    "wait_original": "Ler em espanhol"
   },
   "fanzone": {
     "whats_on_mind": "O que você está pensando hoje? Mencione alguém usando @...",

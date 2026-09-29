@@ -598,8 +598,8 @@
     "multimedia": "Multimedia",
     "no_content": "Vaya, aún no hay contenido en esta categoría.",
     "view_fullscreen": "Ver en grande",
-    "prev_chapter": "Capítulo anterior",
-    "next_chapter": "Siguiente capítulo",
+    "prev_chapter": "ตอนก่อนหน้า",
+    "next_chapter": "ตอนถัดไป",
     "by": "Por",
     "contact_artist": "Contactar artista",
     "community_comments": "Comentarios de la comunidad",
@@ -610,7 +610,12 @@
     "join_artist_subtitle": "Envíanos tus datos y obras para revisión",
     "no_permission_comment": "คุณไม่มีสิทธิ์ลบความคิดเห็นนี้",
     "no_permission_delete": "คุณไม่มีสิทธิ์ลบผลงานของผู้อื่น",
-    "verified_artist": "ศิลปินที่ยืนยันแล้ว"
+    "verified_artist": "ศิลปินที่ยืนยันแล้ว",
+    "chapter_n": "ตอนที่ {n}",
+    "wait_title": "รอแป๊บนะ เรื่องนี้ยาวหน่อย ✨",
+    "wait_body": "แฟนฟิคเรื่องนี้ยาวมาก ตัวแปลเลยต้องใช้เวลาให้ภาษาธรรมชาติ ไม่ได้ค้างนะ กำลังทำงานอยู่ นั่งสบาย ๆ เปิดเพลงโปรดไว้ เดี๋ยวก็เสร็จ",
+    "wait_confirm": "โอเค รอได้",
+    "wait_original": "อ่านภาษาสเปน"
   },
   "fanzone": {
     "whats_on_mind": "วันนี้คุณคิดอะไรอยู่? แท็กเพื่อนด้วย @...",

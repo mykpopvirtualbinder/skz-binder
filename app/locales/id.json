@@ -805,7 +805,12 @@
     "join_artist_subtitle": "Kirimkan detail dan karyamu untuk ditinjau",
     "no_permission_comment": "Kamu tidak punya izin untuk menghapus komentar ini.",
     "no_permission_delete": "Kamu tidak punya izin untuk menghapus karya orang lain.",
-    "verified_artist": "Seniman terverifikasi"
+    "verified_artist": "Seniman terverifikasi",
+    "chapter_n": "Bab {n}",
+    "wait_title": "Sebentar ya, ceritanya panjang ✨",
+    "wait_body": "Fanfic ini cukup panjang, jadi penerjemah butuh waktu supaya terasa natural di bahasamu. Bukan macet: sedang bekerja. Duduk nyaman, putar lagu favoritmu, sebentar lagi siap.",
+    "wait_confirm": "Oke, aku tunggu",
+    "wait_original": "Baca dalam bahasa Spanyol"
   },
   "fanzone": {
     "whats_on_mind": "Apa yang ada di pikiranmu hari ini? Sebutkan dengan mengetik @...",

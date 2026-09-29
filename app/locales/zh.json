@@ -598,8 +598,8 @@
     "multimedia": "Multimedia",
     "no_content": "Vaya, aún no hay contenido en esta categoría.",
     "view_fullscreen": "Ver en grande",
-    "prev_chapter": "Capítulo anterior",
-    "next_chapter": "Siguiente capítulo",
+    "prev_chapter": "上一章",
+    "next_chapter": "下一章",
     "by": "Por",
     "contact_artist": "Contactar artista",
     "community_comments": "Comentarios de la comunidad",
@@ -610,7 +610,12 @@
     "join_artist_subtitle": "Envíanos tus datos y obras para revisión",
     "no_permission_comment": "你没有权限删除这条评论。",
     "no_permission_delete": "你没有权限删除他人的作品。",
-    "verified_artist": "认证艺术家"
+    "verified_artist": "认证艺术家",
+    "chapter_n": "第 {n} 章",
+    "wait_title": "稍等一下，这篇有点长 ✨",
+    "wait_body": "这篇同人文很长，翻译需要一点时间才会读起来自然。不是卡住了，是正在努力。坐好，放一首最爱的歌，马上就好。",
+    "wait_confirm": "好，我等",
+    "wait_original": "用西语阅读"
   },
   "fanzone": {
     "whats_on_mind": "今天在想什么？使用 @ 来提到某人...",

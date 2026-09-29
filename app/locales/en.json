@@ -849,7 +849,12 @@
     "join_artist_subtitle": "Send us your details and works for review",
     "no_permission_comment": "You don't have permission to delete this comment.",
     "no_permission_delete": "You don't have permission to delete someone else's work.",
-    "verified_artist": "Verified artist"
+    "verified_artist": "Verified artist",
+    "chapter_n": "Chapter {n}",
+    "wait_title": "One sec — this one's a long one ✨",
+    "wait_body": "This story is a chunky one, and the translator needs a little while to make it sound good in your language. It hasn't frozen: it's working. Get comfy, put on your favorite song, and we'll have it ready for you.",
+    "wait_confirm": "I'll wait — let's go",
+    "wait_original": "Read in Spanish"
   },
   "fanzone": {
     "whats_on_mind": "What's on your mind today? Mention by typing @...",

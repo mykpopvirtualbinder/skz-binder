@@ -805,7 +805,12 @@
     "join_artist_subtitle": "審査のためにあなたの詳細と作品をお送りください",
     "no_permission_comment": "このコメントを削除する権限がありません。",
     "no_permission_delete": "他人の作品を削除する権限がありません。",
-    "verified_artist": "認証済みアーティスト"
+    "verified_artist": "認証済みアーティスト",
+    "chapter_n": "第{n}話",
+    "wait_title": "ちょっと待ってね。長めの話だよ ✨",
+    "wait_body": "このファンフィックはかなり長いので、翻訳が自然になるまで少し時間がかかります。固まっているわけではなく、せっせと作業中です。好きな曲をかけて、ゆっくり待っていてください。すぐ用意します。",
+    "wait_confirm": "待ってるね",
+    "wait_original": "スペイン語で読む"
   },
   "fanzone": {
     "whats_on_mind": "今日は何を考えていますか？「@」を入力してメンション...",

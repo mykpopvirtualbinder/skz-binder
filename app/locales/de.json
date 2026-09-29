@@ -805,7 +805,12 @@
     "join_artist_subtitle": "Sende uns deine Daten und Werke zur Prüfung",
     "no_permission_comment": "Du darfst diesen Kommentar nicht löschen.",
     "no_permission_delete": "Du darfst die Werke anderer nicht löschen.",
-    "verified_artist": "Verifizierte:r Künstler:in"
+    "verified_artist": "Verifizierte:r Künstler:in",
+    "chapter_n": "Kapitel {n}",
+    "wait_title": "Einen Moment — das hier ist lang ✨",
+    "wait_body": "Diese Fanfic ist ganz schön lang, und der Übersetzer braucht einen Moment, damit sie sich in deiner Sprache rund anhört. Er hängt nicht: er arbeitet. Mach es dir gemütlich, hör dein Lieblingslied, gleich ist es soweit.",
+    "wait_confirm": "Alles klar, ich warte",
+    "wait_original": "Auf Spanisch lesen"
   },
   "fanzone": {
     "whats_on_mind": "Was hast du heute im Kopf? Erwähne jemanden, indem du @ tippst...",
