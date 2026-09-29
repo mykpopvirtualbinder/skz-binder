@@ -810,7 +810,10 @@
     "wait_title": "Un attimo, è una storia lunga ✨",
     "wait_body": "Questa fanfic è corposa e il traduttore ha bisogno di un po' di tempo per farla suonare naturale nella tua lingua. Non si è bloccato: sta lavorando. Mettiti comoda, metti la tua canzone preferita e tra poco è pronta.",
     "wait_confirm": "Va bene, aspetto",
-    "wait_original": "Leggi in spagnolo"
+    "wait_original": "Leggi in spagnolo",
+    "wait_self": "Puoi anche copiare l'originale e incollarlo nel tuo traduttore (Papago, Google, DeepL…). Nessun download, per proteggere i diritti di chi ha scritto la storia.",
+    "wait_copy": "Copia l'originale",
+    "wait_copied": "Copiato! Incollalo dove vuoi."
   },
   "fanzone": {
     "whats_on_mind": "Cosa ti passa per la testa oggi? Menziona digitando @...",

@@ -156,6 +156,8 @@ function FanArtContent() {
     obraId?: string;
   } | null>(null);
   const acceptedWaitRef = useRef<Set<string>>(new Set());
+  const originalChapterRef = useRef({ title: "", body: "" });
+  const [copiedOriginal, setCopiedOriginal] = useState(false);
 
   const applyTranslation = (titulo?: string | null, contenido?: string | null) => {
     setViewingArt((prev) =>
@@ -191,6 +193,12 @@ function FanArtContent() {
     ]);
 
     const source = original || data;
+    if (source?.titulo || source?.contenido) {
+      originalChapterRef.current = {
+        title: String(source.titulo || ""),
+        body: String(source.contenido || ""),
+      };
+    }
     if (langCode === "es") {
       if (source) applyTranslation(source.titulo, source.contenido);
       return !!source;
@@ -340,6 +348,21 @@ function FanArtContent() {
       return;
     }
     await loadSpecificChapter(chapterId, newLang);
+  };
+
+  const copyOriginalText = async () => {
+    const text = [originalChapterRef.current.title, originalChapterRef.current.body]
+      .filter(Boolean)
+      .join("\n\n")
+      .trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedOriginal(true);
+      window.setTimeout(() => setCopiedOriginal(false), 2400);
+    } catch {
+      /* clipboard blocked */
+    }
   };
 
   const categoryLabel = (dbCategory: string) => {
@@ -851,7 +874,7 @@ function FanArtContent() {
               boxShadow: `0 10px 24px color-mix(in srgb, ${ACC.violet} 25%, transparent)`,
             }}
           >
-            <Plus size={20} strokeWidth={3} /> {t('fanart.upload_art')}
+            <Plus size={20} strokeWidth={3} /> {t('fanart.btn_upload')}
           </button>
         </div>
 
@@ -925,7 +948,7 @@ function FanArtContent() {
                   {art.thumbnail_url ? (
                     <img src={art.thumbnail_url} alt={art.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} className="art-img" />
                   ) : art.content_text ? (
-                    <div style={{ textAlign: 'center', color: ACC.cyan }}><BookOpen size={48} strokeWidth={2} /><p style={{ fontSize: '11px', fontWeight: 900, marginTop: 5, color: ACC.cyan }}>{t('fanart.reading')}</p></div>
+                    <div style={{ textAlign: 'center', color: ACC.cyan }}><BookOpen size={48} strokeWidth={2} /><p style={{ fontSize: '11px', fontWeight: 900, marginTop: 5, color: ACC.cyan }}>{t('fanart.card.reading')}</p></div>
                   ) : art.media_type === 'video' ? (
                     <div style={{ textAlign: 'center', color: ACC.orange }}><Film size={48} strokeWidth={2} /><p style={{ fontSize: '11px', fontWeight: 900, marginTop: 5, color: ACC.orange }}>{t('fanart.multimedia')}</p></div>
                   ) : art.media_type === 'pdf' ? (
@@ -988,7 +1011,7 @@ function FanArtContent() {
               <div style={{ width: "100%", background: viewingArt.content_text ? "var(--bg-main)" : "var(--text-main)", borderRadius: "15px", overflow: "hidden", display: "flex", justifyContent: "center", position: "relative" }} onContextMenu={(e) => e.preventDefault()}>
                 
                 <button type="button" onClick={openFullscreen} style={{ position: "absolute", top: "15px", right: "15px", background: `color-mix(in srgb, ${ACC.violet} 22%, var(--overlay-strong))`, color: ACC.cyan, border: `1px solid color-mix(in srgb, ${ACC.cyan} 45%, transparent)`, borderRadius: "10px", padding: "8px", cursor: "pointer", zIndex: 10, backdropFilter: "blur(4px)", display: "flex", alignItems: "center", gap: "5px", fontWeight: 800, fontSize: "12px", transition: "0.2s" }}>
-                  <Maximize2 size={16} strokeWidth={2.2} /> {t('fanart.view_fullscreen')}
+                  <Maximize2 size={16} strokeWidth={2.2} /> {t('fanart.lightbox.view_large')}
                 </button>
 
                 {viewingArt.content_text ? (
@@ -1109,7 +1132,7 @@ function FanArtContent() {
                       {viewingArt.title}
                     </h2>
                     <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: "5px 0 0 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                      {t('fanart.by')} {viewingArt.artist_name}
+                      {t('fanart.lightbox.by_author')} {viewingArt.artist_name}
                       {viewingArt.author_badge && (
                         <img src={viewingArt.author_badge} alt="Medalla" style={{ width: "22px", height: "22px", objectFit: "contain" }} />
                       )}
@@ -1117,23 +1140,23 @@ function FanArtContent() {
                   </div>
                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                     {viewingArt.user_id && (
-                      <button type="button" onClick={() => window.location.href = `/me?u=${viewingArt.user_id}`} style={{ background: FANART_CTA_GRAD, color: "var(--modal-cta-fg)", padding: "10px 16px", borderRadius: "12px", fontWeight: 900, border: "none", cursor: "pointer", boxShadow: FANART_CTA_SHADOW }}>{t('fanart.contact_artist')}</button>
+                      <button type="button" onClick={() => window.location.href = `/me?u=${viewingArt.user_id}`} style={{ background: FANART_CTA_GRAD, color: "var(--modal-cta-fg)", padding: "10px 16px", borderRadius: "12px", fontWeight: 900, border: "none", cursor: "pointer", boxShadow: FANART_CTA_SHADOW }}>{t('fanart.lightbox.btn_contact')}</button>
                     )}
                     <button
                       type="button"
                       onClick={() => enviarReporteObra(viewingArt.id, viewingArt.user_id)}
                       style={{ background: "var(--bg-main)", color: ACC.pink, padding: "10px 16px", borderRadius: "12px", fontWeight: 900, border: `1px solid color-mix(in srgb, ${ACC.pink} 45%, var(--color-border))`, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
                     >
-                      <Flag size={18} /> {t('common.report')}
+                      <Flag size={18} /> {t('fanart.lightbox.btn_report')}
                     </button>
                     {(activeUser as any)?.email === "info@mykpopbinder.com" && (
-                      <button onClick={() => deleteFanArtPost(viewingArt.id)} style={{ background: "var(--text-main)", color: "var(--bg-main)", padding: "10px 16px", borderRadius: "12px", fontWeight: 900, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}><AlertTriangle size={18} /> ELIMINAR OBRA</button>
+                      <button onClick={() => deleteFanArtPost(viewingArt.id)} style={{ background: "var(--text-main)", color: "var(--bg-main)", padding: "10px 16px", borderRadius: "12px", fontWeight: 900, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}><AlertTriangle size={18} /> {t("fanart.lightbox.btn_delete_admin")}</button>
                     )}
                   </div>
                 </div>
                 <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "20px", paddingBottom: "80px" }}>
-                  <p style={{ fontSize: "12px", fontWeight: 900, color: ACC.pink, marginBottom: "15px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{t('fanart.community_comments')}</p>
-                  {comments.length === 0 && <p style={{ fontSize: "13px", color: "var(--text-muted)", margin: 0 }}>{t('fanart.no_comments')}</p>}
+                  <p style={{ fontSize: "12px", fontWeight: 900, color: ACC.pink, marginBottom: "15px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{t('fanart.lightbox.comments_title')}</p>
+                  {comments.length === 0 && <p style={{ fontSize: "13px", color: "var(--text-muted)", margin: 0 }}>{t('fanart.lightbox.empty_comments')}</p>}
                   {renderComments(null)}
                 </div>
               </div>
@@ -1141,11 +1164,11 @@ function FanArtContent() {
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--bg-card)", padding: "20px", borderTop: "1px solid var(--color-border)", boxShadow: "0 -10px 20px var(--shadow-card)" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                 {replyingTo && (
-                  <div style={{ fontSize: "11px", color: ACC.pink, fontWeight: 800, display: "flex", justifyContent: "space-between" }}><span>{t('fanart.replying_to')}</span><button type="button" onClick={() => { setReplyingTo(null); setNewComment(""); }} style={{ background: "none", border: "none", color: "var(--state-danger-fg)", cursor: "pointer" }}>{t('common.cancel')}</button></div>
+                  <div style={{ fontSize: "11px", color: ACC.pink, fontWeight: 800, display: "flex", justifyContent: "space-between" }}><span>{t('fanart.lightbox.replying_to')}</span><button type="button" onClick={() => { setReplyingTo(null); setNewComment(""); }} style={{ background: "none", border: "none", color: "var(--state-danger-fg)", cursor: "pointer" }}>{t('fanart.lightbox.btn_cancel')}</button></div>
                 )}
                 <div style={{ display: "flex", gap: "10px" }}>
-                  <input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={activeUser?.id ? t("fanart.comment_placeholder") : t("fanart.lightbox.placeholder_logged_out")} disabled={!activeUser?.id} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 28%, var(--color-border))`, outline: "none", backgroundColor: activeUser?.id ? "var(--bg-main)" : "var(--bg-soft)", color: "var(--text-main)" }} />
-                  <button type="button" onClick={postComment} disabled={!activeUser?.id || !newComment.trim()} style={{ background: (!activeUser?.id || !newComment.trim()) ? "var(--bg-soft)" : FANART_CTA_GRAD, color: (!activeUser?.id || !newComment.trim()) ? "var(--text-muted)" : "var(--modal-cta-fg)", border: "none", padding: "0 25px", borderRadius: "12px", cursor: "pointer", fontWeight: 800, opacity: (!activeUser?.id || !newComment.trim()) ? 0.5 : 1, boxShadow: (!activeUser?.id || !newComment.trim()) ? "none" : FANART_CTA_SHADOW }}>{t('common.send')}</button>
+                  <input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder={activeUser?.id ? t("fanart.lightbox.placeholder_logged_in") : t("fanart.lightbox.placeholder_logged_out")} disabled={!activeUser?.id} style={{ flex: 1, padding: "14px", borderRadius: "12px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 28%, var(--color-border))`, outline: "none", backgroundColor: activeUser?.id ? "var(--bg-main)" : "var(--bg-soft)", color: "var(--text-main)" }} />
+                  <button type="button" onClick={postComment} disabled={!activeUser?.id || !newComment.trim()} style={{ background: (!activeUser?.id || !newComment.trim()) ? "var(--bg-soft)" : FANART_CTA_GRAD, color: (!activeUser?.id || !newComment.trim()) ? "var(--text-muted)" : "var(--modal-cta-fg)", border: "none", padding: "0 25px", borderRadius: "12px", cursor: "pointer", fontWeight: 800, opacity: (!activeUser?.id || !newComment.trim()) ? 0.5 : 1, boxShadow: (!activeUser?.id || !newComment.trim()) ? "none" : FANART_CTA_SHADOW }}>{t('fanart.lightbox.btn_send')}</button>
                 </div>
               </div>
             </div>
@@ -1370,14 +1393,17 @@ function FanArtContent() {
         >
           <div
             className="fanart-modal-shell"
-            style={{ width: "100%", maxWidth: "460px", background: "var(--bg-card)", borderRadius: "28px", padding: "32px 28px 24px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 35%, var(--color-border))`, boxShadow: "0 24px 60px var(--shadow-card)", textAlign: "center" }}
+            style={{ width: "100%", maxWidth: "500px", background: "var(--bg-card)", borderRadius: "28px", padding: "32px 28px 24px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 35%, var(--color-border))`, boxShadow: "0 24px 60px var(--shadow-card)", textAlign: "center" }}
           >
             <p style={{ fontSize: "42px", margin: "0 0 12px" }}>☕</p>
             <h2 className="tan-font" style={{ margin: "0 0 14px", color: ACC.violet, fontSize: "26px", letterSpacing: "0.03em" }}>
               {t("fanart.wait_title")}
             </h2>
-            <p style={{ margin: "0 0 24px", color: "var(--text-main)", lineHeight: 1.65, fontSize: "15px", fontWeight: 600 }}>
+            <p style={{ margin: "0 0 14px", color: "var(--text-main)", lineHeight: 1.65, fontSize: "15px", fontWeight: 600 }}>
               {t("fanart.wait_body")}
+            </p>
+            <p style={{ margin: "0 0 22px", color: "var(--text-muted)", lineHeight: 1.6, fontSize: "13px", fontWeight: 600 }}>
+              {t("fanart.wait_self")}
             </p>
             <button
               type="button"
@@ -1391,13 +1417,20 @@ function FanArtContent() {
             </button>
             <button
               type="button"
+              onClick={copyOriginalText}
+              style={{ width: "100%", marginTop: "10px", background: "var(--bg-soft)", color: ACC.violet, border: `1px solid color-mix(in srgb, ${ACC.violet} 30%, var(--color-border))`, padding: "12px 18px", borderRadius: "14px", fontWeight: 800, fontSize: "14px", cursor: "pointer" }}
+            >
+              {copiedOriginal ? t("fanart.wait_copied") : t("fanart.wait_copy")}
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 const pending = waitNotice;
                 setCurrentLang("es");
                 setWaitNotice(null);
                 loadSpecificChapter(pending.chapterId, "es", pending.obraId);
               }}
-              style={{ width: "100%", marginTop: "10px", background: "transparent", color: ACC.cyan, border: "none", padding: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer" }}
+              style={{ width: "100%", marginTop: "8px", background: "transparent", color: ACC.cyan, border: "none", padding: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer" }}
             >
               {t("fanart.wait_original")}
             </button>

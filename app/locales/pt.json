@@ -615,7 +615,10 @@
     "wait_title": "Um momentinho, isto é comprido ✨",
     "wait_body": "Este fanfic é bem comprido e o tradutor precisa de um tempinho para ficar natural no teu idioma. Não ficou preso: está a trabalhar. Põe-te confortável, mete a tua música favorita e já vem.",
     "wait_confirm": "Está bem, espero",
-    "wait_original": "Ler em espanhol"
+    "wait_original": "Ler em espanhol",
+    "wait_self": "Se preferires, copia o original e cola no teu tradutor (Papago, Google, DeepL…). Não há download, para proteger os direitos de quem escreveu a história.",
+    "wait_copy": "Copiar o original",
+    "wait_copied": "Copiado! Cola onde quiseres."
   },
   "fanzone": {
     "whats_on_mind": "O que você está pensando hoje? Mencione alguém usando @...",

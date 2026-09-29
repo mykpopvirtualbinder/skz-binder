@@ -810,7 +810,10 @@
     "wait_title": "Sebentar ya, ceritanya panjang ✨",
     "wait_body": "Fanfic ini cukup panjang, jadi penerjemah butuh waktu supaya terasa natural di bahasamu. Bukan macet: sedang bekerja. Duduk nyaman, putar lagu favoritmu, sebentar lagi siap.",
     "wait_confirm": "Oke, aku tunggu",
-    "wait_original": "Baca dalam bahasa Spanyol"
+    "wait_original": "Baca dalam bahasa Spanyol",
+    "wait_self": "Boleh juga salin teks asli lalu tempel di penerjemah sendiri (Papago, Google, DeepL…). Kami tidak menyediakan unduhan, demi hak penulis.",
+    "wait_copy": "Salin teks asli",
+    "wait_copied": "Tersalin! Tempel di mana pun kamu mau."
   },
   "fanzone": {
     "whats_on_mind": "Apa yang ada di pikiranmu hari ini? Sebutkan dengan mengetik @...",

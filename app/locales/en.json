@@ -854,7 +854,10 @@
     "wait_title": "One sec — this one's a long one ✨",
     "wait_body": "This story is a chunky one, and the translator needs a little while to make it sound good in your language. It hasn't frozen: it's working. Get comfy, put on your favorite song, and we'll have it ready for you.",
     "wait_confirm": "I'll wait — let's go",
-    "wait_original": "Read in Spanish"
+    "wait_original": "Read in Spanish",
+    "wait_self": "Prefer to DIY? Copy the original and paste it into your own translator (Papago, Google, DeepL…). We don't offer downloads, to protect the author's rights.",
+    "wait_copy": "Copy the original",
+    "wait_copied": "Copied! Paste it wherever you like."
   },
   "fanzone": {
     "whats_on_mind": "What's on your mind today? Mention by typing @...",

@@ -810,7 +810,10 @@
     "wait_title": "Un instant, c'est un long chapitre ✨",
     "wait_body": "Ce fanfic est costaud, et le traducteur a besoin d'un petit moment pour qu'il sonne juste dans ta langue. Il n'est pas bloqué : il bosse. Installe-toi, mets ta chanson préférée, et ce sera prêt.",
     "wait_confirm": "D'accord, j'attends",
-    "wait_original": "Lire en espagnol"
+    "wait_original": "Lire en espagnol",
+    "wait_self": "Tu peux aussi copier l'original et le coller dans ton traducteur (Papago, Google, DeepL…). Pas de téléchargement, pour protéger les droits de l'autrice ou de l'auteur.",
+    "wait_copy": "Copier l'original",
+    "wait_copied": "Copié ! Colle-le où tu veux."
   },
   "fanzone": {
     "whats_on_mind": "Qu'as-tu en tête aujourd'hui ? Mentionne en tapant @...",

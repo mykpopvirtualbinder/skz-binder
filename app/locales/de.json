@@ -810,7 +810,10 @@
     "wait_title": "Einen Moment — das hier ist lang ✨",
     "wait_body": "Diese Fanfic ist ganz schön lang, und der Übersetzer braucht einen Moment, damit sie sich in deiner Sprache rund anhört. Er hängt nicht: er arbeitet. Mach es dir gemütlich, hör dein Lieblingslied, gleich ist es soweit.",
     "wait_confirm": "Alles klar, ich warte",
-    "wait_original": "Auf Spanisch lesen"
+    "wait_original": "Auf Spanisch lesen",
+    "wait_self": "Lieber selbst übersetzen? Kopiere den Originaltext und füge ihn in Papago, Google oder DeepL ein. Es gibt keinen Download, um die Rechte der Autorin zu schützen.",
+    "wait_copy": "Original kopieren",
+    "wait_copied": "Kopiert! Füge es ein, wo du magst."
   },
   "fanzone": {
     "whats_on_mind": "Was hast du heute im Kopf? Erwähne jemanden, indem du @ tippst...",

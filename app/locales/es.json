@@ -854,7 +854,10 @@
     "wait_title": "Un momentito, que esto es largo ✨",
     "wait_body": "Este fanfic es un buen tocho y el traductor necesita un ratito para dejarlo natural en tu idioma. No se ha quedado pillado: está currando. Ponte cómoda, pon tu canción favorita y en un rato lo tienes listo.",
     "wait_confirm": "De acuerdo, espero",
-    "wait_original": "Leer en español"
+    "wait_original": "Leer en español",
+    "wait_self": "Si prefieres, copia el original y pégalo en tu traductor (Papago, Google, DeepL…). No damos descarga para cuidar los derechos de quien escribió la historia.",
+    "wait_copy": "Copiar el original",
+    "wait_copied": "¡Copiado! Pégalo donde quieras."
   },
   "fanzone": {
     "whats_on_mind": "¿Qué tienes en mente hoy? Menciona escribiendo @...",
