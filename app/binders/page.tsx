@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 
 import Footer from "../components/footer";
-import { Plus, ShoppingBag, Loader2, BookText, Camera, ChevronLeft, Layers } from "lucide-react";
+import { Plus, ShoppingBag, Loader2, BookText, Camera, ChevronLeft, Layers, BookOpen } from "lucide-react";
 import VirtualBinder from "../components/VirtualBinder";
 import BinderShelfThumb3D from "./BinderShelfThumb3D";
 import { useGlobal } from "../context/GlobalContext";
@@ -23,6 +23,7 @@ type BinderRow = {
   color?: string;
   cover_url?: string;
   back_cover_url?: string | null;
+  inside_front_url?: string | null;
   inside_back_url?: string | null;
 };
 
@@ -56,6 +57,7 @@ export default function BindersPage() {
   const [previewColor, setPreviewColor] = useState(""); 
   const [previewCoverUrl, setPreviewCoverUrl] = useState<string | null>(null);
   const [previewBackCoverUrl, setPreviewBackCoverUrl] = useState<string | null>(null);
+  const [previewInsideFrontUrl, setPreviewInsideFrontUrl] = useState<string | null>(null);
   const [previewInsideBackUrl, setPreviewInsideBackUrl] = useState<string | null>(null); 
   const [previewItems, setPreviewItems] = useState<any[]>([]);
   const [previewingId, setPreviewingId] = useState<number | null>(null);
@@ -101,7 +103,7 @@ export default function BindersPage() {
 
     let res = await supabase
       .from("binders")
-      .select("id, title, user_id, color, cover_url, back_cover_url, inside_back_url")
+      .select("id, title, user_id, color, cover_url, back_cover_url, inside_front_url, inside_back_url")
       .eq("user_id", userData.user.id)
       .order("id", { ascending: true });
     if (res.error) {
@@ -122,6 +124,7 @@ export default function BindersPage() {
           ...row,
           cover_url: faces.coverUrl || row.cover_url,
           back_cover_url: faces.backCoverUrl || null,
+          inside_front_url: faces.insideFrontUrl || null,
           inside_back_url: faces.insideBackUrl || null,
         };
       });
@@ -143,16 +146,17 @@ export default function BindersPage() {
     loadBinders();
   }, [loadBinders]);
 
-  const updateBinder = async (id: number, updates: { title?: string; color?: string; cover_url?: string; back_cover_url?: string; inside_back_url?: string }) => {
+  const updateBinder = async (id: number, updates: { title?: string; color?: string; cover_url?: string; back_cover_url?: string; inside_front_url?: string; inside_back_url?: string }) => {
     const { error } = await supabase
       .from("binders")
       .update(updates)
       .eq("id", id);
 
-    if (error && (updates.back_cover_url || updates.inside_back_url) && /column/i.test(error.message)) {
+    if (error && (updates.back_cover_url || updates.inside_front_url || updates.inside_back_url) && /column/i.test(error.message)) {
       writeBinderFacesLocal(id, {
         coverUrl: updates.cover_url,
         backCoverUrl: updates.back_cover_url,
+        insideFrontUrl: updates.inside_front_url,
         insideBackUrl: updates.inside_back_url,
       });
       setBinders(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
@@ -167,6 +171,7 @@ export default function BindersPage() {
       writeBinderFacesLocal(id, {
         coverUrl: updates.cover_url,
         backCoverUrl: updates.back_cover_url,
+        insideFrontUrl: updates.inside_front_url,
         insideBackUrl: updates.inside_back_url,
       });
       setBinders(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
@@ -178,7 +183,7 @@ export default function BindersPage() {
   const handleFileUpload = async (
     binderId: number,
     event: React.ChangeEvent<HTMLInputElement>,
-    face: "cover_url" | "back_cover_url" | "inside_back_url" = "cover_url"
+    face: "cover_url" | "back_cover_url" | "inside_front_url" | "inside_back_url" = "cover_url"
   ) => {
     const file = event.target.files?.[0];
     if (!file || !userId) return;
@@ -273,7 +278,7 @@ export default function BindersPage() {
     }
   };
 
-  const handleOpenPreview = async (binderId: number, title: string, color: string, coverUrl?: string, backCoverUrl?: string | null, insideBackUrl?: string | null) => {
+  const handleOpenPreview = async (binderId: number, title: string, color: string, coverUrl?: string, backCoverUrl?: string | null, insideBackUrl?: string | null, insideFrontUrl?: string | null) => {
     setPreviewingId(binderId);
     
     try {
@@ -291,6 +296,7 @@ export default function BindersPage() {
          setPreviewColor(color || "var(--color-primary)"); 
          setPreviewCoverUrl(coverUrl || null);
          setPreviewBackCoverUrl(backCoverUrl || null);
+         setPreviewInsideFrontUrl(insideFrontUrl || null);
          setPreviewInsideBackUrl(insideBackUrl || null); 
          setPreviewBinderOpen(true);
          return;
@@ -365,6 +371,7 @@ export default function BindersPage() {
       setPreviewColor(color || "var(--color-primary)"); 
       setPreviewCoverUrl(coverUrl || null);
       setPreviewBackCoverUrl(backCoverUrl || null);
+      setPreviewInsideFrontUrl(insideFrontUrl || null);
       setPreviewInsideBackUrl(insideBackUrl || null);
       setPreviewBinderOpen(true);
       
@@ -507,6 +514,7 @@ export default function BindersPage() {
               <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8, alignItems: "center", width: "100%", flexWrap: "wrap" }}>
                 {([
                   { face: "cover_url" as const, title: t("binder_shelf.cover_front"), Icon: Camera },
+                  { face: "inside_front_url" as const, title: t("binder_shelf.cover_inside_front"), Icon: BookOpen },
                   { face: "back_cover_url" as const, title: t("binder_shelf.cover_back"), Icon: BookText },
                   { face: "inside_back_url" as const, title: t("binder_shelf.cover_inside_back"), Icon: Layers },
                 ]).map(({ face, title, Icon }) => (
@@ -569,7 +577,7 @@ export default function BindersPage() {
               <button
                 onClick={(e) => { 
                   e.stopPropagation(); 
-                  handleOpenPreview(b.id, b.title || "", b.color || "", b.cover_url, b.back_cover_url, b.inside_back_url);
+                  handleOpenPreview(b.id, b.title || "", b.color || "", b.cover_url, b.back_cover_url, b.inside_back_url, b.inside_front_url);
                 }}
                 disabled={previewingId === b.id}
                 style={{ 
@@ -704,6 +712,7 @@ export default function BindersPage() {
           binderColor={previewColor} 
           coverUrl={previewCoverUrl}
           backCoverUrl={previewBackCoverUrl}
+          insideFrontUrl={previewInsideFrontUrl}
           insideBackUrl={previewInsideBackUrl}
           pagesData={previewItems} 
           onClose={() => setPreviewBinderOpen(false)} 

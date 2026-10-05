@@ -425,6 +425,7 @@
     "tip_drop_page": "✨ Ahora toca el hueco donde quieras colocarla.",
     "actions": {
       "add_separator": "Añadir Separador",
+      "add_page": "Añadir página",
       "delete": "Borrar",
       "cancel": "Cancelar",
       "undo": "Deshacer",
@@ -641,6 +642,7 @@
     "vip_cover_alert_title": "Ventaja VIP 👑",
     "vip_cover_alert_msg": "Subir portadas con foto es exclusivo para usuarios Premium.",
     "cover_front": "Portada",
+    "cover_inside_front": "Interior de la portada",
     "cover_back": "Contraportada",
     "cover_inside_back": "Interior de la contraportada",
     "custom_pc_name": "PC Personalizada",

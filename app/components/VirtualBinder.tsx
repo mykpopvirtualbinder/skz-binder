@@ -29,6 +29,7 @@ interface VirtualBinderProps {
   binderColor?: string; 
   coverUrl?: string | null;
   backCoverUrl?: string | null;
+  insideFrontUrl?: string | null;
   insideBackUrl?: string | null;
   pagesData: { layoutType: LayoutType; slots: (Photocard | null)[], bgColor?: string }[]; 
   onClose: () => void;
@@ -88,7 +89,7 @@ const Page = forwardRef<HTMLDivElement, {
 );
 Page.displayName = 'Page';
 
-export default function VirtualBinder({ binderName, binderColor = "var(--color-primary)", coverUrl, backCoverUrl, insideBackUrl, pagesData, onClose }: VirtualBinderProps) {
+export default function VirtualBinder({ binderName, binderColor = "var(--color-primary)", coverUrl, backCoverUrl, insideFrontUrl, insideBackUrl, pagesData, onClose }: VirtualBinderProps) {
   const { t } = useGlobal(); // 👈 Extraemos el traductor
   const bookRef = React.useRef<any>(null);
   const [viewMode, setViewMode] = React.useState<"flip" | "spin">("flip");
@@ -307,7 +308,10 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
               </div>
             </Page>
 
-            <Page key="cover-inside" isCover={false}>
+            <Page key="cover-inside" isCover={false} coverUrl={insideFrontUrl || undefined} pageBgColor={insideFrontUrl ? "transparent" : undefined}>
+              {insideFrontUrl ? (
+                <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${insideFrontUrl}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
+              ) : (
               <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <div style={{ 
                   textAlign: "center", padding: "30px 20px", backgroundColor: "var(--bg-card)", 
@@ -318,6 +322,7 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
                   <p style={{ color: "var(--text-muted)", fontWeight: 900, fontSize: "12px" }}>{totalCards} {t('virtual_binder.photocards')}</p>
                 </div>
               </div>
+              )}
             </Page>
 
             {/* 🛑 RENDER DE PÁGINAS (Página DOBLE: Anverso y Reverso) 🛑 */}

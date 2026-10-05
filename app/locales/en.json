@@ -426,6 +426,7 @@
     "tip_drop_page": "✨ Now tap the empty space where you want to place it.",
     "actions": {
       "add_separator": "Add Separator",
+      "add_page": "Add page",
       "delete": "Delete",
       "cancel": "Cancel",
       "undo": "Undo",
@@ -640,6 +641,7 @@
     "vip_cover_alert_title": "VIP Advantage 👑",
     "vip_cover_alert_msg": "Uploading cover photos is exclusive to Premium users.",
     "cover_front": "Front cover",
+    "cover_inside_front": "Inside front cover",
     "cover_back": "Back cover",
     "cover_inside_back": "Inside back cover",
     "custom_pc_name": "Custom PC",

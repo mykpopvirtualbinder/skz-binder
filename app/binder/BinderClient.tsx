@@ -10,7 +10,7 @@ import { withWtsKoinsMark } from "@/lib/wts-koins-mark";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { 
   Trash2, ChevronLeft, ChevronRight, Users, Disc3, PenLine, Mic2, User, Layers, 
-    SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart 
+    SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart, Plus 
 } from "lucide-react";
 import WtsListingModal from "../library/WtsListingModal"
 import WttListingModal from "../library/WttListingModal"
@@ -1764,6 +1764,7 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const [binderColor, setBinderColor] = useState<string>("var(--color-primary)");
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [backCoverUrl, setBackCoverUrl] = useState<string | null>(null);
+  const [insideFrontUrl, setInsideFrontUrl] = useState<string | null>(null);
   const [insideBackUrl, setInsideBackUrl] = useState<string | null>(null); 
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -5816,7 +5817,7 @@ let bInfo: any = null;
 {
   const withFaces = await supabase
     .from("binders")
-    .select("title, color, cover_url, back_cover_url, inside_back_url")
+    .select("title, color, cover_url, back_cover_url, inside_front_url, inside_back_url")
     .eq("id", bld)
     .single();
   if (withFaces.error) {
@@ -5838,10 +5839,12 @@ if (bInfo) {
     id: bld,
     cover_url: bInfo.cover_url,
     back_cover_url: bInfo.back_cover_url,
+    inside_front_url: bInfo.inside_front_url,
     inside_back_url: bInfo.inside_back_url,
   });
   setCoverUrl(faces.coverUrl || null);
   setBackCoverUrl(faces.backCoverUrl || null);
+  setInsideFrontUrl(faces.insideFrontUrl || null);
   setInsideBackUrl(faces.insideBackUrl || null);
 }
   }
@@ -7596,87 +7599,80 @@ const saved = await saveCustomToDb(
   pushModalUndoSnapshot,
  ]
 );
-// ✅ Eliminar PC del slot (deja el hueco vacío) + persiste en DB
+// ✅ Eliminar PC del slot (deja el hueco vacío) + persiste el layout actual
 const clearSlot = useCallback(
   async (slotIndex: number) => {
     if (!pageId) return;
 
-    // Optimista UI: borra asignación y estados del slot
-    setSlotItems((prev) => {
-      const next = { ...prev };
-      delete (next as any)[slotIndex];
-      return next;
-    });
-    setSlotRot((prev) => {
-      const next = { ...prev };
-      delete (next as any)[slotIndex];
-      return next;
-    });
-    setSlotFlipH((prev) => {
-      const next = { ...prev };
-      delete (next as any)[slotIndex];
-      return next;
-    });
-    setSlotFace((prev) => {
-      const next = { ...prev };
-      delete (next as any)[slotIndex];
-      return next;
-    });
-    setSlotCustom((prev) => {
-      const next: Record<number, SlotCustom> = { ...prev };
-      delete (next as any)[slotIndex];
-      return next;
-    });   // Si ese slot estaba abierto en modal, cerramos
+    const assigned = slotItems[slotIndex];
+    const nextItems = { ...slotItems };
+    delete (nextItems as any)[slotIndex];
+    const nextRot = { ...slotRot };
+    delete (nextRot as any)[slotIndex];
+    const nextFlip = { ...slotFlipH };
+    delete (nextFlip as any)[slotIndex];
+    const nextFace = { ...slotFace };
+    delete (nextFace as any)[slotIndex];
+    const nextCustom: Record<number, SlotCustom> = { ...slotCustom };
+    delete (nextCustom as any)[slotIndex];
+
+    setSlotItems(nextItems);
+    setSlotRot(nextRot);
+    setSlotFlipH(nextFlip);
+    setSlotFace(nextFace);
+    setSlotCustom(nextCustom);
     if (modalSlotIndex === slotIndex) closeItemModal();
+    rebuildThumbsForPage(pageId, nextItems, nextRot, nextFlip);
 
-    // DB: elimina el registro del slot (queda vacío)
-    const del = await supabase
-      .from("page_slots")
-      .delete()
-      .eq("page_id", pageId)
-      .eq("slot_index", slotIndex);
+    const state = new Map<
+      number,
+      { item: SlotItem | null; rot: number; flip: boolean; face: "front" | "back" }
+    >();
+    for (const n of slots) {
+      state.set(n, {
+        item: nextItems[n] ?? null,
+        rot: nextRot[n] ?? 0,
+        flip: nextFlip[n] ?? false,
+        face: nextFace[n] ?? "front",
+      });
+    }
 
-    if (del.error) {
-      setError(del.error.message);
+    const res = await persistSlotsBulk(state);
+    if (!res.ok) {
+      setError(res.error || "Error eliminando photocard");
       setStatus("Error eliminando photocard");
       return;
     }
-// LIBERA LA PC PARA EL PICKER: Si había una carta, restamos 1 al contador de "colocadas"
-  const assigned = slotItems[slotIndex];
-  if (assigned && assigned.id != null) {
-    setPlacedByItem((prev) => {
-      const next = { ...prev };
-      const currentCount = next[assigned.id] ?? 0;
-      if (currentCount > 1) {
-        next[assigned.id] = currentCount - 1;
-      } else {
-        delete next[assigned.id];
-      }
-      return next;
-    });
-  }
 
-  setStatus("Photocard eliminada ✅ "); // Esto ya deberías tenerlo
-  
-  
-  // AÑADE ESTO: Borra la miniatura localmente para que desaparezca del carrusel y formato
-  if (pageId) {
-    setPageThumbs((prev) => {
-      const next = { ...prev };
-      if (next[pageId]) {
-        const newThumbs = { ...next[pageId] };
-        delete newThumbs[slotIndex];
-        delete newThumbs[String(slotIndex) as any];
-        next[pageId] = newThumbs;
-      }
-      return next;
-    });
-  }
-  setRefreshTick((t) => t + 1);
-  
+    if (assigned && assigned.id != null) {
+      setPlacedByItem((prev) => {
+        const next = { ...prev };
+        const currentCount = next[assigned.id] ?? 0;
+        if (currentCount > 1) {
+          next[assigned.id] = currentCount - 1;
+        } else {
+          delete next[assigned.id];
+        }
+        return next;
+      });
+    }
+
+    setStatus("Photocard eliminada ✅ ");
   },
-  [pageId, modalSlotIndex, closeItemModal]
- );
+  [
+    pageId,
+    slotItems,
+    slotRot,
+    slotFlipH,
+    slotFace,
+    slotCustom,
+    slots,
+    persistSlotsBulk,
+    rebuildThumbsForPage,
+    modalSlotIndex,
+    closeItemModal,
+  ]
+);
  
   // ✅ SlotBox: frame cuadrado también cuando el slot está girado (horizontal individual)
 
@@ -8743,7 +8739,7 @@ const rowGap = isSpecial ? 26 : 14;
   const goPrev = () => setCurrentPageIndex((p) => Math.max(0, p - 1));
 const goNext = () =>
   setCurrentPageIndex((p) => Math.min(Math.max(binderPages.length - 1, 0), p + 1));
-const createNewPage = useCallback(async (forcedLayout?: LayoutType) => { 
+const createNewPage = useCallback(async (forcedLayout?: LayoutType, where: "start" | "end" = "end") => { 
   if (!binderId) return; 
   if (loading || pageReorderBusy) return; 
   const finalLayout = forcedLayout || layout; 
@@ -8790,17 +8786,31 @@ const rawPlan = (profileData?.plan_type || "free").toLowerCase().trim();
   
   setStatus("Creando...");
   setLoading(true);
-  setLoading(true);
 
-  // 3. El resto del código de creación sigue igual
-  const lastRes = await supabase
-    .from("binder_pages")
-    .select("page_index")
-    .eq("binder_id", binderId)
-    .order("page_index", { ascending: false })
-    .limit(1);
-
-  const nextIndex = (lastRes.data?.[0]?.page_index ?? -1) + 1;
+  let nextIndex = 0;
+  if (where === "start") {
+    const bump = [...binderPages].sort((a, b) => b.page_index - a.page_index);
+    for (const p of bump) {
+      const up = await supabase
+        .from("binder_pages")
+        .update({ page_index: p.page_index + 1 })
+        .eq("id", p.id);
+      if (up.error) {
+        setError(up.error.message);
+        setLoading(false);
+        return;
+      }
+    }
+    nextIndex = 0;
+  } else {
+    const lastRes = await supabase
+      .from("binder_pages")
+      .select("page_index")
+      .eq("binder_id", binderId)
+      .order("page_index", { ascending: false })
+      .limit(1);
+    nextIndex = (lastRes.data?.[0]?.page_index ?? -1) + 1;
+  }
 
   const ins = await supabase
     .from("binder_pages")
@@ -8809,12 +8819,16 @@ const rawPlan = (profileData?.plan_type || "free").toLowerCase().trim();
     .single();
 
   if (!ins.error && ins.data) {
+    const shifted =
+      where === "start"
+        ? binderPages.map((p) => ({ ...p, page_index: p.page_index + 1 }))
+        : binderPages;
     const newPage = { id: ins.data.id, page_index: nextIndex, layout_type: finalLayout };
-    const newBinderPages = [...binderPages, newPage].sort((a,b) => a.page_index - b.page_index);
+    const newBinderPages = [...shifted, newPage].sort((a,b) => a.page_index - b.page_index);
     
     setBinderPages(newBinderPages);
     setPagesCount(newBinderPages.length);
-    setCurrentPageIndex(newBinderPages.length - 1);
+    setCurrentPageIndex(where === "start" ? 0 : newBinderPages.length - 1);
     
     setRefreshTick((t) => t + 1);
     setStatus(finalLayout === 'separator' ? "Separador añadido ✨" : "Página añadida ✅");
@@ -12734,7 +12748,63 @@ bottom: 8px;
   }}
 >
         {/* CONTENEDOR DEL CARRUSEL DE PÁGINAS */}
-
+        {(() => {
+          const faceChip = (key: string, label: string, url: string | null, fallback: string) => (
+            <div key={key} style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div
+                title={label}
+                style={{
+                  width: 80,
+                  height: 114,
+                  borderRadius: 12,
+                  border: "2px solid var(--color-border)",
+                  background: url
+                    ? `center / cover no-repeat url("${url}")`
+                    : fallback,
+                  boxShadow: "0 6px 16px var(--overlay-soft)",
+                }}
+              />
+              <span style={{ fontSize: 9, fontWeight: 900, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", maxWidth: 88, textAlign: "center", lineHeight: 1.2 }}>
+                {label}
+              </span>
+            </div>
+          );
+          const addChip = (where: "start" | "end") => (
+            <button
+              key={`add-${where}`}
+              type="button"
+              title={t("binders.actions.add_page")}
+              onClick={() => createNewPage("3x3", where)}
+              style={{
+                flex: "0 0 auto",
+                width: 80,
+                height: 114,
+                borderRadius: 12,
+                border: "2px dashed var(--color-primary)",
+                background: "color-mix(in srgb, var(--color-primary) 8%, var(--bg-card))",
+                color: "var(--color-primary)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                cursor: "pointer",
+                fontWeight: 900,
+                fontSize: 10,
+              }}
+            >
+              <Plus size={22} strokeWidth={2.6} />
+              {t("binders.actions.add_page")}
+            </button>
+          );
+          return (
+            <>
+              {addChip("start")}
+              {faceChip("cover-front", t("binder_shelf.cover_front"), coverUrl, binderColor || "var(--color-primary)")}
+              {faceChip("inside-front", t("binder_shelf.cover_inside_front"), insideFrontUrl, "var(--bg-main)")}
+            </>
+          );
+        })()}
 {binderPages
   .slice()
   .sort((a, b) => a.page_index - b.page_index)
@@ -12910,6 +12980,59 @@ const isDraggingMe = pageDragFromId === p.id;
           </div>
         );
 })}
+        {(() => {
+          const faceChip = (key: string, label: string, url: string | null, fallback: string) => (
+            <div key={key} style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div
+                title={label}
+                style={{
+                  width: 80,
+                  height: 114,
+                  borderRadius: 12,
+                  border: "2px solid var(--color-border)",
+                  background: url
+                    ? `center / cover no-repeat url("${url}")`
+                    : fallback,
+                  boxShadow: "0 6px 16px var(--overlay-soft)",
+                }}
+              />
+              <span style={{ fontSize: 9, fontWeight: 900, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", maxWidth: 88, textAlign: "center", lineHeight: 1.2 }}>
+                {label}
+              </span>
+            </div>
+          );
+          return (
+            <>
+              {faceChip("inside-back", t("binder_shelf.cover_inside_back"), insideBackUrl, "var(--bg-main)")}
+              {faceChip("cover-back", t("binder_shelf.cover_back"), backCoverUrl, binderColor || "var(--color-primary)")}
+              <button
+                type="button"
+                title={t("binders.actions.add_page")}
+                onClick={() => createNewPage("3x3", "end")}
+                style={{
+                  flex: "0 0 auto",
+                  width: 80,
+                  height: 114,
+                  borderRadius: 12,
+                  border: "2px dashed var(--color-primary)",
+                  background: "color-mix(in srgb, var(--color-primary) 8%, var(--bg-card))",
+                  color: "var(--color-primary)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                  fontWeight: 900,
+                  fontSize: 10,
+                }}
+              >
+                <Plus size={22} strokeWidth={2.6} />
+                {t("binders.actions.add_page")}
+              </button>
+            </>
+          );
+        })()}
         </div>
         
   
@@ -14026,6 +14149,7 @@ Stock al cerrar/guardar */}
             binderColor={binderColor} 
             coverUrl={coverUrl}
             backCoverUrl={backCoverUrl}
+            insideFrontUrl={insideFrontUrl}
             insideBackUrl={insideBackUrl}
             pagesData={datosParaElLibro}
             onClose={() => {

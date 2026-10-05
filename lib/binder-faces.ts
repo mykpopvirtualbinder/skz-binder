@@ -1,6 +1,7 @@
 export type BinderFaces = {
   coverUrl?: string | null;
   backCoverUrl?: string | null;
+  insideFrontUrl?: string | null;
   insideBackUrl?: string | null;
 };
 
@@ -25,12 +26,14 @@ export function mergeBinderFaces(row: {
   id: number;
   cover_url?: string | null;
   back_cover_url?: string | null;
+  inside_front_url?: string | null;
   inside_back_url?: string | null;
 }): BinderFaces {
   const local = readBinderFacesLocal(row.id);
   return {
     coverUrl: row.cover_url ?? local.coverUrl ?? null,
     backCoverUrl: row.back_cover_url ?? local.backCoverUrl ?? null,
+    insideFrontUrl: row.inside_front_url ?? local.insideFrontUrl ?? null,
     insideBackUrl: row.inside_back_url ?? local.insideBackUrl ?? null,
   };
 }
