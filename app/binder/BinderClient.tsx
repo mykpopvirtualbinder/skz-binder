@@ -28,7 +28,8 @@ import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collec
 import { PC_IMAGE_FILENAME_EXT_RE } from "@/lib/pc-image-extensions";
 import { resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { formatQuota, packSeparatorColors, resolveBinderQuota, unpackSeparatorColors } from "@/lib/binder-quotas";
-import { mergeBinderFaces } from "@/lib/binder-faces";
+import { mergeBinderFaces, writeBinderFacesLocal, emptyCoverStyles, urlColumnForCoverFace, type CoverFaceKey, type CoverFaceStyle } from "@/lib/binder-faces";
+import BinderCoverFaceEditor from "./BinderCoverFaceEditor";
 
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
@@ -1765,7 +1766,9 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [backCoverUrl, setBackCoverUrl] = useState<string | null>(null);
   const [insideFrontUrl, setInsideFrontUrl] = useState<string | null>(null);
-  const [insideBackUrl, setInsideBackUrl] = useState<string | null>(null); 
+  const [insideBackUrl, setInsideBackUrl] = useState<string | null>(null);
+  const [selectedCoverFace, setSelectedCoverFace] = useState<CoverFaceKey | null>(null);
+  const [coverStyles, setCoverStyles] = useState<Record<CoverFaceKey, CoverFaceStyle>>(emptyCoverStyles()); 
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   // --- LIMITES INTELIGENTES ---
@@ -3546,7 +3549,14 @@ const standardPages = binderPages.filter(p => p.layout_type !== 'separator');
 const totalPages = Math.max(standardPages.length, 1);
 const currentPageInStandard = standardPages.findIndex(p => p.id === pageId) + 1;
 
-const pageLabel = layout === 'separator' 
+const pageLabel = selectedCoverFace
+  ? ({
+      front: t("binder_shelf.cover_front"),
+      insideFront: t("binder_shelf.cover_inside_front"),
+      insideBack: t("binder_shelf.cover_inside_back"),
+      back: t("binder_shelf.cover_back"),
+    }[selectedCoverFace])
+  : layout === 'separator' 
   ? `SEPARADOR (${formatQuota(Math.max(1, binderPages.filter(p => p.layout_type === 'separator').findIndex(p => p.id === pageId) + 1), quota.maxSeparators)})`
   : `${currentPageInStandard > 0 ? currentPageInStandard : 1}/${totalPages}`;
 
@@ -5817,7 +5827,7 @@ let bInfo: any = null;
 {
   const withFaces = await supabase
     .from("binders")
-    .select("title, color, cover_url, back_cover_url, inside_front_url, inside_back_url")
+    .select("title, color, cover_url, back_cover_url, inside_front_url, inside_back_url, cover_styles")
     .eq("id", bld)
     .single();
   if (withFaces.error) {
@@ -5841,11 +5851,13 @@ if (bInfo) {
     back_cover_url: bInfo.back_cover_url,
     inside_front_url: bInfo.inside_front_url,
     inside_back_url: bInfo.inside_back_url,
+    cover_styles: bInfo.cover_styles,
   });
   setCoverUrl(faces.coverUrl || null);
   setBackCoverUrl(faces.backCoverUrl || null);
   setInsideFrontUrl(faces.insideFrontUrl || null);
   setInsideBackUrl(faces.insideBackUrl || null);
+  setCoverStyles({ ...emptyCoverStyles(), ...(faces.styles || {}) });
 }
   }
       /* Asegurar que exista al menos una página */ 
@@ -7421,6 +7433,68 @@ const uploadCustomImage = useCallback(
     return { ok: true as const, error: null as string | null, publicUrl };
   },
   [userId, binderId, pageId]
+);
+
+const applyCoverPatch = useCallback(
+  async (key: CoverFaceKey, patch: CoverFaceStyle) => {
+    if (!binderId) return;
+    const nextFace = { ...(coverStyles[key] || {}), ...patch };
+    const nextStyles = { ...coverStyles, [key]: nextFace };
+    setCoverStyles(nextStyles);
+    const urls = {
+      coverUrl: nextStyles.front.imageUrl ?? null,
+      backCoverUrl: nextStyles.back.imageUrl ?? null,
+      insideFrontUrl: nextStyles.insideFront.imageUrl ?? null,
+      insideBackUrl: nextStyles.insideBack.imageUrl ?? null,
+    };
+    setCoverUrl(urls.coverUrl);
+    setBackCoverUrl(urls.backCoverUrl);
+    setInsideFrontUrl(urls.insideFrontUrl);
+    setInsideBackUrl(urls.insideBackUrl);
+    writeBinderFacesLocal(binderId, { ...urls, styles: nextStyles });
+    const col = urlColumnForCoverFace(key);
+    const { error } = await supabase
+      .from("binders")
+      .update({ [col]: nextFace.imageUrl ?? null, cover_styles: nextStyles })
+      .eq("id", binderId);
+    if (error) {
+      await supabase.from("binders").update({ [col]: nextFace.imageUrl ?? null }).eq("id", binderId);
+    }
+  },
+  [binderId, coverStyles]
+);
+
+const uploadCoverFaceImage = useCallback(
+  async (file: File, key: CoverFaceKey) => {
+    if (!userId || !binderId) return;
+    setStatus("Subiendo imagen...");
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const safeExt = ext.match(/^(png|jpg|jpeg|webp)$/) ? ext : "jpg";
+    const path = `${userId}/binder_${binderId}/face_${key}_${Date.now()}.${safeExt}`;
+    let bucket = "covers";
+    let up = await supabase.storage.from(bucket).upload(path, file, {
+      upsert: true,
+      contentType: file.type || "image/jpeg",
+      cacheControl: "3600",
+    });
+    if (up.error) {
+      bucket = CUSTOM_BUCKET;
+      up = await supabase.storage.from(bucket).upload(path, file, {
+        upsert: true,
+        contentType: file.type || "image/jpeg",
+        cacheControl: "3600",
+      });
+    }
+    if (up.error) {
+      setError(up.error.message);
+      setStatus("Error subiendo imagen");
+      return;
+    }
+    const publicUrl = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    await applyCoverPatch(key, { imageUrl: publicUrl });
+    setStatus("Imagen actualizada ✨");
+  },
+  [userId, binderId, applyCoverPatch]
 );
 const pickModalCustomImage = useCallback(
 
@@ -11861,6 +11935,83 @@ useEffect(() => {
 
   
 
+const coverFaceConfigTitle = (key: CoverFaceKey) =>
+  ({
+    front: t("binders.cover_faces.config_front"),
+    insideFront: t("binders.cover_faces.config_inside_front"),
+    insideBack: t("binders.cover_faces.config_inside_back"),
+    back: t("binders.cover_faces.config_back"),
+  }[key]);
+
+const renderCoverChip = (key: CoverFaceKey) => {
+  const st = coverStyles[key] || {};
+  const label =
+    key === "front"
+      ? t("binder_shelf.cover_front")
+      : key === "insideFront"
+        ? t("binder_shelf.cover_inside_front")
+        : key === "insideBack"
+          ? t("binder_shelf.cover_inside_back")
+          : t("binder_shelf.cover_back");
+  const active = selectedCoverFace === key && !deleteMode;
+  const fallback =
+    st.fill ||
+    ((key === "front" || key === "back") ? (binderColor || "var(--color-primary)") : "var(--bg-main)");
+  return (
+    <button
+      key={key}
+      type="button"
+      title={label}
+      onClick={() => {
+        if (deleteMode) return;
+        setSelectedCoverFace(key);
+      }}
+      style={{
+        flex: "0 0 auto",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 6,
+        background: "none",
+        border: "none",
+        padding: 0,
+        cursor: deleteMode ? "default" : "pointer",
+        opacity: deleteMode ? 0.85 : 1,
+      }}
+    >
+      <div
+        style={{
+          width: 80,
+          height: 114,
+          borderRadius: 12,
+          border: st.border
+            ? `3px solid ${st.border}`
+            : active
+              ? "3px solid var(--color-primary)"
+              : "2px solid var(--color-border)",
+          background: st.imageUrl ? `center / cover no-repeat url("${st.imageUrl}")` : fallback,
+          boxShadow: active
+            ? "0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent), 0 6px 16px var(--overlay-soft)"
+            : "0 6px 16px var(--overlay-soft)",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "center",
+        }}
+      >
+        {st.text && !st.imageUrl ? (
+          <span style={{ fontSize: 8, fontWeight: 900, color: "#fff", textShadow: "0 1px 3px #000", padding: 4, textAlign: "center" }}>
+            {st.text}
+          </span>
+        ) : null}
+      </div>
+      <span style={{ fontSize: 9, fontWeight: 900, color: active ? "var(--color-primary)" : "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", maxWidth: 88, textAlign: "center", lineHeight: 1.2 }}>
+        {label}
+      </span>
+    </button>
+  );
+};
+
 if (needsAuth) {
   return (
     <div className="binder-page-shell" style={{ padding: "48px 20px", textAlign: "center", maxWidth: 520, margin: "0 auto" }}>
@@ -12748,63 +12899,33 @@ bottom: 8px;
   }}
 >
         {/* CONTENEDOR DEL CARRUSEL DE PÁGINAS */}
-        {(() => {
-          const faceChip = (key: string, label: string, url: string | null, fallback: string) => (
-            <div key={key} style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-              <div
-                title={label}
-                style={{
-                  width: 80,
-                  height: 114,
-                  borderRadius: 12,
-                  border: "2px solid var(--color-border)",
-                  background: url
-                    ? `center / cover no-repeat url("${url}")`
-                    : fallback,
-                  boxShadow: "0 6px 16px var(--overlay-soft)",
-                }}
-              />
-              <span style={{ fontSize: 9, fontWeight: 900, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", maxWidth: 88, textAlign: "center", lineHeight: 1.2 }}>
-                {label}
-              </span>
-            </div>
-          );
-          const addChip = (where: "start" | "end") => (
-            <button
-              key={`add-${where}`}
-              type="button"
-              title={t("binders.actions.add_page")}
-              onClick={() => createNewPage("3x3", where)}
-              style={{
-                flex: "0 0 auto",
-                width: 80,
-                height: 114,
-                borderRadius: 12,
-                border: "2px dashed var(--color-primary)",
-                background: "color-mix(in srgb, var(--color-primary) 8%, var(--bg-card))",
-                color: "var(--color-primary)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                cursor: "pointer",
-                fontWeight: 900,
-                fontSize: 10,
-              }}
-            >
-              <Plus size={22} strokeWidth={2.6} />
-              {t("binders.actions.add_page")}
-            </button>
-          );
-          return (
-            <>
-              {addChip("start")}
-              {faceChip("cover-front", t("binder_shelf.cover_front"), coverUrl, binderColor || "var(--color-primary)")}
-              {faceChip("inside-front", t("binder_shelf.cover_inside_front"), insideFrontUrl, "var(--bg-main)")}
-            </>
-          );
-        })()}
+        <button
+          type="button"
+          title={t("binders.actions.add_page")}
+          onClick={() => createNewPage("3x3", "start")}
+          style={{
+            flex: "0 0 auto",
+            width: 80,
+            height: 114,
+            borderRadius: 12,
+            border: "2px dashed var(--color-primary)",
+            background: "color-mix(in srgb, var(--color-primary) 8%, var(--bg-card))",
+            color: "var(--color-primary)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            cursor: "pointer",
+            fontWeight: 900,
+            fontSize: 10,
+          }}
+        >
+          <Plus size={22} strokeWidth={2.6} />
+          {t("binders.actions.add_page")}
+        </button>
+        {renderCoverChip("front")}
+        {renderCoverChip("insideFront")}
 {binderPages
   .slice()
   .sort((a, b) => a.page_index - b.page_index)
@@ -12828,7 +12949,10 @@ const isDraggingMe = pageDragFromId === p.id;
                 );
               } else {
                 // MODO NORMAL: Cambiamos de página
-                if (!pageDragFromId) setCurrentPageIndex(idx);
+                if (!pageDragFromId) {
+                  setSelectedCoverFace(null);
+                  setCurrentPageIndex(idx);
+                }
               }
             }}
             style={{
@@ -12945,7 +13069,7 @@ const isDraggingMe = pageDragFromId === p.id;
                 <PageThumb
                   pageId={p.id}
                   layoutKey={p.layout_type}
-                  active={active && !deleteMode}
+                  active={active && !deleteMode && !selectedCoverFace}
                   size="carousel"
                   pageNumber={idx + 1}
                   showPageNumber={true}
@@ -12969,7 +13093,7 @@ const isDraggingMe = pageDragFromId === p.id;
               {isMobile && isSelectedToMove && !deleteMode && (
                 <div style={{ marginTop: 8 }}>
                   <button
-                    onClick={(e) => { e.stopPropagation(); setCurrentPageIndex(idx); setMobileMoveSourceId(null); }}
+                    onClick={(e) => { e.stopPropagation(); setSelectedCoverFace(null); setCurrentPageIndex(idx); setMobileMoveSourceId(null); }}
                     style={{ background: "var(--bg-card)", border: "1px solid var(--state-disabled-border)", borderRadius: "8px", fontSize: "10px", padding: "5px 10px", fontWeight: 800, color: "var(--color-primary)" }}
                   >
                     Ver esta página
@@ -12980,31 +13104,8 @@ const isDraggingMe = pageDragFromId === p.id;
           </div>
         );
 })}
-        {(() => {
-          const faceChip = (key: string, label: string, url: string | null, fallback: string) => (
-            <div key={key} style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-              <div
-                title={label}
-                style={{
-                  width: 80,
-                  height: 114,
-                  borderRadius: 12,
-                  border: "2px solid var(--color-border)",
-                  background: url
-                    ? `center / cover no-repeat url("${url}")`
-                    : fallback,
-                  boxShadow: "0 6px 16px var(--overlay-soft)",
-                }}
-              />
-              <span style={{ fontSize: 9, fontWeight: 900, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", maxWidth: 88, textAlign: "center", lineHeight: 1.2 }}>
-                {label}
-              </span>
-            </div>
-          );
-          return (
-            <>
-              {faceChip("inside-back", t("binder_shelf.cover_inside_back"), insideBackUrl, "var(--bg-main)")}
-              {faceChip("cover-back", t("binder_shelf.cover_back"), backCoverUrl, binderColor || "var(--color-primary)")}
+        {renderCoverChip("insideBack")}
+        {renderCoverChip("back")}
               <button
                 type="button"
                 title={t("binders.actions.add_page")}
@@ -13030,9 +13131,6 @@ const isDraggingMe = pageDragFromId === p.id;
                 <Plus size={22} strokeWidth={2.6} />
                 {t("binders.actions.add_page")}
               </button>
-            </>
-          );
-        })()}
         </div>
         
   
@@ -13612,8 +13710,20 @@ const isDraggingMe = pageDragFromId === p.id;
     <div style={{ zoom: pageZoom as any }}>
       
       <div style={{ marginTop: 16 }}>
-       {/* --- LÓGICA DE SEPARADOR --- */}
-  {layout === 'separator' ? (
+       {/* --- LÓGICA DE PORTADAS / SEPARADOR / GRID --- */}
+  {selectedCoverFace ? (
+    <BinderCoverFaceEditor
+      faceKey={selectedCoverFace}
+      title={coverFaceConfigTitle(selectedCoverFace)}
+      style={coverStyles[selectedCoverFace] || {}}
+      binderColor={binderColor}
+      isVip={Boolean(profile?.is_premium || isAdmin)}
+      t={t}
+      onPatch={(patch) => { void applyCoverPatch(selectedCoverFace, patch); }}
+      onPickImage={(file) => { void uploadCoverFaceImage(file, selectedCoverFace); }}
+      showVipAlert={() => showAlert(t("binder_shelf.vip_cover_alert_title"), t("binder_shelf.vip_cover_alert_msg"))}
+    />
+  ) : layout === 'separator' ? (
     (() => {
       const sepColors = unpackSeparatorColors(slotItems[1]?.custom_color);
       const saveSepColors = async (fill: string | null, border: string | null) => {
@@ -14151,6 +14261,7 @@ Stock al cerrar/guardar */}
             backCoverUrl={backCoverUrl}
             insideFrontUrl={insideFrontUrl}
             insideBackUrl={insideBackUrl}
+            coverStyles={coverStyles}
             pagesData={datosParaElLibro}
             onClose={() => {
               setPreviewBinderOpen(false);

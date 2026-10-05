@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { resolveMemberAvatarUrl } from "@/lib/member-image-url";
 
 import Footer from "../components/footer";
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { Sparkles, ArrowLeft, Instagram, Youtube, Info, Send, User, Heart, ImageIcon, X, Loader2, Flag, Reply, ShieldAlert } from "lucide-react";
 import { useGlobal } from "../context/GlobalContext";
 
@@ -484,7 +485,7 @@ const { profile, showAlert, showPrompt, t } = useGlobal();
 export default function ArtistOfTheMonth() {
   const { t } = useGlobal();
   return (
-    <Suspense fallback={<div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-primary)", fontWeight: 900, backgroundColor: "var(--bg-main)" }}>{t('artist_month.loading_page')}</div>}>
+    <Suspense fallback={<CatalogLoadingFun fullPage />}>
       <ArtistContent />
     </Suspense>
   );

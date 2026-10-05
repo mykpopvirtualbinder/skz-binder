@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useGlobal } from "../context/GlobalContext";
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { offerItems, offerKoinsAmount, offerPreviewText, parseChatOffer, type ChatOfferPayload } from "@/lib/chat-offer-payload";
 import { parseChatDeal, serializeChatDeal, newDealId, offerFromTerms, dealPreviewText, type ChatDealPayload, type DealAction, type DealTerms } from "@/lib/chat-deal-payload";
 import { saveNoticeReturn, readNoticeReturn, clearNoticeReturn } from "@/lib/notice-return";
@@ -3209,21 +3210,12 @@ function MePageContent() {
 
 const DynamicMeContent = dynamic(() => Promise.resolve({ default: MePageContent } as any), {
   ssr: false,
-  loading: () => (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "var(--bg-main)" }}>
-      <Loader2 className="animate-spin" size={40} color="var(--color-primary)" />
-    </div>
-  )
+  loading: () => <CatalogLoadingFun fullPage />
 });
 
 export default function MePage() {
-  const { t } = useGlobal();
   return (
-    <Suspense fallback={
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "var(--bg-main)" }}>
-        <div style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px" }}>{t('common.loading')}</div>
-      </div>
-    }>
+    <Suspense fallback={<CatalogLoadingFun fullPage />}>
       <MePageContent />
     </Suspense>
   );

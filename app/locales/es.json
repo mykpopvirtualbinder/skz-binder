@@ -56,6 +56,7 @@
     "library_loading_fun_1": "Ordenando photocards por color…",
     "library_loading_fun_2": "Buscando a tu bias en el binder…",
     "library_loading_fun_3": "Casi listo, desempolvando fundas…",
+    "page_loading_title": "Cargando tu rincón…",
     "delete": "Eliminar",
     "add": "Añadir",
     "choose": "Elegir",
@@ -562,6 +563,17 @@
       "fill_color": "Color de separador",
       "border_color": "Color de borde",
       "no_color": "Sin color"
+    },
+    "cover_faces": {
+      "config_front": "CONFIGURACIÓN PORTADA",
+      "config_inside_front": "CONFIGURACIÓN INTERIOR PORTADA",
+      "config_inside_back": "CONFIGURACIÓN INTERIOR CONTRAPORTADA",
+      "config_back": "CONFIGURACIÓN CONTRAPORTADA",
+      "title_field": "Título",
+      "title_placeholder": "Nombre o frase…",
+      "background": "Fondo especial",
+      "upload_image": "📷 Subir Imagen",
+      "change_image": "📷 Cambiar Imagen"
     },
     "select_multiple_delete": "Seleccionar varias para borrar",
     "flip": "Voltear",

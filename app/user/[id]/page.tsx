@@ -7,6 +7,7 @@ import VirtualBinder from "@/app/components/VirtualBinder";
 
 import { useGlobal } from "app/context/GlobalContext"; // 👈 Añadido
 import Footer from "app/components/footer"
+import CatalogLoadingFun from "app/components/CatalogLoadingFun";
 
 const AVG_PC_PRICE = 8;
 
@@ -200,7 +201,7 @@ export default function PublicProfilePage() {
     setIsSending(false);
     setCustomAlert({ title: t("public_profile.alert_report_sent_title"), message: t("public_profile.alert_report_sent") });
   };
-if (loading) return <div style={{ padding: 100, textAlign: 'center', color: 'var(--color-primary)', fontWeight: 900 }}>{t("public_profile.loading")}</div>;
+if (loading) return <CatalogLoadingFun fullPage />;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-main)", paddingBottom: "100px", transition: "background-color 0.3s ease" }}>

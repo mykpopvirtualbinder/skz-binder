@@ -6,6 +6,7 @@ import { useGlobal } from "../context/GlobalContext"; // 👈 Añadido
 import ImageWithExtensionFallback from "./ImageWithExtensionFallback";
 import Binder3DBook from "../binders/Binder3DBook";
 import { unpackSeparatorColors } from "@/lib/binder-quotas";
+import type { CoverFaceKey, CoverFaceStyle } from "@/lib/binder-faces";
 
 type Photocard = {
   id: string | number;
@@ -31,6 +32,7 @@ interface VirtualBinderProps {
   backCoverUrl?: string | null;
   insideFrontUrl?: string | null;
   insideBackUrl?: string | null;
+  coverStyles?: Partial<Record<CoverFaceKey, CoverFaceStyle>>;
   pagesData: { layoutType: LayoutType; slots: (Photocard | null)[], bgColor?: string }[]; 
   onClose: () => void;
 }
@@ -89,7 +91,7 @@ const Page = forwardRef<HTMLDivElement, {
 );
 Page.displayName = 'Page';
 
-export default function VirtualBinder({ binderName, binderColor = "var(--color-primary)", coverUrl, backCoverUrl, insideFrontUrl, insideBackUrl, pagesData, onClose }: VirtualBinderProps) {
+export default function VirtualBinder({ binderName, binderColor = "var(--color-primary)", coverUrl, backCoverUrl, insideFrontUrl, insideBackUrl, coverStyles, pagesData, onClose }: VirtualBinderProps) {
   const { t } = useGlobal(); // 👈 Extraemos el traductor
   const bookRef = React.useRef<any>(null);
   const [viewMode, setViewMode] = React.useState<"flip" | "spin">("flip");
@@ -108,6 +110,10 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
 
   const totalCards = pagesData.flatMap(p => p.slots).filter(pc => pc !== null).length;
   const needsPaddingPage = pagesData.length % 2 !== 0;
+  const insideFront = coverStyles?.insideFront || {};
+  const insideBack = coverStyles?.insideBack || {};
+  const insideFrontImg = insideFront.imageUrl || insideFrontUrl;
+  const insideBackImg = insideBack.imageUrl || insideBackUrl;
 
   return (
     <div 
@@ -308,18 +314,26 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
               </div>
             </Page>
 
-            <Page key="cover-inside" isCover={false} coverUrl={insideFrontUrl || undefined} pageBgColor={insideFrontUrl ? "transparent" : undefined}>
-              {insideFrontUrl ? (
-                <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${insideFrontUrl}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
-              ) : (
-              <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Page key="cover-inside" isCover={false} coverUrl={insideFrontImg || undefined} pageBgColor={insideFrontImg ? "transparent" : (insideFront.fill || undefined)}>
+              {insideFront.border && (
+                <div style={{ position: "absolute", inset: 10, border: `4px solid ${insideFront.border}`, zIndex: 4, pointerEvents: "none" }} />
+              )}
+              {insideFrontImg ? (
+                <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${insideFrontImg}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
+              ) : null}
+              {(insideFront.text || !insideFrontImg) && (
+              <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 3 }}>
                 <div style={{ 
-                  textAlign: "center", padding: "30px 20px", backgroundColor: "var(--bg-card)", 
-                  borderRadius: "16px", width: "75%", boxShadow: "0 8px 24px var(--shadow-card)", border: "1px solid var(--color-border)" 
+                  textAlign: "center", padding: "30px 20px", backgroundColor: insideFront.text || !insideFrontImg ? "color-mix(in srgb, var(--bg-card) 88%, transparent)" : "transparent", 
+                  borderRadius: "16px", width: "75%", boxShadow: insideFrontImg && !insideFront.text ? "none" : "0 8px 24px var(--shadow-card)", border: insideFrontImg && !insideFront.text ? "none" : "1px solid var(--color-border)" 
                 }}>
-                  <h1 className="tan-font" style={{ color: "var(--text-main)", fontSize: "32px", margin: "0 0 10px 0" }}>{binderName}</h1>
-                  <div style={{ height: "2px", background: binderColor, width: "40px", margin: "0 auto 10px auto" }} />
-                  <p style={{ color: "var(--text-muted)", fontWeight: 900, fontSize: "12px" }}>{totalCards} {t('virtual_binder.photocards')}</p>
+                  <h1 className="tan-font" style={{ color: "var(--text-main)", fontSize: "32px", margin: "0 0 10px 0" }}>{insideFront.text || binderName}</h1>
+                  {!insideFront.text && (
+                    <>
+                      <div style={{ height: "2px", background: binderColor, width: "40px", margin: "0 auto 10px auto" }} />
+                      <p style={{ color: "var(--text-muted)", fontWeight: 900, fontSize: "12px" }}>{totalCards} {t('virtual_binder.photocards')}</p>
+                    </>
+                  )}
                 </div>
               </div>
               )}
@@ -450,13 +464,19 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
               )}
             </Page>
 
-            <Page key="back-inside" isCover={false} coverUrl={insideBackUrl || undefined} pageBgColor={insideBackUrl ? "transparent" : undefined}>
-              {insideBackUrl ? (
-                <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${insideBackUrl}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
+            <Page key="back-inside" isCover={false} coverUrl={insideBackImg || undefined} pageBgColor={insideBackImg ? "transparent" : (insideBack.fill || undefined)}>
+              {insideBack.border && (
+                <div style={{ position: "absolute", inset: 10, border: `4px solid ${insideBack.border}`, zIndex: 4, pointerEvents: "none" }} />
+              )}
+              {insideBackImg ? (
+                <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${insideBackImg}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
               ) : (
                 <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)", fontWeight: 800, fontSize: "12px", textTransform: "uppercase", letterSpacing: "2px" }}>
-                  <p>{t('virtual_binder.back_cover_inside')}</p>
+                  <p>{insideBack.text || t('virtual_binder.back_cover_inside')}</p>
                 </div>
+              )}
+              {insideBackImg && insideBack.text && (
+                <div style={{ position: "relative", zIndex: 3, padding: 40, textAlign: "center", fontWeight: 900, fontSize: 18, color: "white", textShadow: "0 2px 8px #000" }}>{insideBack.text}</div>
               )}
             </Page>
 

@@ -21,6 +21,7 @@ import {
   translateFanficLive,
 } from "@/lib/fanfic-translation";
 import { requireLoggedIn } from "@/lib/auth-gate";
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { goToNoticeChat, readNoticeReturn } from "@/lib/notice-return";
 
 type FanArtPost = {
@@ -939,7 +940,7 @@ function FanArtContent() {
         </div>
 
         {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: "100px" }}><Loader2 className="spinner" size={48} color={ACC.cyan} /></div>
+          <CatalogLoadingFun title={t("common.page_loading_title")} />
         ) : (
           <div className="fanart-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "30px", paddingBottom: "60px" }}>
           {filteredArt.map((art) => (
@@ -1477,7 +1478,7 @@ function FanArtContent() {
 
 export default function FanArtClient() {
   return (
-    <Suspense fallback={<div style={{height: "100vh", background: "var(--bg-main)", display: "flex", justifyContent: "center", alignItems: "center"}}><Loader2 className="spinner" color={ACC.cyan}/></div>}>
+    <Suspense fallback={<CatalogLoadingFun title={undefined} fullPage />}>
       <FanArtContent />
     </Suspense>
   );

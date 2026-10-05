@@ -1,6 +1,7 @@
 "use client";
 
 import Footer from "../components/footer";
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { resolveWtsKoins, stripWtsKoinsMark, parseWtsListingExtras } from "@/lib/wts-koins-mark";
@@ -1531,9 +1532,7 @@ const openPublicProfile = async (userId: string) => {
           </div>
 
         {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", padding: "100px" }}>
-            <Loader2 size={40} className="spinner" color="var(--color-primary)" />
-          </div>
+          <CatalogLoadingFun title={t("common.page_loading_title")} />
         ) : (
           <div
             key={`${tab}-${searchMode}-${fItemType}-${filterRefreshTick}`}

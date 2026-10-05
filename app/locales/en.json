@@ -56,6 +56,7 @@
     "library_loading_fun_1": "Sorting photocards by color…",
     "library_loading_fun_2": "Looking for your bias in the binder…",
     "library_loading_fun_3": "Almost there, dusting off sleeves…",
+    "page_loading_title": "Loading your corner…",
     "delete": "Delete",
     "add": "Add",
     "choose": "Choose",
@@ -561,6 +562,17 @@
       "fill_color": "Separator color",
       "border_color": "Border color",
       "no_color": "No color"
+    },
+    "cover_faces": {
+      "config_front": "FRONT COVER SETTINGS",
+      "config_inside_front": "INSIDE FRONT COVER SETTINGS",
+      "config_inside_back": "INSIDE BACK COVER SETTINGS",
+      "config_back": "BACK COVER SETTINGS",
+      "title_field": "Title",
+      "title_placeholder": "Name or phrase…",
+      "background": "Special background",
+      "upload_image": "📷 Upload image",
+      "change_image": "📷 Change image"
     },
     "select_multiple_delete": "Select multiple to delete",
     "flip": "Flip",

@@ -16,6 +16,7 @@ import {
   KeyRound, Unlock, Lock, LogOut
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { splitTitleBody } from "@/lib/fanfic-translation";
 
 
@@ -2319,14 +2320,7 @@ const TabButton = ({ id, icon, label, active, onClick }: { id: string, icon: Rea
 );
 
   if (authLoading) {
-    return (
-      <>
-        <style dangerouslySetInnerHTML={{ __html: `@keyframes adminPanelLoaderSpin{to{transform:rotate(360deg)}}` }} />
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "var(--bg-main)" }}>
-          <Loader2 size={40} color="var(--color-primary)" style={{ animation: "adminPanelLoaderSpin 0.9s linear infinite" }} />
-        </div>
-      </>
-    );
+    return <CatalogLoadingFun fullPage />;
   }
 
   if (!isAdminTeamEmail(userEmail)) {

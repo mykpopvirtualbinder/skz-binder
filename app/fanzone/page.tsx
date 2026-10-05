@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
 import { requireLoggedIn } from "@/lib/auth-gate";
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { avisarFavoritos } from "@/lib/avisos";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { canModerateGlobalContent } from "@/lib/admin-emails";
@@ -987,7 +988,7 @@ export default function FanZonePage() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: "20px", paddingBottom: "100px" }}>
             {loading && posts.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px" }}><Loader2 className="animate-spin" color="var(--color-primary)" /></div>
+              <CatalogLoadingFun title={t("common.page_loading_title")} />
             ) : posts
                 .filter(post => {
                   if (!onlyFollowed) return true; 

@@ -15,6 +15,7 @@ import { readBindersReturn } from "@/lib/binders-return";
 import { formatQuota, resolveBinderQuota } from "@/lib/binder-quotas";
 import { requireLoggedIn } from "@/lib/auth-gate";
 import { mergeBinderFaces, writeBinderFacesLocal } from "@/lib/binder-faces";
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
 
 type BinderRow = {
   id: number;
@@ -473,6 +474,9 @@ export default function BindersPage() {
 
         {error && <div style={{ background: "var(--bg-soft)", color: "var(--state-danger-fg)", border: "1px solid var(--state-danger-fg)", padding: 12, borderRadius: 12, marginBottom: 20, fontWeight: 700 }}>Error: {error}</div>}
 
+        {loading ? (
+          <CatalogLoadingFun title={t("common.page_loading_title")} />
+        ) : (
         <div style={{ 
           display: "grid", 
           gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(240px, 1fr))", 
@@ -669,6 +673,7 @@ export default function BindersPage() {
               </div>
             )}
         </div>
+        )}
 
         {/* --- DASHBOARD RESUMEN --- */}
         <section style={{ 

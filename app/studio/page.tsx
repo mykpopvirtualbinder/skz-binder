@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import Header from "../components/header"; // 👈 Añadimos el Header
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { splitTitleBody } from "@/lib/fanfic-translation";
 const STUDIO_ACCENT = {
   cyan: "#66d9ef",
@@ -211,11 +212,7 @@ export default function CreatorStudio() {
     setMyArtworks(prev => prev.filter(a => a.id !== id));
   };
 
-  if (loading) return (
-    <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-main)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <Loader2 className="spinner" size={48} color="var(--color-primary)" />
-    </div>
-  );
+  if (loading) return <CatalogLoadingFun fullPage />;
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "var(--bg-main)", paddingBottom: "100px", color: "var(--text-main)", transition: "background-color 0.3s ease" }}>
