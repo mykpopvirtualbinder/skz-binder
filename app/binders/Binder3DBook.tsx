@@ -4,7 +4,7 @@ import React, { useCallback, useRef, useState } from "react";
 import { BookOpen, Info, RotateCcw } from "lucide-react";
 
 const DRAG_THRESHOLD_PX = 6;
-const MAX_ROT_X = 18;
+const MAX_ROT_X = 28;
 
 type Binder3DBookProps = {
   title: string;
@@ -27,21 +27,23 @@ export default function Binder3DBook({
   backCoverUrl,
   width,
   height,
-  depth = 22,
+  depth = 42,
   interactive = true,
   onOpenBinder,
   t,
   showHint = true,
 }: Binder3DBookProps) {
-  const [rotY, setRotY] = useState(-22);
-  const [rotX, setRotX] = useState(6);
+  const [rotY, setRotY] = useState(-34);
+  const [rotX, setRotX] = useState(16);
   const [isDragging, setIsDragging] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   const drag = useRef<{ pid: number | null; lx: number; ly: number }>({ pid: null, lx: 0, ly: 0 });
   const movedRef = useRef(false);
-  const d = Math.max(14, Math.min(28, depth));
-  const z = d / 2 - 0.4;
+  const d = Math.max(28, depth);
   const accent = color || "var(--color-primary)";
+  const hx = width / 2;
+  const hy = height / 2;
+  const hz = d / 2;
 
   const endDrag = useCallback((target: HTMLElement, pointerId: number) => {
     setIsDragging(false);
@@ -69,8 +71,8 @@ export default function Binder3DBook({
     drag.current.ly = e.clientY;
     if (Math.abs(dx) + Math.abs(dy) > DRAG_THRESHOLD_PX) movedRef.current = true;
     if (Math.abs(dx) + Math.abs(dy) < 0.5) return;
-    setRotY((y) => y + dx * 0.5);
-    setRotX((x) => Math.max(-MAX_ROT_X, Math.min(MAX_ROT_X, x - dy * 0.28)));
+    setRotY((y) => y + dx * 0.6);
+    setRotX((x) => Math.max(-MAX_ROT_X, Math.min(MAX_ROT_X, x - dy * 0.35)));
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -84,27 +86,31 @@ export default function Binder3DBook({
     endDrag(e.currentTarget, e.pointerId);
   };
 
-  const faceSeal: React.CSSProperties = {
-    backfaceVisibility: "hidden",
-    WebkitBackfaceVisibility: "hidden",
-  };
-
-  const faceImg = (url: string | null | undefined): React.CSSProperties => ({
-    backgroundColor: url ? "#1a1a1a" : accent,
+  const coverFace = (url: string | null | undefined, darkened?: boolean): React.CSSProperties => ({
+    position: "absolute",
+    inset: 0,
+    backgroundColor: url ? "#141414" : accent,
     backgroundImage: url ? `url("${url}")` : "none",
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
-    ...faceSeal,
+    backfaceVisibility: "hidden",
+    WebkitBackfaceVisibility: "hidden",
+    overflow: "hidden",
+    filter: darkened && url ? "brightness(0.82)" : undefined,
   });
 
   return (
     <div
+      className="binder-shelf-thumb-stage"
       style={{
         position: "relative",
-        width,
-        perspective: Math.max(640, width * 6),
+        width: width + d,
+        padding: `${Math.max(18, d * 0.35)}px 0 ${Math.max(12, d * 0.25)}px`,
         touchAction: interactive ? "none" : undefined,
+        perspective: Math.max(900, width * 10),
+        perspectiveOrigin: "50% 45%",
+        overflow: "visible",
       }}
     >
       <div
@@ -128,120 +134,132 @@ export default function Binder3DBook({
           margin: "0 auto",
           position: "relative",
           transformStyle: "preserve-3d",
+          WebkitTransformStyle: "preserve-3d",
           transform: `rotateX(${rotX}deg) rotateY(${rotY}deg)`,
-          transition: isDragging ? "none" : "transform 0.25s ease",
+          transition: isDragging ? "none" : "transform 0.22s ease",
           cursor: interactive ? (isDragging ? "grabbing" : "grab") : "default",
           outline: "none",
-          filter: "drop-shadow(6px 10px 16px rgba(0,0,0,0.28))",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          transformOrigin: "center center",
         }}
       >
-        {/* Cuerpo único: 6 caras del mismo prisma */}
+        {/* Portada */}
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            transform: `translateZ(${z}px)`,
-            ...faceImg(coverUrl),
+            ...coverFace(coverUrl),
+            transform: `translateZ(${hz}px)`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            overflow: "hidden",
+            boxShadow: "0 12px 28px rgba(0,0,0,0.28)",
           }}
         >
-          {!coverUrl && <BookOpen color="white" size={Math.max(24, width * 0.28)} />}
+          {!coverUrl && <BookOpen color="white" size={Math.max(26, width * 0.3)} />}
         </div>
 
+        {/* Contraportada */}
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            transform: `rotateY(180deg) translateZ(${z}px)`,
-            ...faceImg(backCoverUrl || coverUrl),
-            filter: backCoverUrl ? undefined : coverUrl ? "brightness(0.82)" : undefined,
-            overflow: "hidden",
+            ...coverFace(backCoverUrl || coverUrl, !backCoverUrl),
+            transform: `rotateY(180deg) translateZ(${hz}px)`,
           }}
         />
 
+        {/* Lomo — cara izquierda del prisma */}
         <div
           style={{
             position: "absolute",
             top: 0,
-            left: 0,
+            left: (width - d) / 2,
             width: d,
             height,
-            transformOrigin: "left center",
-            transform: `translateZ(${z}px) rotateY(-90deg)`,
-            background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 35%, #111) 0%, ${accent} 55%, color-mix(in srgb, ${accent} 85%, #fff) 100%)`,
-            overflow: "hidden",
-            ...faceSeal,
+            transform: `rotateY(-90deg) translateZ(${hx}px)`,
+            background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 38%, #0a0a0a) 0%, ${accent} 55%, color-mix(in srgb, ${accent} 82%, #fff) 100%)`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            overflow: "hidden",
           }}
         >
           <span
             style={{
               writingMode: "vertical-rl",
               transform: "rotate(180deg)",
-              fontSize: Math.max(7, width * 0.06),
+              fontSize: Math.max(7, width * 0.065),
               fontWeight: 900,
               color: "rgba(255,255,255,0.88)",
               textTransform: "uppercase",
               letterSpacing: "1px",
               whiteSpace: "nowrap",
               overflow: "hidden",
-              maxHeight: height - 8,
+              maxHeight: height - 10,
             }}
           >
             {title || t("binder_shelf.default_name")}
           </span>
         </div>
 
+        {/* Canto de páginas — cara derecha */}
         <div
+          aria-hidden
           style={{
             position: "absolute",
             top: 0,
-            right: 0,
+            left: (width - d) / 2,
             width: d,
             height,
-            transformOrigin: "right center",
-            transform: `translateZ(${z}px) rotateY(90deg)`,
-            background: "linear-gradient(to bottom, #f4efe4, #e6dcc8 12%, #f7f2e8 50%, #d9d0be)",
-            ...faceSeal,
+            transform: `rotateY(90deg) translateZ(${hx}px)`,
+            background:
+              "repeating-linear-gradient(to bottom, #f7f2e8 0px, #f7f2e8 2px, #e6dcc8 3px, #d8cfbd 4px)",
+            boxShadow: "inset 0 0 10px rgba(0,0,0,0.12)",
           }}
         />
 
+        {/* Canto superior */}
         <div
+          aria-hidden
           style={{
             position: "absolute",
             left: 0,
-            top: 0,
+            top: (height - d) / 2,
             width,
             height: d,
-            transformOrigin: "top center",
-            transform: `translateZ(${z}px) rotateX(90deg)`,
-            background: `linear-gradient(to bottom, color-mix(in srgb, ${accent} 70%, #222), #efe8da)`,
-            ...faceSeal,
+            transform: `rotateX(90deg) translateZ(${hy}px)`,
+            background:
+              "repeating-linear-gradient(to right, #f4efe4 0px, #f4efe4 2px, #ddd4c2 3px)",
           }}
         />
 
+        {/* Canto inferior */}
         <div
+          aria-hidden
           style={{
             position: "absolute",
             left: 0,
-            bottom: 0,
+            top: (height - d) / 2,
             width,
             height: d,
-            transformOrigin: "bottom center",
-            transform: `translateZ(${z}px) rotateX(-90deg)`,
-            background: `linear-gradient(to top, color-mix(in srgb, ${accent} 70%, #222), #e7dfd0)`,
-            ...faceSeal,
+            transform: `rotateX(-90deg) translateZ(${hy}px)`,
+            background: `linear-gradient(to top, color-mix(in srgb, ${accent} 55%, #222), #e7dfd0)`,
           }}
         />
       </div>
 
+      <div
+        aria-hidden
+        style={{
+          width: width * 0.72,
+          height: 14,
+          margin: "10px auto 0",
+          borderRadius: "50%",
+          background: "radial-gradient(ellipse at center, rgba(0,0,0,0.28) 0%, transparent 72%)",
+          pointerEvents: "none",
+        }}
+      />
+
       {showHint && (
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 10 }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 4 }}>
           <button
             type="button"
             title={t("binder_shelf.thumb_info")}
@@ -262,8 +280,8 @@ export default function Binder3DBook({
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              setRotY(-22);
-              setRotX(6);
+              setRotY(-34);
+              setRotX(16);
             }}
             style={chipBtn}
           >

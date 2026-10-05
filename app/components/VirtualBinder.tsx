@@ -184,9 +184,9 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
             color={binderColor}
             coverUrl={coverUrl}
             backCoverUrl={backCoverUrl}
-            width={240}
-            height={336}
-            depth={28}
+            width={260}
+            height={364}
+            depth={52}
             interactive
             t={t}
             showHint

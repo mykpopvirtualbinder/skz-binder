@@ -18,9 +18,9 @@ export default function BinderShelfThumb3D(props: BinderShelfThumb3DProps) {
       color={props.color}
       coverUrl={props.coverUrl}
       backCoverUrl={props.backCoverUrl}
-      width={110}
-      height={154}
-      depth={26}
+      width={118}
+      height={164}
+      depth={38}
       onOpenBinder={props.onOpenBinder}
       t={props.t}
       showHint
