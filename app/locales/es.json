@@ -640,6 +640,9 @@
     "btn_checking": "Comprobando...",
     "vip_cover_alert_title": "Ventaja VIP 👑",
     "vip_cover_alert_msg": "Subir portadas con foto es exclusivo para usuarios Premium.",
+    "cover_front": "Portada",
+    "cover_back": "Contraportada",
+    "cover_inside_back": "Interior de la contraportada",
     "custom_pc_name": "PC Personalizada",
     "thumb_drag_hint": "Arrastra o desliza para girar el binder · toca para abrir si no has arrastrado",
     "thumb_info": "Cómo girar el binder",
@@ -725,7 +728,7 @@
   },
   "virtual_binder": {
     "title": "VISTA REAL",
-    "open_album": "Abrir álbum 👉",
+    "open_album": "Desliza",
     "photocards_count": "Photocards",
     "empty_slot": "VACÍO",
     "back_inside": "Interior de la contraportada",

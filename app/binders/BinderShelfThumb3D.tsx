@@ -6,6 +6,7 @@ type BinderShelfThumb3DProps = {
   title: string;
   color: string;
   coverUrl?: string | null;
+  backCoverUrl?: string | null;
   onOpenBinder: () => void;
   t: (key: string) => string;
 };
@@ -16,9 +17,10 @@ export default function BinderShelfThumb3D(props: BinderShelfThumb3DProps) {
       title={props.title}
       color={props.color}
       coverUrl={props.coverUrl}
+      backCoverUrl={props.backCoverUrl}
       width={110}
       height={154}
-      depth={42}
+      depth={26}
       onOpenBinder={props.onOpenBinder}
       t={props.t}
       showHint

@@ -639,6 +639,9 @@
     "btn_checking": "Checking...",
     "vip_cover_alert_title": "VIP Advantage 👑",
     "vip_cover_alert_msg": "Uploading cover photos is exclusive to Premium users.",
+    "cover_front": "Front cover",
+    "cover_back": "Back cover",
+    "cover_inside_back": "Inside back cover",
     "custom_pc_name": "Custom PC",
     "thumb_drag_hint": "Drag or swipe to rotate the cover · tap to open if you did not drag",
     "thumb_info": "How to rotate the binder",
@@ -724,7 +727,7 @@
   },
   "virtual_binder": {
     "title": "REAL VIEW",
-    "open_album": "Open album 👉",
+    "open_album": "Swipe",
     "photocards_count": "Photocards",
     "empty_slot": "EMPTY",
     "back_inside": "Inside back cover",

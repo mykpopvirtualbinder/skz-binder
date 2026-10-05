@@ -28,6 +28,7 @@ import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collec
 import { PC_IMAGE_FILENAME_EXT_RE } from "@/lib/pc-image-extensions";
 import { resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { formatQuota, packSeparatorColors, resolveBinderQuota, unpackSeparatorColors } from "@/lib/binder-quotas";
+import { mergeBinderFaces } from "@/lib/binder-faces";
 
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
@@ -1761,7 +1762,9 @@ const { userBiases, checkIsBias, profile, showAlert, showConfirm, t, refreshGlob
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const [binderColor, setBinderColor] = useState<string>("var(--color-primary)");
-  const [coverUrl, setCoverUrl] = useState<string | null>(null); 
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [backCoverUrl, setBackCoverUrl] = useState<string | null>(null);
+  const [insideBackUrl, setInsideBackUrl] = useState<string | null>(null); 
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   // --- LIMITES INTELIGENTES ---
@@ -3617,6 +3620,46 @@ type ThumbMeta = {
 type PageThumbsMap = Record<number, Record<number, ThumbMeta>>;
 // pageId -> slotIndex -> meta
 const [pageThumbs, setPageThumbs] = useState<PageThumbsMap>({});
+
+const rebuildThumbsForPage = useCallback((
+  pid: number,
+  items: Record<number, SlotItem>,
+  rots: Record<number, number>,
+  flips: Record<number, boolean>,
+) => {
+  setPageThumbs((prev) => {
+    const nextPage: Record<number, ThumbMeta> = {};
+    for (const [k, item] of Object.entries(items)) {
+      if (!item) continue;
+      const sid = Number(k);
+      const custom = Boolean((item as any).is_custom);
+      const url = custom
+        ? String((item as any).custom_image_url || "")
+        : (resolveMockPcImageUrl(item.image_url ?? "") || item.image_url || "");
+      const prevMeta = prev[pid]?.[sid];
+      nextPage[sid] = {
+        url: url || "",
+        back_image_url: custom ? ((item as any).custom_back_image_url ?? null) : (item.back_image_url ?? null),
+        itemId: custom ? null : item.id,
+        isCustom: custom,
+        isWanted: Boolean((item as any).is_wanted),
+        custom_text: (item as any).custom_text ?? item.name ?? null,
+        custom_color: (item as any).custom_color ?? null,
+        member: prevMeta?.member ?? null,
+        name: item.name ?? prevMeta?.name ?? null,
+        have: prevMeta?.have ?? 0,
+        wtt: prevMeta?.wtt ?? 0,
+        wts: prevMeta?.wts ?? 0,
+        onItsWay: prevMeta?.onItsWay ?? 0,
+        wish: prevMeta?.wish ?? 0,
+        stockTotal: prevMeta?.stockTotal ?? 0,
+        rot: rots[sid] ?? 0,
+        flipH: Boolean(flips[sid]),
+      };
+    }
+    return { ...prev, [pid]: nextPage };
+  });
+}, []);
 // ... (tus refs/estados anteriores)
 // --- LÓGICA DE NAVEGACIÓN DEL MODAL (ANTERIOR / SIGUIENTE) ---
 
@@ -4354,18 +4397,18 @@ const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
         return next;
       });
 
-      const res = await persistSwapSafe(fromSlot, toSlot);
-      if (!res.ok) {
-        setSlotItems(prevSlotItems);
-        setSlotFace(prevFaces);
-        setSlotRot(prevRots);
-        setSlotFlipH(prevFlips);
-        setError(res.error || "Error guardando drag&drop");
-        setStatus("Error guardando drag&drop");
-        return;
-      }
+      const nextItems = { ...slotItems, [toSlot]: fromItem };
+      if (toItem) nextItems[fromSlot] = toItem;
+      else delete nextItems[fromSlot];
+      const nextRots = { ...slotRot, [toSlot]: fromRot };
+      if (toItem) nextRots[fromSlot] = toRot;
+      else delete nextRots[fromSlot];
+      const nextFlips = { ...slotFlipH, [toSlot]: fromFlip };
+      if (toItem) nextFlips[fromSlot] = toFlip;
+      else delete nextFlips[fromSlot];
+      rebuildThumbsForPage(pageId, nextItems, nextRots, nextFlips);
 
-      setStatus("Orden actualizado ✅ ");
+      setStatus("");
       return;
     }
 
@@ -4438,11 +4481,15 @@ const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
     setSlotFlipH((prev) => ({ ...prev, [toSlot]: fromFlip }));
     setSlotFace((prev) => ({ ...prev, [toSlot]: fromFace }));
 
-    // fuerza refresh para que al volver a la página origen ya esté correcto
+    const nextItems = { ...slotItems, [toSlot]: fromItemSnapshot };
+    const nextRots = { ...slotRot, [toSlot]: fromRot };
+    const nextFlips = { ...slotFlipH, [toSlot]: fromFlip };
+    rebuildThumbsForPage(pageId, nextItems, nextRots, nextFlips);
+
     setRefreshTick((t) => t + 1);
     setStatus("Movida a otra página ✅ ");
   },
-  [pageId, slotItems, slotFace, slotRot, slotFlipH, persistSwapSafe]
+  [pageId, slotItems, slotFace, slotRot, slotFlipH, persistSwapSafe, rebuildThumbsForPage]
 );
   
 
@@ -4465,8 +4512,9 @@ const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
       setSlotRot(nextRot);
       setSlotFlipH(nextFlip);
       setSlotFace(nextFace);
+      if (pageId) rebuildThumbsForPage(pageId, nextItems, nextRot, nextFlip);
     },
-    []
+    [pageId, rebuildThumbsForPage]
   );
 
   const persistSlotsBulk = useCallback(
@@ -5764,16 +5812,37 @@ useEffect(() => {
   if (bld) {
     setBinderId(bld);
    // Cambia el select para pedir también la portada (asegúrate de poner el nombre de tu columna real, yo asumo que es cover_url)
-const { data: bInfo } = await supabase
-  .from("binders")
-  .select("title, color, cover_url") // 👈 AÑADE TU COLUMNA AQUÍ
-  .eq("id", bld)
-  .single();
+let bInfo: any = null;
+{
+  const withFaces = await supabase
+    .from("binders")
+    .select("title, color, cover_url, back_cover_url, inside_back_url")
+    .eq("id", bld)
+    .single();
+  if (withFaces.error) {
+    const basic = await supabase
+      .from("binders")
+      .select("title, color, cover_url")
+      .eq("id", bld)
+      .single();
+    bInfo = basic.data;
+  } else {
+    bInfo = withFaces.data;
+  }
+}
 
 if (bInfo) {
   setBinderTitle(bInfo.title || "Sin título");
   setBinderColor(bInfo.color || "var(--color-primary)");
-  setCoverUrl(bInfo.cover_url || null); // 👈 GUÁRDALA AQUÍ
+  const faces = mergeBinderFaces({
+    id: bld,
+    cover_url: bInfo.cover_url,
+    back_cover_url: bInfo.back_cover_url,
+    inside_back_url: bInfo.inside_back_url,
+  });
+  setCoverUrl(faces.coverUrl || null);
+  setBackCoverUrl(faces.backCoverUrl || null);
+  setInsideBackUrl(faces.insideBackUrl || null);
 }
   }
       /* Asegurar que exista al menos una página */ 
@@ -13955,7 +14024,9 @@ Stock al cerrar/guardar */}
           <VirtualBinder 
             binderName={binderTitle} 
             binderColor={binderColor} 
-            coverUrl={coverUrl} 
+            coverUrl={coverUrl}
+            backCoverUrl={backCoverUrl}
+            insideBackUrl={insideBackUrl}
             pagesData={datosParaElLibro}
             onClose={() => {
               setPreviewBinderOpen(false);

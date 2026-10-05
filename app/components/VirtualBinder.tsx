@@ -1,7 +1,7 @@
 "use client";
 import React, { forwardRef } from "react";
 import HTMLFlipBook from "react-pageflip";
-import { X, BookOpen, Bookmark, Rotate3d } from "lucide-react";
+import { X, BookOpen, Bookmark, Rotate3d, ChevronRight } from "lucide-react";
 import { useGlobal } from "../context/GlobalContext"; // 👈 Añadido
 import ImageWithExtensionFallback from "./ImageWithExtensionFallback";
 import Binder3DBook from "../binders/Binder3DBook";
@@ -27,7 +27,9 @@ type LayoutType = string;
 interface VirtualBinderProps {
   binderName: string;
   binderColor?: string; 
-  coverUrl?: string | null; 
+  coverUrl?: string | null;
+  backCoverUrl?: string | null;
+  insideBackUrl?: string | null;
   pagesData: { layoutType: LayoutType; slots: (Photocard | null)[], bgColor?: string }[]; 
   onClose: () => void;
 }
@@ -86,7 +88,7 @@ const Page = forwardRef<HTMLDivElement, {
 );
 Page.displayName = 'Page';
 
-export default function VirtualBinder({ binderName, binderColor = "var(--color-primary)", coverUrl, pagesData, onClose }: VirtualBinderProps) {
+export default function VirtualBinder({ binderName, binderColor = "var(--color-primary)", coverUrl, backCoverUrl, insideBackUrl, pagesData, onClose }: VirtualBinderProps) {
   const { t } = useGlobal(); // 👈 Extraemos el traductor
   const bookRef = React.useRef<any>(null);
   const [viewMode, setViewMode] = React.useState<"flip" | "spin">("flip");
@@ -180,9 +182,10 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
             title={binderName}
             color={binderColor}
             coverUrl={coverUrl}
+            backCoverUrl={backCoverUrl}
             width={240}
             height={336}
-            depth={36}
+            depth={28}
             interactive
             t={t}
             showHint
@@ -275,8 +278,32 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
           >
           
             <Page key="cover-front" isCover={true} coverColor={binderColor} coverUrl={coverUrl}>
-              <div style={{ position: "absolute", bottom: "30px", right: "20px", display: "flex", alignItems: "center", gap: "8px", background: "var(--bg-card)", padding: "8px 16px", borderRadius: "99px", fontWeight: 900, color: "var(--text-main)", fontSize: "12px", boxShadow: "0 4px 12px var(--overlay-soft)", animation: "swipePulse 1.5s infinite ease-in-out", pointerEvents: "none", zIndex: 20 }}>
-                {t('virtual_binder.open_album')} <span>👉</span>
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 28,
+                  right: 18,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "color-mix(in srgb, var(--bg-card) 88%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--color-primary) 45%, var(--color-border))",
+                  padding: "8px 12px 8px 14px",
+                  borderRadius: 999,
+                  fontWeight: 900,
+                  color: "var(--color-primary)",
+                  fontSize: 11,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  boxShadow: "0 8px 20px var(--overlay-soft)",
+                  animation: "swipePulse 1.6s infinite ease-in-out",
+                  pointerEvents: "none",
+                  zIndex: 20,
+                  backdropFilter: "blur(8px)",
+                }}
+              >
+                {t("virtual_binder.open_album")}
+                <ChevronRight size={16} strokeWidth={2.6} />
               </div>
             </Page>
 
@@ -391,11 +418,7 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
                                   </div>
                                 )}
                               </>
-                            ) : (
-                              <span style={{ color: "var(--text-muted)", fontSize: "10px", fontWeight: 900 }}>
-                                {t('virtual_binder.empty')}
-                              </span>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       );
@@ -422,18 +445,24 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
               )}
             </Page>
 
-            <Page key="back-inside" isCover={false}>
-              <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)", fontWeight: 800, fontSize: "12px", textTransform: "uppercase", letterSpacing: "2px" }}>
-                <p>{t('virtual_binder.back_cover_inside')}</p>
-              </div>
+            <Page key="back-inside" isCover={false} coverUrl={insideBackUrl || undefined} pageBgColor={insideBackUrl ? "transparent" : undefined}>
+              {insideBackUrl ? (
+                <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${insideBackUrl}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
+              ) : (
+                <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)", fontWeight: 800, fontSize: "12px", textTransform: "uppercase", letterSpacing: "2px" }}>
+                  <p>{t('virtual_binder.back_cover_inside')}</p>
+                </div>
+              )}
             </Page>
 
-            <Page key="back-cover-hard" isCover={true} isBackCover={true} coverColor={binderColor} coverUrl={coverUrl}>
+            <Page key="back-cover-hard" isCover={true} isBackCover={true} coverColor={binderColor} coverUrl={backCoverUrl || coverUrl}>
+              {!backCoverUrl && (
               <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 20, position: "relative" }}>
                 <div style={{ background: "var(--overlay-soft)", padding: "20px", borderRadius: "50%" }}>
                   <img src="/branding/logo.png" alt="Logo" style={{ width: "120px", opacity: 0.8, filter: "brightness(0) invert(1)" }} />
                 </div>
               </div>
+              )}
             </Page>
 
           </HTMLFlipBook>
