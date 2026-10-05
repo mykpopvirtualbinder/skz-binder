@@ -25,7 +25,12 @@ import { merchRowMatchesQuery } from "@/lib/merch-item-search";
 import { compareMerchAlbumCatalogItems } from "@/lib/merch-album-catalog-sort";
 import { merchAlbumCardBreadcrumbLine, merchAlbumCardHeading } from "@/lib/merch-album-card-display";
 import { avisarFavoritos } from "@/lib/avisos";
+import { resolveWtsKoins, stripWtsKoinsMark, withWtsListingMarks, parseWtsListingExtras } from "@/lib/wts-koins-mark";
+import { stockStatusRank } from "@/lib/catalog-sort";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
+import BindersShortcut from "../components/BindersShortcut";
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
+import WtsListingModal from "../library/WtsListingModal";
 import ContributeEmptyState from "../components/ContributeEmptyState";
 import ContributeColabModal from "../components/ContributeColabModal";
 import {
@@ -41,7 +46,7 @@ import {
 } from "@/lib/merch-collection-meta";
 import {
   Search, Package, CheckCircle2, Star, Loader2,
-  Repeat2, DollarSign, LayoutGrid, Archive, Truck, X, Info, Coins, Users, Disc3, Mic2, Layers, MapPin,
+  Repeat2, DollarSign, LayoutGrid, Archive, Truck, X, Info, Coins, Users, Disc3, Mic2, Layers, MapPin, ArrowUpDown,
 } from "lucide-react";
 
 // Font is loaded globally via @font-face in globals.css
@@ -64,6 +69,9 @@ function isAlbumItem(item: Pick<MerchItem, "category">) {
 }
 
 const MERCH_INCLUSIONS_DB_CATEGORY = "Inclusions";
+const FOLDER_TREE_CACHE_KEY = "mkb_folder_tree_v1";
+const MERCH_ALBUMS_CACHE_KEY = "mkb_merch_albums_v1";
+const MERCH_PRODUCTS_CACHE_KEY = "mkb_merch_products_v1";
 
 function isInclusionScreenshotJunk(row: { name?: string | null; image_url?: string | null }): boolean {
   const name = String(row.name ?? "").trim();
@@ -177,7 +185,7 @@ function merchStockFilterPillLabel(status: string, t: (key: string) => string): 
       return status;
   }
 }
-type MerchStatus = { have: number; wtt: number; wts: number; wishlist: number; otw: number; };
+type MerchStatus = { have: number; wtt: number; wts: number; wishlist: number; otw: number; updatedAt?: number; price?: number; koins?: number };
 
 /** Stored in `user_merch_statuses.comment` for `wishlist` rows (JSON). */
 type WishPosterMeta = { wantedPoster: boolean; posterTitle: string };
@@ -280,8 +288,6 @@ const COLORS = {
   wish: { bg: "var(--bg-wish)", border: "var(--border-wish)", text: "var(--text-wish)" }
 };
 
-const CURRENCIES = ["EUR", "USD", "GBP", "JPY", "KRW", "CNY", "AUD", "CAD", "CHF", "HKD", "SGD", "NZD", "SEK", "NOK", "DKK", "INR", "BRL", "MXN"];
-
 /** Misma estética en todos los desplegables de filtros de la pestaña Álbumes (evita bordes gruesos / colores distintos). */
 const MERCH_ALBUM_FILTER_LABEL: React.CSSProperties = {
   display: "flex",
@@ -324,6 +330,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   const [fMerchCollection, setFMerchCollection] = useState("all");
   const [fMerchSet, setFMerchSet] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [catalogSort, setCatalogSort] = useState<"default" | "album" | "stock_date" | "price" | "status">("default");
   const [merchCatalog, setMerchCatalog] = useState<MerchItem[]>([]);
   const [folderTree, setFolderTree] = useState<FolderTreeCatalog>({ albums: [] });
   const [showColabModal, setShowColabModal] = useState(false);
@@ -351,6 +358,8 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   const saveItemNote = async (text: string) => {
     setItemNote(text);
     if (!profile || !infoModal) return;
+    const ensured = await ensureMerchItemInDb(infoModal);
+    if (!ensured.ok) return;
     if (text.trim() === "") {
        await supabase.from("user_merch_statuses").delete().eq("user_id", profile.id).eq("merch_id", infoModal.id).eq("status", "note");
     } else {
@@ -360,12 +369,8 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   
   // WTS
   const [wtsModal, setWtsModal] = useState<MerchItem | null>(null);
-  /** Valor de `price_koins` al cargar el modal (para omitir la columna en el upsert si solo hay fiat y así no choca con caché vieja de PostgREST). */
+  const [wtsReady, setWtsReady] = useState(false);
   const [savedWtsPriceKoins, setSavedWtsPriceKoins] = useState<number | null>(null);
-  const [price, setPrice] = useState("");
-  const [currency, setCurrency] = useState("EUR");
-  const [wtsKoins, setWtsKoins] = useState("");
-  const [wtsComment, setWtsComment] = useState("");
 
   // WTT (Estilo Library Selector)
   const [wttModal, setWttModal] = useState<MerchItem | null>(null);
@@ -386,117 +391,164 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   }, []);
 
   const loadMerchData = async () => {
-    setLoading(true);
-    
-    // Leemos todos los grupos de tu base de datos principal
-    const { data: gData } = await supabase.from("groups").select("name");
-    if (gData) setAllDbGroups(gData.map(g => g.name).sort());
+    const catCacheKey = variant === "albums" ? MERCH_ALBUMS_CACHE_KEY : MERCH_PRODUCTS_CACHE_KEY;
+    const applyRows = (rows: MerchItem[]) => {
+      const merged = rows.filter((r) => {
+        const img = String(r.image_url || "").trim();
+        if (!img || /placehold\.co/i.test(img)) return false;
+        if (isInclusionItem(r) || isInclusionScreenshotJunk(r)) return false;
+        if (variant === "merch") return !isAlbumItem(r);
+        if (variant === "albums") {
+          if (!isAlbumItem(r)) return false;
+          return !isStrayKidsPlaceholderMerchAlbumRow(r.group_name, r.album_title);
+        }
+        return true;
+      });
+      setMerchCatalog(merged);
+      return merged.length;
+    };
 
-    const { data: catalog } = await supabase.from("merch_items").select("*");
-    let merged = catalog ?? [];
-    if (variant === "merch") {
-      try {
-        const [productsRes, treeRes] = await Promise.all([
-          fetch("/api/merch-products-catalog", { cache: "no-store" }),
-          fetch("/api/folder-tree-catalog", { cache: "no-store" }),
-        ]);
-        if (productsRes.ok) {
-          const extra = (await productsRes.json()) as MerchItem[];
-          if (Array.isArray(extra) && extra.length > 0) {
-            const seen = new Set(merged.map((r) => r.id));
-            const seenUrl = new Set(merged.map((r) => String(r.image_url || "")));
-            for (const row of extra) {
-              if (!row?.id || seen.has(row.id)) continue;
-              if (row.image_url && seenUrl.has(row.image_url)) continue;
-              merged.push(row);
-              seen.add(row.id);
-              if (row.image_url) seenUrl.add(row.image_url);
-            }
+    let painted = false;
+    try {
+      if (typeof window !== "undefined") {
+        const cached = sessionStorage.getItem(catCacheKey);
+        if (cached) {
+          const rows = JSON.parse(cached) as MerchItem[];
+          if (Array.isArray(rows) && applyRows(rows) > 0) {
+            setLoading(false);
+            painted = true;
           }
         }
-        if (treeRes.ok) {
-          const tree = (await treeRes.json()) as FolderTreeCatalog;
+        const treeCached = sessionStorage.getItem(FOLDER_TREE_CACHE_KEY);
+        if (treeCached) {
+          const tree = JSON.parse(treeCached) as FolderTreeCatalog;
           if (tree && Array.isArray(tree.albums)) setFolderTree(tree);
         }
-      } catch {
-        /* offline o API no disponible */
       }
+    } catch {
+      /* ignore */
     }
-    if (variant === "albums") {
-      try {
-        const [albumsRes, treeRes] = await Promise.all([
-          fetch("/api/merch-albums-catalog", { cache: "no-store" }),
-          fetch("/api/folder-tree-catalog", { cache: "no-store" }),
-        ]);
-        if (albumsRes.ok) {
-          const extra = (await albumsRes.json()) as MerchItem[];
-          if (Array.isArray(extra) && extra.length > 0) {
-            const seen = new Set(merged.map((r) => r.id));
-            for (const row of extra) {
-              if (row?.id && !seen.has(row.id)) {
-                merged.push(row);
-                seen.add(row.id);
-              }
-            }
-          }
-        }
-        if (treeRes.ok) {
-          const tree = (await treeRes.json()) as FolderTreeCatalog;
-          if (tree && Array.isArray(tree.albums)) setFolderTree(tree);
-        }
-      } catch {
-        /* offline o API no disponible */
-      }
-    }
-    merged = merged.filter((r) => {
-      const img = String(r.image_url || "").trim();
-      if (!img || /placehold\.co/i.test(img)) return false;
-      if (isInclusionItem(r) || isInclusionScreenshotJunk(r)) return false;
-      if (variant === "merch") return !isAlbumItem(r);
-      if (variant === "albums") {
-        if (!isAlbumItem(r)) return false;
-        return !isStrayKidsPlaceholderMerchAlbumRow(r.group_name, r.album_title);
-      }
-      return true;
-    });
-    setMerchCatalog(merged);
+    if (!painted) setLoading(true);
 
-    if (profile?.id) {
-      const { data: inventory } = await supabase.from("user_merch_statuses").select("*").eq("user_id", profile.id);
-      if (inventory) {
-        const invMap: Record<string, MerchStatus> = {};
-        const wm: Record<string, WishPosterMeta> = {};
-        inventory.forEach((row: any) => {
-          if (row.status !== "note") {
-            if (!invMap[row.merch_id]) invMap[row.merch_id] = { have: 0, wtt: 0, wts: 0, wishlist: 0, otw: 0 };
-            invMap[row.merch_id][row.status as keyof MerchStatus] = row.qty;
-          }
-          if (row.status === "wishlist") {
-            const parsed = parseWishComment(row.comment);
-            wm[row.merch_id] = parsed ?? {
-              wantedPoster: false,
-              posterTitle: "",
-            };
-          }
-        });
-        setMyInventory(invMap);
-        setWishMeta(wm);
+    const catalogUrl = variant === "albums" ? "/api/merch-albums-catalog" : "/api/merch-products-catalog";
+    const groupsPromise = supabase.from("groups").select("name");
+    const invPromise = profile?.id
+      ? supabase.from("user_merch_statuses").select("*").eq("user_id", profile.id)
+      : Promise.resolve({ data: null as unknown[] | null });
+    const catPromise = fetch(catalogUrl);
+    const treePromise = fetch("/api/folder-tree-catalog");
+
+    const [gDataWrap, catRes, treeRes] = await Promise.all([groupsPromise, catPromise, treePromise]);
+    if (gDataWrap.data) setAllDbGroups(gDataWrap.data.map((g: { name: string }) => g.name).sort());
+
+    let extra: MerchItem[] = [];
+    try {
+      if (catRes.ok) {
+        const parsed = (await catRes.json()) as MerchItem[];
+        if (Array.isArray(parsed)) extra = parsed;
       }
+    } catch {
+      /* ignore */
+    }
+    try {
+      if (treeRes.ok) {
+        const tree = (await treeRes.json()) as FolderTreeCatalog;
+        if (tree && Array.isArray(tree.albums)) {
+          setFolderTree(tree);
+          try {
+            sessionStorage.setItem(FOLDER_TREE_CACHE_KEY, JSON.stringify(tree));
+          } catch {
+            /* quota */
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    applyRows(extra);
+    try {
+      sessionStorage.setItem(catCacheKey, JSON.stringify(extra));
+    } catch {
+      /* quota */
     }
     setLoading(false);
+
+    const { data: inventory } = await invPromise;
+    if (inventory) {
+      const invMap: Record<string, MerchStatus> = {};
+      const wm: Record<string, WishPosterMeta> = {};
+      inventory.forEach((row: any) => {
+        if (row.status !== "note") {
+          if (!invMap[row.merch_id]) invMap[row.merch_id] = { have: 0, wtt: 0, wts: 0, wishlist: 0, otw: 0, updatedAt: 0, price: 0, koins: 0 };
+          invMap[row.merch_id][row.status as "have" | "wtt" | "wts" | "wishlist" | "otw"] = row.qty;
+          const ts = Date.parse(String(row.updated_at || ""));
+          if (Number.isFinite(ts)) invMap[row.merch_id].updatedAt = Math.max(invMap[row.merch_id].updatedAt ?? 0, ts);
+          if (row.status === "wts") {
+            invMap[row.merch_id].price = Number(row.price) || 0;
+            invMap[row.merch_id].koins = resolveWtsKoins(row.price_koins, row.comment) || 0;
+          }
+        }
+        if (row.status === "wishlist") {
+          const parsed = parseWishComment(row.comment);
+          wm[row.merch_id] = parsed ?? {
+            wantedPoster: false,
+            posterTitle: "",
+          };
+        }
+      });
+      setMyInventory(invMap);
+      setWishMeta(wm);
+    }
   };
 
   useEffect(() => {
     void loadMerchData();
   }, [profile?.id, variant]);
 
+  const ensureMerchItemInDb = async (item: MerchItem | undefined) => {
+    if (!item?.id) return { ok: false as const, error: t("common.error") };
+    const { data: sessionData } = await supabase.auth.getSession();
+    const tok = sessionData.session?.access_token;
+    if (!tok) return { ok: false as const, error: t("merch.alert_notice_msg") };
+    try {
+      const res = await fetch("/api/ensure-merch-item", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({
+          item: {
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            group_name: item.group_name,
+            image_url: item.image_url,
+            rarity: item.rarity,
+            album_title: item.album_title,
+            album_type: item.album_type,
+            album_version: item.album_version,
+          },
+        }),
+      });
+      if (res.ok) return { ok: true as const };
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false as const, error: body.error || t("common.error") };
+    } catch {
+      return { ok: false as const, error: t("common.error") };
+    }
+  };
+
   const updateMerchStatus = async (
     merchId: string,
-    status: keyof MerchStatus,
+    status: "have" | "wtt" | "wts" | "wishlist" | "otw",
     delta: number,
     opts?: { posterMeta?: WishPosterMeta; defaultTitle?: string }
   ) => {
     if (!profile?.id) return showAlert(t("merch.alert_notice_title"), t("merch.alert_notice_msg"));
+    const catalogItem = merchCatalog.find((m) => m.id === merchId);
+    if (catalogItem) {
+      const ensured = await ensureMerchItemInDb(catalogItem);
+      if (!ensured.ok) return showAlert(t("merch.alert_notice_title"), ensured.error);
+    }
     const currentQty = myInventory[merchId]?.[status] || 0;
     const nextQty = Math.max(0, currentQty + delta);
 
@@ -549,9 +601,13 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
         row.comment = JSON.stringify(metaForWish);
       }
 
-      await supabase
+      const { error } = await supabase
         .from("user_merch_statuses")
         .upsert(row as any, { onConflict: "user_id,merch_id,status" });
+      if (error) {
+        showAlert(t("merch.alert_notice_title"), error.message);
+        return;
+      }
 
       if (status === "wishlist") {
         await supabase
@@ -592,9 +648,22 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
 
   const handlePublishWts = async () => {
     if (!wtsModal || !profile) return;
+    const ensured = await ensureMerchItemInDb(wtsModal);
+    if (!ensured.ok) {
+      showAlert(t("merch.alert_notice_title"), ensured.error);
+      return;
+    }
+    const listingId = wtsModal.id;
+    const priceRaw = typeof window !== "undefined" ? localStorage.getItem(`binder:price:${listingId}`) || "" : "";
+    const koinsRaw = typeof window !== "undefined" ? localStorage.getItem(`binder:priceKoins:${listingId}`) || "" : "";
+    const currencyValue = typeof window !== "undefined" ? localStorage.getItem(`binder:wtsCurrency:${listingId}`) || "EUR" : "EUR";
+    const originValue = typeof window !== "undefined" ? localStorage.getItem(`binder:wtsOrigin:${listingId}`) || "" : "";
+    const shippingValue = typeof window !== "undefined" ? localStorage.getItem(`binder:shipping:${listingId}`) || "Worldwide" : "Worldwide";
+    const negotiableValue = typeof window !== "undefined" && localStorage.getItem(`binder:negotiable:${listingId}`) === "true";
+    const commentValue = typeof window !== "undefined" ? localStorage.getItem(`binder:comment:${listingId}`) || "" : "";
 
-    const fiat = parseFloat(String(price).replace(",", ".")) || 0;
-    const koins = Math.max(0, parseInt(String(wtsKoins), 10) || 0);
+    const fiat = parseFloat(String(priceRaw).replace(",", ".")) || 0;
+    const koins = Math.max(0, parseInt(String(koinsRaw), 10) || 0);
     if (fiat <= 0 && koins <= 0) {
       showAlert(t("merch.alert_notice_title"), t("merch.wts_need_price_or_koins"));
       return;
@@ -602,12 +671,19 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
 
     const payload: Record<string, unknown> = {
       user_id: profile.id,
-      merch_id: wtsModal.id,
+      merch_id: listingId,
       status: "wts",
       qty: 1,
       price: fiat > 0 ? fiat : 0,
-      currency,
-      comment: wtsComment,
+      currency: currencyValue,
+      comment: withWtsListingMarks(commentValue, koins, {
+        origin: originValue,
+        shipping: shippingValue,
+        negotiable: negotiableValue,
+      }),
+      origin_country: originValue || null,
+      shipping_to: shippingValue,
+      wts_negotiable: negotiableValue,
     };
     if (koins > 0) {
       payload.price_koins = koins;
@@ -615,11 +691,26 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
       payload.price_koins = null;
     }
 
-    const { data: newAd, error } = await supabase
+    let { data: newAd, error } = await supabase
       .from("user_merch_statuses")
       .upsert(payload as any, { onConflict: "user_id,merch_id,status" })
       .select("id")
       .single();
+
+    if (error) {
+      const retryPayload = { ...payload };
+      delete retryPayload.price_koins;
+      delete retryPayload.origin_country;
+      delete retryPayload.shipping_to;
+      delete retryPayload.wts_negotiable;
+      const retry = await supabase
+        .from("user_merch_statuses")
+        .upsert(retryPayload as any, { onConflict: "user_id,merch_id,status" })
+        .select("id")
+        .single();
+      newAd = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       const msg = String(error.message || "");
@@ -652,35 +743,73 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
       });
     }
     setWtsModal(null);
-    setPrice("");
-    setWtsKoins("");
-    setWtsComment("");
+    setWtsReady(false);
     setSavedWtsPriceKoins(null);
   };
 
   const handlePublishWtt = async () => {
     if (!wttModal || !profile || wttSelectedIds.length === 0) return showAlert(t("merch.alert_notice_title"), t("merch.alert_select_wanted"));
+    const ensured = await ensureMerchItemInDb(wttModal);
+    if (!ensured.ok) return showAlert(t("merch.alert_notice_title"), ensured.error);
+    for (const wantedId of wttSelectedIds) {
+      const wanted = merchCatalog.find((m) => m.id === wantedId);
+      if (wanted) await ensureMerchItemInDb(wanted);
+    }
     
     const wantedNames = wttSelectedIds.map(id => merchCatalog.find(m => m.id === id)?.name).filter(Boolean);
     const finalComment = `Busco: ${wantedNames.join(', ')}. ${wttComment}`;
 
    const { data: newAd, error } = await supabase.from("user_merch_statuses").upsert({
       user_id: profile.id, merch_id: wttModal.id, status: 'wtt', qty: 1, comment: finalComment,
-      wtt_ids: wttSelectedIds // 👈 ¡MAGIA! Ahora guarda los IDs que buscas
+      wtt_ids: wttSelectedIds
     }, { onConflict: "user_id,merch_id,status" }).select('id').single();
 
-    if (!error && newAd) {
-      await avisarFavoritos(profile.id, 'market_id', newAd.id);
+    let savedAd = newAd;
+    let saveErr = error;
+    if (saveErr) {
+      const retry = await supabase.from("user_merch_statuses").upsert({
+        user_id: profile.id, merch_id: wttModal.id, status: 'wtt', qty: 1, comment: finalComment,
+      }, { onConflict: "user_id,merch_id,status" }).select('id').single();
+      savedAd = retry.data;
+      saveErr = retry.error;
+    }
+
+    if (!saveErr && savedAd) {
+      await avisarFavoritos(profile.id, 'market_id', savedAd.id);
       showAlert(t("merch.alert_created_title"), t("merch.alert_created_msg").replace('{name}', wttModal.name));
       setMyInventory(p => { const m = {...p}; if(!m[wttModal.id]) m[wttModal.id] = {have:0,wtt:0,wts:0,wishlist:0,otw:0}; m[wttModal.id].wtt = 1; return m; });
+    } else if (saveErr) {
+      showAlert(t("merch.alert_notice_title"), saveErr.message || t("common.error"));
+      return;
     }
     setWttModal(null); setWttSelectedIds([]); setWttComment("");
   };
 
   useEffect(() => {
-    if (!wtsModal || !profile?.id) return;
+    if (!wtsModal) {
+      setWtsReady(false);
+      return;
+    }
     let cancelled = false;
     void (async () => {
+      const writeLs = (priceV: string, currencyV: string, koinsV: string, commentV: string, originV: string, shippingV: string, negotiableV: boolean) => {
+        try {
+          localStorage.setItem(`binder:price:${wtsModal.id}`, priceV);
+          localStorage.setItem(`binder:priceKoins:${wtsModal.id}`, koinsV);
+          localStorage.setItem(`binder:wtsCurrency:${wtsModal.id}`, currencyV);
+          localStorage.setItem(`binder:wtsOrigin:${wtsModal.id}`, originV);
+          localStorage.setItem(`binder:shipping:${wtsModal.id}`, shippingV);
+          localStorage.setItem(`binder:negotiable:${wtsModal.id}`, String(negotiableV));
+          localStorage.setItem(`binder:comment:${wtsModal.id}`, commentV);
+        } catch {
+          /* ignore */
+        }
+      };
+      if (!profile?.id) {
+        writeLs("", "EUR", "", "", "", "Worldwide", false);
+        if (!cancelled) setWtsReady(true);
+        return;
+      }
       const { data } = await supabase
         .from("user_merch_statuses")
         .select("price, currency, comment, price_koins")
@@ -690,18 +819,24 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
         .maybeSingle();
       if (cancelled) return;
       if (!data) {
-        setPrice("");
-        setCurrency("EUR");
-        setWtsKoins("");
-        setWtsComment("");
+        writeLs("", "EUR", "", "", "", "Worldwide", false);
         setSavedWtsPriceKoins(null);
+        setWtsReady(true);
         return;
       }
-      setPrice(data.price != null ? String(data.price) : "");
-      setCurrency(data.currency || "EUR");
-      setWtsComment(typeof data.comment === "string" ? data.comment : "");
-      setWtsKoins(data.price_koins != null ? String(data.price_koins) : "");
-      setSavedWtsPriceKoins(data.price_koins != null ? Number(data.price_koins) : null);
+      const extras = parseWtsListingExtras(typeof data.comment === "string" ? data.comment : "");
+      const koinsSaved = resolveWtsKoins(data.price_koins, data.comment);
+      writeLs(
+        data.price != null ? String(data.price) : "",
+        data.currency || "EUR",
+        koinsSaved != null ? String(koinsSaved) : "",
+        stripWtsKoinsMark(typeof data.comment === "string" ? data.comment : ""),
+        extras.origin || "",
+        extras.shipping || "Worldwide",
+        Boolean(extras.negotiable),
+      );
+      setSavedWtsPriceKoins(koinsSaved);
+      setWtsReady(true);
     })();
     return () => {
       cancelled = true;
@@ -1035,8 +1170,32 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
         matchesStatus
       );
     });
-    if (activeTab === "albumes" || activeTab === "inclusiones") {
-      items.sort(compareMerchAlbumCatalogItems);
+    if (catalogSort === "default") {
+      if (activeTab === "albumes" || activeTab === "inclusiones") {
+        items.sort(compareMerchAlbumCatalogItems);
+      }
+    } else {
+      items.sort((a, b) => {
+        if (catalogSort === "album") {
+          const an = String(a.album_title || a.name || "");
+          const bn = String(b.album_title || b.name || "");
+          const c = an.localeCompare(bn, undefined, { sensitivity: "base" });
+          if (c) return c;
+          return String(a.album_version || "").localeCompare(String(b.album_version || ""), undefined, { sensitivity: "base" });
+        }
+        const ia = myInventory[a.id];
+        const ib = myInventory[b.id];
+        if (catalogSort === "stock_date") return (ib?.updatedAt ?? 0) - (ia?.updatedAt ?? 0);
+        if (catalogSort === "status") {
+          const ra = stockStatusRank(ia);
+          const rb = stockStatusRank(ib);
+          if (ra !== rb) return ra - rb;
+          return String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" });
+        }
+        const sa = (ia?.price ?? 0) * 1_000_000 + (ia?.koins ?? 0);
+        const sb = (ib?.price ?? 0) * 1_000_000 + (ib?.koins ?? 0);
+        return sb - sa;
+      });
     }
     return items;
   }, [
@@ -1055,6 +1214,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     albumFilterSlot4,
     activeStatus,
     myInventory,
+    catalogSort,
   ]);
 
   const progressSnapshot = useMemo(() => {
@@ -1220,13 +1380,16 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
               {t("merch.title")}
             </h1>
           </div>
-          {merchCatalog.length === 0 && !loading && (
-             <button onClick={seedMockData} style={{ background: "var(--text-main)", color: "var(--bg-main)", padding: "10px", borderRadius: "10px", cursor: "pointer", fontWeight: 800 }}>{t("merch.btn_demo")}</button>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <BindersShortcut />
+            {merchCatalog.length === 0 && !loading && (
+               <button onClick={seedMockData} style={{ background: "var(--text-main)", color: "var(--bg-main)", padding: "10px", borderRadius: "10px", cursor: "pointer", fontWeight: 800 }}>{t("merch.btn_demo")}</button>
+            )}
+          </div>
         </div>
         )}
 
-        <section className="merch-progress-banner" style={{ backgroundColor: "var(--bg-card)", padding: "25px 35px", borderRadius: "24px", border: "1px solid var(--color-border)", marginBottom: "30px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 10px 20px var(--shadow-card)" }}>
+        <section className="merch-progress-banner" style={{ backgroundColor: "var(--bg-card)", padding: "25px 35px", borderRadius: "24px", border: "1px solid var(--color-border)", marginBottom: "30px", display: loading ? "none" : "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 10px 20px var(--shadow-card)" }}>
           <div style={{ flex: 1 }}>
             <p style={{ color: "var(--text-subheading)", fontWeight: 800, fontSize: "16px", margin: "0 0 10px 0" }}>
               {(t(progressSnapshot.msgKey) || t("merch.progress_msg")).replace("{percent}", progressSnapshot.pct.toString())}
@@ -1245,14 +1408,14 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
           </div>
         </section>
 
-       {isCompactViewport && (
+       {isCompactViewport && !loading && (
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
             <button onClick={() => setShowCompactFilters((v) => !v)} style={{ border: "1px solid var(--accent-vibe-pink)", background: "var(--bg-card)", color: "var(--accent-vibe-pink)", borderRadius: "99px", padding: "10px 14px", fontWeight: 900, cursor: "pointer" }}>
               {showCompactFilters ? (t("common.close") || "Cerrar") : (t("common.filters") || "Filtros")}
             </button>
           </div>
        )}
-       <div className="page-filters-panel" style={{ display: !isCompactViewport || showCompactFilters ? "block" : "none", background: "var(--bg-card)", padding: "20px", borderRadius: "20px", border: "1px solid var(--color-border)", marginBottom: "30px" }}>
+       <div className="page-filters-panel" style={{ display: loading ? "none" : !isCompactViewport || showCompactFilters ? "block" : "none", background: "var(--bg-card)", padding: "20px", borderRadius: "20px", border: "1px solid var(--color-border)", marginBottom: "30px" }}>
           {variant === "merch" && (
           <div style={{ display: "flex", gap: "10px", marginBottom: "20px", borderBottom: "2px solid var(--color-border)", paddingBottom: "15px", flexWrap: "wrap" }}>
              <button onClick={() => { setActiveTab("catalogo_merch"); setActiveStatus("Todos"); }} style={{ background: "none", border: "none", padding: "10px 16px", fontSize: "16px", fontWeight: 900, color: activeTab === "catalogo_merch" ? "var(--accent-vibe-cyan)" : "var(--text-muted)", borderBottom: activeTab === "catalogo_merch" ? "3px solid var(--accent-vibe-cyan)" : "3px solid transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1341,6 +1504,17 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                 </div>
               </div>
             )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }}>
+              <label style={MERCH_ALBUM_FILTER_LABEL}><ArrowUpDown size={13} /> {t("common.sort_label") || "Ordenar"}</label>
+              <select value={catalogSort} onChange={(e) => setCatalogSort(e.target.value as typeof catalogSort)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "160px" }}>
+                <option value="default">{t("common.sort_default") || "Por defecto"}</option>
+                <option value="album">{t("common.sort_album") || "Por álbum"}</option>
+                <option value="stock_date">{t("common.sort_stock_date") || "Fecha en tu stock"}</option>
+                <option value="price">{t("common.sort_price") || "Por precio"}</option>
+                <option value="status">{t("common.sort_status") || "Por estado"}</option>
+              </select>
+            </div>
             
             {(activeTab === "catalogo_merch" || activeTab === "albumes" || activeTab === "inclusiones" || activeTab === "mi_coleccion") && (
               <div
@@ -1477,9 +1651,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
         </div>
 
        {loading ? ( 
-          <div style={{ textAlign: "center", padding: "50px" }}>
-            <Loader2 className="animate-spin" size={40} color="var(--color-primary)"/>
-          </div> 
+          <CatalogLoadingFun title={t("common.library_loading_title")} />
         ) : filteredMerch.length === 0 && showContributeEmpty ? (
           <ContributeEmptyState t={t} onOpenColab={() => setShowColabModal(true)} />
         ) : filteredMerch.length === 0 ? ( 
@@ -1721,40 +1893,17 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
          );
       })()}
 
-     {/* --- MODAL WTS MEJORADO --- */}
-      {wtsModal && (() => {
-        const fiatOk = (parseFloat(String(price).replace(",", ".")) || 0) > 0;
-        const koinsOk = (parseInt(String(wtsKoins), 10) || 0) > 0;
-        const canWts = fiatOk || koinsOk;
-        return (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", backdropFilter: "blur(5px)" }}>
-          <div style={{ background: "var(--bg-main)", padding: "30px", borderRadius: "24px", width: "100%", maxWidth: "440px", border: "1px solid var(--color-border)", boxShadow: "0 22px 60px var(--shadow-card)" }}>
-            <h3 style={{ color: "var(--accent-vibe-orange)", margin: "0 0 5px 0", fontSize: "20px", fontWeight: 950 }}>{t('merch.sell_title')?.replace('{item}', wtsModal.name) || `Vender ${wtsModal.name}`}</h3>
-            <p style={{ color: "var(--text-muted)", fontSize: "13px", marginBottom: "16px", fontWeight: 800 }}>{t("merch.sell_subtitle")}</p>
-
-            <div style={{ fontSize: "11px", fontWeight: 900, color: "var(--accent-vibe-pink)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>{t("merch.wts_fiat_row")}</div>
-            <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
-               <input type="number" min={0} step="0.01" placeholder={t("merch.price_placeholder")} value={price} onChange={e => setPrice(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", fontWeight: 800, fontSize: "14px", background: "var(--bg-card)", color: "var(--text-main)" }} />
-               <select value={currency} onChange={e => setCurrency(e.target.value)} style={{ padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", fontWeight: 900, background: "var(--bg-card)", color: "var(--color-primary)", cursor: "pointer" }}>
-                  {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-               </select>
-            </div>
-
-            <div style={{ fontSize: "11px", fontWeight: 900, color: "var(--accent-vibe-green)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
-              <Coins size={14} strokeWidth={2.4} /> {t("merch.wts_koins_row")}
-            </div>
-            <input type="number" min={0} placeholder={t("merch.wts_koins_placeholder")} value={wtsKoins} onChange={e => setWtsKoins(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", marginBottom: "14px", fontWeight: 800, fontSize: "14px", background: "var(--bg-card)", color: "var(--text-main)", boxSizing: "border-box" }} />
-
-            <textarea placeholder={t("merch.wts_comment_placeholder")} value={wtsComment} onChange={e => setWtsComment(e.target.value)} rows={3} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", marginBottom: "20px", resize: "none", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: "var(--bg-card)", color: "var(--text-main)", boxSizing: "border-box" }} />
-            
-            <div style={{ display: "flex", gap: "10px" }}>
-              <button type="button" onClick={() => { setWtsModal(null); setPrice(""); setWtsKoins(""); setWtsComment(""); setSavedWtsPriceKoins(null); }} style={{ flex: 1, padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-muted)", fontWeight: 900, cursor: "pointer" }}>{t("common.cancel")}</button>
-              <button type="button" onClick={handlePublishWts} disabled={!canWts} style={{ flex: 1, padding: "12px", borderRadius: "12px", border: "none", background: canWts ? "var(--accent-vibe-green)" : "var(--bg-soft)", color: canWts ? "var(--modal-cta-fg)" : "var(--text-muted)", fontWeight: 900, cursor: canWts ? "pointer" : "not-allowed", boxShadow: canWts ? "0 4px 10px var(--shadow-card)" : "none" }}>{t("merch.btn_publish_wts")}</button>
-            </div>
-          </div>
-        </div>
-        );
-      })()}
+     <WtsListingModal
+        open={Boolean(wtsModal) && wtsReady}
+        itemId={wtsModal?.id ?? null}
+        onClose={() => {
+          setWtsModal(null);
+          setWtsReady(false);
+        }}
+        onSaved={() => {
+          void handlePublishWts();
+        }}
+      />
 
      {/* --- MODAL WTT (SELECTOR DEL CATÁLOGO) --- */}
       {wttModal && (
@@ -1774,7 +1923,10 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             </div>
 
             <div style={{ flex: 1, overflowY: "auto", padding: "20px 25px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "15px", alignContent: "start", background: "var(--bg-main)" }}>
-               {merchCatalog.filter((m) => m.id !== wttModal.id && merchRowMatchesQuery(m, wttSearch)).map((m) => {
+               {merchCatalog
+                 .filter((m) => m.id !== wttModal.id && merchRowMatchesQuery(m, wttSearch))
+                 .slice(0, wttSearch.trim() ? 240 : 96)
+                 .map((m) => {
                  const isSelected = wttSelectedIds.includes(m.id);
                  return (
                    <div key={m.id} onClick={() => setWttSelectedIds(prev => isSelected ? prev.filter(id => id !== m.id) : [...prev, m.id])} style={{ background: isSelected ? "var(--bg-soft)" : "var(--bg-card)", border: isSelected ? "2px solid var(--color-primary)" : "1px solid var(--color-border)", borderRadius: "14px", padding: "8px", cursor: "pointer", position: "relative", transition: "all 0.2s" }}>

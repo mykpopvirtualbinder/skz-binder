@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useGlobal } from "../context/GlobalContext"; // 👈 Importamos el contexto
 import { supabase } from "@/lib/supabase";
 import { getThemeUnlockCost, isVipThemeKey, normalizeThemeId, unlockKeyForTheme } from "@/lib/theme-unlocks";
+import { persistTheme } from "@/lib/theme-persist";
 
 const THEMES = [
   { key: "pastel", label: "Soft Pastel" },
@@ -21,8 +22,8 @@ export default function ThemeSelector() {
     const savedRaw = typeof window !== "undefined" && localStorage.getItem("theme");
     const saved = savedRaw ? normalizeThemeId(savedRaw) : "";
     if (saved && THEMES.some(t => t.key === saved)) {
+      persistTheme(saved);
       setTheme(saved);
-      document.documentElement.setAttribute("data-theme", saved);
     }
   }, []);
 
@@ -64,10 +65,9 @@ export default function ThemeSelector() {
           await supabase.from("profiles").update({ puntos: nextKoins }).eq("user_id", uid);
         }
       }
+      persistTheme(value);
       setTheme(value);
-      document.documentElement.setAttribute("data-theme", value);
-      localStorage.setItem("theme", value);
-      window.dispatchEvent(new Event('themeChange')); // 👈 Avisamos al resto de la app
+      window.dispatchEvent(new Event('themeChange'));
     };
     void run();
   };

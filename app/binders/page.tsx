@@ -6,11 +6,14 @@ import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 
 import Footer from "../components/footer";
-import { Plus, ShoppingBag, Loader2, BookText, Camera } from "lucide-react";
+import { Plus, ShoppingBag, Loader2, BookText, Camera, ChevronLeft } from "lucide-react";
 import VirtualBinder from "../components/VirtualBinder";
 import BinderShelfThumb3D from "./BinderShelfThumb3D";
 import { useGlobal } from "../context/GlobalContext";
 import { BINDER_ACCENT_SWATCHES } from "@/lib/binder-color-swatches";
+import { readBindersReturn } from "@/lib/binders-return";
+import { formatQuota, resolveBinderQuota } from "@/lib/binder-quotas";
+import { requireLoggedIn } from "@/lib/auth-gate";
 
 type BinderRow = {
   id: number;
@@ -51,6 +54,11 @@ export default function BindersPage() {
   const [previewCoverUrl, setPreviewCoverUrl] = useState<string | null>(null); 
   const [previewItems, setPreviewItems] = useState<any[]>([]);
   const [previewingId, setPreviewingId] = useState<number | null>(null);
+  const [bindersReturnHref, setBindersReturnHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setBindersReturnHref(readBindersReturn());
+  }, []);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -65,7 +73,9 @@ export default function BindersPage() {
 
     const { data: userData, error: userErr } = await supabase.auth.getUser();
     if (userErr || !userData.user) {
-      setError("No hay sesión activa.");
+      setUserId(null);
+      setEmail(null);
+      setBinders([]);
       setLoading(false);
       return;
     }
@@ -171,6 +181,7 @@ export default function BindersPage() {
   };
 
   const createBinder = async () => {
+    if (!requireLoggedIn(userId, showAlert, t)) return;
     if (isCheckingLimit || loading || !userId) return;
     
     setIsCheckingLimit(true);
@@ -185,11 +196,14 @@ export default function BindersPage() {
       if (countErr) throw countErr;
 
       const currentBindersCount = count ?? 0;
-      const effectivePlan = isVip && (!userPlan || userPlan === 'free') ? 'mensual' : userPlan;
-      const baseLimit = effectivePlan === 'anual' ? 50 : effectivePlan === 'mensual' ? 15 : MAX_FREE_BINDERS;
-      const limiteTotal = baseLimit + extraBinders;
+      const liveQuota = resolveBinderQuota({
+        planType: userPlan,
+        isPremium: profile?.is_premium,
+        isAdmin,
+        extraBinders,
+      });
 
-      if (!isAdmin && currentBindersCount >= limiteTotal) {
+      if (!isAdmin && currentBindersCount >= liveQuota.maxBinders) {
         setStatus("Límite alcanzado");
         router.push("/shop?item=binders");
         setIsCheckingLimit(false);
@@ -330,25 +344,51 @@ export default function BindersPage() {
     alignItems: "center",
     gap: 15,
     position: "relative",
+    overflow: "visible",
     color: "var(--text-main)" 
   };
 
   // ✅ 2. CÁLCULO GLOBAL DE LÍMITES (SOLUCIONA EL ERROR "limiteTotal")
-  const rawPlan = (profile as any)?.plan_type || "free";
-  const effectivePlan = isVip && rawPlan === "free" ? "mensual" : rawPlan;
-  const limits = {
-    free: { binders: 3, pages: 30, separators: 5 },
-    mensual: { binders: 15, pages: 60, separators: 15 },
-    anual: { binders: 50, pages: 90, separators: 30 }
-  };
-  const base = limits[effectivePlan as keyof typeof limits] || limits.free;
-  const maxB = isAdmin ? "∞" : base.binders + extraBinders;
+  const quota = resolveBinderQuota({
+    planType: userPlan,
+    isPremium: profile?.is_premium,
+    isAdmin,
+    extraPages,
+    extraSeparators,
+    extraBinders,
+  });
+  const maxB = quota.bindersLabel;
 
   return (
     <div className="binders-page-shell">
       <main style={{ flex: 1, padding: isMobile ? "20px 15px" : "40px 20px", maxWidth: 1120, width: "100%", margin: "0 auto" }}>
         
         <div style={{ marginBottom: 30, textAlign: isMobile ? "left" : "center" }}>
+          {bindersReturnHref && (
+            <div style={{ display: "flex", justifyContent: isMobile ? "flex-start" : "center", marginBottom: 14 }}>
+              <button
+                type="button"
+                onClick={() => router.push(bindersReturnHref)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--bg-card)",
+                  color: "var(--color-primary)",
+                  fontWeight: 900,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 12%, transparent)",
+                }}
+              >
+                <ChevronLeft size={16} />
+                {t("common.back") || "Volver"}
+              </button>
+            </div>
+          )}
           <h1
             className="tan-font shop-hero-headline"
             style={{ fontWeight: 950, fontSize: isMobile ? 28 : 36, marginBottom: 10, lineHeight: 1.12 }}
@@ -356,9 +396,26 @@ export default function BindersPage() {
             {t('binders.title')}
           </h1>
           <p style={{ color: "var(--text-muted)", fontWeight: 600 }}>
-            {email} • <span style={{ color: "var(--color-primary)", fontWeight: 900 }}>{binders.length} / {maxB}</span> {t('binders.allowed_count')}
+            {userId ? (
+              <>{email} • <span style={{ color: "var(--color-primary)", fontWeight: 900 }}>{binders.length} / {maxB}</span> {t('binders.allowed_count')}</>
+            ) : (
+              t("auth.binders_login_body")
+            )}
           </p>
         </div>
+
+        {!userId && !loading && (
+          <div style={{ background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 20, padding: 24, marginBottom: 24, textAlign: "center" }}>
+            <p style={{ color: "var(--text-main)", fontWeight: 800, marginBottom: 16 }}>{t("auth.login_required_body")}</p>
+            <button
+              type="button"
+              onClick={() => router.push("/login")}
+              style={{ background: "var(--color-primary)", color: "#111", border: "none", borderRadius: 999, padding: "12px 22px", fontWeight: 900, cursor: "pointer" }}
+            >
+              {t("auth.login_cta")}
+            </button>
+          </div>
+        )}
 
         {error && <div style={{ background: "var(--bg-soft)", color: "var(--state-danger-fg)", border: "1px solid var(--state-danger-fg)", padding: 12, borderRadius: 12, marginBottom: 20, fontWeight: 700 }}>Error: {error}</div>}
 
@@ -493,7 +550,7 @@ export default function BindersPage() {
           ))}
 
           {/* BOTÓN CREAR DINÁMICO */}
-          {(isVip || binders.length < MAX_FREE_BINDERS + extraBinders) ? (
+          {userId && (isAdmin || binders.length < quota.maxBinders) ? (
               <button 
                 onClick={createBinder}
                 disabled={isCheckingLimit || loading}

@@ -3,14 +3,19 @@
 import Footer from "../components/footer";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { resolveWtsKoins, stripWtsKoinsMark, parseWtsListingExtras } from "@/lib/wts-koins-mark";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import ItemPicker from "../components/ItemPicker";
 import AdRailLayout from "../components/AdRailLayout";
+import BackToMessagesBar from "../components/BackToMessagesBar";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
 import { useGlobal } from "../context/GlobalContext";
 import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
+import { MERCH_ALBUM_DB_CATEGORY } from "@/lib/merch-album-filter-meta";
 import { getCurrencyOptions } from "../library/currencyOptions";
+import { requireLoggedIn } from "@/lib/auth-gate";
+import { goToNoticeChat, readNoticeReturn } from "@/lib/notice-return";
 import {
   Search,
   Sparkles,
@@ -31,7 +36,6 @@ import {
   Tag,
   Camera,
   BookText,
-  SlidersHorizontal,
   ChevronDown,
 } from "lucide-react";
 
@@ -61,9 +65,33 @@ type MarketAd = {
   shippingTo?: string;
   negotiable?: boolean;
   comment?: string;
-  /** Merch WTS optional K-oins asking price */
+  /** Optional K-oins asking price (photocards and merch WTS) */
   price_koins?: number | null;
+  item_kind?: "pc" | "inclusion" | "album" | "merch";
+  album_title?: string | null;
 };
+
+type MarketItemKind = "all" | "pc" | "inclusion" | "album" | "merch";
+const MERCH_INCLUSIONS_DB_CATEGORY = "Inclusions";
+
+function isInclusionPc(type?: string | null, image?: string | null) {
+  const typeRaw = String(type ?? "").trim().toLowerCase();
+  const frontRaw = String(image ?? "").toLowerCase();
+  return typeRaw.startsWith("inclusions") || frontRaw.includes("/inclusions/");
+}
+
+function kindFromMerchCategory(category: string): Exclude<MarketItemKind, "all"> {
+  if (category === MERCH_ALBUM_DB_CATEGORY || /^albums?$/i.test(category.trim())) return "album";
+  if (category === MERCH_INCLUSIONS_DB_CATEGORY || /^inclusions?$/i.test(category.trim())) return "inclusion";
+  return "merch";
+}
+
+function adKind(ad: { item_kind?: MarketAd["item_kind"]; itemType?: MarketAd["itemType"]; category?: string; pcImage?: string }): Exclude<MarketItemKind, "all"> {
+  if (ad.item_kind) return ad.item_kind;
+  if (ad.itemType === "merch") return kindFromMerchCategory(String(ad.category || ""));
+  if (isInclusionPc(ad.category, ad.pcImage)) return "inclusion";
+  return "pc";
+}
 
 type TargetInfo = {
   image_url: string;
@@ -74,6 +102,9 @@ type TargetInfo = {
   version: string;
   category?: string; // 👈 ESTO ES LO NUEVO
   itemType?: "pc" | "merch"; // 👈 Para saber si pintar álbum o categoría
+  item_kind?: Exclude<MarketItemKind, "all">;
+  album_title?: string | null;
+  group_name?: string | null;
 };
 
 // Utilidad para poner nombres bonitos sin romper paréntesis
@@ -393,7 +424,7 @@ const PriceConverter = ({
 
 function MarketContent() {
   const router = useRouter();
-  const { t } = useGlobal(); // 👈 AÑADE ESTA LÍNEA AQUÍ
+  const { t, showAlert } = useGlobal(); // 👈 AÑADE ESTA LÍNEA AQUÍ
   const searchParams = useSearchParams();
  
 
@@ -405,7 +436,6 @@ function MarketContent() {
   const [searchMode, setSearchMode] = useState<"offered" | "wanted">("offered");
   const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [showCompactFilters, setShowCompactFilters] = useState(false);
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [filterRefreshTick, setFilterRefreshTick] = useState(0);
 
   useEffect(() => {
@@ -433,7 +463,7 @@ function MarketContent() {
     return () => window.removeEventListener("resize", syncViewport);
   }, []);
   const [profileActivity, setProfileActivity] = useState<any[]>([]);
-const [fItemType, setFItemType] = useState<"all" | "pc" | "merch">("all");
+const [fItemType, setFItemType] = useState<MarketItemKind>("all");
   const [fCategory, setFCategory] = useState("all");
   const [fGroup, setFGroup] = useState<string | "all">("all");
   const [fAlbum, setFAlbum] = useState<string>("all");
@@ -521,24 +551,38 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
       const targetMerchIdsToFetch = new Set<string>();
 
       // 1. CARGAMOS PHOTOCARDS
-      const { data: pcData } = await supabase
+      const pcSelectWithKoins = 'id, status, price, currency, origin_country, shipping_to, wts_negotiable, market_comment, wtt_ids, price_koins, updated_at, user_id, item: items(id, name, image_url, member, version, group_id, album_id, type), profiles (display_name, avatar_url, is_restricted)';
+      const pcSelectPlain = 'id, status, price, currency, origin_country, shipping_to, wts_negotiable, market_comment, wtt_ids, updated_at, user_id, item: items(id, name, image_url, member, version, group_id, album_id, type), profiles (display_name, avatar_url, is_restricted)';
+      let { data: pcData, error: pcErr } = await supabase
         .from("user_item_statuses")
-        .select('id, status, price, currency, origin_country, shipping_to, wts_negotiable, market_comment, wtt_ids, updated_at, user_id, item: items(id, name, image_url, member, version, group_id, album_id), profiles (display_name, avatar_url, is_restricted)')
-        .in("status", ["wts", "wtt"]) // <-- RECUPERAMOS ESTE FILTRO VITAL
+        .select(pcSelectWithKoins)
+        .in("status", ["wts", "wtt"])
         .order("updated_at", { ascending: false });
+      if (pcErr && String(pcErr.message || "").toLowerCase().includes("price_koins")) {
+        const retry = await supabase
+          .from("user_item_statuses")
+          .select(pcSelectPlain)
+          .in("status", ["wts", "wtt"])
+          .order("updated_at", { ascending: false });
+        pcData = retry.data as typeof pcData;
+      }
 
       if (pcData) {
         pcData.forEach((row: any) => {
           const profile = row.profiles || {};
           if (profile.is_restricted) return; // Si está restringido, saltamos este anuncio
           
+          const inclusion = isInclusionPc(row.item?.type, row.item?.image_url);
           const baseAd: MarketAd = { 
             id: `pc-${row.id}`, itemType: "pc", item_id: row.item?.id || row.item_id, type: row.status,
             user_id: row.user_id, username: profile.display_name || t("global.default_user_name"), avatar_url: profile.avatar_url || "https://ui-avatars.com/api/?name=U",
             country: row.origin_country || "España", pcImage: row.item?.image_url || "/mock-pcs/groups/not-available.png", pcName: row.item?.name || t("common.photocard"),
             group_id: row.item?.group_id || null, group_name: null, album_id: row.item?.album_id || null, version: row.item?.version || "", member: row.item?.member || "",
-            category: t("common.photocard"), price: row.price || 0, currency: row.currency || "EUR", time: new Date(row.updated_at || Date.now()).toLocaleDateString(),
-            shippingTo: row.shipping_to || t("countries.worldwide"), negotiable: row.wts_negotiable || false, comment: row.market_comment || ""
+            category: inclusion ? MERCH_INCLUSIONS_DB_CATEGORY : t("common.photocard"), price: row.price || 0, currency: row.currency || "EUR", time: new Date(row.updated_at || Date.now()).toLocaleDateString(),
+            shippingTo: row.shipping_to || t("countries.worldwide"), negotiable: row.wts_negotiable || false, comment: stripWtsKoinsMark(row.market_comment || ""),
+            price_koins: resolveWtsKoins(row.price_koins, row.market_comment),
+            item_kind: inclusion ? "inclusion" : "pc",
+            album_title: null,
           };
 
           if (row.status === "wtt" && row.wtt_ids && row.wtt_ids.length > 0) {
@@ -551,11 +595,21 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
       }
 
       // 2. CARGAMOS MERCHANDISING
-      const { data: merchData } = await supabase
+      const merchSelectWithKoins = 'id, status, price, currency, comment, wtt_ids, price_koins, updated_at, user_id, merch:merch_items(id, name, category, group_name, image_url, rarity, album_title, album_type, album_version), profiles(display_name, avatar_url, is_restricted)';
+      const merchSelectNoAlbum = 'id, status, price, currency, comment, wtt_ids, updated_at, user_id, merch:merch_items(id, name, category, group_name, image_url, rarity), profiles(display_name, avatar_url, is_restricted)';
+      let { data: merchData, error: merchErr } = await supabase
         .from("user_merch_statuses")
-        .select('id, status, price, currency, comment, wtt_ids, price_koins, updated_at, user_id, merch:merch_items(id, name, category, group_name, image_url, rarity), profiles(display_name, avatar_url, is_restricted)')
-        .in("status", ["wts", "wtt"]) // <-- RECUPERAMOS ESTE FILTRO VITAL
+        .select(merchSelectWithKoins)
+        .in("status", ["wts", "wtt"])
         .order("updated_at", { ascending: false });
+      if (merchErr) {
+        const retryMerch = await supabase
+          .from("user_merch_statuses")
+          .select(merchSelectNoAlbum)
+          .in("status", ["wts", "wtt"])
+          .order("updated_at", { ascending: false });
+        merchData = retryMerch.data as typeof merchData;
+      }
 
       if (merchData) {
         merchData.forEach((row: any) => {
@@ -563,14 +617,18 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
           if (profile.is_restricted) return; // Si está restringido, no lo mostramos
           
           const merch = row.merch || {};
+          const extras = parseWtsListingExtras(row.comment || "");
+          const merchKind = kindFromMerchCategory(String(merch.category || "Merch"));
           const baseAd: MarketAd = { 
             id: `merch-${row.id}`, itemType: "merch", item_id: merch.id || 0, type: row.status,
             user_id: row.user_id, username: profile.display_name || t("global.default_user_name"), avatar_url: profile.avatar_url || "https://ui-avatars.com/api/?name=U",
-            country: t("countries.worldwide"), pcImage: merch.image_url || "/mock-pcs/groups/not-available.png", pcName: merch.name || "Merch Oficial",
-            group_id: null, group_name: merch.group_name || "", album_id: null, version: merch.rarity || "", member: "",
+            country: extras.origin || t("countries.worldwide"), pcImage: merch.image_url || "/mock-pcs/groups/not-available.png", pcName: merch.name || "Merch Oficial",
+            group_id: null, group_name: merch.group_name || "", album_id: null, version: merch.album_version || merch.rarity || "", member: "",
             category: merch.category || "Merch", price: row.price || 0, currency: row.currency || "EUR", time: new Date(row.updated_at || Date.now()).toLocaleDateString(),
-            shippingTo: t("countries.worldwide"), negotiable: false, comment: row.comment || "",
-            price_koins: row.price_koins != null ? Number(row.price_koins) : null,
+            shippingTo: extras.shipping || t("countries.worldwide"), negotiable: Boolean(extras.negotiable), comment: stripWtsKoinsMark(row.comment || ""),
+            price_koins: resolveWtsKoins(row.price_koins, row.comment),
+            item_kind: merchKind,
+            album_title: merch.album_title || null,
           };
 
           if (row.status === "wtt" && row.wtt_ids && row.wtt_ids.length > 0) {
@@ -588,16 +646,40 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
       const tMap: Record<string | number, TargetInfo> = {};
 
       if (targetPcIdsToFetch.size > 0) {
-        const { data: pcTargets } = await supabase.from("items").select("id, name, member, image_url, group_id, album_id, version").in("id", Array.from(targetPcIdsToFetch));
+        const { data: pcTargets } = await supabase.from("items").select("id, name, member, image_url, group_id, album_id, version, type").in("id", Array.from(targetPcIdsToFetch));
         pcTargets?.forEach(t => {
-          tMap[t.id] = { itemType: "pc", image_url: t.image_url, name: t.name || "Photocard", member: t.member || "", group_id: t.group_id, album_id: t.album_id, version: t.version || "", category: "Photocard" };
+          const inclusion = isInclusionPc((t as { type?: string }).type, t.image_url);
+          tMap[t.id] = {
+            itemType: "pc",
+            image_url: t.image_url,
+            name: t.name || "Photocard",
+            member: t.member || "",
+            group_id: t.group_id,
+            album_id: t.album_id,
+            version: t.version || "",
+            category: inclusion ? MERCH_INCLUSIONS_DB_CATEGORY : "Photocard",
+            item_kind: inclusion ? "inclusion" : "pc",
+          };
         });
       }
 
       if (targetMerchIdsToFetch.size > 0) {
-        const { data: merchTargets } = await supabase.from("merch_items").select("id, name, category, group_name, image_url, rarity").in("id", Array.from(targetMerchIdsToFetch));
+        const { data: merchTargets } = await supabase.from("merch_items").select("id, name, category, group_name, image_url, rarity, album_title, album_version").in("id", Array.from(targetMerchIdsToFetch));
         merchTargets?.forEach(t => {
-          tMap[t.id] = { itemType: "merch", image_url: t.image_url, name: t.name || "Merch", member: t.group_name || "", group_id: null, album_id: null, version: t.rarity || "", category: t.category };
+          const merchKind = kindFromMerchCategory(String(t.category || ""));
+          tMap[t.id] = {
+            itemType: "merch",
+            image_url: t.image_url,
+            name: t.name || "Merch",
+            member: t.group_name || "",
+            group_id: null,
+            album_id: null,
+            version: (t as { album_version?: string }).album_version || t.rarity || "",
+            category: t.category,
+            item_kind: merchKind,
+            album_title: (t as { album_title?: string | null }).album_title || null,
+            group_name: t.group_name || "",
+          };
         });
       }
       
@@ -643,21 +725,27 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
     // In "wanted" mode, if ad has no explicit target, only show it when no strict filter is active.
     if (!refItem) return !hasStrictFilters;
 
-    const refItemType = (refItem as any).itemType || ad.itemType || "pc";
+    const kind = adKind(refItem as MarketAd);
+    if (fItemType !== "all" && kind !== fItemType) return false;
 
-    if (fItemType !== "all" && refItemType !== fItemType) return false;
+    const refGroupName =
+      groupDict[(refItem as MarketAd).group_id as number] ||
+      String((refItem as MarketAd).group_name || ad.group_name || "").trim();
+    if (fGroup !== "all" && refGroupName !== fGroup && String((refItem as MarketAd).group_id) !== fGroup) return false;
+    if (fCategory !== "all" && kind === "merch" && refItem.category !== fCategory) return false;
 
-    const refGroupName = refItemType === "pc" ? groupDict[refItem.group_id as number] : refItem.member; // En merch usamos member para el grupo
-    if (fGroup !== "all" && refGroupName !== fGroup) return false;
-    if (fCategory !== "all" && refItem.category !== fCategory) return false;
-
-    if (refItemType !== "merch") {
-      if (fAlbum !== "all" && String(refItem.album_id) !== fAlbum) return false;
-      if (fVersion !== "all" && refItem.version !== fVersion) return false;
-      if (fUnit !== "all" && unitTypeFromMember(refItem.member) !== fUnit) return false;
+    if (kind === "pc" || kind === "inclusion" || kind === "album") {
+      const albumHit =
+        fAlbum === "all" ||
+        String(refItem.album_id) === fAlbum ||
+        String((refItem as MarketAd).album_title || "").trim() === fAlbum;
+      if (!albumHit) return false;
+      if (kind === "pc" && fVersion !== "all" && refItem.version !== fVersion) return false;
+      if (kind === "album" && fVersion !== "all" && refItem.version !== fVersion) return false;
+      if (kind === "pc" && fUnit !== "all" && unitTypeFromMember(refItem.member) !== fUnit) return false;
     }
 
-    if (fMember !== "all") {
+    if (fMember !== "all" && kind === "pc") {
       const memberSource = String(refItem.member || "");
       const candidateKeys = memberKeysFromRaw(memberSource, knownSingleMembers);
       const selectedKey = normalizeMemberKey(String(fMember));
@@ -669,7 +757,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
     const q = search.toLowerCase();
     if (q) {
       const itemName = "pcName" in refItem ? refItem.pcName : (refItem as any).name;
-      const hay = `${itemName} ${refItem.member} ${refItem.version} ${refGroupName} ${refItem.category}`.toLowerCase();
+      const hay = `${itemName} ${refItem.member} ${refItem.version} ${refGroupName} ${refItem.category} ${(refItem as MarketAd).album_title || ""}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -693,7 +781,10 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
   const closeDeepLinkPeek = useCallback(() => {
     setShowDeepLinkPeek(false);
     clearMarketDeepLinkQuery();
-  }, [clearMarketDeepLinkQuery]);
+    if (readNoticeReturn()?.senderId) {
+      goToNoticeChat((href) => router.push(href));
+    }
+  }, [clearMarketDeepLinkQuery, router]);
 
   useEffect(() => {
     if (loading || ads.length === 0) return;
@@ -724,7 +815,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
     setTab(match.type);
     setSearchMode("offered");
     setSearch("");
-    setFItemType(match.itemType === "merch" ? "merch" : "pc");
+    setFItemType(adKind(match));
     setFCategory("all");
     setFGroup("all");
     setFAlbum("all");
@@ -764,50 +855,65 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
   }, [showDeepLinkPeek, closeDeepLinkPeek]);
 
  const targetUserId = searchParams.get('u') || currentUserId; // 👈 Si hay un 'u' en la URL, usamos ese. Si no, el tuyo.
-  const availableGroups = useMemo(
-    () => Array.from(new Set(ads.map((a) => a.group_id).filter(Boolean))),
-    [ads]
+  const kindAds = useMemo(
+    () => (fItemType === "all" ? ads : ads.filter((a) => adKind(a) === fItemType)),
+    [ads, fItemType]
   );
+
+  const availableGroups = useMemo(() => {
+    const names = new Set<string>();
+    kindAds.forEach((a) => {
+      const n = groupDict[a.group_id as number] || String(a.group_name || "").trim();
+      if (n) names.add(n);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [kindAds, groupDict]);
 
   const availableAlbums = useMemo(
     () => {
-      const ids = Array.from(
-        new Set(
-          ads
-            .filter((a) => fGroup === "all" || groupDict[a.group_id as number] === fGroup)
-            .map((a) => a.album_id)
-            .filter(Boolean)
-        )
-      ) as number[];
-
+      const entries: { id: string; name: string }[] = [];
+      const seen = new Set<string>();
+      kindAds.forEach((a) => {
+        const gName = groupDict[a.group_id as number] || String(a.group_name || "").trim();
+        if (fGroup !== "all" && gName !== fGroup) return;
+        if (a.album_id != null) {
+          const id = String(a.album_id);
+          if (!seen.has(`id:${id}`)) {
+            seen.add(`id:${id}`);
+            entries.push({ id, name: albumDict[a.album_id] || `Álbum ${id}` });
+          }
+        }
+        const title = String(a.album_title || "").trim();
+        if (title && !seen.has(`t:${title.toLowerCase()}`)) {
+          seen.add(`t:${title.toLowerCase()}`);
+          entries.push({ id: title, name: title });
+        }
+      });
       const sorted = sortCollectionEntries(
-        ids.map((id) => ({
-          id,
-          name: albumDict[id] || `Álbum ${id}`,
-          releaseDate: null,
-        })),
+        entries.map((e) => ({ id: e.id, name: e.name, releaseDate: null })),
         { groupName: fGroup === "all" ? null : fGroup },
       );
-      return sorted.map((x) => x.id);
+      return sorted.map((x) => ({ id: String(x.id), name: x.name }));
     },
-    [ads, fGroup, groupDict, albumDict]
+    [kindAds, fGroup, groupDict, albumDict]
   );
 
   const availableVersions = useMemo(
     () =>
       Array.from(
         new Set(
-          ads
-            .filter(
-              (a) =>
-                (fGroup === "all" || groupDict[a.group_id as number] === fGroup) &&
-                (fAlbum === "all" || String(a.album_id) === fAlbum)
-            )
+          kindAds
+            .filter((a) => {
+              const gName = groupDict[a.group_id as number] || String(a.group_name || "").trim();
+              if (fGroup !== "all" && gName !== fGroup) return false;
+              if (fAlbum === "all") return true;
+              return String(a.album_id) === fAlbum || String(a.album_title || "").trim() === fAlbum;
+            })
             .map((a) => a.version)
             .filter((v) => v && v.trim() !== "")
         )
       ),
-    [ads, fGroup, fAlbum, groupDict]
+    [kindAds, fGroup, fAlbum, groupDict]
   );
 
   const availableMembers = useMemo(() => {
@@ -835,7 +941,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
   const handleBuy = (adId: string) => {
     const ad = ads.find((item) => item.id === adId);
     if (!ad) return;
-    if (!currentUserId) return alert(t("market.alerts.login_contact"));
+    if (!requireLoggedIn(currentUserId, showAlert, t)) return;
     setContactFlow("wts_buy");
     setSelectedAd(ad);
     setContactMessage("");
@@ -864,7 +970,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
     fontSize: 13,
   };
  const openContact = (ad: MarketAd) => {
-    if (!currentUserId) return alert(t("market.alerts.login_contact"));
+    if (!requireLoggedIn(currentUserId, showAlert, t)) return;
     setContactFlow("wtt_trade");
     setSelectedAd(ad);
     setShowContactModal(true);
@@ -873,7 +979,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
   };
 
   const openOffer = (ad: MarketAd) => {
-    if (!currentUserId) return alert(t("market.alerts.login_offer"));
+    if (!requireLoggedIn(currentUserId, showAlert, t)) return;
     setSelectedAd(ad);
     setOfferPrice("");
     setOfferKoins(false);
@@ -885,7 +991,8 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
     setMsgImagePreview(null);
   };
 
-  const clearAllFilters = () => {
+  const pickKind = (next: MarketItemKind) => {
+    setFItemType(next);
     setFCategory("all");
     setFGroup("all");
     setFAlbum("all");
@@ -895,6 +1002,11 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
     setFMerchRelation("all");
     setFMerchEvent("all");
     setFMerchTour("all");
+    setFilterRefreshTick((v) => v + 1);
+  };
+
+  const clearAllFilters = () => {
+    pickKind("all");
   };
 
   const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1179,57 +1291,31 @@ const openPublicProfile = async (userId: string) => {
             )}
             <div style={{ display: !isCompactViewport || showCompactFilters ? "block" : "none" }} className="page-filters-panel">
             
-            {/* --- 1. FILTRO MAESTRO: BOTONES TIPO PÍLDORA FUERA DE LA CAJA --- */}
+            {/* --- 1. FILTRO MAESTRO: TIPO DE ÍTEM --- */}
             <div style={{ display: "flex", gap: "10px", marginBottom: fItemType === "all" ? "0" : "16px", flexWrap: "wrap" }}>
+              {(
+                [
+                  ["all", t("market.filter_all")],
+                  ["pc", t("market.filter_pc")],
+                  ["inclusion", t("market.filter_inclusion") === "market.filter_inclusion" ? t("albums.tab_inclusions") : t("market.filter_inclusion")],
+                  ["album", t("market.filter_album") === "market.filter_album" ? t("market.cat_album") : t("market.filter_album")],
+                  ["merch", t("market.filter_merch")],
+                ] as Array<[MarketItemKind, string]>
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => pickKind(id)}
+                  style={{ padding: "8px 18px", borderRadius: "20px", border: "1px solid var(--color-border)", background: fItemType === id ? "var(--color-primary)" : "var(--bg-soft)", color: fItemType === id ? "white" : "var(--color-primary)", fontWeight: 800, cursor: "pointer", transition: "all 0.2s" }}
+                >
+                  {label}
+                </button>
+              ))}
               <button
-                onClick={() => {
-                  setFItemType("all");
-                  setFilterRefreshTick((v) => v + 1);
-                }}
-                style={{ padding: "8px 18px", borderRadius: "20px", border: "1px solid var(--color-border)", background: fItemType === "all" ? "var(--color-primary)" : "var(--bg-soft)", color: fItemType === "all" ? "white" : "var(--color-primary)", fontWeight: 800, cursor: "pointer", transition: "all 0.2s" }}
-              >
-                {t("market.filter_all")}
-              </button>
-              <button
-                onClick={() => {
-                  setFItemType("pc");
-                  setFilterRefreshTick((v) => v + 1);
-                }}
-                style={{ padding: "8px 18px", borderRadius: "20px", border: "1px solid var(--color-border)", background: fItemType === "pc" ? "var(--color-primary)" : "var(--bg-soft)", color: fItemType === "pc" ? "white" : "var(--color-primary)", fontWeight: 800, cursor: "pointer", transition: "all 0.2s" }}
-              >
-                {t("market.filter_pc")}
-              </button>
-              <button
-                onClick={() => {
-                  setFItemType("merch");
-                  setFilterRefreshTick((v) => v + 1);
-                }}
-                style={{ padding: "8px 18px", borderRadius: "20px", border: "1px solid var(--color-border)", background: fItemType === "merch" ? "var(--color-primary)" : "var(--bg-soft)", color: fItemType === "merch" ? "white" : "var(--color-primary)", fontWeight: 800, cursor: "pointer", transition: "all 0.2s" }}
-              >
-                {t("market.filter_merch")}
-              </button>
-              <button
-                onClick={() => setShowAdvancedFilters((v) => !v)}
-                style={{
-                  marginLeft: "auto",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "8px 14px",
-                  borderRadius: "20px",
-                  border: "1px solid var(--color-border)",
-                  background: showAdvancedFilters ? "var(--color-primary)" : "var(--bg-card)",
-                  color: showAdvancedFilters ? "white" : "var(--color-primary)",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                }}
-              >
-                <SlidersHorizontal size={14} />
-                {showAdvancedFilters ? t("common.close") : t("market.filters")}
-              </button>
-              <button
+                type="button"
                 onClick={() => clearAllFilters()}
                 style={{
+                  marginLeft: "auto",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "8px",
@@ -1246,68 +1332,44 @@ const openPublicProfile = async (userId: string) => {
               </button>
             </div>
 
-           {/* --- 2. CAJA DE SUB-FILTROS --- */}
-            {showAdvancedFilters && (
+           {/* --- 2. SUB-FILTROS SEGÚN TIPO --- */}
+            {fItemType !== "all" && (
               <div
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
                   gap: 12,
-                  background: "var(--bg-soft)", // 👈 Antes var(--bg-soft)
+                  background: "var(--bg-soft)",
                   padding: 16,
                   borderRadius: 16,
-                  border: "1px solid var(--color-border)", // 👈 Antes var(--color-border)
-                  boxShadow: "0 4px 12px var(--shadow-card)", // 👈 Sombra dinámica
+                  border: "1px solid var(--color-border)",
+                  boxShadow: "0 4px 12px var(--shadow-card)",
                 }}
               >
-                {/* ======================================================== */}
-                {/* --- BLOQUE A: CONTENIDO DE ÁLBUM --- */}
-                {/* ======================================================== */}
-                {(fItemType === "pc" || fItemType === "all") && (
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <label style={labelStyle}><Users size={14} strokeWidth={2.4} /> {t("market.label_group")}</label>
+                  <select value={fGroup} onChange={(e) => { setFGroup(e.target.value); setFAlbum("all"); setFVersion("all"); }} style={selectStyle}>
+                    <option value="all">{t("market.all_masc")}</option>
+                    {availableGroups.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {(fItemType === "pc" || fItemType === "inclusion" || fItemType === "album") && (
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <label style={labelStyle}><Disc3 size={14} strokeWidth={2.4} /> {t("market.label_album")}</label>
+                    <select value={fAlbum} onChange={(e) => { setFAlbum(e.target.value); setFVersion("all"); }} style={selectStyle}>
+                      <option value="all">{t("market.all_masc")}</option>
+                      {availableAlbums.map((alb) => (
+                        <option key={alb.id} value={alb.id}>{formatCollectionOptionLabel(alb.name)}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {fItemType === "pc" && (
                   <>
-                    {fItemType === "all" && (
-                      <div
-                        style={{
-                          gridColumn: "1 / -1",
-                          fontSize: "12px",
-                          fontWeight: 900,
-                          color: "var(--color-primary)",
-                          paddingBottom: "2px",
-                        }}
-                      >
-                        {t("market.filter_pc")}
-                      </div>
-                    )}
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      <label style={labelStyle}><Layers size={14} strokeWidth={2.4} /> {t("market.label_category")}</label>
-                      <select value={fCategory} onChange={(e) => setFCategory(e.target.value)} style={selectStyle}>
-                        <option value="all">{t("market.all_fem")}</option>
-                        <option value="Photocard">{t("market.cat_pc")}</option>
-                        <option value="Inclusion">{t("market.cat_inclusion")}</option>
-                        <option value="Album">{t("market.cat_album")}</option>
-                      </select>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      <label style={labelStyle}><Users size={14} strokeWidth={2.4} /> {t("market.label_group")}</label>
-                      <select value={fGroup} onChange={(e) => setFGroup(e.target.value)} style={selectStyle}>
-                        <option value="all">{t("market.all_masc")}</option>
-                        {availableGroups.map((gid) => (
-                          <option key={gid as number} value={String(gid)}>{groupDict[gid as number] || `Grupo ${gid}`}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      <label style={labelStyle}><Disc3 size={14} strokeWidth={2.4} /> {t("binders.picker.collection") || "Colección / Era"}</label>
-                      <select value={fAlbum} onChange={(e) => setFAlbum(e.target.value)} style={selectStyle}>
-                        <option value="all">{t("market.all_masc")}</option>
-                        {availableAlbums.map((aid) => (
-                          <option key={aid as number} value={aid as number}>{formatCollectionOptionLabel(albumDict[aid as number] || `Álbum ${aid}`)}</option>
-                        ))}
-                      </select>
-                    </div>
-
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <label style={labelStyle}><Mic2 size={14} strokeWidth={2.4} /> {t("market.label_version")}</label>
                       <select value={fVersion} onChange={(e) => setFVersion(e.target.value)} style={selectStyle}>
@@ -1317,7 +1379,6 @@ const openPublicProfile = async (userId: string) => {
                         ))}
                       </select>
                     </div>
-
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <label style={labelStyle}><User size={14} strokeWidth={2.4} /> {t("market.label_member")}</label>
                       <select value={fMember} onChange={(e) => setFMember(e.target.value)} style={selectStyle}>
@@ -1327,7 +1388,6 @@ const openPublicProfile = async (userId: string) => {
                         ))}
                       </select>
                     </div>
-
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <label style={labelStyle}><Layers size={14} strokeWidth={2.4} /> {t("market.label_type")}</label>
                       <select value={fUnit} onChange={(e) => setFUnit(e.target.value)} style={selectStyle}>
@@ -1340,26 +1400,20 @@ const openPublicProfile = async (userId: string) => {
                   </>
                 )}
 
-                {/* ========================================= */}
-                {/* --- BLOQUE B: MERCHANDISING SELECCIONADO --- */}
-                {/* ========================================= */}
-                {(fItemType === "merch" || fItemType === "all") && (
+                {fItemType === "album" && (
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <label style={labelStyle}><Mic2 size={14} strokeWidth={2.4} /> {t("market.label_version")}</label>
+                    <select value={fVersion} onChange={(e) => setFVersion(e.target.value)} style={selectStyle}>
+                      <option value="all">{t("market.all_fem")}</option>
+                      {availableVersions.map((v) => (
+                        <option key={v as string} value={v as string}>{formatPrettyName(v as string)}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {fItemType === "merch" && (
                   <>
-                    {fItemType === "all" && (
-                      <div
-                        style={{
-                          gridColumn: "1 / -1",
-                          fontSize: "12px",
-                          fontWeight: 900,
-                          color: "var(--color-primary)",
-                          borderTop: "1px dashed var(--color-border)",
-                          paddingTop: "8px",
-                          marginTop: "2px",
-                        }}
-                      >
-                        {t("market.filter_merch")}
-                      </div>
-                    )}
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <label style={labelStyle}><Layers size={14} strokeWidth={2.4} /> {t("market.label_category")}</label>
                       <select value={fCategory} onChange={(e) => setFCategory(e.target.value)} style={selectStyle}>
@@ -1370,28 +1424,6 @@ const openPublicProfile = async (userId: string) => {
                         <option value="Accesorios">{t("market.cat_accessories")}</option>
                       </select>
                     </div>
-
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      <label style={labelStyle}><Users size={14} strokeWidth={2.4} /> {t("market.label_group")}</label>
-                      <select value={fGroup} onChange={(e) => setFGroup(e.target.value)} style={selectStyle}>
-                        <option value="all">{t("market.all_masc")}</option>
-                        {availableGroups.map((gid) => (
-                          <option key={gid as number} value={String(gid)}>{groupDict[gid as number] || `Grupo ${gid}`}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      <label style={labelStyle}><User size={14} strokeWidth={2.4} /> {t("market.label_member")}</label>
-                      <select value={fMember} onChange={(e) => setFMember(e.target.value)} style={selectStyle}>
-                        <option value="all">{t("market.all_masc")}</option>
-                        {availableMembers.map((m) => (
-                          <option key={m as string} value={m as string}>{formatPrettyName(m as string)}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* RELACIÓN DINÁMICA (MUÑECA RUSA) */}
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <label style={labelStyle}><Sparkles size={14} strokeWidth={2.4} /> {t("market.label_related")}</label>
                       <select value={fMerchRelation} onChange={(e) => {
@@ -1406,19 +1438,17 @@ const openPublicProfile = async (userId: string) => {
                         <option value="gira">{t("market.rel_tour")}</option>
                       </select>
                     </div>
-
                     {fMerchRelation === "album" && (
                       <div style={{ display: "flex", flexDirection: "column" }}>
-                        <label style={labelStyle}><Disc3 size={14} strokeWidth={2.4} /> {t("binders.picker.collection") || "Colección / Era"}</label>
+                        <label style={labelStyle}><Disc3 size={14} strokeWidth={2.4} /> {t("market.label_album")}</label>
                         <select value={fAlbum} onChange={(e) => setFAlbum(e.target.value)} style={selectStyle}>
                           <option value="all">{t("market.all_masc")}</option>
-                          {availableAlbums.map((aid) => (
-                            <option key={aid as number} value={aid as number}>{formatCollectionOptionLabel(albumDict[aid as number] || `Álbum ${aid}`)}</option>
+                          {availableAlbums.map((alb) => (
+                            <option key={alb.id} value={alb.id}>{formatCollectionOptionLabel(alb.name)}</option>
                           ))}
                         </select>
                       </div>
                     )}
-
                     {fMerchRelation === "evento" && (
                       <div style={{ display: "flex", flexDirection: "column" }}>
                         <label style={labelStyle}><MapPin size={14} strokeWidth={2.4} /> {t("market.label_event")}</label>
@@ -1431,7 +1461,6 @@ const openPublicProfile = async (userId: string) => {
                         </select>
                       </div>
                     )}
-
                     {fMerchRelation === "gira" && (
                       <div style={{ display: "flex", flexDirection: "column" }}>
                         <label style={labelStyle}><Mic2 size={14} strokeWidth={2.4} /> {t("market.label_tour")}</label>
@@ -1445,7 +1474,6 @@ const openPublicProfile = async (userId: string) => {
                     )}
                   </>
                 )}
-
               </div>
             )}
             </div>
@@ -1625,10 +1653,10 @@ const openPublicProfile = async (userId: string) => {
                       </div>
                       {ad.type === "wts" && (
                         <>
-                          {(ad.itemType !== "merch" || (ad.price ?? 0) > 0) && (
+                          {(ad.price ?? 0) > 0 && (
                             <PriceConverter price={ad.price || 0} currency={ad.currency || "EUR"} negotiable={ad.negotiable} />
                           )}
-                          {ad.itemType === "merch" && Number(ad.price_koins) > 0 && (
+                          {Number(ad.price_koins) > 0 && (
                             <div style={{ fontSize: "13px", fontWeight: 900, color: ACC.green, marginTop: (ad.price ?? 0) > 0 ? 8 : 0 }}>
                               {ad.price_koins} K-oins
                             </div>
@@ -1830,10 +1858,10 @@ const openPublicProfile = async (userId: string) => {
 
                     {ad.type === "wts" && (
                       <>
-                        {(ad.itemType !== "merch" || (ad.price ?? 0) > 0) && (
+                        {(ad.price ?? 0) > 0 && (
                           <PriceConverter price={ad.price || 0} currency={ad.currency || "EUR"} negotiable={ad.negotiable} />
                         )}
-                        {ad.itemType === "merch" && Number(ad.price_koins) > 0 && (
+                        {Number(ad.price_koins) > 0 && (
                           <div style={{ fontSize: "14px", fontWeight: 900, color: ACC.green }}>
                             {ad.price_koins} K-oins
                           </div>
@@ -2107,7 +2135,16 @@ const openPublicProfile = async (userId: string) => {
                   isWtsOffer: true,
                   price: offerPrice ? Number(offerPrice) : 0,
                   currency: selectedAd.currency || "EUR",
-                  koins: offerKoins ? parseInt(koinsAmount || "0", 10) : 0,
+                  listingId: selectedAd.id,
+                  listingItem: {
+                    id: selectedAd.item_id,
+                    type: selectedAd.itemType || "pc",
+                    itemType: selectedAd.itemType || "pc",
+                    image_url: selectedAd.pcImage,
+                    member: selectedAd.member,
+                    name: selectedAd.pcName,
+                  },
+                  koins: offerKoins ? (parseInt(koinsAmount || "0", 10) || 0) : 0,
                   items: offeredItems,
                   text: contactMessage.trim(),
                 };
@@ -2124,6 +2161,7 @@ const openPublicProfile = async (userId: string) => {
         </div>
       )}
 
+      <BackToMessagesBar label={t("me.back_to_messages")} />
       <Footer />
 
       {/* 👤 MODAL DE PERFIL PÚBLICO */}
@@ -2189,7 +2227,7 @@ const openPublicProfile = async (userId: string) => {
                 <div style={{ display: "flex", gap: 10 }}>
                   <button 
                     onClick={async () => {
-                      if (!currentUserId) return setShowToast("Inicia sesión para guardar favoritos");
+                      if (!requireLoggedIn(currentUserId, showAlert, t)) return;
                       if (isFollowingProfile) {
                         await supabase.from('user_favorites').delete().eq('follower_id', currentUserId).eq('following_id', selectedProfile.user_id);
                         setIsFollowingProfile(false); setProfileFollowers(prev => prev - 1); setShowToast("Eliminado de Favoritos");

@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { GlobalProvider } from "./context/GlobalContext";
 import Header from "./components/header";
+import { THEME_BOOT_SCRIPT, THEME_COOKIE, themeIdFromUnknown } from "@/lib/theme-persist";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,15 +36,16 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const theme = themeIdFromUnknown((await cookies()).get(THEME_COOKIE)?.value);
   return (
-    <html lang="es">
+    <html lang="es" data-theme={theme} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body 
         className={`${geistSans.variable} ${geistMono.variable}`}
-        style={{ 
-          margin: 0, 
-          transition: "background-color 0.3s ease, color 0.3s ease" // 👈 Cambio de tema fluido
-        }}
+        style={{ margin: 0 }}
       >
         <GlobalProvider>
           {/* Contenedor principal para asegurar que el Header y el contenido no bailen */}

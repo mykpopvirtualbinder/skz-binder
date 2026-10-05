@@ -266,6 +266,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   useEffect(() => {
     const onEsc = (ev: KeyboardEvent) => {
       if (ev.key !== "Escape") return;
+      setVisorImages([]);
       setStrikeModal(null);
       setConfirmDialog(null);
       setNotificarModal(null);
@@ -4536,14 +4537,14 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
 
         {/* VISOR DE PRUEBAS ADJUNTAS */}
         {visorImages.length > 0 && (
-          <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-heavy)", zIndex: 100000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <button onClick={() => setVisorImages([])} style={{ position: "absolute", top: "20px", right: "20px", background: "color-mix(in srgb, var(--bg-card) 10%, transparent)", border: "none", color: "var(--bg-card)", borderRadius: "50%", padding: "10px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "color-mix(in srgb, var(--bg-card) 30%, transparent)"} onMouseLeave={e => e.currentTarget.style.background = "color-mix(in srgb, var(--bg-card) 10%, transparent)"}>
+          <div onClick={() => setVisorImages([])} style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-heavy)", zIndex: 100000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
+            <button onClick={(e) => { e.stopPropagation(); setVisorImages([]); }} style={{ position: "absolute", top: "20px", right: "20px", background: "color-mix(in srgb, var(--bg-card) 10%, transparent)", border: "none", color: "var(--bg-card)", borderRadius: "50%", padding: "10px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "color-mix(in srgb, var(--bg-card) 30%, transparent)"} onMouseLeave={e => e.currentTarget.style.background = "color-mix(in srgb, var(--bg-card) 10%, transparent)"}>
               <X size={28} />
             </button>
-            <img src={visorImages[visorIndex]} style={{ maxWidth: "90vw", maxHeight: "80vh", objectFit: "contain", borderRadius: "12px", boxShadow: "0 10px 40px var(--overlay-medium)" }} alt="Prueba adjunta" />
+            <img src={visorImages[visorIndex]} onClick={(e) => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "80vh", objectFit: "contain", borderRadius: "12px", boxShadow: "0 10px 40px var(--overlay-medium)" }} alt="Prueba adjunta" />
             
             {visorImages.length > 1 && (
-              <div style={{ display: "flex", alignItems: "center", gap: "20px", marginTop: "25px", background: "color-mix(in srgb, var(--bg-card) 10%, transparent)", padding: "10px 20px", borderRadius: "99px" }}>
+              <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: "20px", marginTop: "25px", background: "color-mix(in srgb, var(--bg-card) 10%, transparent)", padding: "10px 20px", borderRadius: "99px" }}>
                 <button onClick={() => setVisorIndex(i => i === 0 ? visorImages.length - 1 : i - 1)} style={{ background: "transparent", border: "none", color: "var(--bg-card)", cursor: "pointer", fontWeight: 900, fontSize: "14px" }}>ANTERIOR</button>
                 <span style={{ color: "var(--color-border)", fontWeight: 800, fontSize: "14px" }}>{visorIndex + 1} de {visorImages.length}</span>
                 <button onClick={() => setVisorIndex(i => (i + 1) % visorImages.length)} style={{ background: "transparent", border: "none", color: "var(--bg-card)", cursor: "pointer", fontWeight: 900, fontSize: "14px" }}>SIGUIENTE</button>

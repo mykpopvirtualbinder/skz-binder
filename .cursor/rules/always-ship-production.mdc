@@ -1,0 +1,14 @@
+---
+description: Tras terminar un cambio de producto, hacer commit y desplegar a producción.
+alwaysApply: true
+---
+
+# Commit y producción siempre
+
+Cuando el trabajo pedido esté hecho (UI, API, binder, market, etc.), no lo dejes solo en local.
+
+1. Crea un commit con los archivos de producto relevantes.
+2. Empuja a `origin` (push normal, nunca force-push a `main`).
+3. Confirma el deploy de Vercel a https://www.mykpopbinder.com.
+
+No incluyas en el commit: `public/mock-pcs` masivo, carpetas `silvia*`, `templates`, ni borrados de PDFs legales, salvo que la usuaria lo pida explícitamente.

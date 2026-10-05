@@ -13,6 +13,7 @@ import {
 } from "./ui/AvatarModalInsigniasSection";
 import { isAdminTeamEmail, isSiteAdminSession } from "@/lib/admin-emails";
 import { getThemeUnlockCost, isVipThemeKey, normalizeThemeId, unlockKeyForTheme } from "@/lib/theme-unlocks";
+import { persistTheme } from "@/lib/theme-persist";
 import Footer from "../components/footer";
 import Header from "../components/header"; // 👈 Añadido el Header
 import {
@@ -24,6 +25,10 @@ import {
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useGlobal } from "../context/GlobalContext";
+import { offerItems, offerKoinsAmount, offerPreviewText, parseChatOffer, type ChatOfferPayload } from "@/lib/chat-offer-payload";
+import { parseChatDeal, serializeChatDeal, newDealId, offerFromTerms, dealPreviewText, type ChatDealPayload, type DealAction, type DealTerms } from "@/lib/chat-deal-payload";
+import { saveNoticeReturn, readNoticeReturn, clearNoticeReturn } from "@/lib/notice-return";
+import OfferDealModal from "./OfferDealModal";
 
 type TabKey = "home" | "groups" | "fanzone" | "notices";
 
@@ -373,6 +378,18 @@ function MePageContent() {
   const [customAlert, setCustomAlert] = useState<{ title: string, message: string, onClose?: () => void } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replyFileInputRef = useRef<HTMLInputElement>(null);
+  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const openedChatFromQueryRef = useRef<string | null>(null);
+  const pendingScrollMsgRef = useRef<string | null>(null);
+  const [dealModal, setDealModal] = useState<{
+    kind: "wts" | "trade";
+    offer: ChatOfferPayload;
+    messageId: string;
+    dealId?: string;
+    ownerId: string;
+    bidderId: string;
+    startOnCounter?: boolean;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -841,9 +858,42 @@ function MePageContent() {
     const hadNewMessage = currentLen > prevChatLenRef.current;
     prevChatLenRef.current = currentLen;
     if (!hadNewMessage) return;
+    if (pendingScrollMsgRef.current) return;
     if (!shouldStickToBottomRef.current) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
   }, [chatHistory]);
+
+  const scrollChatToMessage = (id: string) => {
+    const viewport = messagesViewportRef.current;
+    const el = document.getElementById(`chat-msg-${id}`);
+    if (!viewport || !el) return false;
+    const offset = el.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+    viewport.scrollTo({
+      top: viewport.scrollTop + offset - viewport.clientHeight / 2 + el.offsetHeight / 2,
+      behavior: "smooth",
+    });
+    return true;
+  };
+
+  useEffect(() => {
+    const id = pendingScrollMsgRef.current;
+    if (!id || isLoadingChat) return;
+    let attempts = 0;
+    let timer: number | undefined;
+    const tick = () => {
+      if (pendingScrollMsgRef.current !== id) return;
+      if (scrollChatToMessage(id)) {
+        pendingScrollMsgRef.current = null;
+        return;
+      }
+      attempts += 1;
+      if (attempts < 50) timer = window.setTimeout(tick, 80);
+    };
+    tick();
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [chatHistory, isLoadingChat, activeChatUser?.id]);
 
   useEffect(() => {
     if (!translationErrorHint) return;
@@ -875,6 +925,10 @@ function MePageContent() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (dealModal) {
+          setDealModal(null);
+          return;
+        }
         setIsSettingsOpen(false);
         setIsAvatarModalOpen(false);
         setOpenBiasDropdown(null);
@@ -883,7 +937,7 @@ function MePageContent() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [dealModal]);
 
   useEffect(() => {
     const urlTab = searchParams.get("tab");
@@ -1196,23 +1250,61 @@ function MePageContent() {
     setIsLoadingChat(false);
   };
 
+  const rememberNoticeReturn = (n: { sender_id?: string; sender_profile?: Notification["sender_profile"]; id?: string }) => {
+    if (!n.sender_id) return;
+    saveNoticeReturn({
+      senderId: n.sender_id,
+      senderName: n.sender_profile?.display_name,
+      senderAvatar: n.sender_profile?.avatar_url,
+      messageId: n.id,
+    });
+  };
+
+  const openChatByUserId = async (userId: string, profileHint?: Notification["sender_profile"], messageId?: string) => {
+    if (!userId) return;
+    setTab("notices");
+    if (messageId) {
+      pendingScrollMsgRef.current = messageId;
+      shouldStickToBottomRef.current = false;
+    } else {
+      shouldStickToBottomRef.current = true;
+    }
+    setActiveChatUser({
+      id: userId,
+      name: profileHint?.display_name || "Usuario",
+      avatar: profileHint?.avatar_url || DEFAULT_AVATAR,
+    });
+    setTranslationErrorHint(null);
+    translationFatalRef.current = false;
+    translationCooldownUntilRef.current = 0;
+    setShowChatTranslateAdvice(true);
+    prevChatLenRef.current = 0;
+    const { data } = await supabase
+      .from("profiles")
+      .select("user_id, display_name, avatar_url")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (data) {
+      setActiveChatUser({
+        id: userId,
+        name: data.display_name || profileHint?.display_name || "Usuario",
+        avatar: data.avatar_url || profileHint?.avatar_url || DEFAULT_AVATAR,
+      });
+    }
+    await loadChatHistory(userId);
+  };
+
   const openChat = (n: Notification) => {
     if (!n.read) markAsRead(n.id);
     if (n.type === 'like' || n.type === 'comment' || n.type === 'admin_approval') {
       if (n.image_url) {
+        rememberNoticeReturn(n);
         sessionStorage.setItem("open_fanart_id", n.image_url);
         router.push('/fanart');
       }
       return;
     }
-    setActiveChatUser({ id: n.sender_id, name: n.sender_profile?.display_name || "Usuario", avatar: n.sender_profile?.avatar_url || DEFAULT_AVATAR });
-    setTranslationErrorHint(null);
-    translationFatalRef.current = false;
-    translationCooldownUntilRef.current = 0;
-    setShowChatTranslateAdvice(true);
-    shouldStickToBottomRef.current = true;
-    prevChatLenRef.current = 0;
-    loadChatHistory(n.sender_id);
+    void openChatByUserId(n.sender_id, n.sender_profile, n.id);
   };
 
   const handleReplyImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1236,12 +1328,14 @@ function MePageContent() {
       (n.type === "like" || n.type === "comment" || n.type === "admin_approval") &&
       n.image_url
     ) {
+      rememberNoticeReturn(n);
       sessionStorage.setItem("open_fanart_id", n.image_url);
       router.push("/fanart");
       return;
     }
 
     if (n.type === "market_listing") {
+      rememberNoticeReturn(n);
       const meta = n.metadata as { market_highlight?: string; market_pc_item_id?: number } | null | undefined;
       if (meta?.market_highlight) {
         router.push(`/market?highlight=${encodeURIComponent(meta.market_highlight)}`);
@@ -1258,6 +1352,7 @@ function MePageContent() {
     }
 
     if (n.type === "fanart_post") {
+      rememberNoticeReturn(n);
       const meta = n.metadata as { fanart_id?: string } | null | undefined;
       const fanartId = meta?.fanart_id ?? n.image_url;
       if (fanartId) sessionStorage.setItem("open_fanart_id", String(fanartId));
@@ -1266,6 +1361,7 @@ function MePageContent() {
     }
 
     if (n.type === "fanzone_post") {
+      rememberNoticeReturn(n);
       const meta = n.metadata as { fanzone_post_id?: string } | null | undefined;
       if (meta?.fanzone_post_id) {
         router.push(`/fanzone?post=${encodeURIComponent(meta.fanzone_post_id)}`);
@@ -1277,6 +1373,24 @@ function MePageContent() {
 
     openChat(n);
   };
+
+  useEffect(() => {
+    const stored = readNoticeReturn();
+    const chatId = searchParams.get("chat") || stored?.senderId || "";
+    const msgId = searchParams.get("msg") || stored?.messageId || "";
+    if (!chatId || !profile?.id) return;
+    const token = `${chatId}:${msgId}`;
+    if (openedChatFromQueryRef.current === token) return;
+    openedChatFromQueryRef.current = token;
+    void openChatByUserId(
+      chatId,
+      stored?.senderId === chatId
+        ? { display_name: stored.senderName || "Usuario", avatar_url: stored.senderAvatar || null }
+        : undefined,
+      msgId || undefined,
+    );
+    if (stored?.senderId === chatId) clearNoticeReturn();
+  }, [searchParams, profile?.id]);
 
   const markAllAsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -1780,54 +1894,249 @@ function MePageContent() {
       </div>
     );
   }
- const renderMessage = (content: string, isMe: boolean) => {
-    if (!content) return null;
-    if (content.startsWith("[APP_OFFER_PAYLOAD]")) {
-      try {
-        const jsonStr = content.replace("[APP_OFFER_PAYLOAD]", "");
-        const payload = JSON.parse(jsonStr);
-        const formatName = (str: string) => str ? str.replace(/[-]/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : "";
-        return (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%", marginTop: "4px" }}>
-            <div style={{ fontSize: "11px", fontWeight: 900, color: isMe ? "white" : "var(--color-primary)", textTransform: "uppercase", letterSpacing: "0.5px", display: "flex", alignItems: "center", gap: "6px" }}>
-              {t("me.trade_offer")}
+  const sendDealToChat = async (payload: ChatDealPayload, type = "deal_message") => {
+    if (!activeChatUser || !profile) return;
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) return;
+    const { data: newMsg, error } = await supabase.from("notifications").insert({
+      user_id: activeChatUser.id,
+      sender_id: authData.user.id,
+      type,
+      content: serializeChatDeal(payload),
+      read: false,
+      metadata: { dealId: payload.dealId },
+    }).select().single();
+    if (error) throw error;
+    if (newMsg) setChatHistory((prev) => [...prev, newMsg]);
+  };
+
+  const refreshMyKoins = async () => {
+    if (!profile?.id) return;
+    const { data } = await supabase.from("profiles").select("puntos").eq("user_id", profile.id).single();
+    if (data) setProfile((prev) => (prev ? { ...prev, puntos: data.puntos } : prev));
+    refreshGlobal();
+  };
+
+  const settleAcceptedDeal = async (deal: ChatDealPayload) => {
+    const payload: ChatDealPayload = {
+      ...deal,
+      action: "accept",
+      confirmedBy: Array.from(new Set([deal.ownerId, deal.bidderId])),
+    };
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const res = await fetch("/api/settle-deal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(String(json.error || t("me.deal_settle_error")));
+    await sendDealToChat({ ...payload, action: "settled", settled: true }, "deal_settled");
+    await refreshMyKoins();
+    showAlert(t("me.deal_settled"), t("me.deal_settled_ok"));
+  };
+
+  const latestDeal = (dealId: string) => {
+    let last: ChatDealPayload | null = null;
+    for (const m of chatHistory) {
+      const d = parseChatDeal(m.content);
+      if (d?.dealId === dealId) last = d;
+    }
+    return last;
+  };
+
+  const confirmDeal = async (deal: ChatDealPayload) => {
+    if (!profile) return;
+    try {
+      const confirmedBy = Array.from(new Set([...(deal.confirmedBy || []), profile.id]));
+      const next: ChatDealPayload = { ...deal, action: "confirm", confirmedBy };
+      const both = confirmedBy.includes(deal.ownerId) && confirmedBy.includes(deal.bidderId);
+      if (both) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        const res = await fetch("/api/settle-deal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
+          body: JSON.stringify(next),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showAlert(t("common.error"), String(json.error || t("me.deal_settle_error")));
+          await sendDealToChat(next);
+          return;
+        }
+        await sendDealToChat({ ...next, action: "settled", settled: true }, "deal_settled");
+        await refreshMyKoins();
+        showAlert(t("me.deal_settled"), t("me.deal_settled_ok"));
+        return;
+      }
+      await sendDealToChat(next);
+    } catch (err: any) {
+      showAlert(t("common.error"), err.message);
+    }
+  };
+
+ const renderMessage = (msg: Notification, isMe: boolean) => {
+    const content = msg.content || "";
+    const deal = parseChatDeal(content);
+    const formatName = (str: string) => str ? str.replace(/[-]/g, " ").replace(/\b\w/g, l => l.toUpperCase()) : "";
+    const itemGrid = (list: { image_url?: string; type?: string; itemType?: string; member?: string; name?: string | null; version?: string }[]) => (
+      list.length > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "8px" }}>
+          {list.map((item, idx) => (
+            <div key={idx} style={{ background: isMe ? "color-mix(in srgb, var(--bg-card) 15%, transparent)" : "var(--bg-card)", borderRadius: 10, overflow: "hidden", border: "1px solid color-mix(in srgb, var(--color-border) 70%, transparent)" }}>
+              {item.image_url && <img src={item.image_url} alt="" style={{ width: "100%", height: 90, objectFit: "cover" }} />}
+              <div style={{ padding: 6, fontSize: 10, fontWeight: 800, textAlign: "center" }}>{formatName((item.type === "pc" || item.itemType === "pc" ? item.member : item.name) || "")}</div>
             </div>
-            {payload.items && payload.items.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: "10px" }}>
-                {payload.items.map((item: any, idx: number) => (
-                  <div key={idx} style={{ background: isMe ? "color-mix(in srgb, var(--bg-card) 15%, transparent)" : "var(--bg-card)", border: isMe ? "1px solid color-mix(in srgb, var(--bg-card) 30%, transparent)" : "1px solid var(--color-border)", borderRadius: "12px", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 4px 10px var(--shadow-card)" }}>
-                    <div style={{ height: "130px", width: "100%", overflow: "hidden", position: "relative" }}>
-                      <img src={item.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    </div>
-                    <div style={{ padding: "8px", display: "flex", flexDirection: "column", gap: "2px", alignItems: "center", textAlign: "center" }}>
-                      <span style={{ fontSize: "11px", fontWeight: 900, color: isMe ? "white" : "var(--text-main)", lineHeight: 1.2 }}>
-                        {formatName(item.type === "pc" ? item.member : item.name)}
-                      </span>
-                      {item.type === "pc" && item.version && (
-                        <span style={{ fontSize: "9px", fontWeight: 800, color: isMe ? "color-mix(in srgb, var(--bg-card) 80%, transparent)" : "var(--color-primary)" }}>
-                          {formatName(item.version)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+          ))}
+        </div>
+      ) : null
+    );
+
+    if (deal) {
+      const live = latestDeal(deal.dealId) || deal;
+      const rejected = live.action === "reject";
+      const settled = live.settled || live.action === "settled";
+      const agreed = live.action === "accept" || live.action === "confirm" || settled;
+      const iAmParty = profile?.id === live.ownerId || profile?.id === live.bidderId;
+      const iConfirmed = (live.confirmedBy || []).includes(profile?.id || "");
+      const bothConfirmed = (live.confirmedBy || []).includes(live.ownerId) && (live.confirmedBy || []).includes(live.bidderId);
+      let latestDealMsgId = "";
+      for (const m of chatHistory) {
+        if (parseChatDeal(m.content)?.dealId === deal.dealId) latestDealMsgId = m.id;
+      }
+      const isLatestDeal = latestDealMsgId === msg.id;
+      const postDealAction = (action: DealAction, terms: DealTerms) => {
+        void (async () => {
+          const next = { ...live, action, terms, confirmedBy: action === "accept" ? [] : live.confirmedBy };
+          await sendDealToChat(next);
+          if (action === "accept") {
+            try {
+              await settleAcceptedDeal(next);
+            } catch (err: any) {
+              showAlert(t("common.error"), err.message);
+            }
+          }
+        })();
+      };
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase" }}>
+            {rejected ? t("me.deal_rejected") : settled ? t("me.deal_settled") : live.action === "counter" ? t("me.deal_counter") : t("me.deal_accept")}
+          </div>
+          {live.terms.price > 0 && <div style={{ fontWeight: 900 }}>{live.terms.price} {live.terms.currency}</div>}
+          {live.terms.koins > 0 && <div style={{ fontWeight: 800 }}>{live.terms.koins} K-oins</div>}
+          {itemGrid(live.terms.itemsFromBidder)}
+          {itemGrid(live.terms.itemsFromOwner)}
+          {live.terms.note && <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "pre-wrap" }}>{live.terms.note}</div>}
+          {!rejected && !settled && live.action === "counter" && iAmParty && isLatestDeal && profile && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <button type="button" onClick={() => postDealAction("accept", live.terms)} style={{ background: "white", color: "var(--color-primary)", border: "none", padding: "8px 12px", borderRadius: 10, fontWeight: 900, cursor: "pointer" }}>
+                {t("me.deal_accept_this")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDealModal({
+                  kind: live.kind,
+                  offer: offerFromTerms(live.terms),
+                  messageId: msg.id,
+                  dealId: live.dealId,
+                  ownerId: live.ownerId,
+                  bidderId: live.bidderId,
+                  startOnCounter: true,
+                })}
+                style={{ background: "color-mix(in srgb, var(--bg-card) 22%, transparent)", color: "inherit", border: "1px solid color-mix(in srgb, var(--color-border) 70%, transparent)", padding: "8px 12px", borderRadius: 10, fontWeight: 900, cursor: "pointer" }}
+              >
+                {t("me.deal_counter")}
+              </button>
+              <button type="button" onClick={() => postDealAction("reject", live.terms)} style={{ background: "transparent", color: "inherit", border: "none", padding: "8px 12px", borderRadius: 10, fontWeight: 900, cursor: "pointer" }}>
+                {t("me.deal_reject")}
+              </button>
+            </div>
+          )}
+          {!rejected && !settled && agreed && iAmParty && isLatestDeal && (
+            iConfirmed ? (
+              <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.85 }}>{bothConfirmed ? t("me.deal_settled") : t("me.deal_waiting_other")}</div>
+            ) : (
+              <button type="button" onClick={() => void confirmDeal(live)} style={{ background: "white", color: "var(--color-primary)", border: "none", padding: "8px 12px", borderRadius: 10, fontWeight: 900, cursor: "pointer" }}>
+                {t("me.deal_confirm_success")}
+              </button>
+            )
+          )}
+        </div>
+      );
+    }
+
+    const parsed = parseChatOffer(content);
+    if (parsed) {
+      const payload = parsed.payload;
+      const items = offerItems(payload);
+      const koins = offerKoinsAmount(payload);
+      const price = Number(payload.price) || 0;
+      const currency = String(payload.currency || "EUR");
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%", marginTop: "4px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 900, color: isMe ? "white" : "var(--color-primary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            {parsed.kind === "wts" ? t("me.wts_offer") : t("me.trade_offer")}
+          </div>
+          {parsed.kind === "wts" && price > 0 && (
+            <div style={{ background: isMe ? "color-mix(in srgb, var(--bg-card) 18%, transparent)" : "var(--bg-soft)", color: isMe ? "white" : "var(--text-main)", padding: "8px 12px", borderRadius: "10px", fontSize: "13px", fontWeight: 900 }}>
+              {price} {currency}
+            </div>
+          )}
+          {itemGrid(items)}
+          {koins > 0 && (
+            <div style={{ background: "var(--state-warning-fg)", color: "white", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", fontWeight: 900 }}>
+              {t("me.extra_offer")}: {koins} K-oins
+            </div>
+          )}
+          {payload.text && (
+            <div style={{ marginTop: "4px", fontSize: "14px", fontWeight: 600, whiteSpace: "pre-wrap", color: isMe ? "white" : "var(--text-main)", borderTop: "1px dashed color-mix(in srgb, var(--color-border) 50%, transparent)", paddingTop: "10px" }}>
+              {payload.text}
+            </div>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "4px" }}>
+            {!isMe && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!profile || !activeChatUser) return;
+                  setDealModal({
+                    kind: parsed.kind,
+                    offer: payload,
+                    messageId: msg.id,
+                    ownerId: profile.id,
+                    bidderId: activeChatUser.id,
+                  });
+                }}
+                style={{ background: "var(--color-primary)", color: "white", border: "none", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", fontWeight: 900, cursor: "pointer" }}
+              >
+                {t("me.reply_bidder")}
+              </button>
             )}
-            {payload.koins > 0 && (
-              <div style={{ background: "var(--state-warning-fg)", color: "white", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", fontWeight: 900, display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 10px color-mix(in srgb, var(--state-warning-fg) 30%, transparent)" }}>
-                {t("me.extra_offer")}: {payload.koins} K-oins
-              </div>
-            )}
-            {payload.text && (
-              <div style={{ marginTop: "4px", fontSize: "14px", fontWeight: 600, whiteSpace: "pre-wrap", color: isMe ? "white" : "var(--text-main)", borderTop: isMe ? "1px dashed color-mix(in srgb, var(--bg-card) 30%, transparent)" : "1px dashed var(--color-border)", paddingTop: "10px" }}>
-                {payload.text}
-              </div>
+            {payload.listingId && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeChatUser) {
+                    saveNoticeReturn({
+                      senderId: activeChatUser.id,
+                      senderName: activeChatUser.name,
+                      senderAvatar: activeChatUser.avatar,
+                      messageId: msg.id,
+                    });
+                  }
+                  router.push(`/market?highlight=${encodeURIComponent(String(payload.listingId))}`);
+                }}
+                style={{ background: isMe ? "color-mix(in srgb, var(--bg-card) 22%, transparent)" : "var(--bg-soft)", color: isMe ? "white" : "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", fontSize: "12px", fontWeight: 900, cursor: "pointer" }}
+              >
+                {t("me.view_listing")}
+              </button>
             )}
           </div>
-        );
-      } catch (e) {
-        return <div>{content}</div>;
-      }
+        </div>
+      );
     }
     return <div style={{ fontSize: "14px", fontWeight: 600, whiteSpace: "pre-wrap", lineHeight: 1.4 }}>{content}</div>;
   };
@@ -2327,7 +2636,15 @@ function MePageContent() {
                         </div>
                       </div>
                       <div style={{ fontWeight: 800, marginTop: "4px", color: "var(--text-main)" }}>{n.sender_profile?.display_name || "MKB"}</div>
-                      <div style={{ fontSize: "14px", marginTop: "6px", whiteSpace: "pre-wrap" }}>{n.content}</div>
+                      <div style={{ fontSize: "14px", marginTop: "6px", whiteSpace: "pre-wrap" }}>
+                        {dealPreviewText(n.content, {
+                          accept: t("me.deal_accept"),
+                          reject: t("me.deal_reject"),
+                          counter: t("me.deal_counter"),
+                          settled: t("me.deal_settled"),
+                          confirm: t("me.deal_confirm_success"),
+                        }) || offerPreviewText(n.content, { wts: t("me.wts_offer"), trade: t("me.trade_offer") })}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2450,11 +2767,11 @@ function MePageContent() {
                   const translationUnavailable = t("me.translation_unavailable");
                   const canShowTranslation = Boolean(traduccion && traduccion !== translationUnavailable);
                   return (
-                    <div key={msg.id} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
+                    <div key={msg.id} id={`chat-msg-${msg.id}`} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
                       <div style={{ background: isMe ? "var(--color-primary)" : "var(--bg-card)", color: isMe ? "white" : "var(--text-main)", padding: "12px 16px", borderRadius: "16px", border: isMe ? "none" : "1px solid var(--color-border)", maxWidth: "80%", boxShadow: "0 2px 8px var(--shadow-card)" }}>
                         {msg.image_url && <img src={msg.image_url} style={{ maxWidth: "100%", borderRadius: "8px", marginBottom: "8px", border: "1px solid var(--color-border)" }} alt="Adjunto" />}
-                        {renderMessage(msg.content, isMe)}
-                        {!isMe && (
+                        {renderMessage(msg, isMe)}
+                        {!isMe && !String(msg.content || "").startsWith("[APP_") && (
                           <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed var(--color-border)" }}>
                             {canShowTranslation ? (
                               <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--color-primary)", display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -2498,7 +2815,7 @@ function MePageContent() {
               <div style={{ display: "flex", alignItems: "flex-end", gap: "10px" }}>
                 <button onClick={() => replyFileInputRef.current?.click()} style={{ background: "var(--bg-soft)", border: "none", color: "var(--color-primary)", padding: "12px", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0}}><ImageIcon size={20} /></button>
                 <input type="file" ref={replyFileInputRef} style={{ display: "none" }} accept="image/*" onChange={handleReplyImagePick} />
-                <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendReply(); } }} placeholder={t("me.write_message")} rows={2} style={{ flex: 1, padding: "12px", borderRadius: "16px", border: "1px solid var(--color-border)", outline: "none", fontSize: "13px", resize: "none", fontFamily: "inherit", fontWeight: 600, background: "var(--bg-main)", color: "var(--text-main)" }} />
+                <textarea ref={replyTextareaRef} value={replyText} onChange={(e) => setReplyText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendReply(); } }} placeholder={t("me.write_message")} rows={2} style={{ flex: 1, padding: "12px", borderRadius: "16px", border: "1px solid var(--color-border)", outline: "none", fontSize: "13px", resize: "none", fontFamily: "inherit", fontWeight: 600, background: "var(--bg-main)", color: "var(--text-main)" }} />
                 <button onClick={handleSendReply} disabled={isSendingReply || (!replyText.trim() && !replyImage)} style={{ background: "var(--color-primary)", border: "none", color: "white", padding: "12px", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: isSendingReply ? 0.6 : 1, flexShrink: 0 }}>
                   {isSendingReply ? <Loader2 size={20} className="spinner" /> : <Send size={20} />}
                 </button>
@@ -2506,6 +2823,39 @@ function MePageContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {dealModal && profile && activeChatUser && (
+        <OfferDealModal
+          t={t}
+          kind={dealModal.kind}
+          offer={dealModal.offer}
+          meId={profile.id}
+          bidderId={dealModal.bidderId}
+          ownerId={dealModal.ownerId}
+          initialStep={dealModal.startOnCounter ? "counter" : "choose"}
+          onClose={() => setDealModal(null)}
+          onSubmit={async (action, terms, note) => {
+            try {
+              const payload: ChatDealPayload = {
+                isDeal: true,
+                dealId: dealModal.dealId || newDealId(),
+                action,
+                kind: dealModal.kind,
+                ownerId: dealModal.ownerId,
+                bidderId: dealModal.bidderId,
+                terms: { ...terms, note: note.trim() },
+                confirmedBy: [],
+                parentMessageId: dealModal.messageId,
+              };
+              await sendDealToChat(payload);
+              setDealModal(null);
+              if (action === "accept") await settleAcceptedDeal(payload);
+            } catch (err: any) {
+              showAlert(t("common.error"), err.message);
+            }
+          }}
+        />
       )}
 
       {/* MODAL AVATAR */}
@@ -2776,7 +3126,7 @@ function MePageContent() {
                       }
                     }
                     setFormData({ ...formData, theme_preference: newTheme });
-                    document.documentElement.setAttribute("data-theme", newTheme || "pastel");
+                    persistTheme(newTheme || "pastel");
                     if (profile?.id) {
                       const { error } = await supabase
                         .from("profiles")

@@ -18,6 +18,7 @@ import {
   unlockKeyForCursor,
   unlockKeyForTheme,
 } from "@/lib/theme-unlocks";
+import { persistTheme } from "@/lib/theme-persist";
 import { useGlobal } from "../context/GlobalContext";
 import Link from "next/link";
 import type { SiteSearchHit } from "@/lib/site-search";
@@ -892,8 +893,7 @@ export default function Header() {
       }
       showAlert(t("vip.unlocked_title"), t("vip.unlock_theme_done", { cost }));
     }
-    document.documentElement.setAttribute('data-theme', themeId);
-    localStorage.setItem('theme', themeId);
+    persistTheme(themeId);
     if (user) {
       const { error } = await supabase
         .from('profiles')

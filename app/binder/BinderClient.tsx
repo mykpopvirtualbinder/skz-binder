@@ -6,6 +6,7 @@ import { useState } from "react"; // 1. Asegúrate de tener useState importado
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation"; // 2. Asegúrate de importar usePathname y useSearchParams
 import { supabase } from "@/lib/supabase";
+import { withWtsKoinsMark } from "@/lib/wts-koins-mark";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { 
   Trash2, ChevronLeft, ChevronRight, Users, Disc3, PenLine, Mic2, User, Layers, 
@@ -26,6 +27,7 @@ import { getLayoutUnlockCost, unlockKeyForLayout } from "@/lib/theme-unlocks";
 import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
 import { PC_IMAGE_FILENAME_EXT_RE } from "@/lib/pc-image-extensions";
 import { resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
+import { formatQuota, packSeparatorColors, resolveBinderQuota, unpackSeparatorColors } from "@/lib/binder-quotas";
 
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
@@ -1767,14 +1769,22 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const [extraPages, setExtraPages] = useState(0);
   const [extraSeparators, setExtraSeparators] = useState(0);
 
-  const MAX_ALLOWED_PAGES = (userPlan === 'anual' ? 60 : userPlan === 'mensual' ? 30 : 12) + extraPages;
-  const MAX_ALLOWED_SEPARATORS = (userPlan === 'anual' ? 30 : userPlan === 'mensual' ? 15 : 5) + extraSeparators;
+  const quota = resolveBinderQuota({
+    planType: userPlan,
+    isPremium: profile?.is_premium,
+    isAdmin: isAdminTeamEmail((profile as { email?: string | null } | null)?.email) || isAdminTeamEmail(email),
+    extraPages,
+    extraSeparators,
+  });
+  const MAX_ALLOWED_PAGES = quota.maxPages;
+  const MAX_ALLOWED_SEPARATORS = quota.maxSeparators;
  
 
   const isAdmin = isAdminTeamEmail((profile as { email?: string | null } | null)?.email);
   const [isMobile, setIsMobile] = useState(false); // ✅ Única declaración
   const [status, setStatus] = useState("");         // ✅ Única declaración
   const [error, setError] = useState<string | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   // 2. PARÁMETROS DE URL Y PREVIEW
   const binderFromUrl = searchParams.get("binderId");
@@ -2152,6 +2162,7 @@ const handleWtsListingSaved = useCallback(async () => {
   const countryValue = readLS(marketKey(itemId)) || "España";
   
   // NUEVOS CAMPOS: Leemos con un localStorage directo porque son exclusivos del modal
+  const koinsValue = Math.max(0, parseInt(localStorage.getItem(`binder:priceKoins:${itemId}`) || "0", 10) || 0);
   const shippingValue = localStorage.getItem(`binder:shipping:${itemId}`) || "Worldwide";
   const negotiableValue = localStorage.getItem(`binder:negotiable:${itemId}`) === "true";
   const commentValue = localStorage.getItem(`binder:comment:${itemId}`) || "";
@@ -2172,14 +2183,37 @@ const handleWtsListingSaved = useCallback(async () => {
         origin_country: countryValue,
         shipping_to: shippingValue,
         wts_negotiable: negotiableValue,
-        market_comment: commentValue
+        market_comment: withWtsKoinsMark(commentValue, koinsValue),
+        price_koins: koinsValue > 0 ? koinsValue : null,
       }] as any, 
       { onConflict: "user_id,item_id,status" }
     );
 
-  if (upError) {
-    console.error("Error de Supabase:", upError);
-    setError("No se pudo guardar: " + upError.message);
+  let saveError = upError;
+  if (saveError && String(saveError.message || "").toLowerCase().includes("price_koins")) {
+    const retry = await supabase
+      .from("user_item_statuses")
+      .upsert(
+        [{ 
+          user_id: userId, 
+          item_id: itemId, 
+          status: "wts", 
+          qty: 1,
+          price: cleanPrice,
+          currency: currencyValue,
+          origin_country: countryValue,
+          shipping_to: shippingValue,
+          wts_negotiable: negotiableValue,
+          market_comment: withWtsKoinsMark(commentValue, koinsValue),
+        }] as any, 
+        { onConflict: "user_id,item_id,status" }
+      );
+    saveError = retry.error;
+  }
+
+  if (saveError) {
+    console.error("Error de Supabase:", saveError);
+    setError("No se pudo guardar: " + saveError.message);
     return;
   }
 
@@ -3492,8 +3526,8 @@ return name;
     },
     [groupNameById, albumNameById, versionNameById, memberNameById]
   );
-  const MAX_FREE_PAGES = 12;
-const MAX_FREE_SEPARATORS = 5;
+  const MAX_FREE_PAGES = quota.maxPages;
+const MAX_FREE_SEPARATORS = quota.maxSeparators;
 
 // Filtramos para contar independientemente
 const realPagesCount = binderPages.filter(p => p.layout_type !== 'separator').length;
@@ -3509,7 +3543,7 @@ const totalPages = Math.max(standardPages.length, 1);
 const currentPageInStandard = standardPages.findIndex(p => p.id === pageId) + 1;
 
 const pageLabel = layout === 'separator' 
-  ? `SEPARADOR (${binderPages.filter(p => p.layout_type === 'separator').findIndex(p => p.id === pageId) + 1}/5)`
+  ? `SEPARADOR (${formatQuota(Math.max(1, binderPages.filter(p => p.layout_type === 'separator').findIndex(p => p.id === pageId) + 1), quota.maxSeparators)})`
   : `${currentPageInStandard > 0 ? currentPageInStandard : 1}/${totalPages}`;
 
 // ✅ Narrow para ItemPicker (evita rojos TS)
@@ -3780,7 +3814,7 @@ for (const r of slotRows) {
 
  // Página 75 del PDF (Paso 4 de loadPageThumbs)
 next[pid][sid] = {
-  url: url || "/mock-pcs/groups/not-available.png",
+  url: url || "",
   // 👇 AÑADE ESTA LÍNEA PARA GUARDAR LA TRASERA
   back_image_url: r.is_custom
     ? (r.custom_back_image_url ?? null)
@@ -5703,8 +5737,7 @@ useEffect(() => {
       
       if (userErr || !userData.user) { 
         if (!cancelled) { 
-          setError(userErr?.message || "No user"); 
-          setStatus("No hay sesión. Ve a /login"); 
+          setNeedsAuth(true);
           setLoading(false); 
         } 
         return; 
@@ -7564,11 +7597,13 @@ const clearSlot = useCallback(
       if (next[pageId]) {
         const newThumbs = { ...next[pageId] };
         delete newThumbs[slotIndex];
+        delete newThumbs[String(slotIndex) as any];
         next[pageId] = newThumbs;
       }
       return next;
     });
   }
+  setRefreshTick((t) => t + 1);
   
   },
   [pageId, modalSlotIndex, closeItemModal]
@@ -8656,10 +8691,15 @@ const createNewPage = useCallback(async (forcedLayout?: LayoutType) => {
   const extrasP = profileData?.extra_pages || 0;
   const extrasS = profileData?.extra_separators || 0;
 const rawPlan = (profileData?.plan_type || "free").toLowerCase().trim();
-  const currentPlan = profile?.is_premium && rawPlan === 'free' ? 'mensual' : rawPlan;
-  // 2. CALCULAMOS LOS LÍMITES REALES (Plan + Compras de Shop)
-  const maxPages = (currentPlan === 'anual' ? 60 : currentPlan === 'mensual' ? 30 : 12) + extrasP;
-  const maxSeparators = (currentPlan === 'anual' ? 30 : currentPlan === 'mensual' ? 15 : 5) + extrasS;
+  const liveQuota = resolveBinderQuota({
+    planType: rawPlan,
+    isPremium: profile?.is_premium,
+    isAdmin: isAdminTeamEmail(email),
+    extraPages: extrasP,
+    extraSeparators: extrasS,
+  });
+  const maxPages = liveQuota.maxPages;
+  const maxSeparators = liveQuota.maxSeparators;
 
   const realPagesCount = binderPages.filter(p => p.layout_type !== 'separator').length; 
   const sepCount = binderPages.filter(p => p.layout_type === 'separator').length; 
@@ -11738,6 +11778,22 @@ useEffect(() => {
 
   
 
+if (needsAuth) {
+  return (
+    <div className="binder-page-shell" style={{ padding: "48px 20px", textAlign: "center", maxWidth: 520, margin: "0 auto" }}>
+      <h1 className="tan-font" style={{ color: "var(--color-primary)", fontSize: 28, marginBottom: 12 }}>{t("auth.login_required_title")}</h1>
+      <p style={{ color: "var(--text-main)", fontWeight: 700, lineHeight: 1.5, marginBottom: 20 }}>{t("auth.binders_login_body")}</p>
+      <button
+        type="button"
+        onClick={() => router.push("/login")}
+        style={{ background: "var(--color-primary)", color: "#111", border: "none", borderRadius: 999, padding: "12px 24px", fontWeight: 900, cursor: "pointer" }}
+      >
+        {t("auth.login_cta")}
+      </button>
+    </div>
+  );
+}
+
 // [Página 233 aprox. de tu código]
 return (
   <div
@@ -11775,8 +11831,9 @@ return (
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--text-main);
-  color: white;
+  background: #111111;
+  color: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
   padding: 10px 20px;
   border-radius: 999px;
   font-weight: 800;
@@ -12864,7 +12921,7 @@ const isDraggingMe = pageDragFromId === p.id;
   }} 
 > 
   {/* Selector de Cursor SKZOO */}
-  <div ref={skzooBoxRef} style={{ position: "relative", display: "inline-block" }}> 
+  <div ref={skzooBoxRef} style={{ position: "relative", display: "none" }}> 
     <button 
       type="button" 
       onClick={() => setSkzooOpen(!skzooOpen)} 
@@ -13114,7 +13171,7 @@ const isDraggingMe = pageDragFromId === p.id;
     }} 
   > 
     <span style={{ fontSize: 14, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}> 
-      {`🔍 ${t("binders.picker.view_all")}`}
+      {t("binders.view_all")}
     </span> 
   </button>
 </div>
@@ -13166,16 +13223,12 @@ const isDraggingMe = pageDragFromId === p.id;
     }}>
       {/* Subgrupo Acciones en horizontal */}
    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-  <button 
-    type="button" 
-    onClick={() => createNewPage('3x3')} // 👈 FIJO PARA QUE SIEMPRE SEA PÁGINA NORMAL
-    style={{ ...topBtnStyle, width: 38, height: 38, padding: 0, justifyContent: "center", fontSize: 18 }} 
-  > 
-    + 
+      <button type="button" onClick={() => createNewPage('3x3')} style={{ ...topBtnStyle, width: "auto", minWidth: 38, height: 38, padding: "0 10px", justifyContent: "center", fontSize: 14, gap: 6 }} title={t("binders.quota.pages")}>
+    + <span style={{ fontSize: 10, fontWeight: 900 }}>{formatQuota(realPagesCount, quota.maxPages)}</span>
   </button>
   <button 
     type="button" 
-    onClick={() => createNewPage('separator')} // 👈 FIJO PARA QUE SIEMPRE SEA SEPARADOR
+    onClick={() => createNewPage('separator')}
     style={{
       ...topBtnStyle,
       width: "auto",
@@ -13188,8 +13241,9 @@ const isDraggingMe = pageDragFromId === p.id;
       border: "none",
       boxShadow: "0 4px 14px color-mix(in srgb, var(--color-primary) 22%, transparent)",
     }} 
+    title={t("binders.quota.separators")}
   > 
-    <Bookmark size={14} style={{ marginRight: 6 }} /> {t("binders.actions.add_separator")}
+    <Bookmark size={14} style={{ marginRight: 6 }} /> {t("binders.actions.add_separator")} {formatQuota(separatorsCount, quota.maxSeparators)}
   </button>
         {/* NUEVO BOTÓN DE BORRAR MÚLTIPLE EN EL CARRUSEL */}
   {deleteMode ? (
@@ -13268,13 +13322,13 @@ const isDraggingMe = pageDragFromId === p.id;
       {/* Subgrupo Toggles */}
       <div style={{ display: "flex", gap: 15, alignItems: "center" }}>
         <button type="button" onClick={togglePageRotateAll} style={{ border: 0, background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>{t("binders.actions.flip")}</span>
+          <span style={{ fontSize: 13, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>{t("binders.actions.flip")} <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.75 }}>({t("binders.actions.whole_page")})</span></span>
           <span style={{ width: 30, height: 16, borderRadius: 999, background: pageRotateAll ? "var(--binder-toggle-track-on)" : "var(--state-disabled-bg)", position: "relative", display: "inline-block" }}>
             <span style={{ width: 12, height: 12, borderRadius: 999, background: "var(--bg-card)", position: "absolute", top: 2, left: pageRotateAll ? 16 : 2, transition: "all 0.2s" }} />
           </span>
         </button>
         <button type="button" onClick={togglePageShowBackAll} style={{ border: 0, background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>{t("binders.actions.back_side")}</span>
+          <span style={{ fontSize: 13, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>{t("binders.actions.back_side")} <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.75 }}>({t("binders.actions.whole_page")})</span></span>
           <span style={{ width: 30, height: 16, borderRadius: 999, background: pageShowBackAll ? "var(--binder-toggle-track-on)" : "var(--state-disabled-bg)", position: "relative", display: "inline-block" }}>
             <span style={{ width: 12, height: 12, borderRadius: 999, background: "var(--bg-card)", position: "absolute", top: 2, left: pageShowBackAll ? 16 : 2, transition: "all 0.2s" }} />
           </span>
@@ -13295,7 +13349,10 @@ const isDraggingMe = pageDragFromId === p.id;
     {/* ✅ NUEVO BOTÓN PREVISUALIZAR */}
     <button 
       type="button" 
-      onClick={() => setPreviewBinderOpen(true)} 
+      onClick={async () => {
+        await loadPageThumbs();
+        setPreviewBinderOpen(true);
+      }} 
       title={t("binders.actions.preview")}
       style={{
         ...topBtnStyle,
@@ -13365,11 +13422,58 @@ const isDraggingMe = pageDragFromId === p.id;
       <div style={{ marginTop: 16 }}>
        {/* --- LÓGICA DE SEPARADOR --- */}
   {layout === 'separator' ? (
+    (() => {
+      const sepColors = unpackSeparatorColors(slotItems[1]?.custom_color);
+      const saveSepColors = async (fill: string | null, border: string | null) => {
+        const packed = packSeparatorColors(fill, border);
+        setSlotItems(prev => ({
+          ...prev,
+          1: { ...prev[1], id: 999999, is_custom: true, custom_color: packed } as any
+        }));
+        await persistSlotState(1, {
+          kind: 'custom',
+          custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "",
+          custom_image_url: slotItems[1]?.custom_image_url || null,
+          custom_color: packed,
+        } as any, 0, false);
+      };
+      const swatchRow = (kind: "fill" | "border") => (
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => saveSepColors(kind === "fill" ? null : sepColors.fill, kind === "border" ? null : sepColors.border)}
+            style={{
+              width: 28, height: 28, borderRadius: "50%",
+              background: "repeating-conic-gradient(#bbb 0% 25%, #fff 0% 50%) 50% / 10px 10px",
+              border: !(kind === "fill" ? sepColors.fill : sepColors.border) ? "3px solid var(--text-main)" : "2px solid var(--color-border)",
+              cursor: "pointer",
+            }}
+            title={t("binders.separator.no_color")}
+          />
+          {BINDER_ACCENT_SWATCHES.map((c) => {
+            const current = kind === "fill" ? sepColors.fill : sepColors.border;
+            const isSelected = current === c;
+            return (
+              <button
+                key={`${kind}-${c}`}
+                type="button"
+                onClick={() => saveSepColors(kind === "fill" ? c : sepColors.fill, kind === "border" ? c : sepColors.border)}
+                style={{
+                  width: 28, height: 28, borderRadius: "50%", background: c,
+                  border: isSelected ? "3px solid var(--text-main)" : "2px solid color-mix(in srgb, var(--color-border) 65%, transparent)",
+                  cursor: "pointer",
+                }}
+              />
+            );
+          })}
+        </div>
+      );
+      return (
     <div style={{
       width: "320px",
-      height: "520px", // Un poco más alto para que quepa todo bien
+      minHeight: "520px",
       padding: "30px",
-      background: "var(--bg-card)",
+      background: slotItems[1]?.custom_image_url ? "var(--bg-card)" : (sepColors.fill || "var(--bg-card)"),
       borderRadius: "20px",
       boxShadow: "0 10px 30px var(--overlay-faint)",
       textAlign: "center",
@@ -13377,12 +13481,11 @@ const isDraggingMe = pageDragFromId === p.id;
       flexDirection: "column",
       justifyContent: "center",
       alignItems: "center",
-      border: `4px solid ${slotItems[1]?.custom_color || binderColor || "var(--color-primary)"}`,
+      border: sepColors.border ? `4px solid ${sepColors.border}` : "4px solid transparent",
       position: "relative",
       overflow: "hidden"
     }}>
       
-      {/* FONDO DE IMAGEN DEL SEPARADOR (Si el usuario ya ha subido una) */}
       {slotItems[1]?.custom_image_url && (
         <img 
           src={slotItems[1].custom_image_url} 
@@ -13391,15 +13494,13 @@ const isDraggingMe = pageDragFromId === p.id;
         />
       )}
 
-      {/* CONTENIDO (Por encima de la imagen de fondo) */}
       <div style={{ zIndex: 1, position: "relative", width: "100%" }}>
-       <Bookmark size={50} color={slotItems[1]?.custom_color || binderColor || "var(--color-primary)"} style={{ marginBottom: "15px", margin: "0 auto" }} />
+       <Bookmark size={50} color={sepColors.fill || sepColors.border || binderColor || "var(--color-primary)"} style={{ marginBottom: "15px", margin: "0 auto" }} />
         
         <h3 className="tan-font" style={{ color: "var(--text-main)", fontWeight: 950, marginBottom: "15px", fontSize: "18px" }}>
           CONFIGURACIÓN SEPARADOR
         </h3>
 
-        {/* SECCIÓN 1: EL NOMBRE */}
         <div style={{ width: "100%", marginBottom: "20px" }}>
           <p style={{ fontSize: "11px", color: "var(--color-primary)", fontWeight: 900, marginBottom: "8px", textTransform: "uppercase" }}>
             Nombre en la pestaña
@@ -13419,51 +13520,22 @@ const isDraggingMe = pageDragFromId === p.id;
                  ...prev,
                  1: { ...prev[1], id: 999999, is_custom: true, custom_text: val, name: val } as any
                }));
-               await persistSlotState(1, { kind: 'custom', custom_text: val, custom_image_url: slotItems[1]?.custom_image_url || null }, 0, false);
+               await persistSlotState(1, { kind: 'custom', custom_text: val, custom_image_url: slotItems[1]?.custom_image_url || null, custom_color: slotItems[1]?.custom_color } as any, 0, false);
             }}
           />
         </div>
 
-        {/* SECCIÓN 2: EL COLOR */}
+        <div style={{ width: "100%", marginBottom: "14px" }}>
+          <p style={{ fontSize: "11px", color: "var(--color-primary)", fontWeight: 900, marginBottom: "8px", textTransform: "uppercase" }}>
+            {t("binders.separator.fill_color")}
+          </p>
+          {swatchRow("fill")}
+        </div>
         <div style={{ width: "100%", marginBottom: "20px" }}>
           <p style={{ fontSize: "11px", color: "var(--color-primary)", fontWeight: 900, marginBottom: "8px", textTransform: "uppercase" }}>
-            Color del separador
+            {t("binders.separator.border_color")}
           </p>
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
-          {BINDER_ACCENT_SWATCHES.map((c) => {
-  const isSelected = slotItems[1]?.custom_color === c; // Comprobamos el color de este separador
-  return (
-    <button
-      key={c}
-      type="button"
-      onClick={async () => {
-        // 1. Lo actualizamos visualmente en la pantalla
-        setSlotItems(prev => ({
-          ...prev,
-          1: { ...prev[1], id: 999999, is_custom: true, custom_color: c } as any
-        }));
-        // 2. Lo mandamos a guardar a la base de datos
-        await persistSlotState(1, { 
-          kind: 'custom', 
-          custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "", 
-          custom_image_url: slotItems[1]?.custom_image_url || null,
-          custom_color: c 
-        } as any, 0, false);
-      }} 
-      style={{ 
-        width: 28, height: 28, borderRadius: "50%", background: c, 
-        border: isSelected ? "3px solid var(--text-main)" : "2px solid color-mix(in srgb, var(--color-border) 65%, transparent)", 
-        cursor: "pointer", transition: "transform 0.1s, box-shadow 0.15s ease",
-        boxShadow: isSelected
-          ? `0 0 0 1px var(--color-primary), 0 0 12px color-mix(in srgb, ${c} 45%, transparent)`
-          : `0 0 8px color-mix(in srgb, ${c} 25%, transparent)`,
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.2)"}
-      onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-    />
-  );
-})}
-          </div>
+          {swatchRow("border")}
         </div>
 
         {/* SECCIÓN 3: IMAGEN PERSONALIZADA (¡AHORA SÍ FUNCIONA!) */}
@@ -13499,7 +13571,7 @@ const isDraggingMe = pageDragFromId === p.id;
             ...prev, 
             1: { ...(prev[1] || {}), id: 999999, is_custom: true, custom_image_url: up.publicUrl } as any 
           })); 
-          await persistSlotState(1, { kind: 'custom', custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "", custom_image_url: up.publicUrl }, 0, false); 
+          await persistSlotState(1, { kind: 'custom', custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "", custom_image_url: up.publicUrl, custom_color: slotItems[1]?.custom_color } as any, 0, false); 
           setStatus("Imagen actualizada ✨"); 
         } else { 
           setError(up.error || "Error al subir"); 
@@ -13511,13 +13583,10 @@ const isDraggingMe = pageDragFromId === p.id;
   />
           </label>
         </div>
-
-        <p style={{ fontSize: "10px", color: "var(--state-disabled-fg)", marginTop: "20px", fontStyle: "italic", lineHeight: 1.3 }}>
-          * Las pestañas se escalonan solas del 1 al 7.<br/>
-          * La imagen se verá al abrir el Modo Lectura.
-        </p>
       </div>
     </div>
+      );
+    })()
   ) : (
   /* Aquí sigue tu código normal del grid de slots... */
   <div
@@ -13531,7 +13600,7 @@ const isDraggingMe = pageDragFromId === p.id;
     }}
   >
     {baseSlots.map((n) => ( 
-      <SlotBox key={n} slotIndex={n} invByItem={invByItem} emptyCounts={emptyCounts} placedByItem={placedByItem} modalZoom={pageZoom} /> 
+      <SlotBox key={n} slotIndex={n} invByItem={invByItem} emptyCounts={emptyCounts} placedByItem={placedByItem} modalZoom={1} /> 
     ))}
 
             {extras > 0 && (
@@ -13543,7 +13612,7 @@ const isDraggingMe = pageDragFromId === p.id;
                     invByItem={invByItem}
                     emptyCounts={emptyCounts}
                     placedByItem={placedByItem}
-                    modalZoom={pageZoom}
+                    modalZoom={1}
                   />
                 ))}
               </div>
@@ -13829,59 +13898,57 @@ Stock al cerrar/guardar */}
  />
       {/* Libro Virtual */}
       {previewBinderOpen && (() => {
+     const cleanPreviewUrl = (u?: string | null) => {
+       const s = String(u || "").trim();
+       if (!s || s.includes("not-available")) return null;
+       return resolveMockPcImageUrl(s) || s;
+     };
      const datosParaElLibro = binderPages.map(page => {
     const def = defFor(page.layout_type);
     const capacity = def.slots;
     const slotsForPage = Array(capacity).fill(null);
-
+    const thumbs = pageThumbs[page.id] || {};
+    Object.entries(thumbs).forEach(([idxStr, meta]: [string, any]) => {
+      const slotIdx = Number(idxStr);
+      const arrayIdx = slotIdx - 1;
+      if (arrayIdx < 0 || arrayIdx >= capacity) return;
+      slotsForPage[arrayIdx] = {
+        id: String(meta.itemId ?? `${page.id}-${slotIdx}`),
+        image_url: cleanPreviewUrl(meta.url),
+        back_image_url: meta.back_image_url,
+        rotation: meta.rot || 0,
+        flip: meta.flipH || false,
+        name: meta.name,
+        custom_text: meta.custom_text || meta.name,
+        custom_color: meta.custom_color,
+        isMissing: meta.isWanted === true,
+        isOtw: meta.onItsWay > 0
+      };
+    });
     if (page.id === pageId) {
       Object.entries(slotItems).forEach(([idxStr, item]) => {
         const slotIdx = Number(idxStr);
         const arrayIdx = slotIdx - 1;
         if (arrayIdx >= 0 && arrayIdx < capacity && item) {
-          
-          // OTW y WISH leídos del inventario
           const stock = !item.is_custom ? invByItem[item.id] : null;
           const isOtw = stock ? (stock.on_its_way > 0) : false;
-
           slotsForPage[arrayIdx] = {
             id: String(item.id),
-            image_url: item.is_custom ? item.custom_image_url : item.image_url,
+            image_url: cleanPreviewUrl(item.is_custom ? item.custom_image_url : item.image_url),
             back_image_url: item.is_custom ? (item as any).custom_back_image_url : item.back_image_url,
             rotation: slotRot[slotIdx] || 0,
             flip: slotFace[slotIdx] === "back",
             name: item.is_custom ? ((item as any).custom_text || item.name) : item.name,
             custom_text: (item as any).custom_text,
             custom_color: (item as any).custom_color,
-            // ETIQUETAS AÑADIDAS
             isMissing: (item as any).is_wanted === true,
             isOtw: isOtw
           };
         }
       });
-    } else {
-      const thumbs = pageThumbs[page.id] || {};
-      Object.entries(thumbs).forEach(([idxStr, meta]: [string, any]) => {
-        const slotIdx = Number(idxStr);
-        const arrayIdx = slotIdx - 1;
-        if (arrayIdx >= 0 && arrayIdx < capacity) {
-          slotsForPage[arrayIdx] = {
-            id: String(meta.itemId),
-            image_url: meta.url,
-            back_image_url: meta.back_image_url,
-            rotation: meta.rot || 0,
-            flip: meta.flipH || false,
-            name: meta.name,
-            custom_text: (meta as any).custom_text || meta.name,
-            custom_color: (meta as any).custom_color,
-            // ETIQUETAS AÑADIDAS
-            isMissing: meta.isWanted === true,
-            isOtw: meta.onItsWay > 0
-          };
-        }
-      });
     }
-    return { layoutType: page.layout_type, slots: slotsForPage };
+    const sepColors = unpackSeparatorColors(slotsForPage[0]?.custom_color);
+    return { layoutType: page.layout_type, slots: slotsForPage, bgColor: sepColors.fill || undefined };
   });
 
         return (

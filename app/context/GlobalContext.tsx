@@ -15,6 +15,7 @@ import ko from "../locales/ko.json";
 import zh from "../locales/zh.json";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { normalizeThemeId } from "@/lib/theme-unlocks";
+import { persistTheme, themeIdFromUnknown } from "@/lib/theme-persist";
 import { resolveProfileAvatarUrl } from "@/lib/default-profile-avatar";
 import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 
@@ -268,8 +269,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
 
           const localTheme = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
           const preferredTheme = normalizeThemeId(localTheme || profileData.theme_preference || "pastel");
-          const activeTheme = isPremiumUser ? preferredTheme : "pastel";
-          document.documentElement.setAttribute("data-theme", activeTheme);
+          persistTheme(preferredTheme);
           
         } else if (!localProfileStr) {
           const esVIP = isAdminTeamEmail(user.email);
@@ -289,7 +289,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
           if (typeof window !== "undefined" && !sessionLang) {
             document.cookie = "NEXT_LOCALE=es; path=/; max-age=31536000";
           }
-          document.documentElement.setAttribute("data-theme", "pastel");
+          persistTheme(themeIdFromUnknown(typeof window !== "undefined" ? localStorage.getItem("theme") : null));
         }
 
         const { data: biasData } = await supabase
@@ -365,9 +365,9 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
           <div style={{ background: "var(--bg-card)", padding: "30px", borderRadius: "24px", maxWidth: "400px", width: "100%", textAlign: "center", border: "2px solid var(--color-border)", boxShadow: "0 20px 40px var(--shadow-card)" }} onClick={e => e.stopPropagation()}>
             <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: "0 0 15px 0", fontSize: "24px" }}>{alertData.title}</h3>
             <p style={{ color: "var(--text-main)", fontSize: "15px", fontWeight: 600, marginBottom: "25px", lineHeight: "1.5" }}>{alertData.message}</p>
-            <button 
-              onClick={() => { if(alertData.onClose) alertData.onClose(); setAlertData(null); }} 
-              style={{ background: "var(--color-primary)", color: "white", padding: "12px 30px", borderRadius: "99px", border: "none", fontWeight: 900, cursor: "pointer", width: "100%", fontSize: "14px" }}
+            <button
+              onClick={() => { if(alertData.onClose) alertData.onClose(); setAlertData(null); }}
+              style={{ background: "var(--color-primary)", color: "#111", padding: "12px 30px", borderRadius: "99px", border: "none", fontWeight: 900, cursor: "pointer", width: "100%", fontSize: "14px" }}
             >
               {t('common.understood')}
             </button>

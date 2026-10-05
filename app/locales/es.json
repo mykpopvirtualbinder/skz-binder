@@ -42,6 +42,20 @@
     "vip_advantage": "Ventaja VIP",
     "loading": "Cargando...",
     "loading_page": "Cargando página...",
+    "go_binders": "Mis binders",
+    "sort_label": "Ordenar",
+    "sort_default": "Por defecto",
+    "sort_album": "Por álbum",
+    "sort_stock_date": "Fecha en tu stock",
+    "sort_status": "Por estado",
+    "back": "Volver",
+    "sort_price": "Por precio",
+    "library_loading_title": "Montando tu library…",
+    "library_loading_hint": "Estamos trayendo las photocards. Un segundo, que hay muchas ✨",
+    "library_loading_more": "Cargando el resto del catálogo…",
+    "library_loading_fun_1": "Ordenando photocards por color…",
+    "library_loading_fun_2": "Buscando a tu bias en el binder…",
+    "library_loading_fun_3": "Casi listo, desempolvando fundas…",
     "delete": "Eliminar",
     "add": "Añadir",
     "choose": "Elegir",
@@ -422,11 +436,13 @@
       "saving": "Guardando…",
       "prev": "Anterior",
       "next": "Siguiente",
-      "reset": "Reiniciar",
+      "reset": "Restablecer",
+      "whole_page": "toda la página",
       "edit_stock": "Editar stock",
       "update_stock": "Actualizar stock",
       "add_decoration": "Añadir decoración",
-      "remove_image": "Quitar imagen"
+      "remove_image": "Quitar imagen",
+      "whole_page": "toda la página"
     },
     "picker": {
       "search_placeholder": "Buscar por nombre o id...",
@@ -449,7 +465,7 @@
       "type_selfie": "Selfie",
       "type_unit": "Unit",
       "type_ot8": "OT8",
-      "view_all": "🔍 Ver todas",
+      "view_all": "Ver todas",
       "this_page_only": "Solo esta página",
       "whole_binder": "Todo el binder",
       "status": "Estado",
@@ -537,6 +553,15 @@
     "remove_custom_cursor": "Quitar cursor personalizado",
     "search_cursor_placeholder": "Buscar mascota o artista...",
     "add_separator": "Añadir separador",
+    "quota": {
+      "pages": "Páginas según tu plan",
+      "separators": "Separadores según tu plan"
+    },
+    "separator": {
+      "fill_color": "Color de separador",
+      "border_color": "Color de borde",
+      "no_color": "Sin color"
+    },
     "select_multiple_delete": "Seleccionar varias para borrar",
     "flip": "Voltear",
     "reverse": "Reverso",
@@ -617,6 +642,7 @@
     "vip_cover_alert_msg": "Subir portadas con foto es exclusivo para usuarios Premium.",
     "custom_pc_name": "PC Personalizada",
     "thumb_drag_hint": "Arrastra o desliza para girar el binder · toca para abrir si no has arrastrado",
+    "thumb_info": "Cómo girar el binder",
     "thumb_reset": "Centrar vista"
   },
   "community_rules": {
@@ -706,6 +732,8 @@
     "separator": "SEPARADOR",
     "real_view": "Real View",
     "photocards": "Photocards",
+    "spin_360": "Girar 360°",
+    "open_pages": "Ver páginas",
     "wish": "Wish",
     "otw": "Otw",
     "empty": "Empty",
@@ -1037,6 +1065,8 @@
       "usa": "Estados Unidos",
       "national": "Solo Nacional"
     },
+    "koins_label": "K-oins (opcional)",
+    "koins_placeholder": "Ej: 150",
     "negotiable_label": "Precio negociable / Escucho ofertas",
     "comment_label": "Comentario (Opcional)",
     "comment_placeholder": "Ej: Tiene una pequeña marca. Envío ordinario incluido en el precio.",
@@ -1136,6 +1166,8 @@
     "remember_text": "Revisa y compara opciones con la busqueda inversa antes de tradear. Asegurate el mejor trato.",
     "filter_all": "Todos",
     "filter_pc": "Photocards",
+    "filter_inclusion": "Inclusiones",
+    "filter_album": "Álbumes",
     "filter_merch": "Merchandising",
     "clear_filters_action": "Limpiar filtros",
     "label_category": "Categoria",
@@ -2192,6 +2224,12 @@
     "placeholder": "Placeholder",
     "anonymous_report": "Enviar denuncia de forma anónima",
     "send_report": "Enviar reporte"
+  },
+  "auth": {
+    "login_required_title": "Inicia sesión o regístrate",
+    "login_required_body": "Para acceder a este contenido y que quede registrado, tienes que iniciar sesión o crear una cuenta.",
+    "binders_login_body": "Sin cuenta no puedes tener binder. Inicia sesión o regístrate para crear y guardar tus páginas.",
+    "login_cta": "Iniciar sesión / Registrarse"
   },
   "wts": {
     "modal_title": "PUBLICAR VENTA (WTS)",

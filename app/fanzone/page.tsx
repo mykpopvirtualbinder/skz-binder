@@ -3,10 +3,13 @@
 import { useRouter } from "next/navigation";
 import Footer from "../components/footer";
 import AdRailLayout from "../components/AdRailLayout";
+import BackToMessagesBar from "../components/BackToMessagesBar";
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
+import { requireLoggedIn } from "@/lib/auth-gate";
 import { avisarFavoritos } from "@/lib/avisos";
+import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { canModerateGlobalContent } from "@/lib/admin-emails";
 import {
   Heart, MessageCircle, Repeat2, Share, Image as ImageIcon, Sparkles,
@@ -130,6 +133,7 @@ export default function FanZonePage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  useOverlayDismiss(Boolean(fullscreenImage), () => setFullscreenImage(null));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // RESPUESTAS Y MENCIONES
@@ -276,14 +280,25 @@ export default function FanZonePage() {
           isLiked: post.likes?.some((l: any) => l.user_id === profile?.id),
           likesCount: post.likes?.length || 0,
           commentsCount: post.comments?.length || 0,
-          comments: post.comments?.sort((a:any, b:any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) || [],
+          comments: (post.comments || [])
+            .slice()
+            .sort((a: any, b: any) => {
+              const ta = new Date(a.created_at).getTime();
+              const tb = new Date(b.created_at).getTime();
+              const sa = Number.isFinite(ta) ? ta : 0;
+              const sb = Number.isFinite(tb) ? tb : 0;
+              if (sa !== sb) return sa - sb;
+              return String(a.id || "").localeCompare(String(b.id || ""));
+            }),
           profiles: post.profiles || { display_name: t("global.default_user_name"), avatar_url: "https://ui-avatars.com/api/?name=?" }
         }));
         const ordered = [...formatted].sort((a: any, b: any) => {
-          const aStar = a.profiles?.is_featured_artist ? 1 : 0;
-          const bStar = b.profiles?.is_featured_artist ? 1 : 0;
-          if (aStar !== bStar) return bStar - aStar;
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          const ta = new Date(a.created_at).getTime();
+          const tb = new Date(b.created_at).getTime();
+          const sa = Number.isFinite(ta) ? ta : 0;
+          const sb = Number.isFinite(tb) ? tb : 0;
+          if (sa !== sb) return sb - sa;
+          return String(b.id || "").localeCompare(String(a.id || ""));
         });
         setPosts(ordered);
       }
@@ -441,6 +456,7 @@ export default function FanZonePage() {
   };
 
   const handlePost = async () => {
+    if (!requireLoggedIn(profile?.id, showAlert, t)) return;
     if (!newPost.trim() || !profile) return;
     setIsPublishing(true);
     let mediaUrl = null;
@@ -466,7 +482,7 @@ export default function FanZonePage() {
   };
 
   const toggleLikePost = async (postId: string, alreadyLiked: boolean, postOwnerId: string) => {
-    if (!profile) return showAlert(t("common.error"), t("fanzone.alerts.login_love"));
+    if (!requireLoggedIn(profile?.id, showAlert, t) || !profile) return;
     
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, isLiked: !alreadyLiked, likesCount: alreadyLiked ? p.likesCount - 1 : p.likesCount + 1 } : p));
 
@@ -498,6 +514,7 @@ export default function FanZonePage() {
   };
 
   const handlePublishReply = async () => {
+    if (!requireLoggedIn(profile?.id, showAlert, t)) return;
     if (!profile || (!replyContent.trim() && !replyMediaFile) || !replyingToId) return;
     setIsPublishingReply(true);
     let mediaUrl: string | null = null;
@@ -687,7 +704,17 @@ export default function FanZonePage() {
 
   const renderCommentThread = (comment: any, allComments: any[], depth = 0, parentPostId: string) => {
     const isCommentLiked = comment.comment_likes?.some((l:any) => l.user_id === profile?.id);
-    const children = allComments.filter((c:any) => c.parent_comment_id === comment.id);
+    const children = allComments
+      .filter((c:any) => c.parent_comment_id === comment.id)
+      .slice()
+      .sort((a: any, b: any) => {
+        const ta = new Date(a.created_at).getTime();
+        const tb = new Date(b.created_at).getTime();
+        const sa = Number.isFinite(ta) ? ta : 0;
+        const sb = Number.isFinite(tb) ? tb : 0;
+        if (sa !== sb) return sa - sb;
+        return String(a.id || "").localeCompare(String(b.id || ""));
+      });
     
     return (
       <div key={comment.id} id={`comment-${comment.id}`} className={highlightId === `comment-${comment.id}` ? "highlight-target" : ""} style={{ marginTop: "15px", marginLeft: depth > 0 ? "20px" : "0", borderLeft: depth > 0 ? "2px solid var(--color-border)" : "none", paddingLeft: depth > 0 ? "15px" : "0" }}>
@@ -833,7 +860,7 @@ export default function FanZonePage() {
 
       {fullscreenImage && (
         <div onClick={() => setFullscreenImage(null)} style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-heavy)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
-          <img src={fullscreenImage} style={{ maxHeight: "90vh", maxWidth: "90vw", objectFit: "contain", borderRadius: "12px" }} alt="Fullscreen" />
+          <img src={fullscreenImage} onClick={(e) => e.stopPropagation()} style={{ maxHeight: "90vh", maxWidth: "90vw", objectFit: "contain", borderRadius: "12px" }} alt="Fullscreen" />
           <X size={30} color="white" style={{ position: "absolute", top: 20, right: 20 }} />
         </div>
       )}
@@ -967,7 +994,17 @@ export default function FanZonePage() {
                   return myFavorites.includes(post.user_id); 
                 })
                 .map((post) => {
-              const mainComments = post.comments.filter((c:any) => !c.parent_comment_id);
+              const mainComments = post.comments
+                .filter((c:any) => !c.parent_comment_id)
+                .slice()
+                .sort((a: any, b: any) => {
+                  const ta = new Date(a.created_at).getTime();
+                  const tb = new Date(b.created_at).getTime();
+                  const sa = Number.isFinite(ta) ? ta : 0;
+                  const sb = Number.isFinite(tb) ? tb : 0;
+                  if (sa !== sb) return sa - sb;
+                  return String(a.id || "").localeCompare(String(b.id || ""));
+                });
               
               return (
                 <div key={post.id} id={`post-${post.id}`} className={highlightId === `post-${post.id}` ? "highlight-target" : ""} style={{ backgroundColor: "var(--bg-card)", padding: "20px 25px", borderRadius: "24px", border: "1px solid var(--color-border)", display: "flex", gap: "15px" }}>
@@ -1110,6 +1147,7 @@ export default function FanZonePage() {
       </main>
       </AdRailLayout>
       
+      <BackToMessagesBar label={t("me.back_to_messages")} />
       <Footer />
 
       <style jsx global>{`

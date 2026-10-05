@@ -8,6 +8,7 @@ import { isMockPcBackPath, resolveMockPcBackUrl, resolveMockPcImageUrl } from "@
 import { memberIsIn, prettyMemberLabel as formatMemberLabel, queryLooksLikeIn } from "@/lib/member-labels";
 
 import { useGlobal } from "../context/GlobalContext";
+import { requireLoggedIn } from "@/lib/auth-gate";
 import {
   formatCollectionOptionLabel,
   strayKidsAlbumOrderIndex,
@@ -19,8 +20,13 @@ import {
 } from "@/lib/collection-filters";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { avisarFavoritos } from "@/lib/avisos";
+import { withWtsKoinsMark } from "@/lib/wts-koins-mark";
+import { stockStatusRank } from "@/lib/catalog-sort";
+import BindersShortcut from "../components/BindersShortcut";
+import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { supabase } from "@/lib/supabase";
 import { marketRefUsdStorageKey } from "@/lib/market-reference-keys";
+import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { getCurrencyOptions } from "./currencyOptions";
 import WtsListingModal from "./WtsListingModal";
 import WttListingModal from "./WttListingModal";
@@ -66,6 +72,7 @@ import {
   Calendar,
   ZoomIn,
   ZoomOut,
+  ArrowUpDown,
 } from "lucide-react";
 const filterLabelStyle: React.CSSProperties = {
   fontSize: 12,
@@ -125,7 +132,46 @@ type UserItemStatusRow = {
   item_id: number;
   status: PersistStatus;
   qty: number | null;
+  updated_at?: string | null;
+  price?: number | null;
+  price_koins?: number | null;
 };
+
+function mapCatalogItemRows(all: any[], catalog: LibraryCatalog): ItemRow[] {
+  const itemsData: ItemRow[] = [];
+  for (const r of all as ItemRow[]) {
+    const typeRaw = String(r.type ?? "").trim().toLowerCase();
+    const frontRaw = String(r.image_url ?? "").toLowerCase();
+    const isInclusion = typeRaw.startsWith("inclusions") || frontRaw.includes("/inclusions/");
+    if (catalog === "photocards" && isInclusion) continue;
+    if (catalog === "photocards" && itemIsMerchNotPhotocard(r)) continue;
+    if (catalog === "inclusions" && !isInclusion) continue;
+    if (isMockPcBackPath(r.image_url)) continue;
+    const front =
+      typeof r.image_url === "string" && r.image_url.trim()
+        ? resolveMockPcImageUrl(r.image_url.trim())
+        : null;
+    const back = front
+      ? resolveMockPcBackUrl(front, r.back_image_url)
+      : typeof r.back_image_url === "string" && r.back_image_url.trim()
+        ? resolveMockPcImageUrl(r.back_image_url.trim())
+        : null;
+    itemsData.push({
+      id: Number(r.id),
+      name: r.name ?? null,
+      image_url: front || null,
+      back_image_url: back || null,
+      group_id: Number.isFinite(Number(r.group_id)) ? Number(r.group_id) : null,
+      album_id: Number.isFinite(Number(r.album_id)) ? Number(r.album_id) : null,
+      version: r.version ?? null,
+      member: r.member ?? null,
+      type: r.type ?? null,
+    });
+  }
+  return itemsData;
+}
+
+const FOLDER_TREE_CACHE_KEY = "mkb_folder_tree_v1";
 
 type GroupRow = { id: number; name: string | null };
 type AlbumRow = { id: number; name: string | null; release_date: string | null };
@@ -448,6 +494,7 @@ function PcInspectLightbox({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  useOverlayDismiss(true, onClose);
 
   const applyZoom = (next: number) => {
     const z = clampInspectZoom(next);
@@ -582,7 +629,22 @@ function PcInspectLightbox({
         </button>
       </div>
       <div
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          const img = e.currentTarget.querySelector("img");
+          if (img) {
+            const r = img.getBoundingClientRect();
+            const onImage =
+              e.clientX >= r.left &&
+              e.clientX <= r.right &&
+              e.clientY >= r.top &&
+              e.clientY <= r.bottom;
+            if (onImage) {
+              e.stopPropagation();
+              return;
+            }
+          }
+          onClose();
+        }}
         onPointerDown={(e) => {
           if (zoom <= 1) return;
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -613,7 +675,7 @@ function PcInspectLightbox({
           alignItems: "center",
           justifyContent: "center",
           overflow: zoom > 1 ? "hidden" : "visible",
-          cursor: zoom > 1 ? "grab" : "zoom-in",
+          cursor: zoom > 1 ? "grab" : "zoom-out",
           borderRadius: 18,
           paddingTop: 56,
         }}
@@ -624,9 +686,10 @@ function PcInspectLightbox({
           alt=""
           draggable={false}
           style={{
-            height: "min(80vh, 860px)",
+            height: "auto",
             width: "auto",
-            maxWidth: "min(92vw, 720px)",
+            maxHeight: "min(82vh, 880px)",
+            maxWidth: "min(94vw, 960px)",
             objectFit: "contain",
             borderRadius: 16,
             boxShadow: "0 24px 70px color-mix(in srgb, var(--text-main) 35%, transparent)",
@@ -1697,7 +1760,8 @@ function ItemModal({
                 }
               }}
               title={t("library.modal.inspect_hint") || t("binders.zoom")}
-              style={{ width: "100%", maxWidth: 320, aspectRatio: "2 / 3", position: "relative", perspective: 1100, background: "transparent", margin: "auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
+              className="library-pc-preview"
+              style={{ width: "100%", maxWidth: 380, height: "min(62vh, 560px)", position: "relative", perspective: 1100, background: "transparent", margin: "auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
             >
               <div
                 style={{
@@ -1718,7 +1782,7 @@ function ItemModal({
                       key={`lib-modal-f-${item.id}-${item.image_url}`}
                       src={item.image_url}
                       alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover", background: "var(--bg-card)", transform: `rotate(${rot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }}
+                      style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", background: "var(--bg-card)", transform: `rotate(${rot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }}
                     />
                   ) : (
                     <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", background: "linear-gradient(180deg, var(--bg-card), var(--bg-soft))" }}>
@@ -1735,7 +1799,7 @@ function ItemModal({
                       frontSrcForBack={item.image_url ?? undefined}
                       fallbackSrc={DEFAULT_BACK_URL}
                       alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover", background: "var(--bg-card)", transform: `rotate(${rot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }}
+                      style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", background: "var(--bg-card)", transform: `rotate(${rot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }}
                     />
                   ) : (
                     <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", background: "linear-gradient(180deg, var(--bg-card), var(--bg-soft))" }}>
@@ -2303,6 +2367,10 @@ function LibraryContent() {
     const [sendingColab, setSendingColab] = useState(false);
     const [showColabModal, setShowColabModal] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [catalogSort, setCatalogSort] = useState<"default" | "album" | "stock_date" | "price" | "status">("default");
+    const [stockDateByItem, setStockDateByItem] = useState<Record<number, number>>({});
+    const [priceScoreByItem, setPriceScoreByItem] = useState<Record<number, number>>({});
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<string>("");
   const router = useRouter();
@@ -2445,163 +2513,174 @@ const rebuildInvMap = useCallback((rows: UserItemStatusRow[]) => {
       setSendingColab(false);
     }
   };
+const applyInvMeta = (rows: UserItemStatusRow[]) => {
+  rebuildInvMap(rows);
+  const dates: Record<number, number> = {};
+  const scores: Record<number, number> = {};
+  for (const row of rows) {
+    const ts = Date.parse(String(row.updated_at || ""));
+    if (Number.isFinite(ts)) dates[row.item_id] = Math.max(dates[row.item_id] ?? 0, ts);
+    const fiat = Number(row.price) || 0;
+    const koins = Number(row.price_koins) || 0;
+    const score = Math.max(0, fiat) * 1_000_000 + Math.max(0, koins);
+    scores[row.item_id] = Math.max(scores[row.item_id] ?? 0, score);
+  }
+  setStockDateByItem(dates);
+  setPriceScoreByItem(scores);
+};
+
 const loadAll = useCallback(async () => {
   setLoading(true);
+  setLoadingMore(false);
   setError(null);
   setStatus("Leyendo sesión...");
 
-  // 1. Intentamos obtener el usuario de la sesión
+  const PAGE = 1000;
+  const itemSelect = "id, name, image_url, back_image_url, group_id, album_id, type, version, member";
+  const firstPromise = supabase.from("items").select(itemSelect).order("id", { ascending: true }).range(0, PAGE - 1);
+
+  const treePromise = (async () => {
+    try {
+      if (typeof window !== "undefined") {
+        const cached = sessionStorage.getItem(FOLDER_TREE_CACHE_KEY);
+        if (cached) {
+          const tree = JSON.parse(cached) as FolderTreeCatalog;
+          if (tree && Array.isArray(tree.albums)) setFolderTree(tree);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      const treeRes = await fetch("/api/folder-tree-catalog");
+      if (treeRes.ok) {
+        const tree = (await treeRes.json()) as FolderTreeCatalog;
+        if (tree && Array.isArray(tree.albums)) {
+          setFolderTree(tree);
+          try {
+            sessionStorage.setItem(FOLDER_TREE_CACHE_KEY, JSON.stringify(tree));
+          } catch {
+            /* quota */
+          }
+        }
+      }
+    } catch {
+      /* catálogo de carpetas opcional */
+    }
+  })();
+
+  const groupsPromise = supabase.from("groups").select("id, name");
+  const albumsPromise = supabase.from("albums").select("id, name, release_date, group_id");
+
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
-
-  // Definimos quién es el dueño de la información que vamos a mostrar
-  // Prioridad: 1. El parámetro de URL (uParam) | 2. El usuario logueado (user.id) | 3. Nadie (null)
   const targetUid = uParam ?? user?.id ?? null;
 
-  // 2. Si hay un usuario logueado, cargamos sus datos específicos
   if (user) {
     setEmail(user.email ?? null);
     setUserId(user.id);
-    
     setStatus("Cargando tus favoritos...");
     const { data: biasData } = await supabase
       .from("user_biases")
       .select("member_id")
       .eq("user_id", user.id);
-
-    if (biasData) {
-      setMyBiasIds(biasData.map(b => Number(b.member_id)));
-    }
+    if (biasData) setMyBiasIds(biasData.map((b) => Number(b.member_id)));
   } else {
-    // Si no hay usuario logueado, limpiamos estados de sesión
     setEmail(null);
     setUserId(null);
     setMyBiasIds([]);
-    if (!uParam) {
-      setStatus("Modo catálogo: inicia sesión para gestionar tu stock");
-    }
+    if (!uParam) setStatus("Modo catálogo: inicia sesión para gestionar tu stock");
   }
 
-  // 3. Carga de Items (Público para todos)
-  setStatus("Cargando items...");
-  const PAGE = 1000;
-  let from = 0;
-  const all: any[] = [];
-
-  while (true) {
-    const { data, error } = await supabase
-      .from("items")
-      .select("id, name, image_url, back_image_url, group_id, album_id, type, version, member")
-      .order("id", { ascending: true })
-      .range(from, from + PAGE - 1);
-
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-      return;
-    }
-
-    const batch = data ?? [];
-    all.push(...batch);
-    if (batch.length < PAGE) break;
-    from += PAGE;
-  }
-
-  const itemsData: ItemRow[] = [];
-  for (const r of all as ItemRow[]) {
-    const typeRaw = String(r.type ?? "").trim().toLowerCase();
-    const frontRaw = String(r.image_url ?? "").toLowerCase();
-    const isInclusion = typeRaw.startsWith("inclusions") || frontRaw.includes("/inclusions/");
-    if (catalog === "photocards" && isInclusion) continue;
-    if (catalog === "photocards" && itemIsMerchNotPhotocard(r)) continue;
-    if (catalog === "inclusions" && !isInclusion) continue;
-    if (isMockPcBackPath(r.image_url)) continue;
-    const front =
-      typeof r.image_url === "string" && r.image_url.trim()
-        ? resolveMockPcImageUrl(r.image_url.trim())
-        : null;
-    const back = front
-      ? resolveMockPcBackUrl(front, r.back_image_url)
-      : typeof r.back_image_url === "string" && r.back_image_url.trim()
-        ? resolveMockPcImageUrl(r.back_image_url.trim())
-        : null;
-    itemsData.push({
-      id: Number(r.id),
-      name: r.name ?? null,
-      image_url: front || null,
-      back_image_url: back || null,
-      group_id: Number.isFinite(Number(r.group_id)) ? Number(r.group_id) : null,
-      album_id: Number.isFinite(Number(r.album_id)) ? Number(r.album_id) : null,
-      version: r.version ?? null,
-      member: r.member ?? null,
-      type: r.type ?? null,
-    });
-  }
-
-  setItems(itemsData);
-
-  // 4. Carga de Inventario/Stock (Solo si hay un targetUid)
-  if (targetUid) {
-    setStatus("Cargando stock...");
-    const invRes = await supabase
+  const invPromise = (async () => {
+    if (!targetUid) return;
+    let invRes: { error: { message?: string } | null; data: unknown[] | null } = await supabase
       .from("user_item_statuses")
-      .select("id, user_id, item_id, status, qty")
+      .select("id, user_id, item_id, status, qty, updated_at, price, price_koins")
       .eq("user_id", targetUid);
-
-    if (!invRes.error && invRes.data) {
-      rebuildInvMap(invRes.data as UserItemStatusRow[]);
+    if (invRes.error && String(invRes.error.message || "").toLowerCase().includes("price_koins")) {
+      invRes = await supabase
+        .from("user_item_statuses")
+        .select("id, user_id, item_id, status, qty, updated_at, price")
+        .eq("user_id", targetUid);
     }
-    
-    // Carga de qué cartas están ya en el binder
+    if (!invRes.error && invRes.data) applyInvMeta(invRes.data as UserItemStatusRow[]);
     await loadPlacedAcrossBinder(targetUid);
+  })();
+
+  setStatus("Cargando items...");
+  const all: any[] = [];
+  const first = await firstPromise;
+  if (first.error) {
+    setError(first.error.message);
+    setLoading(false);
+    return;
   }
-
-  // 5. Carga de nombres de Grupos y Álbumes (Público)
-  const groupIds = Array.from(new Set(itemsData.map(x => Number(x.group_id)).filter(n => Number.isFinite(n))));
-
-  if (groupIds.length > 0) {
-    const gRes = await supabase.from("groups").select("id, name").in("id", groupIds);
-    if (!gRes.error && gRes.data) {
-      const map: Record<number, string> = {};
-      gRes.data.forEach((g: any) => { map[g.id] = (g.name ?? `Grupo ${g.id}`).trim(); });
-      setGroupNameById(map);
-    }
-  }
-
-  {
-    const aRes = await supabase.from("albums").select("id, name, release_date, group_id");
-    if (!aRes.error && aRes.data) {
-      const map: Record<number, { name: string; release_date: string | null; group_id: number | null }> = {};
-      aRes.data.forEach((a: any) => {
-        map[a.id] = {
-          name: (a.name ?? `Álbum ${a.id}`).trim(),
-          release_date: a.release_date ?? null,
-          group_id: Number.isFinite(Number(a.group_id)) ? Number(a.group_id) : null,
-        };
-      });
-      setAlbumById(map);
-    }
-  }
-
-  // Inicializar caras de cartas
+  all.push(...(first.data ?? []));
+  let itemsData = mapCatalogItemRows(all, catalog);
+  setItems(itemsData);
   setCardFace((prev) => {
     const next = { ...prev };
-    itemsData.forEach(it => { if (!next[it.id]) next[it.id] = "front"; });
+    itemsData.forEach((it) => {
+      if (!next[it.id]) next[it.id] = "front";
+    });
     return next;
   });
-  
-  setPageFace("front");
-  setStatus(user ? "Inventario listo ✅" : "Catálogo listo ✅");
-  try {
-    const treeRes = await fetch("/api/folder-tree-catalog", { cache: "no-store" });
-    if (treeRes.ok) {
-      const tree = (await treeRes.json()) as FolderTreeCatalog;
-      if (tree && Array.isArray(tree.albums)) setFolderTree(tree);
-    }
-  } catch {
-    /* catálogo de carpetas opcional */
-  }
+  const firstLen = (first.data ?? []).length;
+  setLoadingMore(firstLen === PAGE);
   setLoading(false);
+
+  const restPromise = (async () => {
+    if (firstLen < PAGE) return;
+    let from = PAGE;
+    while (true) {
+      const { data, error } = await supabase
+        .from("items")
+        .select(itemSelect)
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) break;
+      const batch = data ?? [];
+      all.push(...batch);
+      itemsData = mapCatalogItemRows(all, catalog);
+      setItems(itemsData);
+      setCardFace((prev) => {
+        const next = { ...prev };
+        itemsData.forEach((it) => {
+          if (!next[it.id]) next[it.id] = "front";
+        });
+        return next;
+      });
+      if (batch.length < PAGE) break;
+      from += PAGE;
+    }
+  })();
+
+  const [gRes, aRes] = await Promise.all([groupsPromise, albumsPromise]);
+  if (!gRes.error && gRes.data) {
+    const map: Record<number, string> = {};
+    gRes.data.forEach((g: any) => {
+      map[g.id] = (g.name ?? `Grupo ${g.id}`).trim();
+    });
+    setGroupNameById(map);
+  }
+  if (!aRes.error && aRes.data) {
+    const map: Record<number, { name: string; release_date: string | null; group_id: number | null }> = {};
+    aRes.data.forEach((a: any) => {
+      map[a.id] = {
+        name: (a.name ?? `Álbum ${a.id}`).trim(),
+        release_date: a.release_date ?? null,
+        group_id: Number.isFinite(Number(a.group_id)) ? Number(a.group_id) : null,
+      };
+    });
+    setAlbumById(map);
+  }
+
+  setPageFace("front");
+  void Promise.all([treePromise, invPromise, restPromise]).then(() => {
+    setStatus(user ? "Inventario listo ✅" : "Catálogo listo ✅");
+    setLoadingMore(false);
+  });
 }, [loadPlacedAcrossBinder, rebuildInvMap, uParam, catalog]);
 useEffect(() => {
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -3071,7 +3150,7 @@ if (skip !== "pobKind" && opts.fPobKind !== "all") {
   return true;
 }
 const filtered = useMemo(() => {
-  return items.filter((it) => {
+  const list = items.filter((it) => {
     const counts = invByItem[it.id] ?? emptyCounts();
 
     if (fStatus !== "all") {
@@ -3101,7 +3180,29 @@ const filtered = useMemo(() => {
 
     return matchesQuery(it, q);
   });
-}, [items, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, folderTree, albumById]);
+  if (catalogSort === "default") return list;
+  const copy = [...list];
+  copy.sort((a, b) => {
+    if (catalogSort === "album") {
+      const an = a.album_id != null ? albumById[a.album_id]?.name ?? "" : "";
+      const bn = b.album_id != null ? albumById[b.album_id]?.name ?? "" : "";
+      const c = an.localeCompare(bn, undefined, { sensitivity: "base" });
+      if (c) return c;
+      return String(a.version || "").localeCompare(String(b.version || ""), undefined, { sensitivity: "base" });
+    }
+    if (catalogSort === "stock_date") {
+      return (stockDateByItem[b.id] ?? 0) - (stockDateByItem[a.id] ?? 0);
+    }
+    if (catalogSort === "status") {
+      const ra = stockStatusRank(invByItem[a.id]);
+      const rb = stockStatusRank(invByItem[b.id]);
+      if (ra !== rb) return ra - rb;
+      return String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" });
+    }
+    return (priceScoreByItem[b.id] ?? 0) - (priceScoreByItem[a.id] ?? 0);
+  });
+  return copy;
+}, [items, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, folderTree, albumById, catalogSort, stockDateByItem, priceScoreByItem]);
 
   const showContributeEmpty = useMemo(() => {
     if (filtered.length > 0) return false;
@@ -3164,7 +3265,7 @@ useEffect(() => {
 
 const persistWttQty = useCallback(
     async (itemId: number, value: number) => {
-      if (!userId) return;
+      if (!requireLoggedIn(userId, showAlert, t)) return;
       if (isViewingOtherUser) return;
       if (!Number.isFinite(itemId)) return;
       const qty = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
@@ -3191,7 +3292,7 @@ const persistWttQty = useCallback(
                 { onConflict: "user_id,item_id,status" }
               );
             if (up.error) return;
-            await avisarFavoritos(userId, 'market_id', itemId);
+            await avisarFavoritos(userId!, 'market_id', itemId);
           } else {
         const del = await supabase
           .from("user_item_statuses")
@@ -3338,7 +3439,7 @@ useEffect(() => {
 
 const commitStockForItem = useCallback(
   async (itemId: number, next: Record<PersistStatus, number>) => {
-    if (!userId) return; 
+    if (!requireLoggedIn(userId, showAlert, t)) return; 
     setError(null); 
 
     // 1. Limpieza de datos: aseguramos que todo sea número y >= 0
@@ -3522,29 +3623,47 @@ const commitStockForItem = useCallback(
    
     // 1. Recuperamos los datos que el usuario escribió en el modal (guardados en localStorage)
     const priceValue = localStorage.getItem(`binder:price:${wtsListingItemId}`);
+    const koinsValue = Math.max(0, parseInt(localStorage.getItem(`binder:priceKoins:${wtsListingItemId}`) || "0", 10) || 0);
     const currencyValue = localStorage.getItem(`binder:wtsCurrency:${wtsListingItemId}`) || "EUR";
-    const countryValue = localStorage.getItem(`binder:market:${wtsListingItemId}`) || "España";
+    const countryValue = localStorage.getItem(`binder:wtsOrigin:${wtsListingItemId}`) || localStorage.getItem(`binder:market:${wtsListingItemId}`) || "España";
+    const shippingValue = localStorage.getItem(`binder:shipping:${wtsListingItemId}`) || "Worldwide";
+    const negotiableValue = localStorage.getItem(`binder:negotiable:${wtsListingItemId}`) === "true";
+    const commentValue = localStorage.getItem(`binder:comment:${wtsListingItemId}`) || "";
 
-    // 2. Actualizamos la fila en Supabase con los nuevos campos públicos
+    const payload: Record<string, unknown> = {
+      user_id: userId,
+      item_id: wtsListingItemId,
+      status: "wts",
+      qty: 1,
+      price: priceValue ? parseFloat(priceValue.replace(",", ".")) : null,
+      currency: currencyValue,
+      origin_country: countryValue,
+      shipping_to: shippingValue,
+      wts_negotiable: negotiableValue,
+      market_comment: withWtsKoinsMark(commentValue, koinsValue),
+      price_koins: koinsValue > 0 ? koinsValue : null,
+    };
+
     const { error } = await supabase
       .from("user_item_statuses")
-      .upsert([{ 
-        user_id: userId, 
-        item_id: wtsListingItemId, 
-        status: "wts", 
-        qty: 1,
-        price: priceValue ? parseFloat(priceValue.replace(',', '.')) : null,
-        currency: currencyValue,
-        origin_country: countryValue
-      }] as any, { onConflict: "user_id,item_id,status" });
+      .upsert([payload] as any, { onConflict: "user_id,item_id,status" });
 
-    if (!error) {
+    let saveError = error;
+    if (saveError && String(saveError.message || "").toLowerCase().includes("price_koins")) {
+      const { price_koins: _k, ...withoutKoins } = payload;
+      const retry = await supabase
+        .from("user_item_statuses")
+        .upsert([withoutKoins] as any, { onConflict: "user_id,item_id,status" });
+      saveError = retry.error;
+    }
+
+    if (!saveError) {
       setWtsListingModalOpen(false);
       setStatus(t("library.status_marketplace_published"));
       await avisarFavoritos(userId, 'market_id', wtsListingItemId);
       loadAll(); // Recarga la lista para ver los cambios
     } else {
-      console.error("Error al publicar anuncio:", error.message);
+      console.error("Error al publicar anuncio:", saveError.message);
     }
   };
   return (
@@ -3592,7 +3711,10 @@ const commitStockForItem = useCallback(
         {/* CONTENEDOR CENTRAL: Limitado a 1120px para dejar hueco a los lados */}
         <div className="library-main-column" style={{ width: "100%", maxWidth: 1120, display: "flex", flexDirection: "column", gap: 20 }}>
           {error && <div style={{ color: "crimson", textAlign: "center", fontWeight: 900 }}>{t("common.error")}: {error}</div>}
-          {loading && <div style={{ marginTop: 10, color: "var(--text-muted)" }}>{t("common.loading")}...</div>}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <BindersShortcut />
+          </div>
+          {loading && <CatalogLoadingFun />}
 
           {isMobileViewport && showFiltersPanel && (
             <button
@@ -3611,6 +3733,7 @@ const commitStockForItem = useCallback(
               padding: 16,
               borderRadius: 16,
               border: "1px solid var(--color-border)",
+              display: loading ? "none" : "grid",
             }}
           >
             {isMobileViewport && (
@@ -3626,6 +3749,16 @@ const commitStockForItem = useCallback(
               </button>
             </div>
             )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={filterLabelStyle}><ArrowUpDown size={13} /> {t("common.sort_label") || "Ordenar"}</label>
+              <select value={catalogSort} onChange={(e) => setCatalogSort(e.target.value as typeof catalogSort)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
+                <option value="default">{t("common.sort_default") || "Por defecto"}</option>
+                <option value="album">{t("common.sort_album") || "Por álbum"}</option>
+                <option value="stock_date">{t("common.sort_stock_date") || "Fecha en tu stock"}</option>
+                <option value="price">{t("common.sort_price") || "Por precio"}</option>
+                <option value="status">{t("common.sort_status") || "Por estado"}</option>
+              </select>
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Layers size={13} /> {t("binders.picker.status") || "Estado"}</label>
               <select value={fStatus} onChange={(e) => setFStatus(e.target.value as StatusFilter)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
@@ -3848,7 +3981,7 @@ const commitStockForItem = useCallback(
             className="library-cards-grid"
             style={{
               marginTop: 14,
-              display: "grid",
+              display: loading ? "none" : "grid",
               gridTemplateColumns: isMobileViewport ? "repeat(auto-fill, minmax(110px, 1fr))" : "repeat(5, minmax(0, 1fr))",
               gap: 18,
               justifyContent: "center",

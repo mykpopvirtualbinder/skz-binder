@@ -9,7 +9,7 @@ const formatPrettyName = (name: string | null | undefined) => {
   return name.replace(/[-_]/g, " ").split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 };
 
-export default function ItemPicker({ userId, onSelect, onCancel, wantedIds = [], allowedTypes = ["pc", "merch"], initialSelected = [] }: any) {
+export default function ItemPicker({ userId, onSelect, onCancel, wantedIds = [], allowedTypes = ["pc", "merch"], initialSelected = [], remoteCatalog = false }: any) {
   const { t } = useGlobal(); // 👈 Extraemos t()
   
   const [items, setItems] = useState<any[]>([]);
@@ -24,6 +24,16 @@ export default function ItemPicker({ userId, onSelect, onCancel, wantedIds = [],
       if (!userId) return;
       setLoading(true);
       try {
+        if (remoteCatalog) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          const res = await fetch(`/api/user-tradable-items?userId=${encodeURIComponent(userId)}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          const json = await res.json().catch(() => ({ items: [] }));
+          setItems(Array.isArray(json.items) ? json.items : []);
+          return;
+        }
         const { data: pcs } = await supabase
           .from("user_item_statuses")
           .select("status, item_id, item:items(*)")
@@ -71,7 +81,7 @@ export default function ItemPicker({ userId, onSelect, onCancel, wantedIds = [],
       } catch (err) { console.error(err); } finally { setLoading(false); }
     }
     loadBinder();
-  }, [userId]);
+  }, [userId, remoteCatalog]);
 
   useEffect(() => {
     setSelectedList(initialSelected);

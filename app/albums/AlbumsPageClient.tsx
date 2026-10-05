@@ -7,6 +7,7 @@ import { useGlobal } from "../context/GlobalContext";
 import MerchClient from "../merch/MerchClient";
 import LibraryPageClient from "../library/LibraryPageClient";
 import Footer from "../components/footer";
+import BindersShortcut from "../components/BindersShortcut";
 
 type AlbumsTab = "ediciones" | "inclusiones";
 
@@ -31,11 +32,14 @@ export default function AlbumsPageClient() {
   return (
     <div style={{ minHeight: "100%", backgroundColor: "var(--bg-main)", color: "var(--text-main)" }}>
       <div style={{ width: "100%", maxWidth: "1400px", margin: "0 auto", padding: "28px 20px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-          <Disc size={28} color="var(--accent-vibe-violet)" />
-          <h1 className="tan-font" style={{ fontSize: 36, color: "var(--text-heading)", margin: 0 }}>
-            {t("albums.title") || t("menu.albums") || "ÁLBUMES"}
-          </h1>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Disc size={28} color="var(--accent-vibe-violet)" />
+            <h1 className="tan-font" style={{ fontSize: 36, color: "var(--text-heading)", margin: 0 }}>
+              {t("albums.title") || t("menu.albums") || "ÁLBUMES"}
+            </h1>
+          </div>
+          <BindersShortcut />
         </div>
         <div
           style={{

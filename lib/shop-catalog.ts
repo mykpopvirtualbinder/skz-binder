@@ -56,9 +56,9 @@ export function getShopProduct(id: string): ShopProductRow | null {
 }
 
 const LIMITS = {
-  free: { binders: 3, pages: 30, separators: 5 },
-  mensual: { binders: 15, pages: 60, separators: 15 },
-  anual: { binders: 50, pages: 90, separators: 30 },
+  free: { binders: 3, pages: 5, separators: 5 },
+  mensual: { binders: 15, pages: 100, separators: 100 },
+  anual: { binders: 50, pages: 100, separators: 100 },
 } as const;
 
 export type UsageCounts = { binders: number; pages: number; separators: number };

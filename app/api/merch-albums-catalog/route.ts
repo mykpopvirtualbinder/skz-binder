@@ -3,6 +3,7 @@ import path from "path";
 import { NextResponse } from "next/server";
 import { isStrayKidsPlaceholderMerchAlbumRow } from "@/lib/collection-filters";
 import { scanMerchAlbumsFromPublicAlbums } from "@/lib/merch-albums-catalog-scan";
+import { CATALOG_HTTP_CACHE, peekScanCache, setScanCache } from "@/lib/server-catalog-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,29 +49,58 @@ function localPublicImageExists(cwd: string, imageUrl: string): boolean {
   }
 }
 
-export async function GET() {
-  try {
-    const cwd = process.cwd();
-    const scanned = scanMerchAlbumsFromPublicAlbums(cwd);
-    const seen = new Set(scanned.map((r) => r.id));
-    const merged = [...scanned];
-    if (scanned.length === 0) {
-      for (const row of readCommittedCatalog(cwd)) {
-        if (row && typeof row === "object" && "id" in row) {
-          const id = String((row as { id?: unknown }).id ?? "");
-          if (id && !seen.has(id)) {
-            merged.push(row as (typeof scanned)[number]);
-            seen.add(id);
-          }
+function buildAlbumsCatalog(cwd: string) {
+  const scanned = scanMerchAlbumsFromPublicAlbums(cwd);
+  const seen = new Set(scanned.map((r) => r.id));
+  const merged = [...scanned];
+  if (scanned.length === 0) {
+    for (const row of readCommittedCatalog(cwd)) {
+      if (row && typeof row === "object" && "id" in row) {
+        const id = String((row as { id?: unknown }).id ?? "");
+        if (id && !seen.has(id)) {
+          merged.push(row as (typeof scanned)[number]);
+          seen.add(id);
         }
       }
     }
-    const filtered = merged.filter(
-      (r) =>
-        !isStrayKidsPlaceholderMerchAlbumRow(r.group_name, r.album_title) &&
-        localPublicImageExists(cwd, String((r as { image_url?: unknown }).image_url ?? "")),
+  }
+  return merged.filter(
+    (r) =>
+      !isStrayKidsPlaceholderMerchAlbumRow(r.group_name, r.album_title) &&
+      localPublicImageExists(cwd, String((r as { image_url?: unknown }).image_url ?? "")),
+  );
+}
+
+export async function GET() {
+  try {
+    const cached = peekScanCache<unknown[]>("merch-albums-catalog");
+    if (cached) return NextResponse.json(cached, { headers: { "Cache-Control": CATALOG_HTTP_CACHE } });
+
+    const cwd = process.cwd();
+    const committed = readCommittedCatalog(cwd).filter(
+      (row) =>
+        row &&
+        typeof row === "object" &&
+        !isStrayKidsPlaceholderMerchAlbumRow(
+          (row as { group_name?: string }).group_name,
+          (row as { album_title?: string }).album_title,
+        ),
     );
-    return NextResponse.json(filtered);
+    if (committed.length > 0) {
+      setScanCache("merch-albums-catalog", committed);
+      queueMicrotask(() => {
+        try {
+          setScanCache("merch-albums-catalog", buildAlbumsCatalog(cwd));
+        } catch {
+          /* ignore */
+        }
+      });
+      return NextResponse.json(committed, { headers: { "Cache-Control": CATALOG_HTTP_CACHE } });
+    }
+
+    const filtered = buildAlbumsCatalog(cwd);
+    setScanCache("merch-albums-catalog", filtered);
+    return NextResponse.json(filtered, { headers: { "Cache-Control": CATALOG_HTTP_CACHE } });
   } catch {
     return NextResponse.json([]);
   }

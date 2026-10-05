@@ -1,6 +1,7 @@
 "use client";
 import Footer from "../components/footer";
 import AdRailLayout from "../components/AdRailLayout";
+import BackToMessagesBar from "../components/BackToMessagesBar";
 import React, { useState, useRef, useEffect, Suspense } from "react";
 
 import {
@@ -19,6 +20,8 @@ import {
   persistFanficTranslation,
   translateFanficLive,
 } from "@/lib/fanfic-translation";
+import { requireLoggedIn } from "@/lib/auth-gate";
+import { goToNoticeChat, readNoticeReturn } from "@/lib/notice-return";
 
 type FanArtPost = {
   id: string;
@@ -132,6 +135,15 @@ function FanArtContent() {
   };
 
   const highlightId = searchParams.get("highlight");
+
+  const closeArtworkViewer = () => {
+    setIsFullscreen(false);
+    setViewingArt(null);
+    if (searchParams.get("fromAdmin") || searchParams.get("admin")) return;
+    if (readNoticeReturn()?.senderId) {
+      goToNoticeChat((href) => router.push(href));
+    }
+  };
 
   useEffect(() => {
     if (highlightId && viewingArt) { 
@@ -365,6 +377,14 @@ function FanArtContent() {
     }
   };
 
+  const dismissWaitToOriginal = () => {
+    const pending = waitNotice;
+    if (!pending) return;
+    setCurrentLang("es");
+    setWaitNotice(null);
+    loadSpecificChapter(pending.chapterId, "es", pending.obraId);
+  };
+
   const categoryLabel = (dbCategory: string) => {
     const map: Record<string, string> = {
       "Arte 2D": t("fanart.filters.2d"),
@@ -503,6 +523,15 @@ function FanArtContent() {
           return;
         }
       }
+      if (waitNotice) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setCurrentLang("es");
+          setWaitNotice(null);
+          loadSpecificChapter(waitNotice.chapterId, "es", waitNotice.obraId);
+          return;
+        }
+      }
       if (isFullscreen) {
         if (e.key === "Escape") {
           e.preventDefault();
@@ -513,15 +542,14 @@ function FanArtContent() {
       if (viewingArt) {
         if (e.key === "Escape") {
           e.preventDefault();
-          setIsFullscreen(false);
-          setViewingArt(null);
+          closeArtworkViewer();
           return;
         }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isModalOpen, viewingArt, isFullscreen]);
+  }, [isModalOpen, viewingArt, isFullscreen, waitNotice]);
 
   const deleteComment = async (commentId: string) => {
     const confirmDelete = await showConfirm(t("common.confirm"), t("fanart.confirm_delete_comment"));
@@ -824,6 +852,7 @@ function FanArtContent() {
   );
 
   const handleUploadArtClick = () => {
+    if (!requireLoggedIn(activeUser?.id, showAlert, t)) return;
     if (isVerifiedArtist) {
       router.push("/studio");
       return;
@@ -1004,9 +1033,9 @@ function FanArtContent() {
 
       {/* EL LIGHTBOX NORMAL (Información y Comentarios) */}
       {viewingArt && !isFullscreen && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-heavy)", backdropFilter: "blur(10px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={() => setViewingArt(null)}>
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-heavy)", backdropFilter: "blur(10px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={closeArtworkViewer}>
           <div className="fanart-modal-shell" style={{ backgroundColor: "var(--bg-card)", width: "100%", maxWidth: "900px", borderRadius: "30px", height: "90vh", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", border: `1px solid color-mix(in srgb, ${ACC.cyan} 30%, var(--color-border))`, boxShadow: "0 24px 60px var(--shadow-card)" }} onClick={e => e.stopPropagation()}>
-            <button type="button" onClick={() => setViewingArt(null)} style={{ position: "absolute", top: "15px", right: "20px", background: "var(--bg-soft)", border: `1px solid color-mix(in srgb, ${ACC.pink} 35%, var(--color-border))`, borderRadius: "50%", padding: "5px", zIndex: 10, cursor: "pointer" }}><X size={24} color={ACC.pink} /></button>
+            <button type="button" onClick={closeArtworkViewer} style={{ position: "absolute", top: "15px", right: "20px", background: "var(--bg-soft)", border: `1px solid color-mix(in srgb, ${ACC.pink} 35%, var(--color-border))`, borderRadius: "50%", padding: "5px", zIndex: 10, cursor: "pointer" }}><X size={24} color={ACC.pink} /></button>
             <div style={{ flex: 1, overflowY: "auto", padding: "30px" }}>
               <div style={{ width: "100%", background: viewingArt.content_text ? "var(--bg-main)" : "var(--text-main)", borderRadius: "15px", overflow: "hidden", display: "flex", justifyContent: "center", position: "relative" }} onContextMenu={(e) => e.preventDefault()}>
                 
@@ -1389,12 +1418,21 @@ function FanArtContent() {
       {waitNotice && viewingArt && (
         <div
           style={{ position: "fixed", inset: 0, zIndex: 40000, background: "var(--overlay-heavy)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={dismissWaitToOriginal}
         >
           <div
             className="fanart-modal-shell"
-            style={{ width: "100%", maxWidth: "500px", background: "var(--bg-card)", borderRadius: "28px", padding: "32px 28px 24px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 35%, var(--color-border))`, boxShadow: "0 24px 60px var(--shadow-card)", textAlign: "center" }}
+            style={{ width: "100%", maxWidth: "500px", background: "var(--bg-card)", borderRadius: "28px", padding: "32px 28px 24px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 35%, var(--color-border))`, boxShadow: "0 24px 60px var(--shadow-card)", textAlign: "center", position: "relative" }}
+            onClick={(e) => e.stopPropagation()}
           >
+            <button
+              type="button"
+              aria-label={t("common.close")}
+              onClick={dismissWaitToOriginal}
+              style={{ position: "absolute", top: "14px", right: "14px", background: "var(--bg-soft)", border: `1px solid color-mix(in srgb, ${ACC.pink} 35%, var(--color-border))`, borderRadius: "50%", padding: "5px", cursor: "pointer", display: "flex" }}
+            >
+              <X size={22} color={ACC.pink} />
+            </button>
             <p style={{ fontSize: "42px", margin: "0 0 12px" }}>☕</p>
             <h2 className="tan-font" style={{ margin: "0 0 14px", color: ACC.violet, fontSize: "26px", letterSpacing: "0.03em" }}>
               {t("fanart.wait_title")}
@@ -1424,12 +1462,7 @@ function FanArtContent() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                const pending = waitNotice;
-                setCurrentLang("es");
-                setWaitNotice(null);
-                loadSpecificChapter(pending.chapterId, "es", pending.obraId);
-              }}
+              onClick={dismissWaitToOriginal}
               style={{ width: "100%", marginTop: "8px", background: "transparent", color: ACC.cyan, border: "none", padding: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer" }}
             >
               {t("fanart.wait_original")}
@@ -1437,6 +1470,7 @@ function FanArtContent() {
           </div>
         </div>
       )}
+      <BackToMessagesBar label={t("me.back_to_messages")} />
     </div>
   );
 } 

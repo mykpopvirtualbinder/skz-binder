@@ -463,6 +463,8 @@ export type MerchProductCatalogRow = {
 };
 
 const MERCH_SKIP_DIR = /^(templates|\.ds_store|desktop\.ini)$/i;
+/** Carpetas de library: no bajar a recoger merch (evita recorrer miles de PCs). */
+const MERCH_SKIP_WALK_DIR = /^(photocards|pobs?|inclusions|portadas-album)$/i;
 
 function merchProductCategory(rel: string, file: string): string {
   const b = `${rel} ${file}`.toLowerCase();
@@ -525,7 +527,7 @@ function walkMerchProductFiles(root: string, acc: string[] = []): string[] {
     return acc;
   }
   for (const ent of entries) {
-    if (MERCH_SKIP_DIR.test(ent.name) || /^silvia/i.test(ent.name)) continue;
+    if (MERCH_SKIP_DIR.test(ent.name) || MERCH_SKIP_WALK_DIR.test(ent.name) || /^silvia/i.test(ent.name)) continue;
     const abs = path.join(root, ent.name);
     if (ent.isDirectory()) {
       walkMerchProductFiles(abs, acc);

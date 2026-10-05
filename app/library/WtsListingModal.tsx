@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { MessageSquare } from "lucide-react"; // Importamos el icono para el comentario
+import { Coins, MessageSquare } from "lucide-react";
 import { useGlobal } from "../context/GlobalContext";
 import { getCurrencyOptions } from "./currencyOptions";
 type WtsListingModalProps = {
   open: boolean;
-  itemId: number | null;
+  itemId: string | number | null;
   onClose: () => void;
   onSaved?: () => void;
 };
@@ -120,6 +120,7 @@ export default function WtsListingModal({
   );
   
   const [price, setPrice] = useState("");
+  const [koins, setKoins] = useState("");
   // ... el resto de tus estados e useEffects
   const [currencyCode, setCurrencyCode] = useState("EUR");
   const [currencyInput, setCurrencyInput] = useState("");
@@ -134,6 +135,7 @@ export default function WtsListingModal({
     if (!open || itemId == null) return;
 
     const p = localStorage.getItem(`binder:price:${itemId}`) ?? "";
+    const k = localStorage.getItem(`binder:priceKoins:${itemId}`) ?? "";
     const savedCode = localStorage.getItem(`binder:wtsCurrency:${itemId}`) ?? "EUR";
     const o = localStorage.getItem(`binder:wtsOrigin:${itemId}`) ?? "";
     
@@ -143,6 +145,7 @@ export default function WtsListingModal({
     const c = localStorage.getItem(`binder:comment:${itemId}`) ?? "";
 
     setPrice(p);
+    setKoins(k);
     setCurrencyCode(savedCode);
 
     const prettyCurrency =
@@ -156,8 +159,11 @@ export default function WtsListingModal({
   }, [open, itemId, currencyOptions]);
 
   const canSave = useMemo(() => {
-    return itemId != null && price.trim() !== "";
-  }, [itemId, price]);
+    if (itemId == null) return false;
+    const fiat = parseFloat(price.replace(",", ".")) || 0;
+    const k = parseInt(koins, 10) || 0;
+    return fiat > 0 || k > 0;
+  }, [itemId, price, koins]);
 
   const handleCurrencyChange = (value: string) => {
     setCurrencyInput(value);
@@ -184,6 +190,7 @@ export default function WtsListingModal({
 
     // ✅ GUARDAR DATOS ANTIGUOS
     localStorage.setItem(`binder:price:${itemId}`, price.trim());
+    localStorage.setItem(`binder:priceKoins:${itemId}`, koins.trim());
     localStorage.setItem(`binder:wtsCurrency:${itemId}`, currencyCode);
     localStorage.setItem(`binder:wtsOrigin:${itemId}`, originCountry);
     
@@ -215,7 +222,7 @@ export default function WtsListingModal({
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, canSave, price, currencyCode, originCountry, shippingTo, negotiable, comment, itemId, onClose, onSaved]);
+  }, [open, canSave, price, koins, currencyCode, originCountry, shippingTo, negotiable, comment, itemId, onClose, onSaved]);
 
   if (!open) return null;
 
@@ -317,6 +324,21 @@ export default function WtsListingModal({
                 ))}
               </datalist>
             </div>
+          </div>
+
+          <div>
+            <div style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 6 }}>
+              <Coins size={14} /> {t("wts_listing.koins_label") === "wts_listing.koins_label" ? "K-oins (opcional)" : t("wts_listing.koins_label")}
+            </div>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={koins}
+              onChange={(e) => setKoins(e.target.value)}
+              style={inputStyle}
+              placeholder={t("wts_listing.koins_placeholder") === "wts_listing.koins_placeholder" ? "Ej: 150" : t("wts_listing.koins_placeholder")}
+            />
           </div>
 
           {/* FILA 2: Origen y Envío */}

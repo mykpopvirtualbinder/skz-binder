@@ -1,9 +1,11 @@
 "use client";
 import React, { forwardRef } from "react";
 import HTMLFlipBook from "react-pageflip";
-import { X, BookOpen, Bookmark } from "lucide-react";
+import { X, BookOpen, Bookmark, Rotate3d } from "lucide-react";
 import { useGlobal } from "../context/GlobalContext"; // 👈 Añadido
 import ImageWithExtensionFallback from "./ImageWithExtensionFallback";
+import Binder3DBook from "../binders/Binder3DBook";
+import { unpackSeparatorColors } from "@/lib/binder-quotas";
 
 type Photocard = {
   id: string | number;
@@ -87,6 +89,7 @@ Page.displayName = 'Page';
 export default function VirtualBinder({ binderName, binderColor = "var(--color-primary)", coverUrl, pagesData, onClose }: VirtualBinderProps) {
   const { t } = useGlobal(); // 👈 Extraemos el traductor
   const bookRef = React.useRef<any>(null);
+  const [viewMode, setViewMode] = React.useState<"flip" | "spin">("flip");
   
   React.useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -122,15 +125,70 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
         @keyframes swipePulse { 0%, 100% { transform: translateX(0); opacity: 0.8; } 50% { transform: translateX(8px); opacity: 1; } }
       `}</style>
 
-      <div style={{ width: "100%", maxWidth: "900px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px", padding: "0 20px" }}>
+      <div style={{ width: "100%", maxWidth: "900px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px", padding: "0 20px", gap: 12, flexWrap: "wrap" }}>
         <h2 className="tan-font" style={{ color: "white", fontSize: "24px", margin: 0, display: "flex", alignItems: "center", gap: "12px" }}>
           <BookOpen color="white" /> {t('virtual_binder.real_view')}
         </h2>
-        <button onClick={onClose} style={{ background: "var(--bg-card)", border: "none", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-main)", fontWeight: "bold" }}>
-          <X size={24} />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => setViewMode("spin")}
+            style={{
+              background: viewMode === "spin" ? "var(--color-primary)" : "var(--bg-card)",
+              color: viewMode === "spin" ? "white" : "var(--text-main)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 999,
+              padding: "8px 14px",
+              fontWeight: 900,
+              fontSize: 12,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Rotate3d size={16} /> {t("virtual_binder.spin_360") === "virtual_binder.spin_360" ? "Girar 360°" : t("virtual_binder.spin_360")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("flip")}
+            style={{
+              background: viewMode === "flip" ? "var(--color-primary)" : "var(--bg-card)",
+              color: viewMode === "flip" ? "white" : "var(--text-main)",
+              border: "1px solid var(--color-border)",
+              borderRadius: 999,
+              padding: "8px 14px",
+              fontWeight: 900,
+              fontSize: 12,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <BookOpen size={16} /> {t("virtual_binder.open_pages") === "virtual_binder.open_pages" ? "Ver páginas" : t("virtual_binder.open_pages")}
+          </button>
+          <button onClick={onClose} style={{ background: "var(--bg-card)", border: "none", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-main)", fontWeight: "bold" }}>
+            <X size={24} />
+          </button>
+        </div>
       </div>
 
+      {viewMode === "spin" ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 0 40px" }}>
+          <Binder3DBook
+            title={binderName}
+            color={binderColor}
+            coverUrl={coverUrl}
+            width={240}
+            height={336}
+            depth={36}
+            interactive
+            t={t}
+            showHint
+          />
+        </div>
+      ) : (
       <div style={{ position: "relative", display: "flex" }}>
         
        {/* ✨ PESTAÑAS EXTERNAS ✨ */}
@@ -149,7 +207,7 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
            if (pageData.layoutType === 'separator') {
            const separatorSlot = pageData.slots[0];
            const title = separatorSlot?.custom_text || separatorSlot?.name || t('virtual_binder.separator');
-           const tabColor = separatorSlot?.custom_color || binderColor; 
+           const tabColor = unpackSeparatorColors(separatorSlot?.custom_color).fill || unpackSeparatorColors(separatorSlot?.custom_color).border || binderColor; 
            const thumbUrl = separatorSlot?.custom_image_url || separatorSlot?.image_url;
            
            // Cálculo de contraste básico para el texto de la pestaña
@@ -207,12 +265,12 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
 
         <div style={{ width: "95vw", maxWidth: "1000px", height: "85vh", maxHeight: "750px", position: "relative" }}>
           {/* @ts-ignore */}
-          <HTMLFlipBook 
+            <HTMLFlipBook 
             ref={bookRef}
             width={530} height={730} size="stretch" 
-            minWidth={400} maxWidth={800} minHeight={550} maxHeight={900} 
+            minWidth={280} maxWidth={800} minHeight={400} maxHeight={900} 
             maxShadowOpacity={0.5} showCover={true} mobileScrollSupport={true} 
-            usePortrait={false} 
+            usePortrait={true} flippingTime={700} drawShadow={true}
             className="virtual-binder" style={{ margin: "0 auto" }}
           >
           
@@ -238,11 +296,12 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
             {/* 🛑 RENDER DE PÁGINAS (Página DOBLE: Anverso y Reverso) 🛑 */}
             {pagesData.flatMap((pageData, index) => {
               if (pageData.layoutType === 'separator') {
-                const bgImage = pageData.slots[0]?.custom_image_url || pageData.slots[0]?.image_url || null; 
+                const separatorSlot = pageData.slots[0];
+                const sepFill = unpackSeparatorColors(separatorSlot?.custom_color).fill;
+                const bgImage = separatorSlot?.custom_image_url || separatorSlot?.image_url || null; 
 
                 return [
-                  // Cara A (Derecha)
-                  <Page key={`sep-f-${index}`} isSeparator={true} number={(index * 2) + 1} coverColor={pageData.slots[0]?.custom_color || binderColor} coverUrl={bgImage}>
+                  <Page key={`sep-f-${index}`} isSeparator={true} number={(index * 2) + 1} coverColor={sepFill || pageData.bgColor || binderColor} coverUrl={bgImage}>
                    {!bgImage && (
                     <div style={{ color: "white", textAlign: "center" }}>
                        {pageData.slots[0]?.custom_text ? (
@@ -256,7 +315,7 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
                   )}
                   </Page>,
                   // Cara B (Izquierda - Reverso)
-                  <Page key={`sep-b-${index}`} isSeparator={true} number={(index * 2) + 2} coverColor={pageData.slots[0]?.custom_color || binderColor} coverUrl={bgImage}>
+                  <Page key={`sep-b-${index}`} isSeparator={true} number={(index * 2) + 2} coverColor={sepFill || pageData.bgColor || binderColor} coverUrl={bgImage}>
                    {!bgImage && (
                     <div style={{ color: "white", textAlign: "center" }}>
                        {pageData.slots[0]?.custom_text ? (
@@ -300,14 +359,15 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
                       const finalScaleX = side === "back" ? baseScaleX * -1 : baseScaleX;
                       const frontImgSrc = pc?.image_url;
                       const backImgSrc = pc ? (pc.back_image_url || pc.backImageUrl || pc.back_image || pc.backUrl) : null;
+                      const hasFront = Boolean(frontImgSrc);
                       const finalSrc = side === "front" 
-                        ? (frontImgSrc || "/mock-pcs/groups/not-available.png") 
+                        ? frontImgSrc
                         : (backImgSrc || "/mock-pcs/groups/default-back.png");
 
                       return (
-                        <div key={`slot-${side}-${slotIndex}`} style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                        <div key={`slot-${side}-${slotIndex}`} style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "color-mix(in srgb, var(--color-border) 35%, transparent)", borderRadius: 8 }}>
                           <div style={{ width: "100%", height: "100%", position: "relative" }}>
-                            {pc ? (
+                            {pc && (side === "back" || hasFront) ? (
                               <>
                                 <ImageWithExtensionFallback
                                   src={finalSrc}
@@ -379,6 +439,7 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
           </HTMLFlipBook>
         </div>
       </div>
+      )}
     </div> 
   );
 }

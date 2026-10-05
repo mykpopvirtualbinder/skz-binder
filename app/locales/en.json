@@ -42,6 +42,20 @@
     "vip_advantage": "VIP Advantage",
     "loading": "Loading...",
     "loading_page": "Loading page...",
+    "go_binders": "My binders",
+    "sort_label": "Sort",
+    "sort_default": "Default",
+    "sort_album": "By album",
+    "sort_stock_date": "Date added to stock",
+    "sort_status": "By status",
+    "back": "Back",
+    "sort_price": "By price",
+    "library_loading_title": "Building your library…",
+    "library_loading_hint": "Fetching photocards. One moment — there are a lot of them ✨",
+    "library_loading_more": "Loading the rest of the catalog…",
+    "library_loading_fun_1": "Sorting photocards by color…",
+    "library_loading_fun_2": "Looking for your bias in the binder…",
+    "library_loading_fun_3": "Almost there, dusting off sleeves…",
     "delete": "Delete",
     "add": "Add",
     "choose": "Choose",
@@ -427,7 +441,8 @@
       "edit_stock": "Edit stock",
       "update_stock": "Update stock",
       "add_decoration": "Add decoration",
-      "remove_image": "Remove image"
+      "remove_image": "Remove image",
+      "whole_page": "whole page"
     },
     "picker": {
       "search_placeholder": "Search by name or id...",
@@ -449,7 +464,7 @@
       "type_selfie": "Selfie",
       "type_unit": "Unit",
       "type_ot8": "OT8",
-      "view_all": "🔍 View all",
+      "view_all": "View all",
       "this_page_only": "This page only",
       "whole_binder": "Whole binder",
       "status": "Status",
@@ -537,6 +552,15 @@
     "remove_custom_cursor": "Remove custom cursor",
     "search_cursor_placeholder": "Search for mascot or artist...",
     "add_separator": "Add separator",
+    "quota": {
+      "pages": "Pages for your plan",
+      "separators": "Separators for your plan"
+    },
+    "separator": {
+      "fill_color": "Separator color",
+      "border_color": "Border color",
+      "no_color": "No color"
+    },
     "select_multiple_delete": "Select multiple to delete",
     "flip": "Flip",
     "reverse": "Reverse",
@@ -617,6 +641,7 @@
     "vip_cover_alert_msg": "Uploading cover photos is exclusive to Premium users.",
     "custom_pc_name": "Custom PC",
     "thumb_drag_hint": "Drag or swipe to rotate the cover · tap to open if you did not drag",
+    "thumb_info": "How to rotate the binder",
     "thumb_reset": "Reset rotation"
   },
   "community_rules": {
@@ -706,6 +731,8 @@
     "separator": "SEPARATOR",
     "real_view": "Real View",
     "photocards": "Photocards",
+    "spin_360": "Spin 360°",
+    "open_pages": "Browse pages",
     "wish": "Wish",
     "otw": "OTW",
     "empty": "Empty",
@@ -1037,6 +1064,8 @@
       "usa": "United States",
       "national": "National Only"
     },
+    "koins_label": "K-oins (optional)",
+    "koins_placeholder": "e.g. 150",
     "negotiable_label": "Price negotiable / Listening to offers",
     "comment_label": "Comment (Optional)",
     "comment_placeholder": "Ex: Has a small mark. Standard shipping included in the price.",
@@ -1136,7 +1165,9 @@
     "remember_text": "Review and compare",
     "filter_all": "All",
     "filter_pc": "Photocards",
-    "filter_merch": "Filter merch",
+    "filter_inclusion": "Inclusions",
+    "filter_album": "Albums",
+    "filter_merch": "Merch",
     "clear_filters_action": "Clear filters",
     "all": "All",
     "label_category": "Category",
@@ -2192,6 +2223,12 @@
     "placeholder": "Placeholder",
     "anonymous_report": "Send report anonymously",
     "send_report": "Send report"
+  },
+  "auth": {
+    "login_required_title": "Sign in or register",
+    "login_required_body": "To access this content and keep it on your account, you need to sign in or create an account.",
+    "binders_login_body": "You cannot have a binder without an account. Sign in or register to create and save your pages.",
+    "login_cta": "Sign in / Register"
   },
   "wts": {
     "modal_title": "PUBLISH SALE (WTS)",

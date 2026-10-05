@@ -1,0 +1,10 @@
+public/mock-pcs/groups/stray-kids/silvia*
+public/mock-pcs/groups/stray-kids/silvia *
+public/mock-pcs/groups/stray-kids/templates
+public/mock-pcs/groups/stray-kids/templates/**
+documentos legales
+.env*
+*.mov
+*.mp4
+*.zip
+*.csv
