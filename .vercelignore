@@ -2,6 +2,13 @@ public/mock-pcs/groups/stray-kids/silvia*
 public/mock-pcs/groups/stray-kids/silvia *
 public/mock-pcs/groups/stray-kids/templates
 public/mock-pcs/groups/stray-kids/templates/**
+public/mock-pcs/groups/stray-kids/albums
+public/mock-pcs/groups/stray-kids/albums/**
+public/mock-pcs/groups/stray-kids/events
+public/mock-pcs/groups/stray-kids/events/**
+public/mock-pcs/groups/stray-kids/others
+public/mock-pcs/groups/stray-kids/others/**
+public/mock-pcs/manifest.json
 documentos legales
 .env*
 *.mov
