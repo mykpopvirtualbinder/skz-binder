@@ -7,7 +7,7 @@ import { useState } from "react"; // 1. Asegúrate de tener useState importado
 import { useRouter, usePathname, useSearchParams } from "next/navigation"; // 2. Asegúrate de importar usePathname y useSearchParams
 import { supabase } from "@/lib/supabase";
 import { withWtsKoinsMark } from "@/lib/wts-koins-mark";
-import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { 
   Trash2, ChevronLeft, ChevronRight, Users, Disc3, PenLine, Mic2, User, Layers, 
     SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart, Plus 
@@ -5254,6 +5254,7 @@ const Cell = ({ isExtra, meta }: { isExtra?: boolean; meta?: any }) => {
   refreshTick, 
   pageWidth,
   pageHeight,
+  revealChrome = false,
 }: {
   pageId: number;
   layoutKey: LayoutType;
@@ -5274,6 +5275,7 @@ const Cell = ({ isExtra, meta }: { isExtra?: boolean; meta?: any }) => {
   refreshTick: number;
   pageWidth?: number;
   pageHeight?: number;
+  revealChrome?: boolean;
 }) => {
 
   const def = defFor(layoutKey);
@@ -5314,7 +5316,7 @@ const baseCount = total - ex;
     onDragLeave={onDragLeave} 
     onDrop={onDrop} 
     onDragEnd={(e: React.DragEvent<HTMLDivElement>) => onDragEnd?.(e)} 
-    className={`pageThumb pageThumb--${size}`} 
+    className={`pageThumb pageThumb--${size}${revealChrome ? " pageThumb--chrome" : ""}`} 
     data-refresh-tick={refreshTick} 
   >
 {showPageNumber && typeof pageNumber === "number" ? (
@@ -5345,25 +5347,17 @@ const baseCount = total - ex;
 
 <div
   className="pageThumbPreview"
-  style={{
-    aspectRatio: "1 / 1",
-  }}
 >
 
 <LayoutMiniPreview 
   layoutKey={layoutKey} 
-  thumbs={thumbMap} // 👈 Cambia 'thumbMap=' por 'thumbs='
+  thumbs={thumbMap}
   size={size === "modal" ? "modal" : "carousel"} 
   refreshTick={refreshTick} 
   pageWidth={pageWidth} 
   pageHeight={pageHeight} 
 />
 </div>
-{showPageNumber && typeof pageNumber === "number" ? (
-  <div className="pageNumBadge" aria-hidden="true">
-    {pageNumber}
-  </div>
-) : null}
     </div>
   );
 };
@@ -9222,6 +9216,7 @@ function BinderItemModal({
   t,
   showAlert,
 }: BinderItemModalProps) {
+  useOverlayDismiss(open, onClose);
 
   const isCustom = Boolean(assigned?.is_custom);
   const activeItemId = !isCustom && typeof modalItemId === "number" ? modalItemId : null;
@@ -11579,6 +11574,7 @@ color: "var(--text-main)",
     <div
       role="dialog"
   aria-modal="true"
+  className="library-item-modal-overlay"
       onMouseDown={(e) => {
         const t = e.target as HTMLElement | null;
 
@@ -11611,25 +11607,29 @@ color: "var(--text-main)",
   }}
 >
       <div 
+    data-modal-scroll
+    className="library-item-modal-shell"
     onMouseDown={(e) => e.stopPropagation()} 
     onClick={(e) => e.stopPropagation()} 
     style={{ 
       width: isMobile ? "96vw" : "auto", 
       maxWidth: "980px", 
-      height: isMobile ? "90vh" : "auto", // Altura máxima en móvil
+      height: isMobile ? "90vh" : "auto",
       maxHeight: "92vh", 
       background: "var(--bg-main)", 
       borderRadius: 18, 
       border: "1px solid var(--color-border)", 
-      overflowY: "auto", // 👈 AQUÍ ES DONDE VA EL SCROLL
+      overflowY: "auto",
       display: "flex", 
       flexDirection: "column",
-      WebkitOverflowScrolling: "touch"
+      WebkitOverflowScrolling: "touch",
+      overscrollBehavior: "contain",
     }} 
   >
     
 {/* 1. HEADER DEL MODAL */}
   <div
+  className="library-item-modal-header"
   style={{
   display: "flex",
   alignItems: "center",
@@ -11641,13 +11641,37 @@ color: "var(--text-main)",
   flexShrink: 0,
   }}
   >
-  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-  <img src="/branding/logo.png" alt="" style={{ height: 28, width: "auto", objectFit: "contain" }} />
-  <div style={{ fontSize: 22, fontWeight: 950, color: "var(--color-primary)", whiteSpace: "pre-line", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis" }}>
-  {headerTitle}
+  <div className="library-item-modal-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0, flex: 1, alignItems: "center" }}>
+    <div className="library-item-modal-chip" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, padding: "6px 10px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--color-border)" }}>
+      <Users size={16} strokeWidth={2.2} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)" }}>{t("binders.picker.group")}</div>
+        <div style={{ fontSize: 13, fontWeight: 950, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{prettyGroup}</div>
+      </div>
+    </div>
+    <div className="library-item-modal-chip" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, padding: "6px 10px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--color-border)" }}>
+      <Layers size={16} strokeWidth={2.2} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)" }}>{t("binders.picker.album")}</div>
+        <div style={{ fontSize: 13, fontWeight: 950, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{prettyAlbum}</div>
+      </div>
+    </div>
+    <div className="library-item-modal-chip" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, padding: "6px 10px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--color-border)" }}>
+      <Mic2 size={16} strokeWidth={2.2} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)" }}>{t("binders.picker.version")}</div>
+        <div style={{ fontSize: 13, fontWeight: 950, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{prettyVersion}</div>
+      </div>
+    </div>
+    <div className="library-item-modal-chip" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, padding: "6px 10px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--color-border)" }}>
+      <User size={16} strokeWidth={2.2} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)" }}>{t("binders.picker.member")}</div>
+        <div style={{ fontSize: 13, fontWeight: 950, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{headerTitle}</div>
+      </div>
+    </div>
   </div>
-  </div>
-  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  <div className="library-item-modal-nav" style={{ display: "flex", alignItems: "center", gap: 8 }}>
   
   {/* ✅ BOTONES DE NAVEGACIÓN AÑADIDOS AQUÍ */}
   <button
@@ -11713,15 +11737,17 @@ color: "var(--text-main)",
     }} 
   > 
     {/* ÁREA DE VISUALIZACIÓN TIPO LUPA */}
-    <div style={{ 
+    <div className="library-pc-preview" style={{ 
       width: "100%", 
-      height: isMobile ? "380px" : "480px", 
+      maxWidth: 380,
+      height: isMobile ? undefined : "480px",
+      aspectRatio: isMobile ? "2 / 3" : undefined,
+      minHeight: isMobile ? 280 : undefined,
       position: "relative", 
-      overflow: "auto", // ✅ Permite scroll en todas direcciones
+      overflow: "hidden",
       borderRadius: 14,
-      background: "var(--state-disabled-border)",
-      display: "block", // ✅ Cambiado de flex a block para scroll real
-      WebkitOverflowScrolling: "touch"
+      background: "var(--bg-card)",
+      display: "block",
     }}> 
       {(() => { 
         const sleeveRot = ((rot % 360) + 360) % 360; 
@@ -11735,12 +11761,13 @@ color: "var(--text-main)",
           <div style={{ 
             width: "100%",
             height: "100%",
-            minWidth: 320 * modalZoom,
-            minHeight: 480 * modalZoom,
+            minWidth: isMobile ? "100%" : 320 * modalZoom,
+            minHeight: isMobile ? "100%" : 480 * modalZoom,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "100px" // ✅ Margen de seguridad para que la carta no choque con los bordes
+            padding: isMobile ? 8 : 100,
+          }}>
           }}> 
             <div style={{ 
               width: 320, 
@@ -12306,9 +12333,14 @@ return (
   }
 }
 
-/* En móvil/tablet: visible siempre */
+/* En móvil/tablet: la X flota y solo aparece al tocar la página */
 @media (hover: none){
   .pageDeleteBtn{
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+    pointer-events: none;
+  }
+  .pageThumb--chrome .pageDeleteBtn{
     opacity: 1;
     transform: translateY(0) scale(1);
     pointer-events: auto;
@@ -13075,6 +13107,7 @@ const isDraggingMe = pageDragFromId === p.id;
                   showPageNumber={true}
                   refreshTick={refreshTick}
                   title={`Ir a página ${idx + 1}`}
+                  revealChrome={isSelectedToMove}
                   onClick={() => {}} // Ya lo maneja el padre
                   draggable={false}
                   onDeletePage={deleteMode ? undefined : async (id) => {

@@ -26,7 +26,7 @@ import { compareMerchAlbumCatalogItems } from "@/lib/merch-album-catalog-sort";
 import { merchAlbumCardBreadcrumbLine, merchAlbumCardHeading } from "@/lib/merch-album-card-display";
 import { avisarFavoritos } from "@/lib/avisos";
 import { resolveWtsKoins, stripWtsKoinsMark, withWtsListingMarks, parseWtsListingExtras } from "@/lib/wts-koins-mark";
-import { stockStatusRank } from "@/lib/catalog-sort";
+import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
 import BindersShortcut from "../components/BindersShortcut";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
@@ -499,6 +499,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
 
 // MODALES
   const [infoModal, setInfoModal] = useState<MerchItem | null>(null);
+  useOverlayDismiss(Boolean(infoModal), () => setInfoModal(null));
   const [itemNote, setItemNote] = useState("");
   const [merchStockDraft, setMerchStockDraft] = useState<Record<MerchStockKey, number>>({
     have: 0,
@@ -2098,6 +2099,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
           >
             <div
               className="library-item-modal-shell"
+              data-modal-scroll
               onClick={(e) => e.stopPropagation()}
               style={{
                 width: "min(960px, 96vw)",

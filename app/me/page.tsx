@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic';
 import React, { useEffect, useMemo, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { resolveMemberAvatarUrl } from "@/lib/member-image-url";
+import { prettyMemberLabel } from "@/lib/member-labels";
 import { resolveProfileAvatarUrl } from "@/lib/default-profile-avatar";
 import type { AvatarPublicCatalog } from "@/lib/avatarPublicCatalog.types";
 import { buildVipGroupAssetsRows } from "@/lib/vip-badge-groups";
@@ -1069,16 +1069,13 @@ function MePageContent() {
             if (item) {
               const type = unitTypeFromMember(item.member);
               newStats.byType[type] = (newStats.byType[type] || 0) + qty;
-              const rawMem = String(item.member || "Varios").toLowerCase();
-              if (!(rawMem === "ot8" || rawMem.includes("all") || rawMem === "varios")) {
-                const parts = rawMem.split(/[\s,+/&]+/).filter(Boolean);
-                parts.forEach((p) => {
-                  let pretty = p;
-                  if (p === "bang-chan") pretty = "Bang Chan";
-                  else if (p === "lee-know") pretty = "Lee Know";
-                  else if (p === "in" || p === "i.n") pretty = "I.N";
-                  else pretty = p.charAt(0).toUpperCase() + p.slice(1);
-                  newStats.byMember[pretty] = (newStats.byMember[pretty] || 0) + qty;
+              const pretty = prettyMemberLabel(item.member);
+              const skip = !pretty || /^(ot8|all|varios|all members)$/i.test(pretty) || /ot8/i.test(pretty);
+              if (!skip) {
+                pretty.split(" · ").forEach((part) => {
+                  const name = part.trim();
+                  if (!name || /^(ot8|all|varios)$/i.test(name)) return;
+                  newStats.byMember[name] = (newStats.byMember[name] || 0) + qty;
                 });
               }
             }
@@ -2303,7 +2300,7 @@ function MePageContent() {
                 <div className="me-panel-card" style={{ backgroundColor: "var(--bg-card)", padding: "30px", borderRadius: "24px" }}>
                   <h3 style={{ color: "var(--me-tab-accent)", fontWeight: 900, margin: "0 0 16px 0", fontSize: "18px" }}>{t("me.stats.top_members")}</h3>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                    {Object.entries(stats.byMember).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([name, count]) => (
+                    {Object.entries(stats.byMember).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => (
                       <span key={name} style={{ padding: "8px 14px", borderRadius: "12px", background: "var(--bg-soft)", border: "1px solid var(--color-border)", fontWeight: 800, fontSize: "13px" }}>
                         {name} · {count}
                       </span>

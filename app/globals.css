@@ -2121,7 +2121,9 @@ textarea:disabled {
 
   .library-pc-preview {
     max-width: 280px !important;
-    height: min(48vh, 420px) !important;
+    height: auto !important;
+    min-height: 320px !important;
+    aspect-ratio: 2 / 3 !important;
   }
 
   .library-item-stock-grid {
@@ -2481,6 +2483,37 @@ textarea:disabled {
   display: none;
 }
 
+.library-item-modal-more-hint {
+  display: none;
+}
+
+@keyframes modalMoreHint {
+  0%, 100% { transform: translateY(0); opacity: 0.35; }
+  50% { transform: translateY(5px); opacity: 0.85; }
+}
+
+.library-item-modal-overlay {
+  overscroll-behavior: none;
+}
+
+.library-item-modal-shell {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pagesCarousel .pageThumb.pageThumb--carousel {
+  width: 80px;
+  height: 114px;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.pagesCarousel .pageThumbPreview {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+
 .catalog-pager-slash {
   display: none;
 }
@@ -2781,14 +2814,29 @@ textarea:disabled {
   }
 
   .library-pc-preview {
-    max-width: min(260px, 100%) !important;
-    height: min(42vh, 340px) !important;
+    width: min(78vw, 300px) !important;
+    max-width: min(78vw, 300px) !important;
+    height: auto !important;
+    min-height: 300px !important;
+    aspect-ratio: 2 / 3 !important;
     margin-inline: auto !important;
   }
 
   .merch-item-preview {
-    max-width: 100% !important;
-    height: min(34vh, 260px) !important;
+    width: min(78vw, 300px) !important;
+    max-width: min(78vw, 300px) !important;
+    height: auto !important;
+    min-height: 240px !important;
+    aspect-ratio: 2 / 3 !important;
+  }
+
+  .library-item-modal-more-hint {
+    display: flex;
+    justify-content: center;
+    color: var(--color-primary);
+    opacity: 0.55;
+    margin: 4px 0 2px;
+    animation: modalMoreHint 1.6s ease-in-out infinite;
   }
 
   .library-item-modal-overlay {

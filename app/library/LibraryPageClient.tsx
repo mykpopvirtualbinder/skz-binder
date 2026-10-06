@@ -60,6 +60,7 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Upload,
   Siren,
   Heart,
@@ -1388,6 +1389,7 @@ function ItemModal({
   const [stockDraft, setStockDraft] = useState<Record<PersistStatus, number>>(() => stockDraftFromCounts(counts));
   const [stockSaving, setStockSaving] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
+  useOverlayDismiss(true, onClose);
   const [userPrice, setUserPrice] = useState<string>("");
   const [marketRefUsd, setMarketRefUsd] = useState<string>("");
   const [marketViewCur, setMarketViewCur] = useState<string>("EUR");
@@ -1663,6 +1665,7 @@ function ItemModal({
     >
       <div
         className="library-item-modal-shell"
+        data-modal-scroll
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "auto",
@@ -1923,6 +1926,9 @@ function ItemModal({
                   {uploadMsg}
                 </div>
               )}
+            </div>
+            <div className="library-item-modal-more-hint" aria-hidden>
+              <ChevronDown size={22} strokeWidth={2.4} />
             </div>
               </div>
           {/* DER: INFO, STOCK, NOTAS Y WTT */}
