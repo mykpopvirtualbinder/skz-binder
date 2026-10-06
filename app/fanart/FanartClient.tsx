@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect, Suspense } from "react";
 import {
   Heart, MessageCircle, Plus, Paintbrush, X, UploadCloud, Loader2,
   FileText, Film, Eye, AlertTriangle, Maximize2, BookOpen, Flag, CheckCircle,
-  ChevronLeft, ChevronRight, Trash2
+  ChevronLeft, ChevronRight, Trash2, SlidersHorizontal
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
@@ -434,6 +434,9 @@ function FanArtContent() {
         if (p?.is_adult) isAdult = true;
       }
       let query = supabase.from('fanarts').select('*, fanart_likes(user_id), fanart_comments(id)').eq('active', true);
+      if (!auth?.user || !isAdult) {
+        query = query.eq("is_nsfw", false);
+      }
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
 
@@ -449,7 +452,7 @@ function FanArtContent() {
         likes_count: art.fanart_likes?.length || 0,
         comments_count: art.fanart_comments?.length || 0,
         user_has_liked: art.fanart_likes?.some((l: any) => l.user_id === auth?.user?.id),
-        _show_nsfw: !art.is_nsfw || isAdult
+        _show_nsfw: !art.is_nsfw || Boolean(auth?.user && isAdult)
       }));
       const ordered = [...enriched].sort((a, b) => {
         const aStar = a.profiles?.is_featured_artist ? 1 : 0;
@@ -463,7 +466,7 @@ function FanArtContent() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchArt(); }, []);
+  useEffect(() => { fetchArt(); }, [activeUser?.id, activeUser?.is_adult]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const syncViewport = () => {
@@ -908,14 +911,52 @@ function FanArtContent() {
           </button>
         </div>
 
-        {isCompactViewport && (
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-            <button type="button" onClick={() => setShowCompactFilters((v) => !v)} style={{ border: `1px solid color-mix(in srgb, ${ACC.pink} 45%, var(--color-border))`, background: "var(--bg-card)", color: ACC.pink, borderRadius: "99px", padding: "10px 14px", fontWeight: 900, cursor: "pointer" }}>
-              {showCompactFilters ? (t("common.close") || "Cerrar") : (t("common.filters") || "Filtros")}
-            </button>
-          </div>
+        {isCompactViewport && showCompactFilters && (
+          <button
+            type="button"
+            className="mobile-sheet-backdrop"
+            aria-label={t("common.close") || "Cerrar"}
+            onClick={() => setShowCompactFilters(false)}
+          />
         )}
-        <div className="h-scroll-pills page-filters-panel" style={{ display: !isCompactViewport || showCompactFilters ? "flex" : "none", gap: "10px", marginBottom: "40px", flexWrap: "wrap" }}>
+        {isCompactViewport && (
+          <button
+            type="button"
+            className="library-mobile-filters-toggle"
+            onClick={() => setShowCompactFilters((v) => !v)}
+            title={showCompactFilters ? (t("common.close") || "Cerrar") : (t("common.filters") || "Filtros")}
+            aria-expanded={showCompactFilters}
+            style={{
+              width: 42,
+              height: 42,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: `1px solid color-mix(in srgb, ${ACC.pink} 45%, var(--color-border))`,
+              background: "var(--bg-card)",
+              color: ACC.pink,
+              borderRadius: 999,
+              cursor: "pointer",
+              boxShadow: "0 8px 18px var(--shadow-card)",
+            }}
+          >
+            <SlidersHorizontal size={16} />
+          </button>
+        )}
+        <div className={`h-scroll-pills page-filters-panel${showCompactFilters ? " page-filters-panel--open" : ""}`} style={{ display: isCompactViewport ? undefined : "flex", gap: "10px", marginBottom: "40px", flexWrap: "wrap" }}>
+          {isCompactViewport && (
+            <div className="mobile-filter-sheet-head" style={{ width: "100%" }}>
+              <strong>{t("common.filters") || "Filtros"}</strong>
+              <button
+                type="button"
+                onClick={() => setShowCompactFilters(false)}
+                style={{ border: "none", background: "transparent", color: "var(--text-main)", cursor: "pointer", padding: 6, display: "inline-flex" }}
+                aria-label={t("common.close") || "Cerrar"}
+              >
+                <X size={18} />
+              </button>
+            </div>
+          )}
           {FANART_CATEGORY_FILTERS.map(({ id }) => (
             <button
               key={id}

@@ -1012,9 +1012,26 @@ export default function Header() {
               </div>
 
               {/* Tema Móvil */}
-              <button onClick={() => { closeAllMenus(); setThemeMenuOpen(!themeMenuOpen); }} className="action-btn-mini" style={{ color: "var(--header-btn-theme)" }} title={t('header.dropdown.theme')}>
-                <Palette size={16} />
-              </button>
+              <div style={{ position: "relative" }}>
+                <button onClick={() => { const next = !themeMenuOpen; closeAllMenus(); setThemeMenuOpen(next); }} className="action-btn-mini" style={{ color: "var(--header-btn-theme)" }} title={t('header.dropdown.theme')}>
+                  <Palette size={16} />
+                </button>
+                {themeMenuOpen && (
+                  <div className="header-dropdown-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "200px", maxHeight: "min(70vh, 360px)", overflowY: "auto" }}>
+                    {THEME_OPTIONS.map(themeOpt => (
+                      <button key={themeOpt.id} onClick={() => changeTheme(themeOpt.id, themeOpt.vip)} style={{ ...dropdownItemStyle, justifyContent: "space-between", border: activeTheme === themeOpt.id ? "1px solid var(--color-primary)" : "1px solid transparent", background: activeTheme === themeOpt.id ? "var(--bg-soft)" : "transparent" }} className="dropdown-item-hover">
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: themeOpt.color, flexShrink: 0 }} />
+                          <span style={{ fontWeight: activeTheme === themeOpt.id ? "900" : "600", color: "var(--color-primary)" }}>
+                            {t(`theme_selector.themes.${themeOpt.id}`)}
+                          </span>
+                        </div>
+                        {themeOpt.vip && (<span style={{ width: 20, height: 20, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "color-mix(in srgb, var(--state-warning-bg) 70%, var(--bg-card) 30%)", boxShadow: "0 0 0 1px color-mix(in srgb, var(--state-warning-border) 60%, transparent), 0 4px 10px color-mix(in srgb, var(--state-warning-fg) 40%, transparent)" }}><Crown size={13} color="var(--state-warning-fg)" fill="var(--state-warning-border)" /></span>)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {user && (
                 <Link
@@ -1101,14 +1118,6 @@ export default function Header() {
               )}
             </div>
           )}
-        </div>
-        <div className="site-header__mobile-nav-row">
-          <DesktopHeaderNavScroller
-            navLinks={navLinks}
-            currentPath={currentPath}
-            closeAllMenus={closeAllMenus}
-            t={t}
-          />
         </div>
         </>
         ) : (
@@ -1486,7 +1495,7 @@ export default function Header() {
           transform: scale(1.1);
         }
       `}} />
-      <div className="site-header-spacer" style={{ height: isMobile ? 102 : 90, width: "100%", flexShrink: 0 }} />
+      <div className="site-header-spacer" style={{ height: isMobile ? 62 : 90, width: "100%", flexShrink: 0 }} />
       {moreMenuOpen && (
         <>
           <button type="button" className="mobile-more-backdrop" aria-label={t("common.close") || "Cerrar"} onClick={closeAllMenus} />

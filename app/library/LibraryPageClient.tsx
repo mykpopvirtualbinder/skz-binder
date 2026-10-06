@@ -716,6 +716,7 @@ function MetaRow({
 }) {
   return (
     <div
+      className="library-item-modal-chip"
       style={{
         display: "flex",
         alignItems: "center",
@@ -1699,7 +1700,7 @@ function ItemModal({
             {!hideBinder && inBinder > 0 && <PinBadge t={t} />}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+          <div className="library-item-modal-nav" style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
             <button
               type="button"
               onClick={onPrev}
@@ -3573,6 +3574,7 @@ const commitStockForItem = useCallback(
     borderRadius: number
   ) => (
     <span
+      className="catalog-pager-field"
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -3580,13 +3582,14 @@ const commitStockForItem = useCallback(
         fontWeight: 900,
         color: "var(--color-primary)",
         fontSize,
-        flexWrap: "wrap",
+        flexWrap: "nowrap",
         justifyContent: "center",
       }}
     >
-      <span>{t("pagination.page_before")}</span>
+      <span className="catalog-pager-label-before">{t("pagination.page_before")}</span>
       <input
         type="number"
+        className="catalog-pager-input"
         aria-label={t("pagination.page_input_aria")}
         min={1}
         max={totalPages}
@@ -3608,7 +3611,9 @@ const commitStockForItem = useCallback(
           outline: "none",
         }}
       />
-      <span>{t("pagination.page_after").replace("{total}", String(totalPages))}</span>
+      <span className="catalog-pager-slash" aria-hidden>/</span>
+      <span className="catalog-pager-total">{totalPages}</span>
+      <span className="catalog-pager-label-after">{t("pagination.page_after").replace("{total}", String(totalPages))}</span>
     </span>
   );
   const allLabel = useMemo(() => {
@@ -3930,7 +3935,9 @@ const commitStockForItem = useCallback(
           </div>
 
           {totalPages > 1 && (
-            <div style={{
+            <div
+              className="catalog-pager"
+              style={{
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
@@ -4050,7 +4057,9 @@ const commitStockForItem = useCallback(
       </div>
 
           {totalPages > 1 && (
-            <div style={{ 
+            <div
+              className="catalog-pager"
+              style={{ 
               display: "flex", 
               justifyContent: "center", 
               alignItems: "center", 

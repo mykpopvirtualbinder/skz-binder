@@ -47,7 +47,7 @@ import {
 import {
   Search, Package, CheckCircle2, Star, Loader2,
   Repeat2, DollarSign, LayoutGrid, Archive, Truck, X, Info, Coins, Users, Disc3, Mic2, Layers, MapPin, ArrowUpDown,
-  ChevronLeft, ChevronRight, ZoomIn,
+  ChevronLeft, ChevronRight, ZoomIn, SlidersHorizontal,
 } from "lucide-react";
 
 // Font is loaded globally via @font-face in globals.css
@@ -95,6 +95,7 @@ function MerchMetaRow({
 }) {
   return (
     <div
+      className="library-item-modal-chip"
       style={{
         display: "flex",
         alignItems: "center",
@@ -1649,14 +1650,52 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
           </div>
         </section>
 
-       {isCompactViewport && !loading && (
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-            <button onClick={() => setShowCompactFilters((v) => !v)} style={{ border: "1px solid var(--accent-vibe-pink)", background: "var(--bg-card)", color: "var(--accent-vibe-pink)", borderRadius: "99px", padding: "10px 14px", fontWeight: 900, cursor: "pointer" }}>
-              {showCompactFilters ? (t("common.close") || "Cerrar") : (t("common.filters") || "Filtros")}
-            </button>
-          </div>
+       {isCompactViewport && showCompactFilters && (
+          <button
+            type="button"
+            className="mobile-sheet-backdrop"
+            aria-label={t("common.close") || "Cerrar"}
+            onClick={() => setShowCompactFilters(false)}
+          />
        )}
-       <div className="page-filters-panel" style={{ display: loading ? "none" : !isCompactViewport || showCompactFilters ? "block" : "none", background: "var(--bg-card)", padding: "20px", borderRadius: "20px", border: "1px solid var(--color-border)", marginBottom: "30px" }}>
+       {isCompactViewport && !loading && (
+          <button
+            type="button"
+            className="library-mobile-filters-toggle"
+            onClick={() => setShowCompactFilters((v) => !v)}
+            title={showCompactFilters ? (t("common.close") || "Cerrar") : (t("common.filters") || "Filtros")}
+            aria-expanded={showCompactFilters}
+            style={{
+              width: 42,
+              height: 42,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid var(--color-border)",
+              background: "var(--bg-card)",
+              color: "var(--accent-vibe-pink)",
+              borderRadius: 999,
+              cursor: "pointer",
+              boxShadow: "0 8px 18px var(--shadow-card)",
+            }}
+          >
+            <SlidersHorizontal size={16} />
+          </button>
+       )}
+       <div className={`page-filters-panel${showCompactFilters ? " page-filters-panel--open" : ""}`} style={{ display: loading ? "none" : isCompactViewport ? undefined : "block", background: "var(--bg-card)", padding: "20px", borderRadius: "20px", border: "1px solid var(--color-border)", marginBottom: "30px" }}>
+          {isCompactViewport && (
+            <div className="mobile-filter-sheet-head">
+              <strong>{t("common.filters") || "Filtros"}</strong>
+              <button
+                type="button"
+                onClick={() => setShowCompactFilters(false)}
+                style={{ border: "none", background: "transparent", color: "var(--text-main)", cursor: "pointer", padding: 6, display: "inline-flex" }}
+                aria-label={t("common.close") || "Cerrar"}
+              >
+                <X size={18} />
+              </button>
+            </div>
+          )}
           {variant === "merch" && (
           <div style={{ display: "flex", gap: "10px", marginBottom: "20px", borderBottom: "2px solid var(--color-border)", paddingBottom: "15px", flexWrap: "wrap" }}>
              <button onClick={() => { setActiveTab("catalogo_merch"); setActiveStatus("Todos"); }} style={{ background: "none", border: "none", padding: "10px 16px", fontSize: "16px", fontWeight: 900, color: activeTab === "catalogo_merch" ? "var(--accent-vibe-cyan)" : "var(--text-muted)", borderBottom: activeTab === "catalogo_merch" ? "3px solid var(--accent-vibe-cyan)" : "3px solid transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -2099,7 +2138,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                     <MerchMetaRow icon={<Package size={16} strokeWidth={2.2} />} label={t("merch.title")} value={infoHeading} />
                   )}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+                <div className="library-item-modal-nav" style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
                   <button type="button" onClick={() => canPrev && setInfoModal(navList[navIdx - 1]!)} disabled={!canPrev} style={{ ...headerIconBtn, opacity: canPrev ? 1 : 0.45 }} title={t("common.previous")}>
                     <ChevronLeft size={18} strokeWidth={2.6} />
                   </button>
@@ -2125,7 +2164,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                       }
                     }}
                     title={t("library.modal.inspect_hint") || t("binders.zoom")}
-                    className="library-pc-preview"
+                    className="library-pc-preview merch-item-preview"
                     style={{ width: "100%", maxWidth: 380, height: "min(62vh, 560px)", position: "relative", background: "transparent", margin: "auto 0", cursor: "zoom-in" }}
                   >
                     {merchStockDraft.wishlist > 0 && wm.wantedPoster ? (
