@@ -2126,6 +2126,14 @@ textarea:disabled {
     aspect-ratio: 2 / 3 !important;
   }
 
+  .binder-item-modal-shell .binder-slot-pc-preview {
+    max-width: 320px !important;
+    height: min(52dvh, 480px) !important;
+    min-height: 360px !important;
+    aspect-ratio: 2 / 3 !important;
+    flex: 0 0 auto !important;
+  }
+
   .library-item-stock-grid {
     grid-template-columns: 1fr !important;
   }
@@ -2862,6 +2870,21 @@ textarea:disabled {
     min-height: 0 !important;
     aspect-ratio: 2 / 3 !important;
     margin-inline: auto !important;
+  }
+
+  .binder-item-modal-shell .binder-slot-pc-preview {
+    width: min(86vw, 340px) !important;
+    max-width: min(86vw, 340px) !important;
+    height: min(52dvh, 510px) !important;
+    min-height: 380px !important;
+    aspect-ratio: 2 / 3 !important;
+    flex: 0 0 auto !important;
+  }
+
+  .binder-item-modal-shell .library-item-stock-grid,
+  .binder-item-modal-shell .library-stock-price-col {
+    width: 100% !important;
+    max-width: none !important;
   }
 
   .merch-item-preview {

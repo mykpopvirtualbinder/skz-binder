@@ -10003,7 +10003,7 @@ const headerTitle = (() => {
   };
 
   const binderStockRow = (key: "have" | "wtt" | "wts" | "on_its_way" | "wish", label: string) => (
-    <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+    <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%" }}>
       <span style={{ fontSize: 12, fontWeight: 900, color: "var(--library-stock-row-label-fg)" }}>{label}</span>
       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
         <button type="button" onClick={() => bumpBinderStock(key, -1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--library-stock-step-minus-border)", background: "var(--library-stock-step-minus-bg)", color: "var(--library-stock-step-minus-fg)", fontWeight: 900, cursor: "pointer" }}>-</button>
@@ -10014,14 +10014,11 @@ const headerTitle = (() => {
   );
 
   const rightPanelContent = !isCustom ? (
-    <div style={{ display: "grid", gap: 14 }}>
+    <div style={{ display: "grid", gap: 14, width: "100%", boxSizing: "border-box" }}>
       {/* Stock + precio (mismo patrón visual que library) */}
-      <div style={{ ...subtleCard, padding: 14 }}>
-        <div style={{ fontWeight: 950, marginBottom: 10, color: "var(--color-primary)" }}>
-          {t("binders.item_info.price_title")}
-        </div>
-        <div className="library-stock-row" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ ...subtleCard, padding: 14, width: "100%", boxSizing: "border-box" }}>
+        <div className="library-item-stock-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start", width: "100%" }}>
+          <div style={{ minWidth: 0, width: "100%" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
             <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>
               {t("library.stock_title")}
@@ -10471,8 +10468,9 @@ justifyContent: "center",
 
           <div
             className="library-stock-price-col"
-            style={{ minWidth: 200, maxWidth: 280, flex: "1 1 200px", display: "grid", gap: 10, alignContent: "start" }}
+            style={{ minWidth: 0, width: "100%", display: "grid", gap: 10, alignContent: "start" }}
           >
+            <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>{t("binders.item_info.price_title")}</div>
             <div style={{ borderRadius: 14, border: "1px solid var(--color-border)", background: "var(--bg-card)", padding: 8 }}>
               <div style={{ fontWeight: 950, marginBottom: 6, color: "var(--color-primary)", fontSize: 12 }}>{t("binders.item_info.your_price")}</div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", width: "100%" }}>
@@ -10658,8 +10656,8 @@ justifyContent: "center",
         </div>
       </div>
       {/* WTT + NOTAS */}
-      <div style={{ display: "grid", gap: 12 }}>
-        <div style={{ ...subtleCard, padding: 14 }}>
+      <div style={{ display: "grid", gap: 12, width: "100%" }}>
+        <div style={{ ...subtleCard, padding: 14, width: "100%", boxSizing: "border-box" }}>
           <div
             style={{
               display: "flex",
@@ -11583,7 +11581,7 @@ color: "var(--text-main)",
 >
       <div 
     data-modal-scroll
-    className="library-item-modal-shell"
+    className="library-item-modal-shell binder-item-modal-shell"
     onMouseDown={(e) => e.stopPropagation()} 
     onClick={(e) => e.stopPropagation()} 
     style={{ 
@@ -11695,7 +11693,8 @@ color: "var(--text-main)",
       display: "grid",
       gridTemplateColumns: "420px 520px",
       columnGap: 18,
-      justifyContent: "start",
+      justifyContent: "stretch",
+      width: "100%",
       height: "100%",
       minHeight: 0,
     }}
@@ -11710,10 +11709,13 @@ color: "var(--text-main)",
         : resolveMockPcBackUrl(meta?.image_url ?? assigned?.image_url, meta?.back_image_url ?? assigned?.back_image_url);
       return (
         <>
-    <div className="library-pc-preview" style={{
+    <div className="library-pc-preview binder-slot-pc-preview" style={{
       width: "100%",
       maxWidth: 380,
       height: "min(62vh, 560px)",
+      minHeight: 400,
+      aspectRatio: "2 / 3",
+      flexShrink: 0,
       position: "relative",
       perspective: 1100,
       background: "transparent",
@@ -11825,8 +11827,8 @@ color: "var(--text-main)",
       );
     })()}
     </div>
-    <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
-       <div>{rightPanelContent}</div>
+    <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%", boxSizing: "border-box" }}>
+       <div style={{ width: "100%", boxSizing: "border-box" }}>{rightPanelContent}</div>
        {!isCustom && (
         <div style={{ padding: "15px", borderRadius: 16, background: "var(--bg-soft)", border: "1px solid var(--color-border)", marginTop: 14 }}>
           <div style={{ fontWeight: 900, color: "var(--color-primary)", marginBottom: 8 }}>Notas</div>
