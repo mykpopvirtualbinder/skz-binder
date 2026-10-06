@@ -1,7 +1,7 @@
 "use client";
 
 import AdRailLayout from "../components/AdRailLayout";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { supabase } from "@/lib/supabase";
@@ -47,6 +47,7 @@ import {
 import {
   Search, Package, CheckCircle2, Star, Loader2,
   Repeat2, DollarSign, LayoutGrid, Archive, Truck, X, Info, Coins, Users, Disc3, Mic2, Layers, MapPin, ArrowUpDown,
+  ChevronLeft, ChevronRight, ZoomIn,
 } from "lucide-react";
 
 // Font is loaded globally via @font-face in globals.css
@@ -70,8 +71,140 @@ function isAlbumItem(item: Pick<MerchItem, "category">) {
 
 const MERCH_INCLUSIONS_DB_CATEGORY = "Inclusions";
 const FOLDER_TREE_CACHE_KEY = "mkb_folder_tree_v1";
-const MERCH_ALBUMS_CACHE_KEY = "mkb_merch_albums_v1";
-const MERCH_PRODUCTS_CACHE_KEY = "mkb_merch_products_v1";
+const MERCH_ALBUMS_CACHE_KEY = "mkb_merch_albums_v2";
+const MERCH_PRODUCTS_CACHE_KEY = "mkb_merch_products_v2";
+
+type MerchStockKey = "have" | "wtt" | "wts" | "otw" | "wishlist";
+
+function merchStockLabel(s: MerchStockKey, t: (k: string) => string): string {
+  if (s === "have") return t("merch.label_have");
+  if (s === "wtt") return t("merch.label_wtt");
+  if (s === "wts") return t("merch.label_wts");
+  if (s === "otw") return t("merch.label_otw");
+  return t("merch.info_modal.wishlist_label");
+}
+
+function MerchMetaRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        minWidth: 0,
+        padding: "6px 10px",
+        borderRadius: 14,
+        background: "var(--bg-card)",
+        border: "1px solid var(--color-border)",
+      }}
+    >
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          flex: "0 0 auto",
+          borderRadius: 10,
+          border: "1px solid var(--state-disabled-border)",
+          background: "linear-gradient(180deg, var(--bg-card), var(--bg-soft))",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--text-muted)",
+        }}
+      >
+        {icon}
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)", lineHeight: 1.15 }}>{label}</div>
+        <div style={{ fontSize: 12, fontWeight: 900, color: "var(--text-main)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value || "—"}</div>
+      </div>
+    </div>
+  );
+}
+
+function applyMerchStockDelta(prev: Record<MerchStockKey, number>, s: MerchStockKey, delta: number): Record<MerchStockKey, number> {
+  const nextVal = Math.max(0, (prev[s] ?? 0) + delta);
+  const next = { ...prev, [s]: nextVal };
+  if (s !== "wishlist" && nextVal > 0) next.wishlist = 0;
+  if (s === "wishlist" && nextVal > 0) {
+    next.have = 0;
+    next.wtt = 0;
+    next.wts = 0;
+    next.otw = 0;
+  }
+  return next;
+}
+
+function MerchStockQtyRows({
+  draft,
+  disabled,
+  onDelta,
+  t,
+}: {
+  draft: Record<MerchStockKey, number>;
+  disabled?: boolean;
+  onDelta: (s: MerchStockKey, delta: number) => void;
+  t: (k: string) => string;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {(["have", "wtt", "wts", "otw", "wishlist"] as MerchStockKey[]).map((s) => (
+        <div key={s} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 900, color: "var(--library-stock-row-label-fg)" }}>
+            {merchStockLabel(s, t)}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onDelta(s, -1)}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                border: "1px solid var(--library-stock-step-minus-border)",
+                background: "var(--library-stock-step-minus-bg)",
+                color: "var(--library-stock-step-minus-fg)",
+                fontWeight: 900,
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled ? 0.55 : 1,
+              }}
+            >
+              -
+            </button>
+            <span style={{ minWidth: 25, textAlign: "center", fontWeight: 950, fontSize: 14, color: "var(--library-stock-qty-fg)" }}>{draft[s]}</span>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onDelta(s, 1)}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                border: "1px solid var(--library-stock-step-minus-border)",
+                background: "var(--library-stock-step-minus-bg)",
+                color: "var(--library-stock-step-minus-fg)",
+                fontWeight: 900,
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled ? 0.55 : 1,
+              }}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function isInclusionScreenshotJunk(row: { name?: string | null; image_url?: string | null }): boolean {
   const name = String(row.name ?? "").trim();
@@ -346,6 +479,17 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
 // MODALES
   const [infoModal, setInfoModal] = useState<MerchItem | null>(null);
   const [itemNote, setItemNote] = useState("");
+  const [merchStockDraft, setMerchStockDraft] = useState<Record<MerchStockKey, number>>({
+    have: 0,
+    wtt: 0,
+    wts: 0,
+    otw: 0,
+    wishlist: 0,
+  });
+  const [merchStockSaving, setMerchStockSaving] = useState(false);
+  const [merchInspectOpen, setMerchInspectOpen] = useState(false);
+  const [merchUserPrice, setMerchUserPrice] = useState("");
+  const [merchPriceCurrency, setMerchPriceCurrency] = useState("EUR");
 
   // Cargar nota al abrir el modal info
   useEffect(() => {
@@ -354,6 +498,23 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
         .then(({ data }) => setItemNote(data?.comment || ""));
     }
   }, [infoModal, profile]);
+
+  useEffect(() => {
+    if (!infoModal) return;
+    const inv = myInventory[infoModal.id] || { have: 0, wtt: 0, wts: 0, wishlist: 0, otw: 0 };
+    setMerchStockDraft({
+      have: inv.have || 0,
+      wtt: inv.wtt || 0,
+      wts: inv.wts || 0,
+      otw: inv.otw || 0,
+      wishlist: inv.wishlist || 0,
+    });
+    setMerchInspectOpen(false);
+    if (typeof window !== "undefined") {
+      setMerchUserPrice(localStorage.getItem(`binder:price:${infoModal.id}`) || "");
+      setMerchPriceCurrency(localStorage.getItem(`binder:wtsCurrency:${infoModal.id}`) || "EUR");
+    }
+  }, [infoModal?.id, myInventory]);
 
   const saveItemNote = async (text: string) => {
     setItemNote(text);
@@ -541,7 +702,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     merchId: string,
     status: "have" | "wtt" | "wts" | "wishlist" | "otw",
     delta: number,
-    opts?: { posterMeta?: WishPosterMeta; defaultTitle?: string }
+    opts?: { posterMeta?: WishPosterMeta; defaultTitle?: string; absoluteQty?: number }
   ) => {
     if (!profile?.id) return showAlert(t("merch.alert_notice_title"), t("merch.alert_notice_msg"));
     const catalogItem = merchCatalog.find((m) => m.id === merchId);
@@ -550,7 +711,8 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
       if (!ensured.ok) return showAlert(t("merch.alert_notice_title"), ensured.error);
     }
     const currentQty = myInventory[merchId]?.[status] || 0;
-    const nextQty = Math.max(0, currentQty + delta);
+    const nextQty =
+      opts?.absoluteQty != null ? Math.max(0, opts.absoluteQty) : Math.max(0, currentQty + delta);
 
     let metaForWish: WishPosterMeta | undefined;
     if (status === "wishlist" && nextQty > 0) {
@@ -626,6 +788,30 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
       }
     } else {
       await supabase.from("user_merch_statuses").delete().eq("user_id", profile.id).eq("merch_id", merchId).eq("status", status);
+    }
+  };
+
+  const commitMerchStockDraft = async () => {
+    if (!infoModal) return;
+    setMerchStockSaving(true);
+    const heading = isAlbumItem(infoModal) ? merchAlbumCardHeading(infoModal) : infoModal.name;
+    const cur = myInventory[infoModal.id] || { have: 0, wtt: 0, wts: 0, wishlist: 0, otw: 0 };
+    const openedWtt = merchStockDraft.wtt > 0 && (cur.wtt || 0) === 0;
+    const openedWts = merchStockDraft.wts > 0 && (cur.wts || 0) === 0;
+    try {
+      for (const k of ["have", "wtt", "wts", "otw", "wishlist"] as MerchStockKey[]) {
+        const target = merchStockDraft[k] || 0;
+        const prev = cur[k] || 0;
+        if (target === prev) continue;
+        await updateMerchStatus(infoModal.id, k, 0, {
+          absoluteQty: target,
+          defaultTitle: heading,
+        });
+      }
+      if (openedWtt) setWttModal(infoModal);
+      if (openedWts) setWtsModal(infoModal);
+    } finally {
+      setMerchStockSaving(false);
     }
   };
 
@@ -1355,18 +1541,6 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     </span>
   );
 
-  const InfoStockControl = ({ label, colorObj, qty, onAdd, onRemove }: any) => (
-    <div style={{ borderRadius: 14, border: `1px solid ${colorObj.border}`, background: colorObj.bg, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 60 }}>
-      <div style={{ fontWeight: 900, color: colorObj.text, fontSize: 16 }}>{label}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
-         <button onClick={onRemove} style={{ width: 32, height: 32, borderRadius: 10, border: `1px solid ${colorObj.border}`, background: "var(--bg-card)", color: colorObj.text, cursor: "pointer", fontWeight: 900, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 5px var(--shadow-card)" }}>−</button>
-         <span style={{ minWidth: 20, textAlign: "center", fontWeight: 900, fontSize: 16, color: colorObj.text }}>{qty}</span>
-         <button onClick={onAdd} style={{ width: 32, height: 32, borderRadius: 10, border: `1px solid ${colorObj.border}`, background: "var(--bg-card)", color: colorObj.text, cursor: "pointer", fontWeight: 900, fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 5px var(--shadow-card)" }}>+</button>
-      </div>
-    </div>
-  );
-   
-
  return (
     <div className="merch-root" style={{ minHeight: variant === "albums" ? undefined : "100vh", backgroundColor: "var(--bg-main)", display: "flex", flexDirection: "column", color: "var(--text-main)" }}>
       <AdRailLayout section="merch">
@@ -1756,7 +1930,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
       </main>
       </AdRailLayout>
 
-     {/* --- MODAL INFO MEJORADO (CON CONTROL DE STOCK) --- */}
+     {/* --- MODAL INFO (mismo shell que Library ItemModal) --- */}
       {infoModal && (() => {
          const inv = myInventory[infoModal.id] || { have: 0, wtt: 0, wts: 0, wishlist: 0, otw: 0 };
          const wm =
@@ -1768,127 +1942,302 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
          const infoGroupLine = canonicalMerchGroupDisplayName(infoModal.group_name);
          const catOpt = MERCH_CATEGORY_OPTIONS.find((c) => c.dbValue === infoModal.category);
          const infoCategoryLabel = catOpt ? t(catOpt.labelKey) : infoModal.category;
+         const navList = filteredMerch.some((m) => m.id === infoModal.id) ? filteredMerch : merchCatalog;
+         const navIdx = navList.findIndex((m) => m.id === infoModal.id);
+         const canPrev = navIdx > 0;
+         const canNext = navIdx >= 0 && navIdx < navList.length - 1;
+         const stockDirty =
+           merchStockDraft.have !== (inv.have || 0) ||
+           merchStockDraft.wtt !== (inv.wtt || 0) ||
+           merchStockDraft.wts !== (inv.wts || 0) ||
+           merchStockDraft.otw !== (inv.otw || 0) ||
+           merchStockDraft.wishlist !== (inv.wishlist || 0);
+         const headerIconBtn: React.CSSProperties = {
+           width: 36,
+           height: 36,
+           borderRadius: 12,
+           border: "1px solid var(--color-border)",
+           background: "var(--surface-float)",
+           cursor: "pointer",
+           fontWeight: 900,
+           color: "var(--color-primary)",
+           boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 15%, transparent)",
+           display: "inline-flex",
+           alignItems: "center",
+           justifyContent: "center",
+         };
+         const subtleCard: React.CSSProperties = {
+           background: "var(--bg-soft)",
+           border: "1px solid var(--color-border)",
+           borderRadius: 18,
+           boxShadow: "0 8px 24px color-mix(in srgb, var(--color-primary) 10%, transparent)",
+         };
          return (
-          <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", backdropFilter: "blur(5px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-            <div style={{ background: "var(--bg-main)", borderRadius: "24px", width: "100%", maxWidth: "720px", display: "flex", overflow: "hidden", position: "relative", maxHeight: "90vh", border: "1px solid var(--color-border)" }}>
-              <button onClick={() => setInfoModal(null)} style={{ position: "absolute", top: "15px", right: "15px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "10px", width: 34, height: 34, cursor: "pointer", boxShadow: "0 4px 10px var(--shadow-card)", zIndex: 10, display:"flex", alignItems:"center", justifyContent:"center" }}><X size={20} color="var(--color-primary)" /></button>
-              
-             <div style={{ width: "45%", background: "var(--bg-soft)", padding: "20px", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-               <div style={{ width: "100%", minHeight: "280px", maxHeight: "420px", height: "min(42vh, 420px)", position: "relative", zIndex: 1 }}>
-                {inv.wishlist > 0 && wm.wantedPoster ? (
-                  <MerchWesternWantedFrame
-                    name={(wm.posterTitle || infoHeading).trim() || t("merch.badge_wanted")}
-                    variant="modal"
+          <div
+            className="library-item-modal-overlay"
+            onClick={() => {
+              if (merchInspectOpen) return;
+              setInfoModal(null);
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "var(--overlay-medium)",
+              zIndex: 9999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 20,
+            }}
+          >
+            <div
+              className="library-item-modal-shell"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "auto",
+                maxWidth: "96vw",
+                height: "auto",
+                maxHeight: "92vh",
+                background: "var(--bg-main)",
+                borderRadius: 18,
+                border: "1px solid var(--color-border)",
+                boxShadow: "0 30px 80px color-mix(in srgb, var(--text-main) 22%, transparent)",
+                overflow: "hidden",
+                display: "grid",
+                gridTemplateRows: "auto auto",
+              }}
+            >
+              <div
+                className="library-item-modal-header"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "10px 16px",
+                  borderBottom: "1px solid var(--color-border)",
+                  background: "var(--bg-soft)",
+                }}
+              >
+                <div className="library-item-modal-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0, flex: 1, alignItems: "center" }}>
+                  <MerchMetaRow icon={<Users size={16} strokeWidth={2.2} />} label={t("binders.picker.group")} value={infoGroupLine} />
+                  <MerchMetaRow icon={<Disc3 size={16} strokeWidth={2.2} />} label={t("binders.picker.type")} value={infoCategoryLabel} />
+                  {isAlbumItem(infoModal) ? (
+                    <>
+                      <MerchMetaRow icon={<Layers size={16} strokeWidth={2.2} />} label={t("binders.picker.album")} value={formatCollectionOptionLabel(infoModal.album_title || infoHeading)} />
+                      <MerchMetaRow icon={<Mic2 size={16} strokeWidth={2.2} />} label={t("binders.picker.version")} value={formatPhysicalMerchLabel(infoModal.album_version || "")} />
+                    </>
+                  ) : (
+                    <MerchMetaRow icon={<Package size={16} strokeWidth={2.2} />} label={t("merch.title")} value={infoHeading} />
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+                  <button type="button" onClick={() => canPrev && setInfoModal(navList[navIdx - 1]!)} disabled={!canPrev} style={{ ...headerIconBtn, opacity: canPrev ? 1 : 0.45 }} title={t("common.previous")}>
+                    <ChevronLeft size={18} strokeWidth={2.6} />
+                  </button>
+                  <button type="button" onClick={() => canNext && setInfoModal(navList[navIdx + 1]!)} disabled={!canNext} style={{ ...headerIconBtn, opacity: canNext ? 1 : 0.45 }} title={t("common.next")}>
+                    <ChevronRight size={18} strokeWidth={2.6} />
+                  </button>
+                  <button type="button" onClick={() => setInfoModal(null)} style={headerIconBtn} title={t("common.close")}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+
+              <div className="library-item-modal-grid" style={{ display: "grid", gridTemplateColumns: "420px 520px", columnGap: 18, justifyContent: "start", height: "100%", minHeight: 0 }}>
+                <div style={{ position: "relative", background: "var(--bg-main)", padding: 10, borderRight: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setMerchInspectOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setMerchInspectOpen(true);
+                      }
+                    }}
+                    title={t("library.modal.inspect_hint") || t("binders.zoom")}
+                    className="library-pc-preview"
+                    style={{ width: "100%", maxWidth: 380, height: "min(62vh, 560px)", position: "relative", background: "transparent", margin: "auto 0", cursor: "zoom-in" }}
                   >
-                    <ImageWithExtensionFallback src={infoModal.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                  </MerchWesternWantedFrame>
-                ) : (
-                  <div style={{ position: "relative", width: "100%" }}>
-                    <ImageWithExtensionFallback src={infoModal.image_url} style={{ width: "100%", maxHeight: "400px", objectFit: "contain", borderRadius: "12px" }} alt="" />
-                    {inv.wishlist > 0 && (
-                      <div style={{ position: "absolute", top: "40px", left: "-50px", background: "var(--bg-wish)", color: "var(--text-wish)", fontWeight: 900, fontSize: "20px", padding: "10px 60px", transform: "rotate(-45deg)", boxShadow: "0 6px 15px var(--overlay-soft)", letterSpacing: "4px", border: "3px dashed var(--border-wish)", zIndex: 10, pointerEvents: "none" }}>{t("merch.badge_wanted")}</div>
+                    {merchStockDraft.wishlist > 0 && wm.wantedPoster ? (
+                      <MerchWesternWantedFrame name={(wm.posterTitle || infoHeading).trim() || t("merch.badge_wanted")} variant="modal">
+                        <ImageWithExtensionFallback src={infoModal.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                      </MerchWesternWantedFrame>
+                    ) : (
+                      <div style={{ position: "relative", width: "100%", height: "100%", borderRadius: 14, overflow: "hidden", border: "1px solid var(--state-disabled-border)", background: "var(--bg-card)" }}>
+                        <ImageWithExtensionFallback src={infoModal.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                        {merchStockDraft.wishlist > 0 && (
+                          <div style={{ position: "absolute", top: "40px", left: "-50px", background: "var(--bg-wish)", color: "var(--text-wish)", fontWeight: 900, fontSize: "20px", padding: "10px 60px", transform: "rotate(-45deg)", boxShadow: "0 6px 15px var(--overlay-soft)", letterSpacing: "4px", border: "3px dashed var(--border-wish)", zIndex: 10, pointerEvents: "none" }}>{t("merch.badge_wanted")}</div>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
-               </div>
-            </div>
-              
-              <div style={{ width: "55%", padding: "40px 30px", display: "flex", flexDirection: "column", overflowY: "auto", background: "var(--bg-main)" }}>
-                 <span style={{ color: "var(--text-muted)", fontWeight: 900, letterSpacing: "1px", fontSize: "12px" }}>{infoGroupLine}</span>
-                 <h2 style={{ fontSize: "28px", color: "var(--text-main)", margin: "10px 0", lineHeight: "1.1" }}>{infoHeading}</h2>
-                 
-                 <div style={{ display: "flex", gap: "10px", marginBottom: "25px", flexWrap: "wrap" }}>
-                    <span style={{ background: "var(--bg-soft)", color: "var(--color-primary)", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 900 }}>{infoCategoryLabel}</span>
-                    <span style={{ background: "var(--bg-soft)", color: "var(--text-muted)", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 900 }}>{infoModal.rarity}</span>
-                    {isAlbumItem(infoModal) && infoModal.album_title && (
-                      <span style={{ background: "var(--bg-soft)", color: "var(--accent-vibe-violet)", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 900 }}>{formatCollectionOptionLabel(infoModal.album_title)}</span>
-                    )}
-                    {isAlbumItem(infoModal) && infoModal.album_type && (
-                      <span style={{ background: "var(--bg-soft)", color: "var(--accent-vibe-cyan)", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 900 }}>{formatMerchAlbumTypeDisplay(infoModal.album_title, infoModal.album_type)}</span>
-                    )}
-                    {isAlbumItem(infoModal) && infoModal.album_version && (
-                      <span style={{ background: "var(--bg-soft)", color: "var(--accent-vibe-pink)", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 900 }}>{formatPhysicalMerchLabel(infoModal.album_version)}</span>
-                    )}
-                 </div>
-
-                 <div style={{ display: "grid", gap: 10 }}>
-                    <InfoStockControl label={t("merch.label_have")} colorObj={COLORS.have} qty={inv.have} onAdd={() => updateMerchStatus(infoModal.id, 'have', 1)} onRemove={() => updateMerchStatus(infoModal.id, 'have', -1)} />
-                    <InfoStockControl label={t("merch.label_wtt")} colorObj={COLORS.wtt} qty={inv.wtt} onAdd={() => setWttModal(infoModal)} onRemove={() => updateMerchStatus(infoModal.id, 'wtt', -1)} />
-                    <InfoStockControl label={t("merch.label_wts")} colorObj={COLORS.wts} qty={inv.wts} onAdd={() => setWtsModal(infoModal)} onRemove={() => updateMerchStatus(infoModal.id, 'wts', -1)} />
-                    <InfoStockControl label={t("merch.label_otw")} colorObj={COLORS.otw} qty={inv.otw} onAdd={() => updateMerchStatus(infoModal.id, 'otw', 1)} onRemove={() => updateMerchStatus(infoModal.id, 'otw', -1)} />
-                 </div>
-
-                 <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 20, padding: "12px 14px", borderRadius: 14, border: "1px solid var(--color-border)", background: inv.wishlist > 0 ? COLORS.wish.bg : "var(--bg-card)", cursor: "pointer" }}>
-                    <span style={{ fontSize: 14, fontWeight: 900, color: inv.wishlist > 0 ? COLORS.wish.text : "var(--text-main)" }}>{t("merch.info_modal.wishlist_label")}</span>
-                    <input type="checkbox" checked={inv.wishlist > 0} onChange={(e) => updateMerchStatus(infoModal.id, 'wishlist', e.target.checked ? 1 : -1, { defaultTitle: infoHeading })} style={{ width: 20, height: 20, accentColor: COLORS.wish.text, cursor: "pointer" }} />
-                 </label>
-
-                 {inv.wishlist > 0 && (
-                   <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid var(--color-border)", background: "var(--bg-card)" }}>
-                     <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 900, fontSize: 13, color: "var(--text-main)" }}>
-                       <input
-                         type="checkbox"
-                         checked={wm.wantedPoster}
-                         onChange={(e) => {
-                           const next = {
-                             ...wm,
-                             wantedPoster: e.target.checked,
-                             posterTitle: wm.posterTitle || infoHeading,
-                           };
-                           void saveWishPosterMeta(infoModal.id, next);
-                         }}
-                         style={{ width: 18, height: 18, accentColor: COLORS.wish.text, cursor: "pointer" }}
-                       />
-                       {t("merch.wish_poster_toggle")}
-                     </label>
-                     <div style={{ marginTop: 10, fontSize: 11, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                       {t("merch.wish_poster_title_label")}
-                     </div>
-                     <input
-                       type="text"
-                       value={wm.posterTitle}
-                       placeholder={infoHeading}
-                       onChange={(e) => {
-                         const next = { ...wm, posterTitle: e.target.value };
-                         setWishMeta((prev) => ({ ...prev, [infoModal.id]: next }));
-                       }}
-                       onBlur={() => {
-                         const cur = wishMeta[infoModal.id] ?? wm;
-                         void saveWishPosterMeta(infoModal.id, {
-                           ...cur,
-                           posterTitle: (cur.posterTitle || infoModal.name).trim(),
-                         });
-                       }}
-                       style={{
-                         width: "100%",
-                         marginTop: 6,
-                         padding: "10px 12px",
-                         borderRadius: 10,
-                         border: "1px solid var(--color-border)",
-                         fontWeight: 800,
-                         fontSize: 14,
-                         boxSizing: "border-box",
-                         background: "var(--bg-main)",
-                         color: "var(--text-main)",
-                       }}
-                     />
-                   </div>
-                 )}
-                 
-                 <div style={{ marginTop: "20px", background: "var(--bg-card)", padding: "15px", borderRadius: "14px", border: "1px solid var(--color-border)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", color: "var(--color-primary)", fontWeight: 900, fontSize: "13px" }}>
-                       {t("merch.item_notes")}
+                    <div style={{ position: "absolute", right: 10, bottom: 10, width: 36, height: 36, borderRadius: 12, background: "var(--surface-float)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-primary)", pointerEvents: "none" }}>
+                      <ZoomIn size={16} />
                     </div>
-                    <textarea 
-                       value={itemNote} 
-                       onChange={(e) => saveItemNote(e.target.value)} 
-                       placeholder={t("merch.item_notes_placeholder")}
-                       rows={2} 
-                       style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--color-border)", outline: "none", resize: "none", fontSize: "13px", fontFamily: "inherit", fontWeight: 700, background: "var(--bg-main)", color: "var(--text-main)" }}
+                  </div>
+                </div>
+
+                <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
+                  <div style={{ padding: 14, ...subtleCard }}>
+                    <div className="library-item-stock-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
+                      <div>
+                        <div style={{ fontWeight: 950, marginBottom: 12, color: "var(--color-primary)" }}>{t("library.stock_title")}</div>
+                        <MerchStockQtyRows
+                          draft={merchStockDraft}
+                          disabled={merchStockSaving}
+                          onDelta={(s, d) => setMerchStockDraft((prev) => applyMerchStockDelta(prev, s, d))}
+                          t={t}
+                        />
+                        <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+                          <button
+                            type="button"
+                            disabled={!stockDirty || merchStockSaving}
+                            onClick={() =>
+                              setMerchStockDraft({
+                                have: inv.have || 0,
+                                wtt: inv.wtt || 0,
+                                wts: inv.wts || 0,
+                                otw: inv.otw || 0,
+                                wishlist: inv.wishlist || 0,
+                              })
+                            }
+                            style={{
+                              flex: 1,
+                              padding: "10px",
+                              borderRadius: 12,
+                              border: "1px solid var(--library-stock-cancel-border)",
+                              background: "var(--library-stock-cancel-bg)",
+                              color: "var(--library-stock-cancel-fg)",
+                              fontWeight: 900,
+                              cursor: !stockDirty || merchStockSaving ? "not-allowed" : "pointer",
+                              opacity: !stockDirty || merchStockSaving ? 0.55 : 1,
+                            }}
+                          >
+                            {t("common.cancel")}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!stockDirty || merchStockSaving}
+                            onClick={() => void commitMerchStockDraft()}
+                            style={{
+                              flex: 1,
+                              padding: "10px",
+                              borderRadius: 12,
+                              border: "none",
+                              background: "var(--library-stock-save-bg)",
+                              color: "var(--library-stock-save-fg)",
+                              fontWeight: 900,
+                              cursor: !stockDirty || merchStockSaving ? "not-allowed" : "pointer",
+                              opacity: !stockDirty || merchStockSaving ? 0.55 : 1,
+                            }}
+                          >
+                            {merchStockSaving ? "…" : t("common.save")}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="library-stock-price-col" style={{ minWidth: 0, display: "grid", gap: 10, alignContent: "start" }}>
+                        <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>{t("binders.item_info.price_title")}</div>
+                        <div style={{ borderRadius: 14, border: "1px solid var(--color-border)", background: "var(--bg-card)", padding: 8 }}>
+                          <div style={{ fontWeight: 950, marginBottom: 6, color: "var(--color-primary)", fontSize: 12 }}>{t("binders.item_info.your_price")}</div>
+                          <input
+                            value={merchUserPrice ? `${merchUserPrice} ${merchPriceCurrency}` : "—"}
+                            disabled
+                            placeholder={t("library.modal.price_unset")}
+                            style={{
+                              width: "100%",
+                              padding: "8px 10px",
+                              height: 34,
+                              fontSize: 12,
+                              borderRadius: 12,
+                              border: "1px solid var(--state-disabled-border)",
+                              outline: "none",
+                              background: "var(--state-disabled-bg)",
+                              color: "var(--text-muted)",
+                              cursor: "not-allowed",
+                              fontWeight: 700,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {merchStockDraft.wishlist > 0 && (
+                    <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid var(--color-border)", background: "var(--bg-card)" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 900, fontSize: 13, color: "var(--text-main)" }}>
+                        <input
+                          type="checkbox"
+                          checked={wm.wantedPoster}
+                          onChange={(e) => {
+                            const next = {
+                              ...wm,
+                              wantedPoster: e.target.checked,
+                              posterTitle: wm.posterTitle || infoHeading,
+                            };
+                            void saveWishPosterMeta(infoModal.id, next);
+                          }}
+                          style={{ width: 18, height: 18, accentColor: COLORS.wish.text, cursor: "pointer" }}
+                        />
+                        {t("merch.wish_poster_toggle")}
+                      </label>
+                      <div style={{ marginTop: 10, fontSize: 11, fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        {t("merch.wish_poster_title_label")}
+                      </div>
+                      <input
+                        type="text"
+                        value={wm.posterTitle}
+                        placeholder={infoHeading}
+                        onChange={(e) => {
+                          const next = { ...wm, posterTitle: e.target.value };
+                          setWishMeta((prev) => ({ ...prev, [infoModal.id]: next }));
+                        }}
+                        onBlur={() => {
+                          const cur = wishMeta[infoModal.id] ?? wm;
+                          void saveWishPosterMeta(infoModal.id, {
+                            ...cur,
+                            posterTitle: (cur.posterTitle || infoModal.name).trim(),
+                          });
+                        }}
+                        style={{
+                          width: "100%",
+                          marginTop: 6,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "1px solid var(--color-border)",
+                          fontWeight: 800,
+                          fontSize: 14,
+                          boxSizing: "border-box",
+                          background: "var(--bg-main)",
+                          color: "var(--text-main)",
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 12, background: "var(--bg-card)", padding: "15px", borderRadius: "14px", border: "1px solid var(--color-border)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", color: "var(--color-primary)", fontWeight: 900, fontSize: "13px" }}>
+                      {t("merch.item_notes")}
+                    </div>
+                    <textarea
+                      value={itemNote}
+                      onChange={(e) => saveItemNote(e.target.value)}
+                      placeholder={t("merch.item_notes_placeholder")}
+                      rows={2}
+                      style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--color-border)", outline: "none", resize: "none", fontSize: "13px", fontFamily: "inherit", fontWeight: 700, background: "var(--bg-main)", color: "var(--text-main)" }}
                     />
-                 </div>
+                  </div>
+                </div>
               </div>
             </div>
+            {merchInspectOpen && (
+              <div
+                onClick={() => setMerchInspectOpen(false)}
+                style={{ position: "fixed", inset: 0, zIndex: 10000, background: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+              >
+                <ImageWithExtensionFallback src={infoModal.image_url} alt="" style={{ maxWidth: "94vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 16 }} />
+              </div>
+            )}
           </div>
          );
       })()}

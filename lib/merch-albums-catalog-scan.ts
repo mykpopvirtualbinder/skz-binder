@@ -444,11 +444,54 @@ export function scanMerchAlbumsFromPublicAlbums(cwd: string = process.cwd()): Me
     fromLegacy = scanTree(legacyStrayKids, (r) => (r ? `stray-kids/${r}` : "stray-kids"), publicDir);
   }
 
-  const merged = fromPortadas.length > 0 ? fromPortadas : [...fromPrimary, ...fromLegacy];
+  const preferPublicAlbumsUrl = (url: string) => {
+    const raw = String(url || "").trim().split("?")[0];
+    let decoded = raw;
+    try {
+      decoded = decodeURIComponent(raw.replace(/\+/g, " "));
+    } catch {
+      decoded = raw;
+    }
+    const m = decoded.match(
+      /^\/mock-pcs\/groups\/([^/]+)\/albums\/(korean|japanese|taiwanese|taiwan)\/([^/]+)\/portadas-album\/(.*)$/i,
+    );
+    if (!m) return url;
+    const region = m[2].toLowerCase() === "taiwanese" ? "taiwan" : m[2].toLowerCase();
+    let rest = m[4] || "";
+    if (/^regular\//i.test(rest)) rest = rest.replace(/^regular\//i, "");
+    const mapped = `/albums/${m[1]}/${region}/${m[3]}/${rest}`
+      .split("/")
+      .map((seg) => (seg ? encodeURIComponent(decodeURIComponent(seg)) : ""))
+      .join("/");
+    const abs = path.join(publicDir, mapped.replace(/^\/+/, "").split("/").map((s) => {
+      try {
+        return decodeURIComponent(s);
+      } catch {
+        return s;
+      }
+    }).join("/"));
+    return fs.existsSync(abs) ? mapped : url;
+  };
+
+  const albumIdentity = (r: MerchAlbumCatalogRow) =>
+    [r.group_name, r.album_title, r.album_type ?? "", r.album_version].join("|").toLowerCase();
+
   const seen = new Map<string, MerchAlbumCatalogRow>();
-  for (const r of merged) {
-    seen.set(r.id, r);
-  }
+  const take = (row: MerchAlbumCatalogRow) => {
+    const r = { ...row, image_url: preferPublicAlbumsUrl(row.image_url) };
+    const k = albumIdentity(r);
+    const prev = seen.get(k);
+    if (!prev) {
+      seen.set(k, r);
+      return;
+    }
+    const prevPublic = /^\/albums\//i.test(prev.image_url);
+    const nextPublic = /^\/albums\//i.test(r.image_url);
+    if (nextPublic && !prevPublic) seen.set(k, r);
+  };
+  for (const r of fromPrimary) take(r);
+  for (const r of fromLegacy) take(r);
+  for (const r of fromPortadas) take(r);
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
 }
 
@@ -463,8 +506,10 @@ export type MerchProductCatalogRow = {
 };
 
 const MERCH_SKIP_DIR = /^(templates|\.ds_store|desktop\.ini)$/i;
-/** Carpetas de library: no bajar a recoger merch (evita recorrer miles de PCs). */
-const MERCH_SKIP_WALK_DIR = /^(photocards|pobs?|inclusions|portadas-album)$/i;
+const MERCH_LIBRARY_LEAF_DIR = /^(pobs?|inclusions|portadas-album|polaroid-sets?|photocard-sets?|photo-card-sets?)$/i;
+const MERCH_BRIDGE_DIR =
+  /^(photocards|events|eventos|tours?|japanese-albums|korean-album|japanese-md|albums|others|korean|japanese|taiwanese)$/i;
+const MERCH_GOODS_DIR = /^(merch|pop-ups?|popups)$/i;
 
 function merchProductCategory(rel: string, file: string): string {
   const b = `${rel} ${file}`.toLowerCase();
@@ -518,7 +563,9 @@ function isMerchProductRel(rel: string): boolean {
   return false;
 }
 
-function walkMerchProductFiles(root: string, acc: string[] = []): string[] {
+type MerchWalkKind = "open" | "album" | "nested" | "goods";
+
+function walkMerchProductFiles(root: string, acc: string[] = [], kind: MerchWalkKind = "open"): string[] {
   if (!fs.existsSync(root)) return acc;
   let entries: fs.Dirent[] = [];
   try {
@@ -527,12 +574,27 @@ function walkMerchProductFiles(root: string, acc: string[] = []): string[] {
     return acc;
   }
   for (const ent of entries) {
-    if (MERCH_SKIP_DIR.test(ent.name) || MERCH_SKIP_WALK_DIR.test(ent.name) || /^silvia/i.test(ent.name)) continue;
+    if (MERCH_SKIP_DIR.test(ent.name) || /^silvia/i.test(ent.name)) continue;
     const abs = path.join(root, ent.name);
     if (ent.isDirectory()) {
-      walkMerchProductFiles(abs, acc);
+      if (MERCH_LIBRARY_LEAF_DIR.test(ent.name)) continue;
+      if (MERCH_GOODS_DIR.test(ent.name) || kind === "goods") {
+        walkMerchProductFiles(abs, acc, "goods");
+        continue;
+      }
+      if (kind === "nested") continue;
+      if (kind === "album") {
+        if (/^(events|eventos|tours?)$/i.test(ent.name)) {
+          walkMerchProductFiles(abs, acc, "open");
+        } else {
+          walkMerchProductFiles(abs, acc, "nested");
+        }
+        continue;
+      }
+      walkMerchProductFiles(abs, acc, MERCH_BRIDGE_DIR.test(ent.name) ? "open" : "album");
       continue;
     }
+    if (kind !== "goods") continue;
     if (!/\.(png|jpe?g|webp)$/i.test(ent.name)) continue;
     if (isBackFilename(ent.name)) continue;
     if (/captura de pantalla/i.test(ent.name)) continue;

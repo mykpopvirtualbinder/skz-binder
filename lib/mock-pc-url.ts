@@ -331,6 +331,16 @@ function pushAlbumDiskAliases(
       if (first === "inclusions") {
         push(`${root}/inclusions/${folder}/${album}/${after}`);
       }
+      if (/^portadas-album$/i.test(first)) {
+        const g = root.match(/\/groups\/([^/]+)$/i);
+        if (g) {
+          const pubRegion = /^taiwanese$/i.test(region) ? "taiwan" : region;
+          push(`/albums/${g[1]}/${pubRegion}/${album}/${after}`);
+          if (/^regular\//i.test(after)) {
+            push(`/albums/${g[1]}/${pubRegion}/${album}/${after.replace(/^regular\//i, "")}`);
+          }
+        }
+      }
       push(`${root}/albums/${region}/${album}/${first}/${after}`);
       push(`${root}/album/${region}/${album}/${first}/${after}`);
     } else {
@@ -396,7 +406,7 @@ function layoutAliases(pathname: string): string[] {
   push(p);
 
   const albumsAny = p.match(
-    /^(.*\/groups\/[^/]+)\/albums?\/(korean|japanese|taiwanese)\/([^/]+)\/(.*)$/i,
+    /^(.*\/groups\/[^/]+)\/albums?\/(korean|japanese|taiwanese|taiwan)\/([^/]+)\/(.*)$/i,
   );
   if (albumsAny) {
     pushAlbumDiskAliases(push, albumsAny[1], albumsAny[2].toLowerCase(), albumsAny[3], albumsAny[4]);
@@ -674,8 +684,12 @@ function stemPrefixVariants(stem: string, url: string): string[] {
 function productionLayoutScore(pathname: string): number {
   const p = String(pathname || "");
   let score = 0;
+  if (/portadas-album/i.test(p) || /^\/albums\//i.test(p)) {
+    if (/^\/albums\//i.test(p)) score += 40;
+    if (/\/photocards\/.*portadas-album/i.test(p)) score -= 25;
+  }
   if (/\/groups\/[^/]+\/photocards\/(korean-album|japanese-albums|taiwanese-albums|seasons-greetings|events|japanese-md)\//i.test(p)) {
-    score += 20;
+    if (!/portadas-album/i.test(p)) score += 20;
   }
   if (/\/groups\/[^/]+\/inclusions\/seasons-greetings\//i.test(p)) score += 22;
   if (/\/photocards\/seasons-greetings\/[^/]+\/[^/]+\/inclusions\//i.test(p)) score -= 16;
@@ -688,7 +702,14 @@ function productionLayoutScore(pathname: string): number {
   if (/pop.*up.*force.*2026/i.test(p)) score -= 12;
   if (/\/photocards\/japanese-md\//i.test(p)) score += 8;
   if (/\/photocards\/japanese-albums\/[^/]+\/album\//i.test(p)) score += 6;
-  if (/\/albums?\//i.test(p) && !/\/photocards\/(korean-album|japanese-albums)\//i.test(p)) score -= 5;
+  if (
+    /\/albums?\//i.test(p) &&
+    !/^\/albums\//i.test(p) &&
+    !/portadas-album/i.test(p) &&
+    !/\/photocards\/(korean-album|japanese-albums)\//i.test(p)
+  ) {
+    score -= 5;
+  }
   return score;
 }
 

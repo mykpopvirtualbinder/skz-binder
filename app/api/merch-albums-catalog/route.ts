@@ -73,33 +73,12 @@ function buildAlbumsCatalog(cwd: string) {
 
 export async function GET() {
   try {
-    const cached = peekScanCache<unknown[]>("merch-albums-catalog");
+    const cached = peekScanCache<unknown[]>("merch-albums-catalog-v2");
     if (cached) return NextResponse.json(cached, { headers: { "Cache-Control": CATALOG_HTTP_CACHE } });
 
     const cwd = process.cwd();
-    const committed = readCommittedCatalog(cwd).filter(
-      (row) =>
-        row &&
-        typeof row === "object" &&
-        !isStrayKidsPlaceholderMerchAlbumRow(
-          (row as { group_name?: string }).group_name,
-          (row as { album_title?: string }).album_title,
-        ),
-    );
-    if (committed.length > 0) {
-      setScanCache("merch-albums-catalog", committed);
-      queueMicrotask(() => {
-        try {
-          setScanCache("merch-albums-catalog", buildAlbumsCatalog(cwd));
-        } catch {
-          /* ignore */
-        }
-      });
-      return NextResponse.json(committed, { headers: { "Cache-Control": CATALOG_HTTP_CACHE } });
-    }
-
     const filtered = buildAlbumsCatalog(cwd);
-    setScanCache("merch-albums-catalog", filtered);
+    setScanCache("merch-albums-catalog-v2", filtered);
     return NextResponse.json(filtered, { headers: { "Cache-Control": CATALOG_HTTP_CACHE } });
   } catch {
     return NextResponse.json([]);

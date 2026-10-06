@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const rows = memoScan("merch-products-catalog", () => scanMerchProductsFromMockPcs(process.cwd()));
+    const rows = memoScan("merch-products-catalog-v2", () => scanMerchProductsFromMockPcs(process.cwd()));
     return NextResponse.json(rows, { headers: { "Cache-Control": CATALOG_HTTP_CACHE } });
   } catch {
     return NextResponse.json([]);
