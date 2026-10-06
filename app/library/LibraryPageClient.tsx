@@ -1764,8 +1764,8 @@ function ItemModal({
                 }
               }}
               title={t("library.modal.inspect_hint") || t("binders.zoom")}
-              className="library-pc-preview"
-              style={{ width: "100%", maxWidth: 380, height: "min(62vh, 560px)", position: "relative", perspective: 1100, background: "transparent", margin: "auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
+              className="library-pc-preview library-item-pc-preview"
+              style={{ width: "100%", maxWidth: 380, height: "min(62vh, 560px)", minHeight: "min(52vh, 420px)", aspectRatio: "2 / 3", position: "relative", perspective: 1100, background: "transparent", margin: "auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
             >
               <div
                 style={{

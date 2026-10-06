@@ -2126,6 +2126,13 @@ textarea:disabled {
     aspect-ratio: 2 / 3 !important;
   }
 
+  .library-pc-preview.library-item-pc-preview {
+    max-width: 320px !important;
+    height: calc(min(320px, 72vw) * 1.5) !important;
+    min-height: calc(min(320px, 72vw) * 1.5) !important;
+    aspect-ratio: 2 / 3 !important;
+  }
+
   .library-item-stock-grid {
     grid-template-columns: 1fr !important;
   }
@@ -2862,6 +2869,14 @@ textarea:disabled {
     min-height: 0 !important;
     aspect-ratio: 2 / 3 !important;
     margin-inline: auto !important;
+  }
+
+  .library-pc-preview.library-item-pc-preview {
+    width: min(86vw, 340px) !important;
+    max-width: min(86vw, 340px) !important;
+    height: calc(min(86vw, 340px) * 1.5) !important;
+    min-height: calc(min(86vw, 340px) * 1.5) !important;
+    aspect-ratio: 2 / 3 !important;
   }
 
   .merch-item-preview {
