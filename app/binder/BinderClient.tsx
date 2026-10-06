@@ -7,6 +7,7 @@ import { useState } from "react"; // 1. Asegúrate de tener useState importado
 import { useRouter, usePathname, useSearchParams } from "next/navigation"; // 2. Asegúrate de importar usePathname y useSearchParams
 import { supabase } from "@/lib/supabase";
 import { withWtsKoinsMark } from "@/lib/wts-koins-mark";
+import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { 
   Trash2, ChevronLeft, ChevronRight, Users, Disc3, PenLine, Mic2, User, Layers, 
