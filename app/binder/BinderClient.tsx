@@ -10014,12 +10014,11 @@ const headerTitle = (() => {
   );
 
   const rightPanelContent = !isCustom ? (
-    <div style={{ display: "grid", gap: 14, width: "100%", boxSizing: "border-box" }}>
-      {/* Stock + precio (mismo patrón visual que library) */}
-      <div style={{ ...subtleCard, padding: 14, width: "100%", boxSizing: "border-box" }}>
-        <div className="library-item-stock-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start", width: "100%" }}>
-          <div style={{ minWidth: 0, width: "100%" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ padding: 14, ...subtleCard }}>
+        <div className="library-item-stock-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
             <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>
               {t("library.stock_title")}
             </div>
@@ -10468,7 +10467,7 @@ justifyContent: "center",
 
           <div
             className="library-stock-price-col"
-            style={{ minWidth: 0, width: "100%", display: "grid", gap: 10, alignContent: "start" }}
+            style={{ minWidth: 0, display: "grid", gap: 10, alignContent: "start" }}
           >
             <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>{t("binders.item_info.price_title")}</div>
             <div style={{ borderRadius: 14, border: "1px solid var(--color-border)", background: "var(--bg-card)", padding: 8 }}>
@@ -10491,6 +10490,7 @@ justifyContent: "center",
                   style={{
                     flex: "1 1 88px",
                     minWidth: 0,
+                    width: "100%",
                     padding: "8px 10px",
                     height: 34,
                     fontSize: 12,
@@ -10655,9 +10655,19 @@ justifyContent: "center",
           </div>
         </div>
       </div>
-      {/* WTT + NOTAS */}
-      <div style={{ display: "grid", gap: 12, width: "100%" }}>
-        <div style={{ ...subtleCard, padding: 14, width: "100%", boxSizing: "border-box" }}>
+      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+        <div style={{ padding: 14, ...subtleCard }}>
+          <div style={{ fontWeight: 950, marginBottom: 8, color: "var(--color-primary)" }}>{t("library.modal.notas")}</div>
+          <textarea
+            value={draftNotes}
+            onChange={(e) => setDraftNotes(e.target.value)}
+            onBlur={() => onChangeNotes(draftNotes)}
+            placeholder={t("binders.item_info.free_notes")}
+            rows={2}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--color-border)", outline: "none", resize: "none", lineHeight: "18px", height: 52, color: "var(--text-main)", background: "var(--bg-card)" }}
+          />
+        </div>
+        <div style={{ padding: 14, ...subtleCard }}>
           <div
             style={{
               display: "flex",
@@ -11575,28 +11585,26 @@ color: "var(--text-main)",
     display: "flex", 
     alignItems: "center", 
     justifyContent: "center", 
-    padding: isMobile ? "10px" : "18px",
-
+    padding: 20,
   }}
 >
       <div 
     data-modal-scroll
-    className="library-item-modal-shell binder-item-modal-shell"
+    className="library-item-modal-shell"
     onMouseDown={(e) => e.stopPropagation()} 
     onClick={(e) => e.stopPropagation()} 
     style={{ 
-      width: isMobile ? "96vw" : "auto", 
-      maxWidth: "980px", 
-      height: isMobile ? "90vh" : "auto",
-      maxHeight: "92vh", 
-      background: "var(--bg-main)", 
-      borderRadius: 18, 
-      border: "1px solid var(--color-border)", 
-      overflowY: "auto",
-      display: "flex", 
-      flexDirection: "column",
-      WebkitOverflowScrolling: "touch",
-      overscrollBehavior: "contain",
+      width: "auto",
+      maxWidth: "96vw",
+      height: "auto",
+      maxHeight: "92vh",
+      background: "var(--bg-main)",
+      borderRadius: 18,
+      border: "1px solid var(--color-border)",
+      boxShadow: "0 30px 80px color-mix(in srgb, var(--text-main) 22%, transparent)",
+      overflow: "hidden",
+      display: "grid",
+      gridTemplateRows: "auto auto",
     }} 
   >
     
@@ -11693,8 +11701,7 @@ color: "var(--text-main)",
       display: "grid",
       gridTemplateColumns: "420px 520px",
       columnGap: 18,
-      justifyContent: "stretch",
-      width: "100%",
+      justifyContent: "start",
       height: "100%",
       minHeight: 0,
     }}
@@ -11709,13 +11716,10 @@ color: "var(--text-main)",
         : resolveMockPcBackUrl(meta?.image_url ?? assigned?.image_url, meta?.back_image_url ?? assigned?.back_image_url);
       return (
         <>
-    <div className="library-pc-preview binder-slot-pc-preview" style={{
+    <div className="library-pc-preview" style={{
       width: "100%",
       maxWidth: 380,
       height: "min(62vh, 560px)",
-      minHeight: 400,
-      aspectRatio: "2 / 3",
-      flexShrink: 0,
       position: "relative",
       perspective: 1100,
       background: "transparent",
@@ -11827,21 +11831,8 @@ color: "var(--text-main)",
       );
     })()}
     </div>
-    <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%", boxSizing: "border-box" }}>
-       <div style={{ width: "100%", boxSizing: "border-box" }}>{rightPanelContent}</div>
-       {!isCustom && (
-        <div style={{ padding: "15px", borderRadius: 16, background: "var(--bg-soft)", border: "1px solid var(--color-border)", marginTop: 14 }}>
-          <div style={{ fontWeight: 900, color: "var(--color-primary)", marginBottom: 8 }}>Notas</div>
-          <textarea
-            value={draftNotes}
-            onChange={(e) => setDraftNotes(e.target.value)}
-            onBlur={() => onChangeNotes(draftNotes)}
-            placeholder={t('binders.item_info.free_notes')}
-            rows={3}
-            style={{ width: "100%", padding: "10px", borderRadius: 12, border: "1px solid var(--color-border)", fontWeight: 700, fontSize: 13, resize: "none" }}
-          />
-        </div>
-      )}
+    <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
+       {rightPanelContent}
     </div>
   </div>
     </div>
