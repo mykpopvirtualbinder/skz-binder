@@ -2121,9 +2121,8 @@ textarea:disabled {
 
   .library-pc-preview {
     max-width: 320px !important;
-    width: min(70vw, 320px) !important;
-    height: calc(min(70vw, 320px) * 1.5) !important;
-    min-height: 360px !important;
+    height: auto !important;
+    min-height: 0 !important;
     aspect-ratio: 2 / 3 !important;
   }
 
@@ -2857,13 +2856,10 @@ textarea:disabled {
   }
 
   .library-pc-preview {
-    flex: 0 0 auto !important;
-    align-self: center !important;
-    width: min(78vw, 300px) !important;
-    max-width: min(78vw, 300px) !important;
-    height: calc(min(78vw, 300px) * 1.5) !important;
-    min-height: 390px !important;
-    max-height: 56dvh !important;
+    width: min(86vw, 340px) !important;
+    max-width: min(86vw, 340px) !important;
+    height: auto !important;
+    min-height: 0 !important;
     aspect-ratio: 2 / 3 !important;
     margin-inline: auto !important;
   }

@@ -12956,12 +12956,7 @@ const isDraggingMe = pageDragFromId === p.id;
               />
             )}
 
-            {/* MARCO SELECCIÓN (Móvil) */}
-            {isSelectedToMove && (
-              <div style={{ position: "absolute", inset: 2, borderRadius: 14, border: "3px solid var(--color-primary)", zIndex: 5, pointerEvents: "none" }} />
-            )}
-
-            {/* ✅ CONTENEDOR PRINCIPAL CON OPACIDAD (Igual que en "Ver Todas") */}
+            {/* MARCO SELECCIÓN: solo la miniatura, no el número ni la X */}
             <div style={{
               opacity: isDraggingMe ? 0.3 : (deleteMode && !selectedForDeletion.includes(p.id) ? 0.6 : 1),
               transition: "opacity 0.2s ease",
@@ -13043,6 +13038,21 @@ const isDraggingMe = pageDragFromId === p.id;
                 }}
               >
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 80, flex: "0 0 auto" }}>
+                <div style={{ position: "relative", width: 80, height: 114 }}>
+                {isSelectedToMove && (
+                  <div
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      inset: -4,
+                      borderRadius: 16,
+                      border: "2px solid var(--color-primary)",
+                      boxShadow: "0 0 0 3px color-mix(in srgb, var(--color-primary) 28%, transparent), 0 8px 18px color-mix(in srgb, var(--color-primary) 22%, transparent)",
+                      pointerEvents: "none",
+                      zIndex: 6,
+                    }}
+                  />
+                )}
                 <PageThumb
                   pageId={p.id}
                   layoutKey={p.layout_type}
@@ -13057,6 +13067,7 @@ const isDraggingMe = pageDragFromId === p.id;
                   draggable={false}
                   onDeletePage={undefined}
                 />
+                </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginTop: 6, minHeight: 18 }}>
                   <span style={{ fontSize: 9, fontWeight: 900, color: active ? "var(--color-primary)" : "var(--text-muted)", letterSpacing: "0.04em" }}>
                     {idx + 1}
