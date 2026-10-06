@@ -11,7 +11,7 @@ import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { 
   Trash2, ChevronLeft, ChevronRight, ChevronDown, Users, Disc3, PenLine, Mic2, User, Layers, 
-    SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart, Plus 
+    SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart, Plus, ZoomIn 
 } from "lucide-react";
 import WtsListingModal from "../library/WtsListingModal"
 import WttListingModal from "../library/WttListingModal"
@@ -5077,10 +5077,10 @@ const LayoutMiniPreview = ({
   const cols = def.cols;
 
   const preset = size === "modal"
-  ? { maxW: 220, maxH: 310, padding: 10 } // 👈 ¡Corregido! Antes era 850x650
+  ? { maxW: 220, maxH: 310, padding: 10 }
   : size === "picker"
   ? { maxW: 110, maxH: 76, padding: 4 }
-  : { maxW: 80, maxH: 114, padding: 0 };
+  : { maxW: 70, maxH: 100, padding: 1 };
 
   const { slotW, slotH, gap: previewGap, rowGap: previewRowGap } = getSlotDimsForLayout(def);
   const baseRows = Math.ceil(baseCount / cols);
@@ -5128,7 +5128,7 @@ const Cell = ({ isExtra, meta }: { isExtra?: boolean; meta?: any }) => {
       // ✅ Si es horizontal, intercambiamos los valores de slotW y slotH [cite: 938, 955]
       width: isHorizontal ? slotH : slotW, 
       height: isHorizontal ? slotW : slotH, 
-      borderRadius: 10, 
+      borderRadius: size === "carousel" ? 3 : 10, 
       border: `1.5px solid ${st.border}`, 
       background: st.bg, 
       overflow: "hidden", 
@@ -5301,7 +5301,11 @@ const baseCount = total - ex;
         ? "var(--state-info-bg)"
         : "var(--binder-thumb-idle-bg)", 
       cursor: "pointer", 
-      padding: 8, 
+      padding: size === "carousel" ? 4 : 8, 
+      width: size === "carousel" ? 80 : undefined,
+      height: size === "carousel" ? 114 : undefined,
+      boxSizing: "border-box",
+      overflow: size === "carousel" && !revealChrome ? "hidden" : "visible",
       position: "relative", 
       transition: "all 140ms ease", 
       boxShadow: active
@@ -5348,6 +5352,7 @@ const baseCount = total - ex;
 
 <div
   className="pageThumbPreview"
+  style={{ overflow: "hidden" }}
 >
 
 <LayoutMiniPreview 
@@ -9344,13 +9349,11 @@ useEffect(() => {
 }, [stockModalOpen, stockSaving]);
 
 useEffect(() => {
-  if (!stockModalOpen) {
+  if (!open) {
     stockOpenedRef.current = false;
+    setStockDirty(false);
     return;
   }
-  if (stockOpenedRef.current) return;
-  stockOpenedRef.current = true;
-
   if (activeItemId == null) return;
   const current = invByItem[activeItemId] ?? emptyCounts();
   const wishVal = (current as any).wish ?? (current as any).wishlist ?? 0;
@@ -9369,12 +9372,12 @@ useEffect(() => {
   } as any);
   setWttDisplay(normalizedDraft.wtt ?? 0);
   setStockDirty(false);
-}, [stockModalOpen, activeItemId]);
+}, [open, activeItemId]);
 // ✅ Abrir automáticamente el modal de “Publicar venta” al marcar WTS (sin esperar a Guardar)
 const wtsPromptedRef = React.useRef(false);
 
 useEffect(() => {
-  if (!stockModalOpen) {
+  if (!open) {
     wtsPromptedRef.current = false;
     return;
   }
@@ -9384,12 +9387,11 @@ useEffect(() => {
   const prevWts = Number(prev?.wts ?? 0);
   const nextWts = Number((stockDraft as any)?.wts ?? 0);
 
-  // Solo 1 vez por apertura del modal de stock
   if (!wtsPromptedRef.current && prevWts === 0 && nextWts > 0) {
     wtsPromptedRef.current = true;
     onBecameWts(activeItemId);
   }
-}, [stockModalOpen, activeItemId, stockDraft, invByItem, onBecameWts]);
+}, [open, activeItemId, stockDraft, invByItem, onBecameWts]);
 // 👇 NUEVO: CHIVATO PARA DETECTAR WTT 👇
                  const wttListingPromptedRef = React.useRef(false);
                  // ✅ Disparo inmediato del modal WTT al detectar el incremento en el borrador
@@ -9526,7 +9528,7 @@ const persistWishFlag = useCallback(
 
 /// ✅ Lo que se pinta en la UI del bloque Stock
 const uiCounts: StatusCounts =
-  stockModalOpen ? stockDraft : counts;
+  stockDirty || stockModalOpen ? stockDraft : counts;
 
 // ✅ al abrir el modal, clonamos el estado actual a un borrador local
 // (desactivado) sincronización automática del borrador al abrir el modal de stock
@@ -9979,6 +9981,35 @@ const headerTitle = (() => {
   return `${headerParts[0]} + ${headerParts[1]}\n+ ${headerParts.length - 2} más`;
 })();
 
+  const bumpBinderStock = (key: "have" | "wtt" | "wts" | "on_its_way" | "wish", d: number) => {
+    setStockDraft((prev) => {
+      const cur = { ...(prev ?? emptyCounts()) } as StatusCounts;
+      const nextVal = Math.max(0, Number((cur as any)[key] ?? 0) + d);
+      (cur as any)[key] = nextVal;
+      if (key === "wish" && nextVal > 0) {
+        cur.have = 0;
+        cur.wtt = 0;
+        cur.wts = 0;
+        cur.on_its_way = 0;
+      } else if (key !== "wish" && nextVal > 0) {
+        (cur as any).wish = 0;
+      }
+      return cur;
+    });
+    setStockDirty(true);
+  };
+
+  const binderStockRow = (key: "have" | "wtt" | "wts" | "on_its_way" | "wish", label: string) => (
+    <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+      <span style={{ fontSize: 12, fontWeight: 900, color: "var(--library-stock-row-label-fg)" }}>{label}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <button type="button" onClick={() => bumpBinderStock(key, -1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--library-stock-step-minus-border)", background: "var(--library-stock-step-minus-bg)", color: "var(--library-stock-step-minus-fg)", fontWeight: 900, cursor: "pointer" }}>-</button>
+        <span style={{ minWidth: 25, textAlign: "center", fontWeight: 950, fontSize: 14, color: "var(--library-stock-qty-fg)" }}>{Number((stockDraft as any)?.[key] ?? 0)}</span>
+        <button type="button" onClick={() => bumpBinderStock(key, 1)} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--library-stock-step-minus-border)", background: "var(--library-stock-step-minus-bg)", color: "var(--library-stock-step-minus-fg)", fontWeight: 900, cursor: "pointer" }}>+</button>
+      </div>
+    </div>
+  );
+
   const rightPanelContent = !isCustom ? (
     <div style={{ display: "grid", gap: 14 }}>
       <div style={{ ...subtleCard, padding: 14 }}>
@@ -10053,47 +10084,55 @@ const headerTitle = (() => {
             <div style={{ fontWeight: 950, marginBottom: 10, color: "var(--color-primary)" }}>
               {t("library.stock_title")}
             </div>
-            <div style={{ fontSize: 13, color: "var(--text-main)", lineHeight: 1.7 }}>
-              {t("library.status_have")}: <b>{uiCounts.have}</b>
-              <br />
-              {t("binders.statuses.wtt")}: <b>{uiWttDisplay}</b>
-              <br />
-              {t("binders.statuses.wts")}: <b>{uiCounts.wts}</b>
-              <br />
-              {t("library.status_otw")}: <b>{uiCounts.on_its_way}</b>
-              <br />
-              {t("library.status_wish")}: <b>{uiWishlist}</b>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {binderStockRow("have", t("library.status_have"))}
+              {binderStockRow("wtt", t("binders.statuses.wtt"))}
+              {binderStockRow("wts", t("binders.statuses.wts"))}
+              {binderStockRow("on_its_way", t("library.status_otw"))}
+              {binderStockRow("wish", t("library.status_wish"))}
             </div>
-  {/* Checkbox WISH debajo del stock */}
-
-  <label style={{
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    marginTop: 10,
-    padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)",
-    background: "var(--bg-card)", cursor: "pointer"
-  }}>
-    <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-main)" }}>{t('binders.statuses.wish')} </span>
-    <input
-      type="checkbox"
-      checked={uiWishlist > 0}
-      onChange={async (e) => {
-        const checked = e.target.checked;
-        persistWishFlag(checked ? 1 : 0);
-        // Si se desactiva WISH, también quitamos la decoración
-        if (!checked && (assigned as any)?.is_wanted) {
-          setSlotItems(prev => ({
-            ...prev,
-            [modalSlotIndex!]: { ...prev[modalSlotIndex!]!, is_wanted: false } as any
-          }));
-          await supabase.from("page_slots").update({ is_wanted: false }).eq("page_id", pageId).eq("slot_index", modalSlotIndex);
-          setRefreshTick(t => t + 1);
-        }
-      }}
-      style={{ width: 18, height: 18, accentColor: "var(--color-primary)", cursor: "pointer" }}
-    />
-  </label>
-
-
+            <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                disabled={!stockDirty || stockSaving}
+                onClick={() => {
+                  const current = activeItemId != null ? (invByItem[activeItemId] ?? emptyCounts()) : emptyCounts();
+                  setStockDraft(current);
+                  setStockDirty(false);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: 12,
+                  border: "1px solid var(--library-stock-cancel-border)",
+                  background: "var(--library-stock-cancel-bg)",
+                  color: "var(--library-stock-cancel-fg)",
+                  fontWeight: 900,
+                  cursor: !stockDirty || stockSaving ? "not-allowed" : "pointer",
+                  opacity: !stockDirty || stockSaving ? 0.55 : 1,
+                }}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                disabled={!stockDirty || stockSaving}
+                onClick={() => void saveStockDraft()}
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "var(--library-stock-save-bg)",
+                  color: "var(--library-stock-save-fg)",
+                  fontWeight: 900,
+                  cursor: !stockDirty || stockSaving ? "not-allowed" : "pointer",
+                  opacity: !stockDirty || stockSaving ? 0.55 : 1,
+                }}
+              >
+                {stockSaving ? "…" : t("common.save")}
+              </button>
+            </div>
   {/* Botón "Añadir decoración" persistente: visible si WISH está activo o la decoración está puesta */}
   {/* Botón "Añadir decoración" persistente: visible si WISH está activo o la decoración está puesta */}
   {(uiWishlist > 0 || (assigned as any)?.is_wanted) && (
@@ -10155,26 +10194,6 @@ onChange={async (e) => {
   {/* lo que tengas debajo sigue igual */}
 
           <div style={{ marginTop: 12 }}>
-            <button
-              type="button"
-              onClick={() => setStockModalOpen(true)}
-              disabled={uiWishlist > 0}
-             style={{
- padding: "6px 10px",
- borderRadius: 10,
- border: "1px solid var(--color-border)",
- background: "var(--bg-card)",
- color: "var(--color-primary)",
- cursor: uiWishlist > 0 ? "not-allowed" : "pointer",
- fontWeight: 900,
- fontSize: 12,
- opacity: uiWishlist > 0 ? 0.6 : 1,
- boxShadow: uiWishlist > 0 ? "none" : "0 4px 12px color-mix(in srgb, var(--color-primary) 14%, transparent)",
-}}
-            >
-              {t("binders.actions.update_stock")}
-            </button>
-
             {stockModalOpen && (
               <div
                 role="dialog"
@@ -11709,196 +11728,95 @@ color: "var(--text-main)",
   </div>
   </div>
 
-  {/* 2. CUERPO DEL MODAL (Ajuste definitivo de scroll) */} 
-  <div 
-    style={{ 
-      display: "flex", 
-      flexDirection: isMobile ? "column" : "row", 
-      width: "100%",
-      height: "auto", 
-      overflowY: "visible", // Cambiamos a visible aquí
-      padding: isMobile ? "10px 10px 120px 10px" : "20px", 
-      backgroundColor: "var(--bg-main)", 
-      gap: 15
-    }} 
+  {/* 2. CUERPO DEL MODAL */}
+  <div
+    className="library-item-modal-grid"
+    style={{
+      display: "grid",
+      gridTemplateColumns: "420px 520px",
+      columnGap: 18,
+      justifyContent: "start",
+      height: "100%",
+      minHeight: 0,
+    }}
   >
-   {/* COLUMNA IZQUIERDA: CARTA Y ZOOM (NAVEGACIÓN TOTAL) */}
-  <div 
-    style={{ 
-      display: "flex", 
-      flexDirection: "column", 
-      alignItems: "center", 
-      width: isMobile ? "100%" : "420px", 
-      flexShrink: 0, 
-      background: "var(--bg-main)", 
-      padding: isMobile ? "10px" : "20px", 
-      borderRadius: "20px", 
-      border: "1px solid var(--bg-soft)",
-      position: "relative"
-    }} 
-  > 
-    {/* ÁREA DE VISUALIZACIÓN TIPO LUPA */}
-    <div className="library-pc-preview" style={{ 
-      width: "100%", 
+  <div style={{ position: "relative", background: "var(--bg-main)", padding: 10, borderRight: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
+    {(() => {
+      const sleeveRot = ((rot % 360) + 360) % 360;
+      const rotScale = sleeveRot % 180 !== 0 ? 0.72 : 1;
+      const fImg = isCustom ? customImageUrl : (meta?.image_url ?? null);
+      const bImg = isCustom
+        ? ((assigned as any)?.custom_back_image_url ?? DEFAULT_BACK_URL)
+        : resolveMockPcBackUrl(meta?.image_url ?? assigned?.image_url, meta?.back_image_url ?? assigned?.back_image_url);
+      return (
+        <>
+    <div className="library-pc-preview" style={{
+      width: "100%",
       maxWidth: 380,
-      height: isMobile ? undefined : "480px",
-      aspectRatio: isMobile ? "2 / 3" : undefined,
-      minHeight: isMobile ? 280 : undefined,
-      position: "relative", 
-      overflow: "hidden",
-      borderRadius: 14,
-      background: "var(--bg-card)",
-      display: "block",
-    }}> 
-      {(() => { 
-        const sleeveRot = ((rot % 360) + 360) % 360; 
-        const fImg = isCustom ? customImageUrl : (meta?.image_url ?? null);
-        const bImg = isCustom 
-          ? ((assigned as any)?.custom_back_image_url ?? DEFAULT_BACK_URL) 
-          : resolveMockPcBackUrl(meta?.image_url ?? assigned?.image_url, meta?.back_image_url ?? assigned?.back_image_url);
-
-        return ( 
-          /* Contenedor de expansión: crea el espacio necesario para que el scroll llegue a los bordes */
-          <div style={{ 
-            width: "100%",
-            height: "100%",
-            minWidth: isMobile ? "100%" : 320 * modalZoom,
-            minHeight: isMobile ? "100%" : 480 * modalZoom,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: isMobile ? 8 : 100,
-          }}> 
-            <div style={{ 
-              width: 320, 
-              height: 480, 
-              flexShrink: 0,
-              position: "relative",
-              transform: `scale(${modalZoom}) rotate(${sleeveRot}deg)`, 
-              transition: "transform 0.2s ease-out",
-              zIndex: 1
-            }}> 
-              <div style={{ 
-                width: "100%", height: "100%", 
-                borderRadius: 14, overflow: "hidden", 
-                border: "1px solid var(--state-disabled-border)", background: "var(--bg-card)", 
-                boxShadow: "0 10px 30px var(--overlay-faint)"
-              }}> 
-                <div style={{ width: "100%", height: "100%", position: "relative", perspective: 1200 }}> 
-                  <div ref={modalFlipWrapRef} style={{ 
-                    width: "100%", height: "100%", position: "absolute", 
-                    transformStyle: "preserve-3d", 
-                    transform: `scaleX(${flipH ? -1 : 1}) rotateY(${modalFaceUI === "front" ? 0 : 180}deg)` 
-                  }}> 
-                    {/* FRONT */} 
-                    <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}> 
-                      {((assigned as any)?.is_wanted === true && uiWishlist > 0) ? ( 
-                        <WesternWantedFrame name={headerTitle || "WANTED"} variant="modal"> 
-                          <ImageWithExtensionFallback src={fImg || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> 
-                        </WesternWantedFrame> 
-                      ) : ( 
-                        <ImageWithExtensionFallback src={fImg || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: "cover" }} alt="" /> 
-                      )} 
-                    </div> 
-                    {/* BACK */} 
-                    <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}> 
-                      <ImageWithExtensionFallback
-                        src={bImg || DEFAULT_BACK_URL}
-                        frontSrcForBack={isCustom ? undefined : (meta?.image_url ?? assigned?.image_url) ?? undefined}
-                        fallbackSrc={DEFAULT_BACK_URL}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        alt=""
-                      /> 
-                    </div> 
-                  </div> 
-                </div> 
-              </div> 
-            </div> 
-          </div> 
-        ); 
-      })()} 
-    </div> 
-
-    {/* PANEL DE CONTROL (FIJO) */}
-    <div style={{ 
-      marginTop: 15, display: "flex", flexDirection: "column", gap: 12, width: "100%", alignItems: "center"
+      height: "min(62vh, 560px)",
+      position: "relative",
+      perspective: 1100,
+      background: "transparent",
+      margin: "auto 0",
     }}>
-      <div style={{ display: "flex", gap: 10 }}> 
-        <button type="button" onClick={onRotateLeft} style={{...iconBtnStyle, width: 40, height: 40, fontSize: 18}}>⟲</button> 
-        <button type="button" onClick={onRotateRight} style={{...iconBtnStyle, width: 40, height: 40, fontSize: 18}}>⟳</button> 
-        <button type="button" onClick={onToggleFaceAnimated} style={{...iconBtnStyle, width: 40, height: 40, fontSize: 18}}>⇄</button> 
-      </div> 
-
-      <div style={{ 
-        display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", 
-        borderRadius: "99px", background: "var(--bg-card)", border: "1px solid var(--color-border)", 
-        boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 15%, transparent)" 
-      }}> 
-        <button type="button" onClick={() => setModalZoom((z) => Math.max(0.6, z - 0.2))} style={{...iconBtnStyle, border: "none", boxShadow: "none"}}>−</button> 
-        <span style={{ fontSize: 12, fontWeight: 900, color: "var(--color-primary)", minWidth: 40, textAlign: "center" }}>{Math.round(modalZoom * 100)}%</span>
-        <button type="button" onClick={() => setModalZoom((z) => Math.min(3.0, z + 0.2))} style={{...iconBtnStyle, border: "none", boxShadow: "none"}}>+</button> 
-        <button type="button" onClick={() => setModalZoom(1)} style={{
-          marginLeft: 5, padding: "4px 10px", borderRadius: 8, border: "1px solid var(--color-primary)", 
-          background: "var(--bg-soft)", color: "var(--color-primary)", fontWeight: 900, fontSize: 10, cursor: "pointer"
-        }}>Reset</button> 
-      </div> 
-
- 
- 
-
- 
-
- {/* ✅ BOTÓN GUARDAR CAMBIOS VISUALES CORREGIDO */}
-  <button 
-    type="button" 
-    onClick={async () => { 
-      if (modalSlotIndex == null) return; 
-      setStatus("Guardando cambios visuales..."); 
-
-      // Recuperamos los datos actuales para no borrar el reverso al guardar
-      const current = slotItems[modalSlotIndex];
-      const frontImg = current?.custom_image_url ?? null;
-      const backImg = (current as any)?.custom_back_image_url ?? null;
-
-      // Guardamos la transformación y las imágenes actuales
-      await saveCustomToDb( 
-        modalSlotIndex, 
-        modalCustomText, 
-        frontImg, // 👈 Pasamos la imagen de la memoria, no null
-        backImg,  // 👈 Pasamos el reverso de la memoria, no null
-        modalViewRot, 
-        modalViewFlipH,
-        (current as any)?.member_id // Mantenemos el bias
-      ); 
-
-      setRefreshTick(t => t + 1); 
-      await loadPageThumbs(); 
-      
-      setStatus("¡Cambios guardados! ✅"); 
-      setTimeout(() => setStatus(""), 2000); 
-    }} 
-    style={{ 
-      ...topBtnStyle, 
-      background: "var(--color-primary)", 
-      color: "var(--bg-card)", 
-      border: "none", 
-      padding: "8px 20px", 
-      fontSize: "13px" 
-    }} 
-  > 
-    Guardar cambios 
-  </button>
-
+      <div
+        ref={modalFlipWrapRef}
+        style={{
+          position: "absolute",
+          inset: 0,
+          transformStyle: "preserve-3d",
+          transition: "transform 950ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+          transform: `scaleX(${flipH ? -1 : 1}) rotateY(${modalFaceUI === "front" ? 0 : 180}deg)`,
+          borderRadius: 14,
+          border: "1px solid var(--state-disabled-border)",
+          background: "var(--bg-card)",
+        }}
+      >
+        <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14, overflow: "hidden" }}>
+          {((assigned as any)?.is_wanted === true && uiWishlist > 0) ? (
+            <WesternWantedFrame name={headerTitle || "WANTED"} variant="modal">
+              <ImageWithExtensionFallback src={fImg || "/mock-pcs/groups/not-available.png"} style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", background: "var(--bg-card)", transform: `rotate(${sleeveRot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }} alt="" />
+            </WesternWantedFrame>
+          ) : (
+            <ImageWithExtensionFallback src={fImg || "/mock-pcs/groups/not-available.png"} style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", background: "var(--bg-card)", transform: `rotate(${sleeveRot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }} alt="" />
+          )}
+        </div>
+        <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14, overflow: "hidden" }}>
+          <ImageWithExtensionFallback
+            src={bImg || DEFAULT_BACK_URL}
+            frontSrcForBack={isCustom ? undefined : (meta?.image_url ?? assigned?.image_url) ?? undefined}
+            fallbackSrc={DEFAULT_BACK_URL}
+            style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", background: "var(--bg-card)", transform: `rotate(${sleeveRot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }}
+            alt=""
+          />
+        </div>
       </div>
-      <div className="library-item-modal-more-hint" aria-hidden>
-        <ChevronDown size={18} strokeWidth={2.4} />
-        <ChevronDown size={18} strokeWidth={2.4} style={{ marginTop: -10, opacity: 0.55 }} />
+      <div aria-hidden style={{ position: "absolute", right: 10, bottom: 10, zIndex: 4, width: 32, height: 32, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", background: "color-mix(in srgb, var(--bg-card) 88%, transparent)", border: "1px solid var(--color-border)", color: "var(--color-primary)", pointerEvents: "none" }}>
+        <ZoomIn size={16} strokeWidth={2.4} />
       </div>
     </div>
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", zIndex: 10 }}>
+      <button type="button" onClick={onToggleFaceAnimated} style={{ ...iconBtnStyle, width: "auto", padding: "10px 14px", gap: 8 }}>
+        {modalFaceUI === "front" ? t("library.card.view_back") : t("library.card.view_front")}
+      </button>
+      <button type="button" onClick={onRotateLeft} style={{ ...iconBtnStyle, width: 36, height: 36 }}>⟲</button>
+      <button type="button" onClick={onRotateRight} style={{ ...iconBtnStyle, width: 36, height: 36 }}>⟳</button>
+    </div>
+    <div style={{ marginTop: 8, fontSize: 11, fontWeight: 800, color: "var(--text-muted)" }}>
+      {t("library.modal.inspect_hint")}
+    </div>
+    <div className="library-item-modal-more-hint" aria-hidden>
+      <ChevronDown size={18} strokeWidth={2.4} />
+      <ChevronDown size={18} strokeWidth={2.4} style={{ marginTop: -10, opacity: 0.55 }} />
+    </div>
+        </>
+      );
+    })()}
+    </div>
+    <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
        <div>{rightPanelContent}</div>
        {!isCustom && (
-        <div style={{ padding: "15px", borderRadius: 16, background: "var(--bg-soft)", border: "1px solid var(--color-border)" }}>
+        <div style={{ padding: "15px", borderRadius: 16, background: "var(--bg-soft)", border: "1px solid var(--color-border)", marginTop: 14 }}>
           <div style={{ fontWeight: 900, color: "var(--color-primary)", marginBottom: 8 }}>Notas</div>
           <textarea
             value={draftNotes}
@@ -12343,16 +12261,16 @@ return (
 }
 
 /* En móvil/tablet: la X flota y solo aparece al tocar la página */
-@media (hover: none){
+@media (hover: none), (pointer: coarse){
   .pageDeleteBtn{
-    opacity: 0;
+    opacity: 0 !important;
     transform: translateY(2px) scale(0.98);
-    pointer-events: none;
+    pointer-events: none !important;
   }
   .pageThumb--chrome .pageDeleteBtn{
-    opacity: 1;
+    opacity: 1 !important;
     transform: translateY(0) scale(1);
-    pointer-events: auto;
+    pointer-events: auto !important;
   }
 }
   .pageThumb .pageNumBadge{
@@ -13124,7 +13042,10 @@ const isDraggingMe = pageDragFromId === p.id;
                   revealChrome={isSelectedToMove}
                   onClick={() => {}} // Ya lo maneja el padre
                   draggable={false}
-                  onDeletePage={deleteMode ? undefined : async (id) => {
+                  onDeletePage={
+                    deleteMode || (isMobile && !isSelectedToMove)
+                      ? undefined
+                      : async (id) => {
                     const ok = await showConfirm(
                       t("common.confirm"),
                       `¿Borrar la página ${idx + 1}? Se perderán los slots colocados.`,

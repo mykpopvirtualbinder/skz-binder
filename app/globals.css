@@ -2514,8 +2514,12 @@ textarea:disabled {
   height: 114px !important;
   padding: 4px !important;
   box-sizing: border-box;
-  overflow: visible;
+  overflow: hidden;
   touch-action: pan-x;
+}
+
+.pagesCarousel .pageThumb--chrome {
+  overflow: visible !important;
 }
 
 .pagesCarousel .pageThumbPreview {
@@ -2538,6 +2542,17 @@ textarea:disabled {
   width: 22px !important;
   height: 22px !important;
   font-size: 11px !important;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .pagesCarousel .pageDeleteBtn {
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+  .pagesCarousel .pageThumb--chrome .pageDeleteBtn {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
 }
 
 .catalog-pager-slash {
