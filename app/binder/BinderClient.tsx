@@ -11767,7 +11767,6 @@ color: "var(--text-main)",
             alignItems: "center",
             justifyContent: "center",
             padding: isMobile ? 8 : 100,
-          }}>
           }}> 
             <div style={{ 
               width: 320, 
