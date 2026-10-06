@@ -17,6 +17,33 @@ div.card-bg-gradient { background: linear-gradient(90deg, #ffe8cc 50%, #e8f3ff 5
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+.merch-root,
+.merch-main {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.merch-wtt-carousel {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  align-items: center;
+  height: 112px;
+  max-height: 112px;
+  scrollbar-gutter: stable;
+  touch-action: pan-x;
 }
 
 /* =========================================
@@ -2078,6 +2105,10 @@ textarea:disabled {
     gap: 12px !important;
   }
 
+  .merch-wtt-picker-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+  }
+
   .library-shell {
     padding: 16px 16px !important;
   }
@@ -2284,6 +2315,19 @@ textarea:disabled {
 
   .library-stock-price-col {
     grid-template-columns: 1fr !important;
+  }
+
+  .merch-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+  }
+
+  .merch-wtt-carousel {
+    height: 96px !important;
+    max-height: 96px !important;
+  }
+
+  .merch-wtt-picker-grid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)) !important;
   }
 
   .header-dropdown-menu {

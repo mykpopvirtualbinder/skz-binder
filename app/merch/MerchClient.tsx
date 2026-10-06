@@ -323,6 +323,25 @@ type MerchStatus = { have: number; wtt: number; wts: number; wishlist: number; o
 /** Stored in `user_merch_statuses.comment` for `wishlist` rows (JSON). */
 type WishPosterMeta = { wantedPoster: boolean; posterTitle: string };
 
+function parseMerchWttIds(row: { wtt_ids?: unknown; comment?: unknown }): string[] {
+  const raw = row.wtt_ids;
+  if (Array.isArray(raw)) {
+    return raw.map((id) => String(id || "").trim()).filter(Boolean);
+  }
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) return parsed.map((id) => String(id || "").trim()).filter(Boolean);
+    } catch {
+      return raw
+        .split(/[,;\s]+/)
+        .map((id) => id.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
 function parseWishComment(raw: string | null | undefined): WishPosterMeta | null {
   if (!raw?.trim()) return null;
   try {
@@ -470,6 +489,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   const [allDbGroups, setAllDbGroups] = useState<string[]>([]);
   const [myInventory, setMyInventory] = useState<Record<string, MerchStatus>>({});
   const [wishMeta, setWishMeta] = useState<Record<string, WishPosterMeta>>({});
+  const [wttOfferByMerch, setWttOfferByMerch] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     const qParam = merchSearchParams.get("q");
@@ -538,6 +558,38 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   const [wttSearch, setWttSearch] = useState("");
   const [wttSelectedIds, setWttSelectedIds] = useState<string[]>([]);
   const [wttComment, setWttComment] = useState("");
+
+  const openMerchWttPicker = (item: MerchItem) => {
+    setWttSelectedIds(wttOfferByMerch[item.id] ?? []);
+    setWttModal(item);
+  };
+
+  useEffect(() => {
+    if (!wttModal) return;
+    setWttSelectedIds(wttOfferByMerch[wttModal.id] ?? []);
+  }, [wttModal?.id]);
+
+  useEffect(() => {
+    if (!infoModal || !profile?.id) return;
+    let cancelled = false;
+    void supabase
+      .from("user_merch_statuses")
+      .select("wtt_ids, comment")
+      .eq("user_id", profile.id)
+      .eq("merch_id", infoModal.id)
+      .eq("status", "wtt")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const ids = parseMerchWttIds(data);
+        if (ids.length) {
+          setWttOfferByMerch((prev) => ({ ...prev, [infoModal.id]: ids }));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [infoModal?.id, profile?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -639,6 +691,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     if (inventory) {
       const invMap: Record<string, MerchStatus> = {};
       const wm: Record<string, WishPosterMeta> = {};
+      const wttOffers: Record<string, string[]> = {};
       inventory.forEach((row: any) => {
         if (row.status !== "note") {
           if (!invMap[row.merch_id]) invMap[row.merch_id] = { have: 0, wtt: 0, wts: 0, wishlist: 0, otw: 0, updatedAt: 0, price: 0, koins: 0 };
@@ -657,9 +710,14 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             posterTitle: "",
           };
         }
+        if (row.status === "wtt") {
+          const ids = parseMerchWttIds(row);
+          if (ids.length) wttOffers[row.merch_id] = ids;
+        }
       });
       setMyInventory(invMap);
       setWishMeta(wm);
+      setWttOfferByMerch(wttOffers);
     }
   };
 
@@ -808,7 +866,15 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
           defaultTitle: heading,
         });
       }
-      if (openedWtt) setWttModal(infoModal);
+      if (openedWtt) openMerchWttPicker(infoModal);
+      if (merchStockDraft.wtt === 0) {
+        setWttOfferByMerch((prev) => {
+          if (!(infoModal.id in prev)) return prev;
+          const next = { ...prev };
+          delete next[infoModal.id];
+          return next;
+        });
+      }
       if (openedWts) setWtsModal(infoModal);
     } finally {
       setMerchStockSaving(false);
@@ -964,6 +1030,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
       await avisarFavoritos(profile.id, 'market_id', savedAd.id);
       showAlert(t("merch.alert_created_title"), t("merch.alert_created_msg").replace('{name}', wttModal.name));
       setMyInventory(p => { const m = {...p}; if(!m[wttModal.id]) m[wttModal.id] = {have:0,wtt:0,wts:0,wishlist:0,otw:0}; m[wttModal.id].wtt = 1; return m; });
+      setWttOfferByMerch((prev) => ({ ...prev, [wttModal.id]: [...wttSelectedIds] }));
     } else if (saveErr) {
       showAlert(t("merch.alert_notice_title"), saveErr.message || t("common.error"));
       return;
@@ -1914,7 +1981,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "auto", marginBottom: "8px" }}>
                       <button onClick={() => updateMerchStatus(item.id, 'have', 1)} style={{ background: "transparent", color: "var(--accent-vibe-green)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.have > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-green) 55%, transparent)" : "none" }}><CheckCircle2 size={12}/> {t("merch.label_have")}</button>
                       <button onClick={() => updateMerchStatus(item.id, 'otw', 1)} style={{ background: "transparent", color: "var(--accent-vibe-cyan)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.otw > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-cyan) 55%, transparent)" : "none" }}><Truck size={12}/> {t("merch.label_otw")}</button>
-                      <button onClick={() => setWttModal(item)} style={{ background: "transparent", color: "var(--accent-vibe-violet)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.wtt > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-violet) 55%, transparent)" : "none" }}><Repeat2 size={12}/> {t("merch.label_wtt")}</button>
+                      <button onClick={() => openMerchWttPicker(item)} style={{ background: "transparent", color: "var(--accent-vibe-violet)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.wtt > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-violet) 55%, transparent)" : "none" }}><Repeat2 size={12}/> {t("merch.label_wtt")}</button>
                       <button onClick={() => setWtsModal(item)} style={{ background: "transparent", color: "var(--accent-vibe-orange)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.wts > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-orange) 55%, transparent)" : "none" }}><DollarSign size={12}/> {t("merch.label_wts")}</button>
                     </div>
 
@@ -1994,7 +2061,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
               className="library-item-modal-shell"
               onClick={(e) => e.stopPropagation()}
               style={{
-                width: "auto",
+                width: "min(960px, 96vw)",
                 maxWidth: "96vw",
                 height: "auto",
                 maxHeight: "92vh",
@@ -2005,6 +2072,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                 overflow: "hidden",
                 display: "grid",
                 gridTemplateRows: "auto auto",
+                minWidth: 0,
               }}
             >
               <div
@@ -2227,6 +2295,60 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                       style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--color-border)", outline: "none", resize: "none", fontSize: "13px", fontFamily: "inherit", fontWeight: 700, background: "var(--bg-main)", color: "var(--text-main)" }}
                     />
                   </div>
+
+                  <div style={{ marginTop: 12, padding: 14, ...subtleCard, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                      <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>{t("library.modal.busco_wtt")}</div>
+                      <button
+                        type="button"
+                        onClick={() => openMerchWttPicker(infoModal)}
+                        disabled={merchStockDraft.wishlist > 0}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 10,
+                          border: "1px solid var(--color-border)",
+                          background: "var(--bg-card)",
+                          cursor: merchStockDraft.wishlist > 0 ? "not-allowed" : "pointer",
+                          fontWeight: 900,
+                          fontSize: 12,
+                          color: "var(--color-primary)",
+                          opacity: merchStockDraft.wishlist > 0 ? 0.6 : 1,
+                          boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 15%, transparent)",
+                        }}
+                      >
+                        {t("library.modal.mis_trades")}
+                      </button>
+                    </div>
+                    {(wttOfferByMerch[infoModal.id] ?? []).length ? (
+                      <div className="merch-wtt-carousel">
+                        {(wttOfferByMerch[infoModal.id] ?? [])
+                          .map((id) => merchCatalog.find((m) => m.id === id))
+                          .filter((m): m is MerchItem => Boolean(m))
+                          .map((w, idx) => (
+                            <ImageWithExtensionFallback
+                              key={`${w.id}-${idx}`}
+                              src={w.image_url}
+                              alt=""
+                              draggable={false}
+                              title={w.name}
+                              style={{
+                                width: 90,
+                                height: 110,
+                                borderRadius: 12,
+                                border: "1px solid var(--state-disabled-border)",
+                                background: "linear-gradient(180deg, var(--bg-card), var(--bg-soft))",
+                                objectFit: "cover",
+                                flex: "0 0 auto",
+                                scrollSnapAlign: "start",
+                                boxShadow: "0 8px 18px color-mix(in srgb, var(--text-main) 6%, transparent)",
+                              }}
+                            />
+                          ))}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>{t("library.modal.wtt_empty")}</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2256,22 +2378,48 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
 
      {/* --- MODAL WTT (SELECTOR DEL CATÁLOGO) --- */}
       {wttModal && (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", backdropFilter: "blur(5px)" }}>
-          <div style={{ background: "var(--bg-main)", borderRadius: "24px", width: "100%", maxWidth: "720px", height: "80vh", border: "1px solid var(--color-border)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 22px 60px var(--shadow-card)" }}>
+        <div className="merch-wtt-picker-overlay library-wtt-offer-overlay" style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 10050, display: "flex", alignItems: "center", justifyContent: "center", padding: "max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))", backdropFilter: "blur(5px)" }}>
+          <div className="merch-wtt-picker-shell library-wtt-offer-shell" style={{ background: "var(--bg-main)", borderRadius: "24px", width: "100%", maxWidth: "720px", height: "min(80vh, 80dvh)", maxHeight: "calc(100dvh - 24px)", border: "1px solid var(--color-border)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 22px 60px var(--shadow-card)", minWidth: 0 }}>
             
-            <div style={{ padding: "20px 25px", background: "var(--bg-soft)", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ padding: "16px 20px", background: "var(--bg-soft)", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexShrink: 0 }}>
                <h3 style={{ color: "var(--accent-vibe-cyan)", margin: 0, fontSize: "20px", fontWeight: 950 }}>{t("merch.trade_title")}</h3>
-               <button onClick={() => { setWttModal(null); setWttSelectedIds([]); }} style={{ background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "10px", width: 32, height: 32, cursor: "pointer", fontWeight: 900, color: "var(--text-muted)", display: "flex", alignItems:"center", justifyContent:"center" }}><X size={18}/></button>
+               <button onClick={() => { setWttModal(null); }} style={{ background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "10px", width: 32, height: 32, cursor: "pointer", fontWeight: 900, color: "var(--text-muted)", display: "flex", alignItems:"center", justifyContent:"center", flexShrink: 0 }}><X size={18}/></button>
             </div>
 
-            <div style={{ padding: "15px 25px", background: "var(--bg-card)", borderBottom: "1px solid var(--color-border)" }}>
+            {wttSelectedIds.length > 0 && (
+              <div className="merch-wtt-carousel" style={{ padding: "10px 16px 4px", flexShrink: 0 }}>
+                {wttSelectedIds
+                  .map((id) => merchCatalog.find((m) => m.id === id))
+                  .filter((m): m is MerchItem => Boolean(m))
+                  .map((w, idx) => (
+                    <ImageWithExtensionFallback
+                      key={`sel-${w.id}-${idx}`}
+                      src={w.image_url}
+                      alt=""
+                      title={w.name}
+                      style={{
+                        width: 72,
+                        height: 88,
+                        borderRadius: 10,
+                        border: "2px solid var(--color-primary)",
+                        objectFit: "cover",
+                        flex: "0 0 auto",
+                        scrollSnapAlign: "start",
+                        background: "var(--bg-card)",
+                      }}
+                    />
+                  ))}
+              </div>
+            )}
+
+            <div style={{ padding: "12px 20px", background: "var(--bg-card)", borderBottom: "1px solid var(--color-border)", flexShrink: 0 }}>
                <div style={{ position: "relative" }}>
                  <Search size={16} color="var(--accent-vibe-cyan)" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)" }} />
-                 <input type="text" placeholder={t("merch.trade_search_placeholder")} value={wttSearch} onChange={e => setWttSearch(e.target.value)} style={{ width: "100%", padding: "12px 15px 12px 40px", borderRadius: "99px", border: "1px solid var(--color-border)", outline: "none", fontWeight: 700, fontSize: "14px", background: "var(--bg-main)", color: "var(--text-main)" }} />
+                 <input type="text" placeholder={t("merch.trade_search_placeholder")} value={wttSearch} onChange={e => setWttSearch(e.target.value)} style={{ width: "100%", padding: "12px 15px 12px 40px", borderRadius: "99px", border: "1px solid var(--color-border)", outline: "none", fontWeight: 700, fontSize: "14px", background: "var(--bg-main)", color: "var(--text-main)", boxSizing: "border-box" }} />
                </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 25px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "15px", alignContent: "start", background: "var(--bg-main)" }}>
+            <div className="merch-wtt-picker-grid" style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(140px, 100%), 1fr))", gap: "12px", alignContent: "start", background: "var(--bg-main)", minHeight: 0 }}>
                {merchCatalog
                  .filter((m) => m.id !== wttModal.id && merchRowMatchesQuery(m, wttSearch))
                  .slice(0, wttSearch.trim() ? 240 : 96)
@@ -2287,9 +2435,9 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                })}
             </div>
 
-            <div style={{ padding: "20px 25px", background: "var(--bg-card)", borderTop: "1px solid var(--color-border)", display: "flex", flexDirection: "column", gap: "15px" }}>
-               <textarea placeholder={t("merch.wtt_comment_placeholder")} value={wttComment} onChange={e => setWttComment(e.target.value)} rows={2} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: "var(--bg-main)", color: "var(--text-main)" }} />
-               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ padding: "16px 20px", background: "var(--bg-card)", borderTop: "1px solid var(--color-border)", display: "flex", flexDirection: "column", gap: "12px", flexShrink: 0 }}>
+               <textarea placeholder={t("merch.wtt_comment_placeholder")} value={wttComment} onChange={e => setWttComment(e.target.value)} rows={2} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", fontWeight: 700, fontSize: "13px", fontFamily: "inherit", background: "var(--bg-main)", color: "var(--text-main)", boxSizing: "border-box" }} />
+               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--accent-vibe-pink)" }}>{wttSelectedIds.length} {t("merch.items_selected")}</span>
                   <button onClick={handlePublishWtt} disabled={wttSelectedIds.length === 0} style={{ padding: "12px 25px", borderRadius: "12px", border: "none", background: wttSelectedIds.length > 0 ? "var(--accent-vibe-orange)" : "var(--bg-soft)", color: wttSelectedIds.length > 0 ? "var(--modal-cta-fg)" : "var(--text-muted)", fontWeight: 900, cursor: wttSelectedIds.length > 0 ? "pointer" : "not-allowed", boxShadow: wttSelectedIds.length > 0 ? "0 4px 10px var(--shadow-card)" : "none" }}>{t("merch.btn_publish_wtt")}</button>
                </div>
