@@ -23,6 +23,7 @@ import {
 import { albumRowMatchesMerchGroupFilter, canonicalMerchGroupDisplayName } from "@/lib/merch-group-display";
 import { merchRowMatchesQuery } from "@/lib/merch-item-search";
 import { compareMerchAlbumCatalogItems } from "@/lib/merch-album-catalog-sort";
+import { stockStatusRank } from "@/lib/catalog-sort";
 import { merchAlbumCardBreadcrumbLine, merchAlbumCardHeading } from "@/lib/merch-album-card-display";
 import { avisarFavoritos } from "@/lib/avisos";
 import { resolveWtsKoins, stripWtsKoinsMark, withWtsListingMarks, parseWtsListingExtras } from "@/lib/wts-koins-mark";
