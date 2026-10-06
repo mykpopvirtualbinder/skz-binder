@@ -1749,7 +1749,7 @@ function ItemModal({
         <div className="library-item-modal-grid" style={{ display: "grid", gridTemplateColumns: "420px 520px", columnGap: 18, justifyContent: "start", height: "100%", minHeight: 0 }}>
           
           {/* IZQ: PREVIEW FOTO */}
-          <div style={{ position: "relative", background: "var(--bg-main)", padding: 10, borderRight: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
+          <div className="library-item-modal-photo-col" style={{ position: "relative", background: "var(--bg-main)", padding: 10, borderRight: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", minHeight: 0, overflow: "hidden" }}>
             <div
               role="button"
               tabIndex={0}
@@ -1765,8 +1765,9 @@ function ItemModal({
               }}
               title={t("library.modal.inspect_hint") || t("binders.zoom")}
               className="library-pc-preview library-item-pc-preview"
-              style={{ width: "100%", maxWidth: 380, height: "min(62vh, 560px)", minHeight: "min(52vh, 420px)", aspectRatio: "2 / 3", position: "relative", perspective: 1100, background: "transparent", margin: "auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
+              style={{ width: "100%", maxWidth: 380, height: "min(62vh, 560px)", minHeight: "min(52vh, 420px)", aspectRatio: "2 / 3", position: "relative", overflow: "hidden", borderRadius: 14, isolation: "isolate", background: "transparent", margin: "12px auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
             >
+              <div style={{ position: "absolute", inset: 0, perspective: 1100 }}>
               <div
                 style={{
                   position: "absolute",
@@ -1776,7 +1777,8 @@ function ItemModal({
                   transform: face === "front" ? "rotateY(0deg)" : "rotateY(180deg)",
                   borderRadius: 14,
                   border: "1px solid var(--state-disabled-border)",
-                  background: "var(--bg-card)"
+                  background: "var(--bg-card)",
+                  overflow: "hidden",
                 }}
               >
                 {/* FRONT */}
@@ -1811,6 +1813,7 @@ function ItemModal({
                     </div>
                   )}
                 </div>
+              </div>
               </div>
               {inspectSrc ? (
                 <div

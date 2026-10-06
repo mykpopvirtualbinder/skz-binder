@@ -2130,7 +2130,12 @@ textarea:disabled {
     max-width: 320px !important;
     height: calc(min(320px, 72vw) * 1.5) !important;
     min-height: calc(min(320px, 72vw) * 1.5) !important;
+    max-height: calc(min(320px, 72vw) * 1.5) !important;
     aspect-ratio: 2 / 3 !important;
+    overflow: hidden !important;
+    border-radius: 14px !important;
+    isolation: isolate;
+    contain: paint;
   }
 
   .library-item-stock-grid {
@@ -2876,7 +2881,17 @@ textarea:disabled {
     max-width: min(86vw, 340px) !important;
     height: calc(min(86vw, 340px) * 1.5) !important;
     min-height: calc(min(86vw, 340px) * 1.5) !important;
+    max-height: calc(min(86vw, 340px) * 1.5) !important;
     aspect-ratio: 2 / 3 !important;
+    overflow: hidden !important;
+    border-radius: 14px !important;
+    isolation: isolate;
+    contain: paint;
+  }
+
+  .library-item-modal-grid > .library-item-modal-photo-col {
+    overflow: hidden !important;
+    justify-content: flex-start !important;
   }
 
   .merch-item-preview {
