@@ -5305,7 +5305,7 @@ const baseCount = total - ex;
       width: size === "carousel" ? 80 : undefined,
       height: size === "carousel" ? 114 : undefined,
       boxSizing: "border-box",
-      overflow: size === "carousel" && !revealChrome ? "hidden" : "visible",
+      overflow: "hidden",
       position: "relative", 
       transition: "all 140ms ease", 
       boxShadow: active
@@ -9305,6 +9305,9 @@ const [stockDraft, setStockDraft] = useState<StatusCounts>(emptyCounts());
 const [wttDisplay, setWttDisplay] = useState(0);
 const [stockDirty, setStockDirty] = useState(false);
 const [stockSaving, setStockSaving] = useState(false);
+const [binderUploadSide, setBinderUploadSide] = useState<"front" | "back">("front");
+const [binderUploadMsg, setBinderUploadMsg] = useState<string | null>(null);
+const [binderUploading, setBinderUploading] = useState(false);
 const stockOpenedRef = React.useRef(false);
 // ✅ inicializa el borrador solo al abrir el modal
 // ⌨️ Enter = Guardar | Esc = Cancelar
@@ -10012,18 +10015,17 @@ const headerTitle = (() => {
 
   const rightPanelContent = !isCustom ? (
     <div style={{ display: "grid", gap: 14 }}>
+      {/* Stock + precio (mismo patrón visual que library) */}
       <div style={{ ...subtleCard, padding: 14 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            marginBottom: 6,
-          }}
-        >
-          <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>{t("binders.item_info.info_title")}</div>
-
+        <div style={{ fontWeight: 950, marginBottom: 10, color: "var(--color-primary)" }}>
+          {t("binders.item_info.price_title")}
+        </div>
+        <div className="library-stock-row" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+            <div style={{ fontWeight: 950, color: "var(--color-primary)" }}>
+              {t("library.stock_title")}
+            </div>
           <button
             type="button"
             onClick={async () => {
@@ -10036,53 +10038,6 @@ const headerTitle = (() => {
           >
             🗑
           </button>
-        </div>
-
-        <div style={{ display: "grid", rowGap: 10 }}>
-          {[
-            { k: t("binders.picker.group"), v: prettyGroup },
-            { k: t("binders.picker.album"), v: prettyAlbum },
-            { k: t("binders.picker.version"), v: prettyVersion },
-          ].map((r) => (
-            <div
-              key={r.k}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "90px 1fr",
-                alignItems: "center",
-                columnGap: 10,
-                padding: "6px 2px",
-                borderRadius: 12,
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 900, color: "var(--color-primary)" }}>{r.k}</div>
-              <div
-                style={{
-                  fontWeight: 950,
-                  color: "var(--text-main)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  textAlign: "left",
-                }}
-                title={r.v}
-              >
-                {r.v}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Stock + precio (mismo patrón visual que library) */}
-      <div style={{ ...subtleCard, padding: 14 }}>
-        <div style={{ fontWeight: 950, marginBottom: 10, color: "var(--color-primary)" }}>
-          {t("binders.item_info.price_title")}
-        </div>
-        <div className="library-stock-row" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 950, marginBottom: 10, color: "var(--color-primary)" }}>
-              {t("library.stock_title")}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {binderStockRow("have", t("library.status_have"))}
@@ -11669,8 +11624,8 @@ color: "var(--text-main)",
         <div style={{ fontSize: 13, fontWeight: 950, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{prettyGroup}</div>
       </div>
     </div>
-    <div className="library-item-modal-chip" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, padding: "6px 10px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--color-border)" }}>
-      <Layers size={16} strokeWidth={2.2} />
+                <div className="library-item-modal-chip" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, padding: "6px 10px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--color-border)" }}>
+      <Disc3 size={16} strokeWidth={2.2} />
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)" }}>{t("binders.picker.album")}</div>
         <div style={{ fontSize: 13, fontWeight: 950, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{prettyAlbum}</div>
@@ -11688,6 +11643,19 @@ color: "var(--text-main)",
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)" }}>{t("binders.picker.member")}</div>
         <div style={{ fontSize: 13, fontWeight: 950, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{headerTitle}</div>
+      </div>
+    </div>
+    <div className="library-item-modal-chip" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, padding: "6px 10px", borderRadius: 14, background: "var(--bg-card)", border: "1px solid var(--color-border)" }}>
+      <Layers size={16} strokeWidth={2.2} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-muted)" }}>{t("binders.picker.type")}</div>
+        <div style={{ fontSize: 13, fontWeight: 950, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{
+          /ot8|all members/i.test(String(rawMember || headerTitle || ""))
+            ? t("library.filters.ot8")
+            : /[·+]/.test(String(headerTitle || ""))
+              ? t("library.filters.unit")
+              : t("library.filters.single")
+        }</div>
       </div>
     </div>
   </div>
@@ -11714,14 +11682,6 @@ color: "var(--text-main)",
   </button>
   {/* ✅ FIN DE BOTONES DE NAVEGACIÓN */}
 
-  <button
-  type="button"
-  onClick={() => { void doModalUndo(); }}
-  title={t('binders.actions.undo')}
-  style={{ ...iconBtnStyle, padding: "8px", width: 36, height: 36 }}
-  >
-  <Undo2 size={18} strokeWidth={2.5} />
-  </button>
   <button type="button" onClick={onClose} style={iconBtnStyle} title={t('common.close')} className="iconDangerHover modalCloseBtn">
   ✕
   </button>
@@ -11805,6 +11765,58 @@ color: "var(--text-main)",
     <div style={{ marginTop: 8, fontSize: 11, fontWeight: 800, color: "var(--text-muted)" }}>
       {t("library.modal.inspect_hint")}
     </div>
+    {!isCustom && (
+      <div style={{ marginTop: 12, padding: 14, width: "100%", ...subtleCard }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ minWidth: 0, textAlign: "left" }}>
+            <div style={{ fontWeight: 950, color: "var(--color-primary)", lineHeight: 1.15 }}>{t("library.modal.improve_image")}</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3, lineHeight: 1.35 }}>{t("library.modal.improve_desc")}</div>
+          </div>
+          <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", gap: 4, opacity: binderUploading ? 0.6 : 1 }}>
+            {(["front", "back"] as const).map((side) => (
+              <label
+                key={side}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: 999,
+                  cursor: binderUploading ? "not-allowed" : "pointer",
+                  fontWeight: 950,
+                  fontSize: 12,
+                  background: binderUploadSide === side ? "var(--bg-soft)" : "transparent",
+                  color: "var(--color-primary)",
+                  minWidth: 74,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {side === "front" ? "Front" : "Back"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  disabled={binderUploading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    setBinderUploadSide(side);
+                    if (f) {
+                      setBinderUploading(true);
+                      setBinderUploadMsg(null);
+                      Promise.resolve(onSubmitBetterPhoto(side, f))
+                        .then(() => setBinderUploadMsg("✓"))
+                        .catch(() => setBinderUploadMsg("❌"))
+                        .finally(() => setBinderUploading(false));
+                    }
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+        {binderUploadMsg ? <div style={{ marginTop: 8, fontSize: 12, fontWeight: 900 }}>{binderUploadMsg}</div> : null}
+      </div>
+    )}
     <div className="library-item-modal-more-hint" aria-hidden>
       <ChevronDown size={18} strokeWidth={2.4} />
       <ChevronDown size={18} strokeWidth={2.4} style={{ marginTop: -10, opacity: 0.55 }} />
@@ -12921,9 +12933,10 @@ const isDraggingMe = pageDragFromId === p.id;
             style={{
               flex: "0 0 auto",
               position: "relative",
-              padding: "8px 6px",
+              padding: "4px",
+              width: 88,
               zIndex: isTarget ? 150 : 1,
-              cursor: deleteMode ? "pointer" : "default" // Cursor click en modo borrar
+              cursor: deleteMode ? "pointer" : "default"
             }}
           >
             {/* ✅ LA LUZ ROSA DE DRAG & DROP */}
@@ -13029,7 +13042,7 @@ const isDraggingMe = pageDragFromId === p.id;
                   pointerEvents: deleteMode ? "none" : "auto" 
                 }}
               >
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 80, flex: "0 0 auto" }}>
                 <PageThumb
                   pageId={p.id}
                   layoutKey={p.layout_type}
@@ -13039,39 +13052,53 @@ const isDraggingMe = pageDragFromId === p.id;
                   showPageNumber={false}
                   refreshTick={refreshTick}
                   title={`Ir a página ${idx + 1}`}
-                  revealChrome={isSelectedToMove}
-                  onClick={() => {}} // Ya lo maneja el padre
+                  revealChrome={false}
+                  onClick={() => {}}
                   draggable={false}
-                  onDeletePage={
-                    deleteMode || (isMobile && !isSelectedToMove)
-                      ? undefined
-                      : async (id) => {
-                    const ok = await showConfirm(
-                      t("common.confirm"),
-                      `¿Borrar la página ${idx + 1}? Se perderán los slots colocados.`,
-                    );
-                    if (ok) {
-                      deletePageById(id);
-                    }
-                  }}
+                  onDeletePage={undefined}
                 />
-                <span style={{ fontSize: 9, fontWeight: 900, color: active ? "var(--color-primary)" : "var(--text-muted)", letterSpacing: "0.04em", textAlign: "center", lineHeight: 1.2 }}>
-                  {idx + 1}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginTop: 6, minHeight: 18 }}>
+                  <span style={{ fontSize: 9, fontWeight: 900, color: active ? "var(--color-primary)" : "var(--text-muted)", letterSpacing: "0.04em" }}>
+                    {idx + 1}
+                  </span>
+                  {!deleteMode ? (
+                    <button
+                      type="button"
+                      title={t("binders.actions.delete")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void (async () => {
+                          const ok = await showConfirm(
+                            t("common.confirm"),
+                            `¿Borrar la página ${idx + 1}? Se perderán los slots colocados.`,
+                          );
+                          if (ok) deletePageById(p.id);
+                        })();
+                      }}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 999,
+                        border: "1px solid var(--state-disabled-border)",
+                        background: "var(--bg-card)",
+                        color: "var(--state-danger-fg)",
+                        fontSize: 10,
+                        fontWeight: 950,
+                        lineHeight: 1,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0,
+                      }}
+                    >
+                      ×
+                    </button>
+                  ) : null}
+                </div>
                 </div>
               </div>
 
-              {/* BOTÓN MÓVIL VER PÁGINA */}
-              {isMobile && isSelectedToMove && !deleteMode && (
-                <div style={{ marginTop: 8 }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setSelectedCoverFace(null); setCurrentPageIndex(idx); setMobileMoveSourceId(null); }}
-                    style={{ background: "var(--bg-card)", border: "1px solid var(--state-disabled-border)", borderRadius: "8px", fontSize: "10px", padding: "5px 10px", fontWeight: 800, color: "var(--color-primary)" }}
-                  >
-                    Ver esta página
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         );
