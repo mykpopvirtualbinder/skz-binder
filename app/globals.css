@@ -2120,9 +2120,9 @@ textarea:disabled {
   }
 
   .library-pc-preview {
-    max-width: 280px !important;
+    max-width: 320px !important;
     height: auto !important;
-    min-height: 320px !important;
+    min-height: 0 !important;
     aspect-ratio: 2 / 3 !important;
   }
 
@@ -2494,24 +2494,50 @@ textarea:disabled {
 
 .library-item-modal-overlay {
   overscroll-behavior: none;
+  touch-action: none;
 }
 
-.library-item-modal-shell {
+.library-item-modal-shell,
+[data-modal-scroll] {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.pagesCarousel {
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 
 .pagesCarousel .pageThumb.pageThumb--carousel {
-  width: 80px;
-  height: 114px;
-  padding: 4px;
+  width: 80px !important;
+  height: 114px !important;
+  padding: 4px !important;
   box-sizing: border-box;
+  overflow: visible;
+  touch-action: pan-x;
 }
 
 .pagesCarousel .pageThumbPreview {
   width: 100%;
   height: 100%;
   aspect-ratio: auto;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.pagesCarousel .pageThumb .pageNumBadge {
+  display: none !important;
+}
+
+.pagesCarousel .pageDeleteBtn {
+  top: -6px !important;
+  right: -6px !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: 22px !important;
+  height: 22px !important;
+  font-size: 11px !important;
 }
 
 .catalog-pager-slash {
@@ -2814,29 +2840,40 @@ textarea:disabled {
   }
 
   .library-pc-preview {
-    width: min(78vw, 300px) !important;
-    max-width: min(78vw, 300px) !important;
+    width: min(86vw, 340px) !important;
+    max-width: min(86vw, 340px) !important;
     height: auto !important;
-    min-height: 300px !important;
+    min-height: 0 !important;
     aspect-ratio: 2 / 3 !important;
     margin-inline: auto !important;
   }
 
   .merch-item-preview {
-    width: min(78vw, 300px) !important;
-    max-width: min(78vw, 300px) !important;
+    width: min(86vw, 340px) !important;
+    max-width: min(86vw, 340px) !important;
     height: auto !important;
-    min-height: 240px !important;
+    min-height: 0 !important;
     aspect-ratio: 2 / 3 !important;
+  }
+
+  .library-item-modal-grid,
+  .library-item-modal-grid > div {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
   }
 
   .library-item-modal-more-hint {
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    gap: 0;
     color: var(--color-primary);
     opacity: 0.55;
-    margin: 4px 0 2px;
+    margin: 2px 0 8px;
     animation: modalMoreHint 1.6s ease-in-out infinite;
+    pointer-events: none;
   }
 
   .library-item-modal-overlay {

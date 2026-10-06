@@ -47,7 +47,7 @@ import {
 import {
   Search, Package, CheckCircle2, Star, Loader2,
   Repeat2, DollarSign, LayoutGrid, Archive, Truck, X, Info, Coins, Users, Disc3, Mic2, Layers, MapPin, ArrowUpDown,
-  ChevronLeft, ChevronRight, ZoomIn, SlidersHorizontal,
+  ChevronLeft, ChevronRight, ChevronDown, ZoomIn, SlidersHorizontal,
 } from "lucide-react";
 
 // Font is loaded globally via @font-face in globals.css
@@ -2184,6 +2184,10 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                     <div style={{ position: "absolute", right: 10, bottom: 10, width: 36, height: 36, borderRadius: 12, background: "var(--surface-float)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-primary)", pointerEvents: "none" }}>
                       <ZoomIn size={16} />
                     </div>
+                  </div>
+                  <div className="library-item-modal-more-hint" aria-hidden>
+                    <ChevronDown size={18} strokeWidth={2.4} />
+                    <ChevronDown size={18} strokeWidth={2.4} style={{ marginTop: -10, opacity: 0.55 }} />
                   </div>
                 </div>
 

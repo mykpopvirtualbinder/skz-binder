@@ -3,7 +3,8 @@ import dynamic from 'next/dynamic';
 import React, { useEffect, useMemo, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { prettyMemberLabel } from "@/lib/member-labels";
+import { canonicalMemberStatName, prettyMemberLabel } from "@/lib/member-labels";
+import { resolveMemberAvatarUrl } from "@/lib/member-image-url";
 import { resolveProfileAvatarUrl } from "@/lib/default-profile-avatar";
 import type { AvatarPublicCatalog } from "@/lib/avatarPublicCatalog.types";
 import { buildVipGroupAssetsRows } from "@/lib/vip-badge-groups";
@@ -1073,7 +1074,7 @@ function MePageContent() {
               const skip = !pretty || /^(ot8|all|varios|all members)$/i.test(pretty) || /ot8/i.test(pretty);
               if (!skip) {
                 pretty.split(" · ").forEach((part) => {
-                  const name = part.trim();
+                  const name = canonicalMemberStatName(part);
                   if (!name || /^(ot8|all|varios)$/i.test(name)) return;
                   newStats.byMember[name] = (newStats.byMember[name] || 0) + qty;
                 });

@@ -34,6 +34,8 @@ export function prettyMemberLabel(memberRaw: string | null | undefined): string 
     know: "Know",
     leeknow: "Lee Know",
     changbin: "Changbin",
+    chang: "Chang",
+    bin: "Bin",
     hyunjin: "Hyunjin",
     han: "Han",
     felix: "Felix",
@@ -61,6 +63,11 @@ export function prettyMemberLabel(memberRaw: string | null | undefined): string 
       i++;
       continue;
     }
+    if (a === "chang" && b === "bin") {
+      out.push("Changbin");
+      i++;
+      continue;
+    }
     if (a === "in") {
       out.push("I.N");
       continue;
@@ -70,6 +77,26 @@ export function prettyMemberLabel(memberRaw: string | null | undefined): string 
   }
 
   return Array.from(new Set(out.filter(Boolean))).join(" · ");
+}
+
+/** Collapse nicknames so overview stats do not split Bang Chan / Chan / Bangchan. */
+export function canonicalMemberStatName(name: string): string {
+  const k = String(name || "")
+    .toLowerCase()
+    .replace(/[.\s\-_']/g, "");
+  const aliases: Record<string, string> = {
+    bangchan: "Bang Chan",
+    chan: "Bang Chan",
+    bang: "Bang Chan",
+    changbin: "Changbin",
+    chang: "Changbin",
+    bin: "Changbin",
+    leeknow: "Lee Know",
+    know: "Lee Know",
+    in: "I.N",
+    jeongin: "I.N",
+  };
+  return aliases[k] || name.trim();
 }
 
 export function prettyVersionLabel(raw: string | null | undefined): string {

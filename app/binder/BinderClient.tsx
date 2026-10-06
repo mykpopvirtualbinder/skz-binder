@@ -10,7 +10,7 @@ import { withWtsKoinsMark } from "@/lib/wts-koins-mark";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { 
-  Trash2, ChevronLeft, ChevronRight, Users, Disc3, PenLine, Mic2, User, Layers, 
+  Trash2, ChevronLeft, ChevronRight, ChevronDown, Users, Disc3, PenLine, Mic2, User, Layers, 
     SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart, Plus 
 } from "lucide-react";
 import WtsListingModal from "../library/WtsListingModal"
@@ -11890,6 +11890,10 @@ color: "var(--text-main)",
   </button>
 
       </div>
+      <div className="library-item-modal-more-hint" aria-hidden>
+        <ChevronDown size={18} strokeWidth={2.4} />
+        <ChevronDown size={18} strokeWidth={2.4} style={{ marginTop: -10, opacity: 0.55 }} />
+      </div>
     </div>
     <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
        <div>{rightPanelContent}</div>
@@ -12204,12 +12208,14 @@ return (
 
 
 .pagesCarousel .pageDeleteBtn{
-  right: 8px;
-  bottom: 8px;
-  width: 16px;
-  height: 16px;
+  top: -6px;
+  right: -6px;
+  bottom: auto;
+  left: auto;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
   box-shadow: 0 6px 14px var(--overlay-faint);
 }
 @media (hover: hover) {
@@ -12286,6 +12292,9 @@ return (
 .pageThumb {
   -webkit-touch-callout: none; /* Desactiva el menú contextual de imagen en iOS */
   touch-action: none;          /* Imprescindible para que el drag funcione en táctil */
+}
+.pagesCarousel .pageThumb {
+  touch-action: pan-x;
 }
 
 /* Opcional: un feedback visual cuando el usuario mantiene pulsado en móvil */
@@ -12975,15 +12984,19 @@ const isDraggingMe = pageDragFromId === p.id;
             key={`carousel-page-${p.id}`}
             onClick={() => {
               if (deleteMode) {
-                // MODO SELECCIÓN: Marcamos o desmarcamos
                 setSelectedForDeletion(prev =>
                   prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]
                 );
-              } else {
-                // MODO NORMAL: Cambiamos de página
-                if (!pageDragFromId) {
-                  setSelectedCoverFace(null);
-                  setCurrentPageIndex(idx);
+                return;
+              }
+              if (pageDragFromId) return;
+              setSelectedCoverFace(null);
+              setCurrentPageIndex(idx);
+              if (isMobile) {
+                if (mobileMoveSourceId && mobileMoveSourceId !== p.id) {
+                  void handleMobileMoveClick(p.id);
+                } else {
+                  setMobileMoveSourceId(mobileMoveSourceId === p.id ? null : p.id);
                 }
               }
             }}
@@ -13098,13 +13111,14 @@ const isDraggingMe = pageDragFromId === p.id;
                   pointerEvents: deleteMode ? "none" : "auto" 
                 }}
               >
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                 <PageThumb
                   pageId={p.id}
                   layoutKey={p.layout_type}
                   active={active && !deleteMode && !selectedCoverFace}
                   size="carousel"
                   pageNumber={idx + 1}
-                  showPageNumber={true}
+                  showPageNumber={false}
                   refreshTick={refreshTick}
                   title={`Ir a página ${idx + 1}`}
                   revealChrome={isSelectedToMove}
@@ -13120,6 +13134,10 @@ const isDraggingMe = pageDragFromId === p.id;
                     }
                   }}
                 />
+                <span style={{ fontSize: 9, fontWeight: 900, color: active ? "var(--color-primary)" : "var(--text-muted)", letterSpacing: "0.04em", textAlign: "center", lineHeight: 1.2 }}>
+                  {idx + 1}
+                </span>
+                </div>
               </div>
 
               {/* BOTÓN MÓVIL VER PÁGINA */}

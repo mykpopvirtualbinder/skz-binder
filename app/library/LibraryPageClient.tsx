@@ -1928,7 +1928,8 @@ function ItemModal({
               )}
             </div>
             <div className="library-item-modal-more-hint" aria-hidden>
-              <ChevronDown size={22} strokeWidth={2.4} />
+              <ChevronDown size={18} strokeWidth={2.4} />
+              <ChevronDown size={18} strokeWidth={2.4} style={{ marginTop: -10, opacity: 0.55 }} />
             </div>
               </div>
           {/* DER: INFO, STOCK, NOTAS Y WTT */}

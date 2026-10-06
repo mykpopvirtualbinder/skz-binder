@@ -27,8 +27,28 @@ function acquireBodyLock() {
     body.classList.add("modal-scroll-lock");
     blockBgTouch = (e: TouchEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target?.closest?.("[data-modal-scroll]")) return;
-      e.preventDefault();
+      const shell = target?.closest?.("[data-modal-scroll]") as HTMLElement | null;
+      if (!shell) {
+        e.preventDefault();
+        return;
+      }
+      let node: HTMLElement | null = target;
+      let scroller: HTMLElement | null = null;
+      while (node && shell.contains(node)) {
+        const style = window.getComputedStyle(node);
+        const oy = style.overflowY;
+        if ((oy === "auto" || oy === "scroll" || oy === "overlay") && node.scrollHeight > node.clientHeight + 1) {
+          scroller = node;
+          break;
+        }
+        node = node.parentElement;
+      }
+      if (!scroller && shell.scrollHeight > shell.clientHeight + 1) scroller = shell;
+      if (!scroller) {
+        e.preventDefault();
+        return;
+      }
+      e.stopPropagation();
     };
     document.addEventListener("touchmove", blockBgTouch, { passive: false });
   }
