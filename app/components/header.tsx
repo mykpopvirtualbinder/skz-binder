@@ -210,8 +210,8 @@ function DesktopHeaderNavScroller({
     const el = scrollerRef.current;
     if (!el) return;
     const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
-    setCanScrollLeft(el.scrollLeft > 2);
-    setCanScrollRight(el.scrollLeft < maxScroll - 2);
+    setCanScrollLeft(el.scrollLeft > 8);
+    setCanScrollRight(maxScroll > 8 && el.scrollLeft < maxScroll - 8);
   }, []);
 
   useEffect(() => {

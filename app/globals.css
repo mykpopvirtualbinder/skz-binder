@@ -1760,7 +1760,7 @@ textarea:disabled {
   max-width: none;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   column-gap: 16px;
   align-items: center;
   box-sizing: border-box;
@@ -1770,11 +1770,13 @@ textarea:disabled {
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
+  width: max-content;
   max-width: 100%;
-  width: 100%;
+  justify-self: center;
   display: flex;
   align-items: center;
-  overflow: hidden;
+  justify-content: center;
+  overflow: visible;
 }
 
 .site-header__mobile-nav-row {
@@ -1799,25 +1801,29 @@ textarea:disabled {
 .site-header__nav-scroller {
   display: flex;
   align-items: center;
+  justify-content: center;
   min-width: 0;
   max-width: 100%;
-  width: 100%;
-  flex: 1 1 0%;
-  overflow: hidden;
+  width: max-content;
+  flex: 0 1 auto;
+  overflow: visible;
   position: relative;
   z-index: 1;
 }
 
 .site-header__nav-scroller .site-header__col-center {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   max-width: 100%;
-  flex: 1 1 0%;
+  width: max-content;
+  flex: 0 1 auto;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
   overscroll-behavior-x: contain;
-  padding: 0 2px 10px;
+  padding: 0;
 }
 
 .desktop-header-nav__track {
@@ -1825,9 +1831,10 @@ textarea:disabled {
   align-items: center;
   justify-content: center;
   flex-wrap: nowrap;
-  gap: 16px;
+  gap: clamp(10px, 1.1vw, 18px);
   width: max-content;
-  min-width: 100%;
+  min-width: max-content;
+  margin: 0 auto;
 }
 
 .desktop-header-nav--scrollable .desktop-header-nav__track {
@@ -1836,8 +1843,12 @@ textarea:disabled {
 
 .desktop-header-nav .header-nav-link {
   flex: 0 0 auto;
-  font-size: 20px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(16px, 1.15vw, 20px) !important;
   line-height: 1;
+  padding-top: 0.14em;
   white-space: nowrap;
   text-decoration: none;
 }
