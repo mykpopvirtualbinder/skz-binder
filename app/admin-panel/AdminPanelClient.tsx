@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 
 import { supabase } from "@/lib/supabase";
+import { fetchAdminPendingByArea, type AdminPendingByArea } from "@/lib/admin-pending-count";
+import Footer from "../components/footer";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { useGlobal } from "../context/GlobalContext";
 import {
@@ -178,6 +180,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   // ESTADOS BUZÓN Y APORTACIONES
   const [buzon, setBuzon] = useState<any[]>([]);
   const [aportaciones, setAportaciones] = useState<any[]>([]);
+  const [areaPending, setAreaPending] = useState<AdminPendingByArea>({ solicitudes: 0, denuncias: 0, buzon: 0, aportaciones: 0 });
   const [queueCases, setQueueCases] = useState<Record<string, QueueCase>>({});
   const [queueBusy, setQueueBusy] = useState<string | null>(null);
   const [solFiltroStatus, setSolFiltroStatus] = useState("todos");
@@ -2694,20 +2697,22 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
   const launchTour = (id: string) => startAdminTour(id, tourHandlers);
 
-  const ticketOpen = (status?: string | null) => {
-    const value = String(status || "").toLowerCase();
-    return value === "" || value === "pendiente" || value === "gestionando";
-  };
-  const pendingNav: Record<string, number> = {
-    solicitudes: solicitudes.filter((row) => {
-      const queued = queueCases[queueKey("solicitud", String(row.id))]?.status;
-      const value = String(queued || "").toLowerCase();
-      return value !== "aprobada" && value !== "denegada";
-    }).length,
-    denuncias: denuncias.filter((row) => String(row.estado || "").toLowerCase() !== "completada").length,
-    buzon: buzon.filter((row) => ticketOpen(row.status)).length,
-    aportaciones: aportaciones.filter((row) => ticketOpen(row.status)).length,
-  };
+  const pendingNav: Record<string, number> = areaPending;
+
+  useEffect(() => {
+    let stop = false;
+    const load = () => {
+      void fetchAdminPendingByArea().then((areas) => {
+        if (!stop) setAreaPending(areas);
+      });
+    };
+    load();
+    const timer = window.setInterval(load, 30000);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
+  }, [activeTab]);
 
   if (authLoading) {
     return <CatalogLoadingFun fullPage />;
@@ -2727,7 +2732,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
   }
 
   return (
-    <div className="admin-panel-root" style={{ minHeight: "100vh", backgroundColor: "var(--bg-main)", color: "var(--text-main)", paddingBottom: "100px" }}>
+    <div className="admin-panel-root" style={{ minHeight: "100vh", backgroundColor: "var(--bg-main)", color: "var(--text-main)" }}>
       <div className="admin-shell">
         <aside className="admin-side">
           <div className="admin-brand">
@@ -5219,6 +5224,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
       
         </main>
       </div>
+      <Footer />
 
       <style jsx>{`
         .admin-shell {
@@ -5274,25 +5280,32 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           color: var(--text-muted);
         }
         .admin-nav-count {
+          position: absolute;
+          top: 6px;
+          right: 8px;
           min-width: 18px;
           height: 18px;
-          padding: 0 5px;
+          padding: 0 4px;
+          box-sizing: border-box;
           border-radius: 999px;
-          background: var(--color-primary);
-          color: #fff;
-          font-size: 11px;
+          background: var(--accent-vibe-pink);
+          color: var(--modal-cta-fg);
+          border: 2px solid var(--bg-card);
+          box-shadow: 0 2px 10px color-mix(in srgb, var(--accent-vibe-pink) 45%, transparent);
+          font-size: 10px;
           font-weight: 900;
+          line-height: 1;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          line-height: 1;
         }
         .admin-nav-btn {
+          position: relative;
           width: 100%;
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 9px 10px;
+          padding: 9px 28px 9px 10px;
           margin: 2px 0;
           border: none;
           border-radius: 12px;

@@ -12857,6 +12857,7 @@ bottom: 8px;
 <div
   id="pagesCarouselContainer"
   className="pagesCarousel"
+  data-tour="binder-strip"
   style={{
     display: "flex",         // 👈 VITAL para alinear en horizontal
     alignItems: "center",    // 👈 Centra los elementos verticalmente
@@ -12992,6 +12993,7 @@ const isDraggingMe = pageDragFromId === p.id;
 
               {/* ✅ CONTENEDOR DRAG & DROP (Bloqueado durante el borrado) */}
               <div
+                data-binder-strip-card=""
                 draggable={!isMobile && !deleteMode}
                 onDragStart={(e) => {
                   if (isMobile || deleteMode) return;

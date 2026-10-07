@@ -38,7 +38,7 @@ type TourStep = {
   /** Clic al salir del paso, por ejemplo para cerrar un modal. */
   closeAfter?: string;
   /** Animación visual que no guarda cambios (mover slot, girarlo, reordenar páginas). */
-  demo?: "slot-move" | "slot-spin" | "page-order";
+  demo?: "slot-move" | "slot-spin" | "page-order" | "strip-order";
 };
 
 const openedMenus = new Set<HTMLSelectElement>();
@@ -646,7 +646,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='fanart-upload']",
         title: "Sube o pide ser artista",
-        text: "Si todavía no eres artista, el siguiente paso es la solicitud: datos, redes y muestras. Cuando te aprueban, este mismo botón publica la obra en el estudio.",
+        text: "Este botón abre una de dos ventanas. Si todavía no eres artista, la siguiente es la solicitud. Si ya lo eres, la de después es el estudio donde publicas la obra.",
         side: "left",
       },
       {
@@ -657,6 +657,15 @@ const stepsFor = (id: string): TourStep[] => {
         clickBefore: "[data-tour='fanart-open-apply']",
         wait: 300,
         closeAfter: "[data-tour='fanart-upload-close']",
+      },
+      {
+        selector: "[data-tour='fanart-studio-step']",
+        title: "Así se ve si ya eres artista",
+        text: "Título, categoría, el archivo de la obra y la portada. Publicar la cuelga en el muro. Desde el tour no se publica nada: es la misma ventana del estudio.",
+        side: "left",
+        clickBefore: "[data-tour='fanart-open-studio']",
+        wait: 300,
+        closeAfter: "[data-tour='fanart-studio-close']",
       },
       {
         selector: "[data-tour='fanart-filters']",
@@ -866,9 +875,16 @@ const stepsFor = (id: string): TourStep[] => {
         closeAfter: "[data-tour='binder-format']",
       },
       {
+        selector: "[data-tour='binder-strip']",
+        title: "Las miniaturas de las páginas",
+        text: "Esta tira está junto a los botones, encima del grid donde colocas las PCs. Cada miniatura es una página. Arrastra una encima de otra para cambiar el orden. El + de la izquierda añade una página al principio. El movimiento del tour no guarda nada.",
+        side: "bottom",
+        demo: "strip-order",
+      },
+      {
         selector: "[data-tour='binder-pages']",
-        title: "El carrusel",
-        text: "Ver todas abre el carrusel: las páginas en pequeño, en el orden del binder.",
+        title: "Ver todas",
+        text: "Ver todas abre el mismo orden en grande: las páginas en pequeño, de la primera a la última.",
         side: "bottom",
       },
       {
@@ -1011,6 +1027,27 @@ function localDelta(from: HTMLElement, to: HTMLElement) {
   return { x: (b.left - a.left) / safe, y: (b.top - a.top) / safe };
 }
 
+function inFixedOverlay(el: HTMLElement) {
+  let node: HTMLElement | null = el.parentElement;
+  while (node && node !== document.body) {
+    if (getComputedStyle(node).position === "fixed") return true;
+    node = node.parentElement;
+  }
+  return false;
+}
+
+/** Sube o baja la página (y el contenedor con scroll) hasta dejar el paso a la vista, debajo del header. */
+function scrollTourTarget(el: HTMLElement) {
+  const header = 112;
+  const pad = 28;
+  el.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+  if (inFixedOverlay(el)) return;
+  const rect = el.getBoundingClientRect();
+  if (rect.height < 8) return;
+  if (rect.top < header + pad) window.scrollBy(0, rect.top - header - pad);
+  else if (rect.bottom > window.innerHeight - pad) window.scrollBy(0, rect.bottom - (window.innerHeight - pad));
+}
+
 function playBinderDemo(kind: NonNullable<TourStep["demo"]>) {
   clearBinderDemo();
   if (kind === "slot-move") {
@@ -1048,7 +1085,9 @@ function playBinderDemo(kind: NonNullable<TourStep["demo"]>) {
     );
     return;
   }
-  const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-binder-page-card]"));
+  const cards = Array.from(
+    document.querySelectorAll<HTMLElement>(kind === "strip-order" ? "[data-binder-strip-card]" : "[data-binder-page-card]"),
+  );
   if (cards.length < 2) return;
   const [first, second] = cards;
   const { x, y } = localDelta(first, second);
@@ -1137,8 +1176,15 @@ export function startUserTour(id: string) {
     onHighlighted: (el, _step, { driver: drv }) => {
       openReveal(step);
       if (step.expand) expandSelect(el);
+      if (el instanceof HTMLElement) scrollTourTarget(el);
       if (step.demo) playBinderDemo(step.demo);
-      window.requestAnimationFrame(() => drv.refresh());
+      const refresh = () => {
+        if (el instanceof HTMLElement) scrollTourTarget(el);
+        drv.refresh();
+      };
+      window.requestAnimationFrame(refresh);
+      window.setTimeout(refresh, 120);
+      window.setTimeout(refresh, 450);
     },
     onDeselected: (el) => {
       if (step.expand) collapseSelect(el);
@@ -1173,7 +1219,7 @@ export function startUserTour(id: string) {
 
   const tour = driver({
     animate: true,
-    smoothScroll: true,
+    smoothScroll: false,
     allowClose: true,
     overlayOpacity: 0.55,
     stagePadding: 6,
@@ -1209,11 +1255,26 @@ export function startUserTour(id: string) {
   const begin = () => {
     if (active !== tour) return;
     const ready = resolveStep(steps[0]);
-    if (ready || Date.now() - startedAt > 8000) {
-      tour.drive(0);
+    if (!(ready instanceof HTMLElement)) {
+      if (Date.now() - startedAt > 8000) {
+        tour.drive(0);
+        return;
+      }
+      window.setTimeout(begin, 150);
       return;
     }
-    window.setTimeout(begin, 150);
+    const top = Math.round(ready.getBoundingClientRect().top);
+    window.setTimeout(() => {
+      if (active !== tour) return;
+      const again = resolveStep(steps[0]);
+      const nextTop = again instanceof HTMLElement ? Math.round(again.getBoundingClientRect().top) : top;
+      if (Math.abs(nextTop - top) > 6 && Date.now() - startedAt < 6000) {
+        begin();
+        return;
+      }
+      if (again instanceof HTMLElement) scrollTourTarget(again);
+      tour.drive(0);
+    }, 220);
   };
   begin();
 }

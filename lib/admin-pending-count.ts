@@ -8,8 +8,15 @@ function countOf(res: { count: number | null; error: unknown }) {
   return res.count ?? 0;
 }
 
-/** Solicitudes, denuncias, buzón y aportaciones que siguen abiertas. */
-export async function fetchAdminPendingCount() {
+export type AdminPendingByArea = {
+  solicitudes: number;
+  denuncias: number;
+  buzon: number;
+  aportaciones: number;
+};
+
+/** Los mismos criterios que el sobre del header, partido por área. */
+export async function fetchAdminPendingByArea(): Promise<AdminPendingByArea> {
   const [buzon, aportaciones, denuncias, solicitudes] = await Promise.all([
     supabase
       .from("buzon_colaboraciones")
@@ -21,5 +28,16 @@ export async function fetchAdminPendingCount() {
     supabase.from("solicitudes_artistas").select("id", { count: "exact", head: true }),
   ]);
 
-  return countOf(buzon) + countOf(aportaciones) + countOf(denuncias) + countOf(solicitudes);
+  return {
+    solicitudes: countOf(solicitudes),
+    denuncias: countOf(denuncias),
+    buzon: countOf(buzon),
+    aportaciones: countOf(aportaciones),
+  };
+}
+
+/** Solicitudes, denuncias, buzón y aportaciones que siguen abiertas. */
+export async function fetchAdminPendingCount() {
+  const areas = await fetchAdminPendingByArea();
+  return areas.solicitudes + areas.denuncias + areas.buzon + areas.aportaciones;
 }

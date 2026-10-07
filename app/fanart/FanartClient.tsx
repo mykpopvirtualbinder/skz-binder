@@ -5,7 +5,7 @@ import BackToMessagesBar from "../components/BackToMessagesBar";
 import React, { useState, useRef, useEffect, Suspense } from "react";
 
 import {
-  Heart, MessageCircle, Plus, Paintbrush, X, UploadCloud, Loader2,
+  Heart, MessageCircle, Plus, Paintbrush, X, UploadCloud, ImagePlus, Loader2,
   FileText, Film, Eye, AlertTriangle, Maximize2, BookOpen, Flag, CheckCircle,
   ChevronLeft, ChevronRight, Trash2, SlidersHorizontal
 } from "lucide-react";
@@ -417,6 +417,7 @@ function FanArtContent() {
   }, [artworks]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [studioTourOpen, setStudioTourOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -922,7 +923,15 @@ function FanArtContent() {
             data-tour="fanart-open-apply"
             tabIndex={-1}
             aria-hidden
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => { setStudioTourOpen(false); setIsModalOpen(true); }}
+            style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
+          />
+          <button
+            type="button"
+            data-tour="fanart-open-studio"
+            tabIndex={-1}
+            aria-hidden
+            onClick={() => { setIsModalOpen(false); setStudioTourOpen(true); }}
             style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
           />
         </div>
@@ -1442,6 +1451,55 @@ function FanArtContent() {
                 {isSubmitting ? <><Loader2 size={20} className="spinner" /> {t("fanart.upload_form.btn_sending")}</> : t("fanart.upload_form.btn_submit")}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {studioTourOpen && (
+        <div onClick={() => setStudioTourOpen(false)} style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-medium)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+          <div data-tour="fanart-studio-step" onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "var(--bg-card)", width: "100%", maxWidth: "640px", borderRadius: "24px", border: `1px solid color-mix(in srgb, ${ACC.violet} 28%, var(--color-border))`, maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column", boxShadow: "0 20px 40px var(--shadow-card)" }}>
+            <div style={{ padding: "20px 25px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, backgroundColor: "var(--bg-card)", zIndex: 10 }}>
+              <div>
+                <h2 className="tan-font" style={{ margin: 0, color: ACC.violet, fontSize: "24px" }}>Tu estudio</h2>
+                <p style={{ margin: "5px 0 0 0", fontSize: "12px", color: "var(--text-muted)", fontWeight: 700 }}>Así publica una artista su obra</p>
+              </div>
+              <button type="button" data-tour="fanart-studio-close" onClick={() => setStudioTourOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: ACC.pink }}><X size={28} /></button>
+            </div>
+            <div style={{ padding: "25px", display: "flex", flexDirection: "column", gap: 18 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, fontWeight: 900, color: ACC.violet }}>
+                  {t("creator.label_title")}
+                  <input readOnly tabIndex={-1} placeholder={t("creator.title_placeholder")} style={inputStyle} />
+                </label>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, fontWeight: 900, color: ACC.violet }}>
+                  {t("creator.label_category")}
+                  <select tabIndex={-1} defaultValue={t("creator.cat_2d")} style={inputStyle}>
+                    <option>{t("creator.cat_2d")}</option>
+                    <option>{t("creator.cat_3d")}</option>
+                    <option>{t("creator.cat_crafts")}</option>
+                    <option>{t("creator.cat_fanfics")}</option>
+                    <option>{t("creator.cat_media")}</option>
+                  </select>
+                </label>
+              </div>
+              <div>
+                <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 900, color: ACC.violet }}>{t("creator.label_main_file")}</p>
+                <div style={{ border: `2px dashed color-mix(in srgb, ${ACC.violet} 55%, var(--color-border))`, borderRadius: 14, padding: 22, textAlign: "center", color: ACC.violet, fontWeight: 800 }}>
+                  <UploadCloud size={28} color={ACC.cyan} style={{ margin: "0 auto 8px" }} />
+                  <span>{t("creator.upload_content")}</span>
+                </div>
+              </div>
+              <div>
+                <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 900, color: ACC.violet }}>{t("creator.label_cover_req")}</p>
+                <div style={{ border: "2px dashed var(--color-border)", borderRadius: 14, padding: 22, textAlign: "center", background: "var(--bg-soft)", color: ACC.violet, fontWeight: 800 }}>
+                  <ImagePlus size={28} color={ACC.pink} style={{ margin: "0 auto 8px" }} />
+                  <span>{t("creator.upload_cover")}</span>
+                </div>
+              </div>
+              <button type="button" style={{ width: "100%", background: FANART_CTA_GRAD, color: "var(--modal-cta-fg)", border: "none", padding: "16px", borderRadius: "14px", fontWeight: 900, fontSize: "16px", boxShadow: FANART_CTA_SHADOW }}>
+                {t("creator.btn_publish")}
+              </button>
+            </div>
           </div>
         </div>
       )}
