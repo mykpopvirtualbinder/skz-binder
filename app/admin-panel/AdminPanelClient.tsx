@@ -32,7 +32,7 @@ import {
 } from "@/lib/admin-queue";
 import { AdminQueueBar, AdminQueueFilters, ReadSelectionBar, UserCaseHistory, caseMatchesFilters, type UserHistoryRow } from "./AdminQueueBar";
 import AdminManual from "./AdminManual";
-import { startAdminTour } from "./adminTour";
+import { startAdminTour, ADMIN_TOUR_IDS, type AdminTourHandlers, type AdminTourId } from "./adminTour";
 
 
 
@@ -2650,6 +2650,27 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     openAdminTab("publicar");
   };
 
+  const tourHandlers: AdminTourHandlers = {
+    openTab: openAdminTab,
+    hideUserCard: () => { setUsersListOpen(false); setOpenUserActionsId(null); },
+    showUserCard: () => {
+      setUsersOverviewFilter("todos");
+      setUsersOverviewSearch("");
+      setUsersListOpen(true);
+      const first = usersOverview[0];
+      if (first) setOpenUserActionsId(first.user_id);
+    },
+    openFirstSolicitud: () => {
+      const first = solicitudes[0];
+      if (first) setOpenSolicitudId(first.id);
+    },
+    showArtworkFields: () => {
+      setFormData((prev) => (prev.category === "Fanfics" ? { ...prev, category: "Arte 2D" } : prev));
+    },
+  };
+
+  const launchTour = (id: string) => startAdminTour(id, tourHandlers);
+
   if (authLoading) {
     return <CatalogLoadingFun fullPage />;
   }
@@ -2704,6 +2725,11 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
         <main className="admin-stage">
         <div className={activeTab === "manual" ? "admin-stage-body is-plain" : "admin-stage-body"}>
+          {ADMIN_TOUR_IDS.includes(activeTab as AdminTourId) && (
+            <div className="admin-section-tour">
+              <button type="button" onClick={() => launchTour(activeTab)}>Tour de esta sección</button>
+            </div>
+          )}
           
           {/* PESTAÑA 1: PUBLICAR OBRA */}
           {activeTab === "publicar" && (
@@ -4282,26 +4308,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
 
           {/* PESTAÑA 5: MANUAL INTERACTIVO */}
           {activeTab === "manual" && (
-            <AdminManual
-              onStartTour={() => startAdminTour({
-                openTab: openAdminTab,
-                hideUserCard: () => { setUsersListOpen(false); setOpenUserActionsId(null); },
-                showUserCard: () => {
-                  setUsersOverviewFilter("todos");
-                  setUsersOverviewSearch("");
-                  setUsersListOpen(true);
-                  const first = usersOverview[0];
-                  if (first) setOpenUserActionsId(first.user_id);
-                },
-                openFirstSolicitud: () => {
-                  const first = solicitudes[0];
-                  if (first) setOpenSolicitudId(first.id);
-                },
-                showArtworkFields: () => {
-                  setFormData((prev) => (prev.category === "Fanfics" ? { ...prev, category: "Arte 2D" } : prev));
-                },
-              })}
-            />
+            <AdminManual onStartTour={launchTour} />
           )}
 
 
@@ -5243,6 +5250,22 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           padding: 0;
           border: none;
           box-shadow: none;
+        }
+        .admin-section-tour {
+          display: flex;
+          justify-content: flex-end;
+          margin: -8px 0 14px;
+        }
+        .admin-section-tour button {
+          background: var(--color-primary);
+          color: var(--bg-card);
+          border: none;
+          border-radius: 12px;
+          padding: 8px 14px;
+          font-weight: 900;
+          font-size: 13px;
+          cursor: pointer;
+          width: auto;
         }
         .admin-nav-btn:hover {
           background: color-mix(in srgb, var(--color-primary) 8%, transparent);

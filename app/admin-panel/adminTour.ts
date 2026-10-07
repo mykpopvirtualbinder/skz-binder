@@ -21,26 +21,24 @@ export type AdminTourHandlers = {
   showArtworkFields: () => void;
 };
 
+export const ADMIN_TOUR_IDS = [
+  "publicar",
+  "catalogo",
+  "publicidad",
+  "usuarios",
+  "solicitudes",
+  "denuncias",
+  "buzon",
+  "aportaciones",
+] as const;
+
+export type AdminTourId = (typeof ADMIN_TOUR_IDS)[number];
+
 let active: Driver | null = null;
 
-export function startAdminTour(handlers: AdminTourHandlers) {
-  active?.destroy();
-
-  const steps: TourStep[] = [
-    {
-      selector: "[data-tour='admin-nav']",
-      title: "El menú",
-      text: "Estos son los apartados del panel. El tour entra en cada uno y señala el botón de verdad, con un bocadillo de qué hacer.",
-      side: "bottom",
-      tab: "manual",
-    },
-    {
-      selector: "[data-tour='nav-publicar']",
-      title: "Publicar",
-      text: "Desde aquí se sube una obra en nombre de otra persona. El tour abre la pantalla.",
-      side: "bottom",
-      tab: "publicar",
-    },
+function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
+  const all: Record<AdminTourId, TourStep[]> = {
+    publicar: [
     {
       selector: "[data-tour='pub-titulo']",
       title: "Título y categoría",
@@ -70,6 +68,8 @@ export function startAdminTour(handlers: AdminTourHandlers) {
       side: "top",
       tab: "publicar",
     },
+    ],
+    catalogo: [
     {
       selector: "[data-tour='cat-grupo']",
       title: "Grupo",
@@ -84,6 +84,8 @@ export function startAdminTour(handlers: AdminTourHandlers) {
       side: "bottom",
       tab: "catalogo",
     },
+    ],
+    publicidad: [
     {
       selector: "[data-tour='ad-form']",
       title: "La campaña",
@@ -91,6 +93,8 @@ export function startAdminTour(handlers: AdminTourHandlers) {
       side: "bottom",
       tab: "publicidad",
     },
+    ],
+    usuarios: [
     {
       selector: "[data-tour='usr-resumen']",
       title: "El resumen",
@@ -131,6 +135,8 @@ export function startAdminTour(handlers: AdminTourHandlers) {
       tab: "usuarios",
       before: handlers.showUserCard,
     },
+    ],
+    solicitudes: [
     {
       selector: "[data-tour='sol-filtros']",
       title: "Filtros de solicitudes",
@@ -153,6 +159,8 @@ export function startAdminTour(handlers: AdminTourHandlers) {
       tab: "solicitudes",
       before: handlers.openFirstSolicitud,
     },
+    ],
+    denuncias: [
     {
       selector: "[data-tour='den-filtros']",
       title: "Denuncias",
@@ -160,6 +168,8 @@ export function startAdminTour(handlers: AdminTourHandlers) {
       side: "bottom",
       tab: "denuncias",
     },
+    ],
+    buzon: [
     {
       selector: "[data-tour='buz-filtros']",
       title: "El buzón",
@@ -174,6 +184,8 @@ export function startAdminTour(handlers: AdminTourHandlers) {
       side: "top",
       tab: "buzon",
     },
+    ],
+    aportaciones: [
     {
       selector: "[data-tour='apo-filtros']",
       title: "Aportaciones",
@@ -181,14 +193,16 @@ export function startAdminTour(handlers: AdminTourHandlers) {
       side: "bottom",
       tab: "aportaciones",
     },
-    {
-      selector: "[data-tour='nav-manual']",
-      title: "Para repetirlo",
-      text: "El tour se lanza desde Manual, con Empezar tour. Siguiente y Anterior mueven el bocadillo. La X lo cierra.",
-      side: "bottom",
-      tab: "manual",
-    },
-  ];
+    ],
+  };
+
+  return all[id as AdminTourId] ?? [];
+}
+
+export function startAdminTour(id: string, handlers: AdminTourHandlers) {
+  const steps = stepsFor(id, handlers);
+  if (!steps.length) return;
+  active?.destroy();
 
   const driveSteps: DriveStep[] = steps.map((step) => ({
     element: () => {

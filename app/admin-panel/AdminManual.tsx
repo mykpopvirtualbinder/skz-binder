@@ -282,7 +282,7 @@ function ManualScreen({ lessonId, hot }: { lessonId: string; hot: string }) {
   );
 }
 
-export default function AdminManual({ onStartTour }: { onStartTour?: () => void }) {
+export default function AdminManual({ onStartTour }: { onStartTour?: (id: string) => void }) {
   const [lessonId, setLessonId] = useState(LESSONS[0].id);
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -327,13 +327,17 @@ export default function AdminManual({ onStartTour }: { onStartTour?: () => void 
         <div className="adm-manual-stage">
         <div className="adm-tour-banner">
           <div>
-            <p className="adm-kicker">Tour en la pantalla real</p>
-            <h2>Recorre el panel</h2>
-            <p>Se abre cada apartado y un bocadillo señala el botón. Siguiente y Anterior lo mueven. La X lo cierra.</p>
+            <p className="adm-kicker">Un tour por apartado</p>
+            <h2>Tour de {lesson.label}</h2>
+            <p>{lesson.id === "manual"
+              ? "Cada pestaña del panel tiene el suyo. Elige Publicar, Usuarios, Catálogo… y lánzalo aquí, o pulsa Tour dentro de esa sección."
+              : "Recorre solo esta sección, sobre la pantalla de verdad. Siguiente y Anterior mueven el bocadillo. La X lo cierra."}</p>
           </div>
-          <button type="button" className="adm-tour-go" onClick={onStartTour}>
-            <Play size={16} /> Empezar tour
-          </button>
+          {lesson.id !== "manual" && (
+            <button type="button" className="adm-tour-go" onClick={() => onStartTour?.(lesson.id)}>
+              <Play size={16} /> Empezar
+            </button>
+          )}
         </div>
         <div className="adm-manual-top">
           <div>
