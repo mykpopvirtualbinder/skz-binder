@@ -6792,6 +6792,7 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
  return (
     <div
       key={p.id}
+      data-binder-page-card=""
       draggable={!isMobile} 
       // 1. TODOS LOS EVENTOS EN LA CAJA EXTERIOR
       onDragStart={(e) => {
@@ -8373,6 +8374,8 @@ const base = `scaleX(${flip ? -1 : 1})`;
 
   return (
   <div
+      data-binder-pocket=""
+      data-filled={assigned ? "1" : "0"}
       className="pcSlotWrap" // <--- ASEGÚRATE DE QUE TIENE ESTA CLASE
      onMouseEnter={() => {
  if (!isBiasPC) return;

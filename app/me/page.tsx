@@ -2364,7 +2364,7 @@ function MePageContent() {
                   ))}
                 </div>
                 <h4 style={{ color: "var(--color-primary)", margin: "16px 0 8px 0", fontWeight: 900 }}>{t("me.preferences.management_title")}</h4>
-                <p style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700, margin: "0 0 8px 0" }}>{t("me.preferences.bias_cycle_hint")}</p>
+                <p data-tour="me-bias-hint" style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700, margin: "0 0 8px 0" }}>{t("me.preferences.bias_cycle_hint")}</p>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px", position: "relative", alignItems: "flex-start" }}>
                   <div style={{ position: "relative", flex: "1 1 220px", maxWidth: "280px" }}>
                     <input
@@ -2409,7 +2409,7 @@ function MePageContent() {
                       <span style={{ fontSize: "10px", fontWeight: 900, padding: "2px 8px", borderRadius: "6px", border: "1px solid var(--color-primary)", color: "var(--color-primary)" }}>Bias</span>
                       <span style={{ fontSize: "10px", fontWeight: 900, padding: "2px 8px", borderRadius: "6px", border: "1px dashed var(--state-warning-fg)", color: "var(--state-warning-fg)" }}>Wrecker</span>
                     </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    <div data-tour="me-bias-members" style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                       {rowMembers.length === 0 ? (
                         <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>{t("me.preferences.no_members")}</span>
                       ) : (

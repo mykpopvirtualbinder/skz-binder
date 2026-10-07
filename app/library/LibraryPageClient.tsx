@@ -3769,6 +3769,32 @@ const commitStockForItem = useCallback(
       <AdRailLayout section="library">
       {/* CUERPO DE LA LIBRERIA (Con márgenes laterales preparados para publicidad) */}
       <div ref={libraryShellRef} className="library-shell" style={{ padding: catalog === "inclusions" ? "8px 40px 24px" : "24px 40px", display: "flex", justifyContent: "center", flex: 1, width: "100%" }}>
+        <button
+          type="button"
+          data-tour="lib-open-wtt"
+          tabIndex={-1}
+          aria-hidden
+          onClick={() => {
+            const id = openItemId ?? items.find((it) => typeof it.id === "number")?.id ?? null;
+            if (id == null) return;
+            setWttListingItemId(id);
+            setWttListingModalOpen(true);
+          }}
+          style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
+        />
+        <button
+          type="button"
+          data-tour="lib-open-wts"
+          tabIndex={-1}
+          aria-hidden
+          onClick={() => {
+            const id = openItemId ?? items.find((it) => typeof it.id === "number")?.id ?? null;
+            if (id == null) return;
+            setWtsListingItemId(id);
+            setWtsListingModalOpen(true);
+          }}
+          style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
+        />
         <WtsListingModal
           open={wtsListingModalOpen}
           itemId={wtsListingItemId}
@@ -4488,9 +4514,9 @@ return (
 
       {showColabModal && (
         <div className="library-colab-overlay" onClick={backdropPointerClose(closeColab)} style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", backdropFilter: "blur(4px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-          <div className="library-colab-shell" onClick={(e) => e.stopPropagation()} style={{ background: "var(--bg-card)", border: "1px solid var(--color-border)", width: "100%", maxWidth: "min(560px, calc(100vw - 40px))", maxHeight: "90vh", overflowY: "auto", borderRadius: "32px", padding: "30px", position: "relative", boxShadow: "0 25px 50px var(--overlay-soft)" }}>
+          <div data-tour="lib-colab-modal" className="library-colab-shell" onClick={(e) => e.stopPropagation()} style={{ background: "var(--bg-card)", border: "1px solid var(--color-border)", width: "100%", maxWidth: "min(560px, calc(100vw - 40px))", maxHeight: "90vh", overflowY: "auto", borderRadius: "32px", padding: "30px", position: "relative", boxShadow: "0 25px 50px var(--overlay-soft)" }}>
             
-            <button type="button" className="library-colab-close" onClick={closeColab} aria-label="Cerrar">
+            <button type="button" data-tour="lib-colab-close" className="library-colab-close" onClick={closeColab} aria-label="Cerrar">
               <X size={18} />
             </button>
 

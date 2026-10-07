@@ -37,6 +37,8 @@ type TourStep = {
   wait?: number;
   /** Clic al salir del paso, por ejemplo para cerrar un modal. */
   closeAfter?: string;
+  /** Animación visual que no guarda cambios (mover slot, girarlo, reordenar páginas). */
+  demo?: "slot-move" | "slot-spin" | "page-order";
 };
 
 const openedMenus = new Set<HTMLSelectElement>();
@@ -309,8 +311,50 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='pc-modal-stock']",
         title: "Stock dentro de la ficha",
-        text: "Los mismos contadores que el desplegable de la carta, más el precio y las notas. Guardar actualiza tu inventario.",
+        text: "Los mismos contadores que el desplegable de la carta, más el precio y las notas. Si subes WTT o WTS y guardas, se abre el anuncio. En merch es igual: desde la ficha de la pieza.",
         side: "left",
+      },
+      {
+        selector: "[data-tour='wtt-listing']",
+        title: "Crear un cambio",
+        text: "Esta ventana sale al guardar un WTT en la ficha. Eliges si aceptas cualquier oferta, solo el mismo miembro o todo el grupo, y dejas una nota. El botón de abajo abre el grid de las cartas por las que cambiarías. En merch se publica igual.",
+        side: "left",
+        clickBefore: "[data-tour='lib-open-wtt']",
+        wait: 400,
+      },
+      {
+        selector: "[data-tour='wtt-conditions']",
+        title: "Qué aceptarías",
+        text: "Puedes marcar más de una. La nota sale en el anuncio para que la otra persona sepa qué buscas antes de escribirte.",
+        side: "left",
+        closeAfter: "[data-tour='wtt-listing-close']",
+      },
+      {
+        selector: "[data-tour='wts-listing']",
+        title: "Crear una venta",
+        text: "Lo mismo con WTS: al guardar la venta en la ficha se abre el precio. Puedes cobrar en dinero, en K-oins o en los dos. En merch funciona igual.",
+        side: "left",
+        clickBefore: "[data-tour='lib-open-wts']",
+        wait: 400,
+      },
+      {
+        selector: "[data-tour='wts-price']",
+        title: "El precio",
+        text: "El importe de la venta. Si lo dejas a cero, el anuncio no se publica.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='wts-currency']",
+        title: "La moneda",
+        text: "Euro, dólar u otra de la lista. Quien mira el anuncio puede verlo convertido a la suya.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='wts-koins']",
+        title: "K-oins",
+        text: "Opcional. Si pones una cifra, el anuncio también se puede pagar con K-oins. Origen y envío dicen desde dónde sale y a dónde mandas.",
+        side: "bottom",
+        closeAfter: "[data-tour='wts-listing-close']",
       },
       {
         selector: "[data-tour='wtt-picker']",
@@ -329,10 +373,13 @@ const stepsFor = (id: string): TourStep[] => {
         closeAfter: "[data-tour='pc-modal-close']",
       },
       {
-        selector: "[data-tour='lib-colab']",
+        selector: "[data-tour='lib-colab-modal']",
         title: "¡Aporta un grupo!",
         text: "Para una photocard que no está, o un lote. Pedimos tipo, nombre, grupo y miembro, más un archivo de hasta 8 MB (PNG, JPG o WEBP) o un enlace. Escape o un clic fuera cierra la ventana.",
         side: "left",
+        clickBefore: "[data-tour='lib-colab']",
+        wait: 400,
+        closeAfter: "[data-tour='lib-colab-close']",
       },
     ],
     albumes: [
@@ -479,7 +526,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='merch-card-stock']",
         title: "Stock de la pieza",
-        text: "Tengo, en camino, WTT y WTS suman de uno en uno. La estrella la mete o la saca de la wishlist.",
+        text: "Tengo, en camino, WTT y WTS suman de uno en uno. Si guardas un WTT o un WTS, el anuncio se publica igual que desde una photocard de la biblioteca. La estrella es la wishlist.",
         side: "top",
       },
       {
@@ -533,50 +580,8 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='market-tabs']",
         title: "Cambios y ventas",
-        text: "WTT es intercambio. WTS es venta. El anuncio se publica desde la ficha de la pieza, con sesión iniciada.",
+        text: "WTT es intercambio. WTS es venta. El anuncio no se crea aquí: se publica desde la ficha de la photocard en biblioteca, o desde la ficha del merch. Aquí se mira, se contacta y se compra.",
         side: "bottom",
-      },
-      {
-        selector: "[data-tour='wtt-listing']",
-        title: "Crear un cambio",
-        text: "Esta ventana es el anuncio WTT. Eliges si aceptas cualquier oferta, solo el mismo miembro o todo el grupo, y dejas una nota. El botón de abajo abre el grid para marcar las cartas concretas por las que cambiarías.",
-        side: "left",
-        clickBefore: "[data-tour='market-open-wtt']",
-        wait: 400,
-      },
-      {
-        selector: "[data-tour='wtt-conditions']",
-        title: "Qué aceptarías",
-        text: "Puedes marcar más de una. La nota sale en el anuncio para que la otra persona sepa qué buscas antes de escribirte.",
-        side: "left",
-        closeAfter: "[data-tour='wtt-listing-close']",
-      },
-      {
-        selector: "[data-tour='wts-listing']",
-        title: "Crear una venta",
-        text: "El anuncio WTS pide un precio. También puedes cobrar en K-oins, o mezclar los dos.",
-        side: "left",
-        clickBefore: "[data-tour='market-open-wts']",
-        wait: 400,
-      },
-      {
-        selector: "[data-tour='wts-price']",
-        title: "El precio",
-        text: "El importe de la venta. Si lo dejas a cero, el anuncio no se publica.",
-        side: "bottom",
-      },
-      {
-        selector: "[data-tour='wts-currency']",
-        title: "La moneda",
-        text: "Euro, dólar u otra de la lista. Quien mira el anuncio puede verlo convertido a la suya.",
-        side: "bottom",
-      },
-      {
-        selector: "[data-tour='wts-koins']",
-        title: "K-oins",
-        text: "Opcional. Si pones una cifra, el anuncio también se puede pagar con K-oins. Origen y envío dicen desde dónde sale y a dónde mandas.",
-        side: "bottom",
-        closeAfter: "[data-tour='wts-listing-close']",
       },
       {
         selector: "[data-tour='market-wtt']",
@@ -639,13 +644,13 @@ const stepsFor = (id: string): TourStep[] => {
         side: "left",
       },
       {
-        selector: "[data-tour='fanart-apply']",
-        title: "Pedir ser artista",
-        text: "Nombre, nombre artístico, contacto y redes. Abajo adjuntas muestras de tu arte. Cuando el equipo aprueba, el botón de subir pasa a publicar obras en el estudio.",
+        selector: "[data-tour='fanart-upload-step']",
+        title: "Sube tu arte",
+        text: "Si ya eres artista, esto es el estudio: título, categoría, el archivo y la portada. Publicar lo deja en el muro. Si todavía no, la misma ventana pide tus datos y unas muestras para darte el pincel. Desde el tour no se envía nada.",
         side: "left",
         clickBefore: "[data-tour='fanart-open-apply']",
-        wait: 700,
-        closeAfter: "[data-tour='fanart-apply-close']",
+        wait: 300,
+        closeAfter: "[data-tour='fanart-upload-close']",
       },
       {
         selector: "[data-tour='fanart-filters']",
@@ -826,6 +831,20 @@ const stepsFor = (id: string): TourStep[] => {
         side: "top",
       },
       {
+        selector: "[data-tour='binder-page']",
+        title: "Cambiar de bolsillo",
+        text: "Arrastra la carta a otro hueco. Cambia de sitio en el grid y en el carrusel. El movimiento que ves no guarda nada: al terminar vuelve a su bolsillo.",
+        side: "top",
+        demo: "slot-move",
+      },
+      {
+        selector: "[data-tour='binder-slot']",
+        title: "Girar en el grid",
+        text: "Las flechas de la ficha giran esa photocard 90 grados. El giro se ve en el bolsillo, como ahora, y también en la miniatura del carrusel.",
+        side: "top",
+        demo: "slot-spin",
+      },
+      {
         selector: "[data-tour='binder-format']",
         title: "El grid",
         text: "Formato cambia la cuadrícula de la página: 3x3, 4x4 y el resto. Algunos layouts son un extra.",
@@ -849,10 +868,11 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='binder-carousel']",
         title: "Ordenar y previsualizar",
-        text: "Arrastra una miniatura encima de otra para cambiar el orden. Cada una es la preview de esa página: portada, grid y lo que hayas puesto en los bolsillos.",
+        text: "Arrastra una miniatura encima de otra para cambiar el orden del binder. Cada una es la preview de esa página. Ahora ves el intercambio, y al soltar vuelven a su sitio para no reordenar el tuyo.",
         side: "left",
         clickBefore: "[data-tour='binder-pages']",
         wait: 500,
+        demo: "page-order",
         closeAfter: "[data-tour='binder-carousel-close']",
       },
       {
@@ -911,10 +931,22 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='me-bias']",
         title: "Grupos y bias",
-        text: "Photocard, merch o ticket, los grupos que sigues y, dentro, el bias y el wrecker. Se guarda al pinchar.",
+        text: "Primero eliges qué coleccionas y añades el grupo. Dentro, cada miembro se marca pulsando.",
         side: "top",
         clickBefore: "[data-tour='me-tab-groups']",
         wait: 300,
+      },
+      {
+        selector: "[data-tour='me-bias-hint']",
+        title: "Un toque, dos, tres",
+        text: "El primer toque lo deja en bias, con estrella y borde liso. El segundo lo pasa a wrecker, con estrella hueca y borde discontinuo. El tercero lo quita. Bias es tu miembro. Wrecker es el que te pierde.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='me-bias-members']",
+        title: "Bias y wrecker",
+        text: "La pastilla Bias y la de Wrecker dicen qué color es cuál. Hay un tope de bias, y VIP lo sube. Guardar lo deja escrito en el perfil.",
+        side: "top",
       },
       {
         selector: "[data-tour='me-fanzone']",
@@ -956,6 +988,85 @@ function clickSel(selector?: string) {
   if (!selector) return;
   const el = document.querySelector(selector);
   if (el instanceof HTMLElement) el.click();
+}
+
+const binderDemoAnims: Animation[] = [];
+
+function clearBinderDemo() {
+  for (const anim of binderDemoAnims) anim.cancel();
+  binderDemoAnims.length = 0;
+}
+
+function localDelta(from: HTMLElement, to: HTMLElement) {
+  const a = from.getBoundingClientRect();
+  const b = to.getBoundingClientRect();
+  const scale = from.offsetWidth > 0 ? a.width / from.offsetWidth : 1;
+  const safe = scale > 0.2 ? scale : 1;
+  return { x: (b.left - a.left) / safe, y: (b.top - a.top) / safe };
+}
+
+function playBinderDemo(kind: NonNullable<TourStep["demo"]>) {
+  clearBinderDemo();
+  if (kind === "slot-move") {
+    const pockets = Array.from(document.querySelectorAll<HTMLElement>("[data-binder-pocket]"));
+    const filled = pockets.find((pocket) => pocket.dataset.filled === "1");
+    if (!filled) return;
+    const index = pockets.indexOf(filled);
+    const next = pockets[index + 1] ?? pockets[index - 1];
+    if (!next || next === filled) return;
+    const { x, y } = localDelta(filled, next);
+    binderDemoAnims.push(
+      filled.animate(
+        [
+          { transform: "translate(0px, 0px)" },
+          { transform: `translate(${x}px, ${y}px)`, offset: 0.45 },
+          { transform: "translate(0px, 0px)" },
+        ],
+        { duration: 1700, easing: "ease-in-out" },
+      ),
+    );
+    return;
+  }
+  if (kind === "slot-spin") {
+    const slot = document.querySelector<HTMLElement>("[data-tour='binder-slot']");
+    if (!slot) return;
+    binderDemoAnims.push(
+      slot.animate(
+        [
+          { transform: "rotate(0deg)" },
+          { transform: "rotate(90deg)", offset: 0.45 },
+          { transform: "rotate(0deg)" },
+        ],
+        { duration: 1600, easing: "ease-in-out" },
+      ),
+    );
+    return;
+  }
+  const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-binder-page-card]"));
+  if (cards.length < 2) return;
+  const [first, second] = cards;
+  const { x, y } = localDelta(first, second);
+  const motion = { duration: 1700, easing: "ease-in-out" };
+  binderDemoAnims.push(
+    first.animate(
+      [
+        { transform: "translate(0px, 0px)" },
+        { transform: `translate(${x}px, ${y}px)`, offset: 0.45 },
+        { transform: "translate(0px, 0px)" },
+      ],
+      motion,
+    ),
+  );
+  binderDemoAnims.push(
+    second.animate(
+      [
+        { transform: "translate(0px, 0px)" },
+        { transform: `translate(${-x}px, ${-y}px)`, offset: 0.45 },
+        { transform: "translate(0px, 0px)" },
+      ],
+      motion,
+    ),
+  );
 }
 
 function shellOf(selector: string): Element | null {
@@ -1019,10 +1130,12 @@ export function startUserTour(id: string) {
     onHighlighted: (el, _step, { driver: drv }) => {
       openReveal(step);
       if (step.expand) expandSelect(el);
+      if (step.demo) playBinderDemo(step.demo);
       window.requestAnimationFrame(() => drv.refresh());
     },
     onDeselected: (el) => {
       if (step.expand) collapseSelect(el);
+      if (step.demo) clearBinderDemo();
       closeReveal(step);
     },
     popover: {
@@ -1074,6 +1187,7 @@ export function startUserTour(id: string) {
       popover.nextButton.textContent = last ? "Cerrar" : "Siguiente";
     },
     onDestroyed: () => {
+      clearBinderDemo();
       collapseSelect();
       closeHeaderMenus();
       if (visibleEl("[data-tour='lib-stock-panel']")) clickSel("[data-tour='lib-card-stock']");
