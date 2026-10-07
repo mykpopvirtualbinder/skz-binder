@@ -1495,6 +1495,7 @@ const openPublicProfile = async (userId: string) => {
           }}
         >
           <button
+            data-tour="market-wtt"
             onClick={() => {
               setTab("wtt");
               setSearchMode("offered");
@@ -1513,6 +1514,7 @@ const openPublicProfile = async (userId: string) => {
             WTT
           </button>
           <button
+            data-tour="market-wts"
             onClick={() => {
               setTab("wts");
               setSearchMode("offered");
@@ -1672,11 +1674,11 @@ const openPublicProfile = async (userId: string) => {
                       <div style={{ display: "grid", gridTemplateColumns: ad.type === "wts" ? "1fr 1fr" : "1fr", gap: "6px", marginTop: "auto" }}>
                         {ad.type === "wts" ? (
                           <>
-                            <button onClick={() => handleBuy(ad.id)} style={{ ...ghostMarketBtn, color: ACC.green }}>{t("market.btn_buy")}</button>
+                            <button data-tour="market-buy" onClick={() => handleBuy(ad.id)} style={{ ...ghostMarketBtn, color: ACC.green }}>{t("market.btn_buy")}</button>
                             <button onClick={() => openOffer(ad)} style={{ ...ghostMarketBtn, color: ACC.orange }}>{t("market.btn_offer")}</button>
                           </>
                         ) : (
-                          <button onClick={() => openContact(ad)} style={{ ...ghostMarketBtn, color: ACC.cyan, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                          <button data-tour="market-contact-btn" onClick={() => openContact(ad)} style={{ ...ghostMarketBtn, color: ACC.cyan, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                             <MessageCircle size={18} color={ACC.cyan} /> {t("market.btn_contact")}
                           </button>
                         )}
@@ -1973,12 +1975,14 @@ const openPublicProfile = async (userId: string) => {
      {/* MODAL CONTACTO / TRADE */}
      {showContactModal && selectedAd && (
         <div style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)", padding: "20px" }}>
-          <div style={{ background: "var(--bg-card)", padding: "25px", borderRadius: "24px", width: "100%", maxWidth: "420px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 10px 40px var(--shadow-card)", border: "1px solid var(--color-border)" }}>
+          <div data-tour="market-contact" style={{ background: "var(--bg-card)", padding: "25px", borderRadius: "24px", width: "100%", maxWidth: "420px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 10px 40px var(--shadow-card)", border: "1px solid var(--color-border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px", alignItems: "center" }}>
               <h2 style={{ color: "var(--nav-market, var(--color-primary))", margin: 0, fontSize: "20px", fontFamily: "'Tan-Font', sans-serif" }}>
                 {contactFlow === "wts_buy" ? t("market.wts_buy_title") : t("market.propose_trade")}
               </h2>
-              <X onClick={() => { setShowContactModal(false); setOfferKoins(false); setKoinsAmount(""); }} style={{ cursor: "pointer", color: "var(--text-muted)" }} />
+              <button type="button" data-tour="market-contact-close" onClick={() => { setShowContactModal(false); setOfferKoins(false); setKoinsAmount(""); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--text-muted)", display: "flex" }} aria-label={t("common.close")}>
+                <X />
+              </button>
             </div>
 
             {contactFlow !== "wts_buy" && (

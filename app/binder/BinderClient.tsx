@@ -11915,6 +11915,7 @@ const renderCoverChip = (key: CoverFaceKey) => {
     <button
       key={key}
       type="button"
+      data-tour={key === "front" ? "binder-covers" : undefined}
       title={label}
       onClick={() => {
         if (deleteMode) return;
@@ -13515,7 +13516,7 @@ const isDraggingMe = pageDragFromId === p.id;
       alignItems: "center" 
     }}>
       {/* Subgrupo Acciones en horizontal */}
-   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+   <div data-tour="binder-tools" style={{ display: "flex", gap: 8, alignItems: "center" }}>
       <button type="button" onClick={() => createNewPage('3x3')} style={{ ...topBtnStyle, width: "auto", minWidth: 38, height: 38, padding: "0 10px", justifyContent: "center", fontSize: 14, gap: 6 }} title={t("binders.quota.pages")}>
     + <span style={{ fontSize: 10, fontWeight: 900 }}>{formatQuota(realPagesCount, quota.maxPages)}</span>
   </button>
@@ -13709,7 +13710,7 @@ const isDraggingMe = pageDragFromId === p.id;
     </div>
       </div>
       {pageId ? (
-  <div style={{ display: "flex", justifyContent: "center" }}>
+  <div data-tour="binder-page" style={{ display: "flex", justifyContent: "center" }}>
     <div style={{ zoom: pageZoom as any }}>
       
       <div style={{ marginTop: 16 }}>

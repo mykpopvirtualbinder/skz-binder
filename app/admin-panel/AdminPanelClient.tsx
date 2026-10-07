@@ -2694,6 +2694,21 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
   const launchTour = (id: string) => startAdminTour(id, tourHandlers);
 
+  const ticketOpen = (status?: string | null) => {
+    const value = String(status || "").toLowerCase();
+    return value === "" || value === "pendiente" || value === "gestionando";
+  };
+  const pendingNav: Record<string, number> = {
+    solicitudes: solicitudes.filter((row) => {
+      const queued = queueCases[queueKey("solicitud", String(row.id))]?.status;
+      const value = String(queued || "").toLowerCase();
+      return value !== "aprobada" && value !== "denegada";
+    }).length,
+    denuncias: denuncias.filter((row) => String(row.estado || "").toLowerCase() !== "completada").length,
+    buzon: buzon.filter((row) => ticketOpen(row.status)).length,
+    aportaciones: aportaciones.filter((row) => ticketOpen(row.status)).length,
+  };
+
   if (authLoading) {
     return <CatalogLoadingFun fullPage />;
   }
@@ -2737,7 +2752,10 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       onClick={() => openAdminTab(item.id)}
                     >
                       <Icon size={16} />
-                      {item.label}
+                      <span style={{ flex: 1, minWidth: 0 }}>{item.label}</span>
+                      {(pendingNav[item.id] ?? 0) > 0 && (
+                        <span className="admin-nav-count">{pendingNav[item.id] > 99 ? "99+" : pendingNav[item.id]}</span>
+                      )}
                     </button>
                   );
                 })}
@@ -5254,6 +5272,20 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           letter-spacing: 0.12em;
           text-transform: uppercase;
           color: var(--text-muted);
+        }
+        .admin-nav-count {
+          min-width: 18px;
+          height: 18px;
+          padding: 0 5px;
+          border-radius: 999px;
+          background: var(--color-primary);
+          color: #fff;
+          font-size: 11px;
+          font-weight: 900;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
         }
         .admin-nav-btn {
           width: 100%;

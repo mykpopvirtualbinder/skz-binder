@@ -73,6 +73,7 @@ export default function AlbumsPageClient() {
           </button>
           <button
             type="button"
+            data-tour="albums-inclusions"
             onClick={() => setTab("inclusiones")}
             style={{
               background: "none",

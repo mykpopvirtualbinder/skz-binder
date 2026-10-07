@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Store,
   Package,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import Footer from "../components/footer";
@@ -26,6 +27,7 @@ const SECTIONS: { id: string; label: string; group: string; icon: LucideIcon }[]
   { id: "fanart", label: "Fanart", group: "Comunidad", icon: Paintbrush },
   { id: "fanzone", label: "Fanzone", group: "Comunidad", icon: MessageCircle },
   { id: "shop", label: "Shop", group: "Tienda", icon: ShoppingBag },
+  { id: "perfil", label: "Perfil", group: "Tu cuenta", icon: User },
 ];
 
 export default function GuiaPage() {

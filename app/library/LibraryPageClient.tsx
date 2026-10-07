@@ -935,11 +935,13 @@ function StockDropdown({
   counts,
   disabled,
   onCommit,
+  markTour,
   t,
 }: {
   counts: StatusCounts;
   disabled?: boolean;
   onCommit: (next: Record<PersistStatus, number>) => Promise<void>;
+  markTour?: boolean;
   t: (k: string) => string;
 }) {
   const [open, setOpen] = useState(false);
@@ -979,6 +981,7 @@ function StockDropdown({
     <div ref={boxRef} style={{ position: "relative", width: "100%" }}>
       <button
         type="button"
+        data-tour={markTour ? "lib-card-stock" : undefined}
         disabled={disabled}
         onClick={toggleOpen}
         style={{
@@ -993,7 +996,7 @@ function StockDropdown({
       </button>
 
       {open && (
-        <div style={{
+        <div data-tour={markTour ? "lib-stock-panel" : undefined} style={{
           position: "absolute", top: "calc(100% + 8px)", left: openToLeft ? "auto" : 0, right: openToLeft ? 0 : "auto", zIndex: 1000,
           width: 280, background: "var(--bg-card)", border: "1px solid var(--color-border)",
           borderRadius: 20, padding: 16, boxShadow: "0 15px 40px color-mix(in srgb, var(--color-primary) 18%, transparent)"
@@ -1050,6 +1053,7 @@ function LibraryItemCard({
   onOpen,
   disableEdits,
   hideBinder,
+  markTour,
   t,
 }: {
   item: ItemRow;
@@ -1065,6 +1069,7 @@ function LibraryItemCard({
   onOpen: () => void;
   disableEdits?: boolean;
   hideBinder?: boolean;
+  markTour?: boolean;
   t: (k: string) => string;
 }) {
  
@@ -1108,6 +1113,7 @@ function LibraryItemCard({
 <div
   style={{ width: showInfo ? 140 : 120, transition: "width 0.2s ease", position: "relative" }}
 >      <div
+        data-tour={markTour ? "lib-card" : undefined}
         onClick={onOpen}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
@@ -1271,7 +1277,7 @@ function LibraryItemCard({
       {/* FILA 1: Stock */}
       <div style={{ marginTop: 8, display: "flex", justifyContent: "center", width: 120 }}>
         <div style={{ width: 120 }}>
-  <StockDropdown counts={counts} onCommit={onCommitStock} disabled={disableEdits} t={t} />
+  <StockDropdown counts={counts} onCommit={onCommitStock} disabled={disableEdits} markTour={markTour} t={t} />
         </div>
       </div>
 
@@ -1313,6 +1319,7 @@ function LibraryItemCard({
           </button>
           <button
             type="button"
+            data-tour={markTour ? "lib-card-info" : undefined}
             data-info-toggle="1"
             onClick={(e) => {
               e.stopPropagation();
@@ -1679,6 +1686,7 @@ function ItemModal({
     >
       <div
         className="library-item-modal-shell"
+        data-tour="pc-modal"
         data-modal-scroll
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -1708,7 +1716,7 @@ function ItemModal({
             background: "var(--bg-soft)",
           }}
         >
-          <div className="library-item-modal-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0, flex: 1, alignItems: "center" }}>
+          <div data-tour="pc-modal-meta" className="library-item-modal-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0, flex: 1, alignItems: "center" }}>
             <MetaRow icon={<Users size={16} strokeWidth={2.2} />} label={t("binders.picker.group")} value={prettySlug(groupName)} />
             <MetaRow icon={collectionChipIcon(collectionKind)} label={collectionLabel} value={prettyAlbumDisplay(albumName)} />
             <MetaRow icon={<Mic2 size={16} strokeWidth={2.2} />} label={t("binders.picker.version")} value={prettySlugTitle(item.version ?? "")} />
@@ -1753,7 +1761,7 @@ function ItemModal({
                 <Siren size={18} strokeWidth={2.4} />
               </button>
             )}
-            <button type="button" onClick={onClose} style={headerIconBtn} title={t("common.close")}>
+            <button type="button" data-tour="pc-modal-close" onClick={onClose} style={headerIconBtn} title={t("common.close")}>
               ✕
             </button>
           </div>
@@ -1857,7 +1865,7 @@ function ItemModal({
 
             {/* CONTROLES */}
             <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", zIndex: 10 }}>
-              <button type="button" onClick={() => setFace((p) => (p === "front" ? "back" : "front"))} style={{...headerIconBtn, width: "auto", padding: "10px 14px", gap: 8}}>
+              <button type="button" data-tour="pc-modal-face" onClick={() => setFace((p) => (p === "front" ? "back" : "front"))} style={{...headerIconBtn, width: "auto", padding: "10px 14px", gap: 8}}>
                 {face === "front" ? t('library.card.view_back') : t('library.card.view_front')}
               </button>
               <button type="button" onClick={() => setRot((r) => (r + 270) % 360)} style={headerIconBtn}>⟲</button>
@@ -1876,7 +1884,7 @@ function ItemModal({
                 </div>
                 
                 {/* 👇 BLOQUE DE BOTONES INFALIBLE 👇 */}
-                <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 15%, transparent)", gap: 4, opacity: uploading ? 0.6 : 1 }}>
+                <div data-tour="pc-modal-contribute" style={{ display: "inline-flex", padding: 3, borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 15%, transparent)", gap: 4, opacity: uploading ? 0.6 : 1 }}>
                   {(["front", "back"] as const).map((side) => {
                     const active = uploadSide === side;
                     return (
@@ -1918,7 +1926,7 @@ function ItemModal({
           <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
             
             {/* STOCK Y PRECIO */}
-            <div style={{ padding: 14, ...subtleCard }}>
+            <div data-tour="pc-modal-stock" style={{ padding: 14, ...subtleCard }}>
               <div className="library-item-stock-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
                 <div>
                   <div style={{ fontWeight: 950, marginBottom: 12, color: "var(--color-primary)" }}>{t('library.stock_title')}</div>
@@ -4077,7 +4085,7 @@ const commitStockForItem = useCallback(
               width: "100%",
             }}
           >
-            {paginatedItems.map((it) => {
+            {paginatedItems.map((it, cardIndex) => {
               const counts = invByItem[it.id] ?? emptyCounts();
               const inBinder = placedByItem[it.id] ?? 0;
               const faceValue = cardFace[it.id] ?? "front";
@@ -4128,6 +4136,7 @@ const commitStockForItem = useCallback(
                     onCommitStock={(next) => commitStockForItem(it.id, next)}
                     onOpen={() => setOpenItemId(it.id)}
                     hideBinder={catalog === "inclusions"}
+                    markTour={cardIndex === 0}
                     t={t}
                   />
                 </div>

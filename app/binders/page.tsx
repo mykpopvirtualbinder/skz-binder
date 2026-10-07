@@ -484,7 +484,7 @@ export default function BindersPage() {
           gap: 20,
           marginBottom: 50
         }}>
-          {binders.map((b) => (
+          {binders.map((b, binderIndex) => (
             <div 
               key={b.id} 
               style={{
@@ -505,6 +505,7 @@ export default function BindersPage() {
                 coverUrl={b.cover_url}
                 backCoverUrl={b.back_cover_url}
                 onOpenBinder={() => router.push(`/binder?binderId=${b.id}`)}
+                tourId={binderIndex === 0 ? "binders-enter" : undefined}
                 t={t}
               />
 
@@ -516,7 +517,7 @@ export default function BindersPage() {
                 placeholder={t('binder_shelf.name_placeholder')}
               />
 
-              <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8, alignItems: "center", width: "100%", flexWrap: "wrap" }}>
+              <div data-tour={binderIndex === 0 ? "binders-style" : undefined} style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8, alignItems: "center", width: "100%", flexWrap: "wrap" }}>
                 {([
                   { face: "cover_url" as const, title: t("binder_shelf.cover_front"), Icon: Camera },
                   { face: "inside_front_url" as const, title: t("binder_shelf.cover_inside_front"), Icon: BookOpen },
@@ -580,6 +581,7 @@ export default function BindersPage() {
               </div>
 
               <button
+                data-tour={binderIndex === 0 ? "binders-preview" : undefined}
                 onClick={(e) => { 
                   e.stopPropagation(); 
                   handleOpenPreview(b.id, b.title || "", b.color || "", b.cover_url, b.back_cover_url, b.inside_back_url, b.inside_front_url);

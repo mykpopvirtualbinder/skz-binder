@@ -24,7 +24,7 @@ export default function Footer() {
   const { t } = useGlobal(); 
 
   return (
-    <footer className="site-footer" style={{ 
+    <footer className="site-footer" data-tour="site-footer" style={{ 
       width: "100%", 
       backgroundColor: "var(--bg-card)", 
       borderTop: "1px solid var(--color-border)", 

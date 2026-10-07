@@ -19,6 +19,7 @@ export default function BindersShortcut() {
   return (
     <Link
       href="/binders"
+      data-tour="go-binders"
       onClick={goHref}
       style={{
         display: "inline-flex",

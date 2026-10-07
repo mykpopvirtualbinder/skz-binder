@@ -1044,6 +1044,7 @@ export default function Header() {
               )}
               {user && (
                 <Link
+                  data-tour="hdr-mail"
                   href="/me?tab=notices"
                   onPointerDown={closeAllMenus}
                   className={`action-btn-mini header-mail-btn ${unreadCount > 0 ? "header-mail-btn--unread" : ""}`}
@@ -1115,6 +1116,7 @@ export default function Header() {
               )}
               {!hasAccountSession && (
                 <Link
+                  data-tour="hdr-account"
                   href="/login"
                   onPointerDown={closeAllMenus}
                   className="tan-font"
@@ -1274,6 +1276,7 @@ export default function Header() {
                 </Link>
 
                 <Link
+                  data-tour="hdr-mail"
                   href="/me?tab=notices"
                   className={`action-btn-mini header-mail-btn ${unreadCount > 0 ? "header-mail-btn--unread" : ""}`}
                   style={unreadCount > 0 ? { position: "relative" } : { color: "var(--header-btn-profile)", position: "relative" }}
@@ -1294,7 +1297,7 @@ export default function Header() {
 
                 {/* Avatar Desktop */}
                 <div onMouseEnter={() => setProfileMenuOpen(true)} onMouseLeave={() => setProfileMenuOpen(false)} style={{ position: "relative", paddingBottom: "15px", marginTop: "15px", marginLeft: "4px" }}>
-                  <Link href="/me" onClick={closeAllMenus} style={{ position: "relative", display: "block" }} className="avatar-hover">
+                  <Link data-tour="hdr-avatar" href="/me" onClick={closeAllMenus} style={{ position: "relative", display: "block" }} className="avatar-hover">
                     <div style={{ width: 38, height: 38, borderRadius: "50%", border: profile?.is_premium ? "2px solid var(--color-primary)" : "2px solid var(--color-border)", padding: "2px", background: "var(--bg-card)", boxShadow: "0 4px 12px var(--shadow-card)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <img src={profile?.avatar_url || DEFAULT_SITE_PROFILE_AVATAR_URL} alt="" style={{ width: "100%", height: "100%", objectFit: (profile?.avatar_url || "").includes("logo-avatar") ? "contain" : "cover", borderRadius: "50%", background: "var(--bg-soft)" }} onError={(e) => { const img = e.currentTarget; if (img.dataset.fallback === "1") return; img.dataset.fallback = "1"; img.src = DEFAULT_SITE_PROFILE_AVATAR_URL; img.style.objectFit = "contain"; }} />
                     </div>
@@ -1326,7 +1329,7 @@ export default function Header() {
                 </div>
               </>
             ) : (
-              <Link href="/login" className="tan-font" style={{ background: "var(--bg-card)", color: "var(--color-primary)", border: "2px solid var(--color-border)", padding: "6px 16px", borderRadius: "99px", textDecoration: "none", fontSize: "14px", transition: "all 0.2s ease" }}>
+              <Link data-tour="hdr-account" href="/login" className="tan-font" style={{ background: "var(--bg-card)", color: "var(--color-primary)", border: "2px solid var(--color-border)", padding: "6px 16px", borderRadius: "99px", textDecoration: "none", fontSize: "14px", transition: "all 0.2s ease" }}>
                 {t('header.login_btn')}
               </Link>
             )}

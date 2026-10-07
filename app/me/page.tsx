@@ -2200,7 +2200,7 @@ function MePageContent() {
           <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: "25px", alignItems: "center", textAlign: isMobile ? "center" : "left" }}>
             
             {profile?.is_premium ? (
-              <div onClick={() => setIsAvatarModalOpen(true)} style={{ width: 110, height: 110, borderRadius: "50%", overflow: "hidden", backgroundColor: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", border: "3px solid var(--state-warning-fg)", padding: "4px", flexShrink: 0 }}>
+              <div data-tour="me-avatar" onClick={() => setIsAvatarModalOpen(true)} style={{ width: 110, height: 110, borderRadius: "50%", overflow: "hidden", backgroundColor: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", border: "3px solid var(--state-warning-fg)", padding: "4px", flexShrink: 0 }}>
                 <img src={profile?.avatar_url || DEFAULT_SITE_PROFILE_AVATAR_URL} alt="" style={{ width: "100%", height: "100%", objectFit: (profile?.avatar_url || "").includes("logo-avatar") ? "contain" : "cover", borderRadius: "50%", background: "var(--bg-soft)" }} onError={(e) => { const img = e.currentTarget; if (img.dataset.fallback === "1") return; img.dataset.fallback = "1"; img.src = DEFAULT_SITE_PROFILE_AVATAR_URL; img.style.objectFit = "contain"; }} />
                 <div style={{ position: "absolute", inset: 0, backgroundColor: "color-mix(in srgb, var(--color-primary) 50%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "1"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0"}>
                   <Camera color="white" size={28} />
@@ -2208,7 +2208,7 @@ function MePageContent() {
               </div>
             ) : (
               <div className="me-avatar-ring-wrap">
-                <div onClick={() => setIsAvatarModalOpen(true)} style={{ width: 104, height: 104, borderRadius: "50%", overflow: "hidden", backgroundColor: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}>
+                <div data-tour="me-avatar" onClick={() => setIsAvatarModalOpen(true)} style={{ width: 104, height: 104, borderRadius: "50%", overflow: "hidden", backgroundColor: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}>
                   <img src={profile?.avatar_url || DEFAULT_SITE_PROFILE_AVATAR_URL} alt="" style={{ width: "100%", height: "100%", objectFit: (profile?.avatar_url || "").includes("logo-avatar") ? "contain" : "cover", borderRadius: "50%", background: "var(--bg-soft)" }} onError={(e) => { const img = e.currentTarget; if (img.dataset.fallback === "1") return; img.dataset.fallback = "1"; img.src = DEFAULT_SITE_PROFILE_AVATAR_URL; img.style.objectFit = "contain"; }} />
                   <div style={{ position: "absolute", inset: 0, backgroundColor: "color-mix(in srgb, var(--color-primary) 50%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "1"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0"}>
                     <Camera color="white" size={28} />
@@ -2251,7 +2251,7 @@ function MePageContent() {
                     <button type="button" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/me?u=${profile?.id}`); showAlert(t("common.copied"), t("me.link_copied_msg")); }} style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 900, cursor: "pointer" }}>
                       {t("me.copy_link_btn")}
                     </button>
-                    <button type="button" title={t("me.quick_settings")} aria-label={t("me.quick_settings")} onClick={() => setIsSettingsOpen(true)} style={{ width: 40, height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: "10px", cursor: "pointer" }}>
+                    <button data-tour="me-settings" type="button" title={t("me.quick_settings")} aria-label={t("me.quick_settings")} onClick={() => setIsSettingsOpen(true)} style={{ width: 40, height: 40, display: "inline-flex", alignItems: "center", justifyContent: "center", background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: "10px", cursor: "pointer" }}>
                       <Settings size={20} />
                     </button>
                     {showAdminPanelShortcut && (
@@ -2272,7 +2272,7 @@ function MePageContent() {
           {tabs.map((tabItem) => {
             if (isViewingOtherUser && tabItem.key === "notices") return null;
             return (
-              <button key={tabItem.key} onClick={() => setTab(tabItem.key)} style={{ ...meTabButtonStyle(tab === tabItem.key, ME_TAB_ACCENTS[tabItem.key]), width: "100%", display: "flex", justifyContent: "center", alignItems: "center", padding: isMobile ? "10px 8px" : "12px 20px", fontSize: isMobile ? "12px" : "14px" }}>
+              <button key={tabItem.key} data-tour={`me-tab-${tabItem.key}`} onClick={() => setTab(tabItem.key)} style={{ ...meTabButtonStyle(tab === tabItem.key, ME_TAB_ACCENTS[tabItem.key]), width: "100%", display: "flex", justifyContent: "center", alignItems: "center", padding: isMobile ? "10px 8px" : "12px 20px", fontSize: isMobile ? "12px" : "14px" }}>
                 {tabItem.icon} <span style={{ marginLeft: "8px" }}>{tabItem.label}</span>
               </button>
             )
@@ -2605,7 +2605,7 @@ function MePageContent() {
           )}
 
           {tab === "notices" && (
-            <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+            <div data-tour="me-notices" style={{ maxWidth: "800px", margin: "0 auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", paddingBottom: "10px", borderBottom: "1px solid var(--color-border)" }}>
                 <h2 style={{ color: "var(--me-tab-accent)", fontWeight: 900, fontSize: "24px", margin: 0, display: "flex", alignItems: "center", gap: "10px" }}><Bell size={24} /> {t('me.notice_center')}</h2>
               </div>
@@ -3077,10 +3077,10 @@ function MePageContent() {
       {/* MODAL DE AJUSTES */}
       {isSettingsOpen && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5000, padding: "20px", backdropFilter: "blur(4px)" }} onClick={() => setIsSettingsOpen(false)}>
-          <div style={{ backgroundColor: "var(--bg-card)", borderRadius: "32px", width: "100%", maxWidth: "600px", maxHeight: "90vh", overflow: "auto", border: "1px solid var(--color-border)", boxShadow: "0 20px 50px var(--shadow-card)" }} onClick={(e) => e.stopPropagation()}>
+          <div data-tour="me-settings-panel" style={{ backgroundColor: "var(--bg-card)", borderRadius: "32px", width: "100%", maxWidth: "600px", maxHeight: "90vh", overflow: "auto", border: "1px solid var(--color-border)", boxShadow: "0 20px 50px var(--shadow-card)" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: "25px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-soft)" }}>
               <h2 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "28px", margin: 0 }}>{t("me.settings.title")}</h2>
-              <button onClick={() => setIsSettingsOpen(false)} style={{ background: "none", border: "none", cursor: "pointer" }}><X size={24} color="var(--color-primary)"/></button>
+              <button type="button" data-tour="me-settings-close" onClick={() => setIsSettingsOpen(false)} style={{ background: "none", border: "none", cursor: "pointer" }} aria-label={t("common.close")}><X size={24} color="var(--color-primary)"/></button>
             </div>
             <form onSubmit={handleSaveSettings} style={{ padding: "30px" }}>
               <div style={{ marginBottom: "20px" }}>

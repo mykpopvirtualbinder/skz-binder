@@ -992,8 +992,8 @@ function FanArtContent() {
           <CatalogLoadingFun title={t("common.page_loading_title")} />
         ) : (
           <div className="fanart-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "30px", paddingBottom: "60px" }}>
-          {filteredArt.map((art) => (
-              <div key={art.id} onClick={() => setViewingArt(art)}
+          {filteredArt.map((art, artIndex) => (
+              <div key={art.id} data-tour={artIndex === 0 ? "fanart-card" : undefined} onClick={() => setViewingArt(art)}
               id={`fanart-${art.id}`}
               ref={(el) => {
                 if (el && highlightId === art.id) {
@@ -1053,7 +1053,7 @@ function FanArtContent() {
                     </span>
                     
                     <div style={{ display: "flex", gap: "10px", color: "var(--text-muted)" }}>
-                      <button type="button" onClick={(e) => handleLike(e, art, !!art.user_has_liked)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: 800, padding: 0, color: art.user_has_liked ? ACC.pink : "var(--text-muted)" }}><Heart size={16} fill={art.user_has_liked ? ACC.pink : "none"} color={art.user_has_liked ? ACC.pink : "currentColor"} strokeWidth={2.2} /> {art.likes_count}</button>
+                      <button type="button" data-tour={artIndex === 0 ? "fanart-like" : undefined} onClick={(e) => handleLike(e, art, !!art.user_has_liked)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: 800, padding: 0, color: art.user_has_liked ? ACC.pink : "var(--text-muted)" }}><Heart size={16} fill={art.user_has_liked ? ACC.pink : "none"} color={art.user_has_liked ? ACC.pink : "currentColor"} strokeWidth={2.2} /> {art.likes_count}</button>
                       <button type="button" onClick={(e) => { e.stopPropagation(); setViewingArt(art); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: 800, padding: 0, color: ACC.cyan }}><MessageCircle size={16} strokeWidth={2.2} /> {art.comments_count || 0}</button>
                     </div>
                   </div>
@@ -1084,8 +1084,8 @@ function FanArtContent() {
       {/* EL LIGHTBOX NORMAL (Información y Comentarios) */}
       {viewingArt && !isFullscreen && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-heavy)", backdropFilter: "blur(10px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={closeArtworkViewer}>
-          <div className="fanart-modal-shell" style={{ backgroundColor: "var(--bg-card)", width: "100%", maxWidth: "900px", borderRadius: "30px", height: "90vh", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", border: `1px solid color-mix(in srgb, ${ACC.cyan} 30%, var(--color-border))`, boxShadow: "0 24px 60px var(--shadow-card)" }} onClick={e => e.stopPropagation()}>
-            <button type="button" onClick={closeArtworkViewer} style={{ position: "absolute", top: "15px", right: "20px", background: "var(--bg-soft)", border: `1px solid color-mix(in srgb, ${ACC.pink} 35%, var(--color-border))`, borderRadius: "50%", padding: "5px", zIndex: 10, cursor: "pointer" }}><X size={24} color={ACC.pink} /></button>
+          <div data-tour="fanart-view" className="fanart-modal-shell" style={{ backgroundColor: "var(--bg-card)", width: "100%", maxWidth: "900px", borderRadius: "30px", height: "90vh", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", border: `1px solid color-mix(in srgb, ${ACC.cyan} 30%, var(--color-border))`, boxShadow: "0 24px 60px var(--shadow-card)" }} onClick={e => e.stopPropagation()}>
+            <button type="button" data-tour="fanart-close" onClick={closeArtworkViewer} style={{ position: "absolute", top: "15px", right: "20px", background: "var(--bg-soft)", border: `1px solid color-mix(in srgb, ${ACC.pink} 35%, var(--color-border))`, borderRadius: "50%", padding: "5px", zIndex: 10, cursor: "pointer" }}><X size={24} color={ACC.pink} /></button>
             <div style={{ flex: 1, overflowY: "auto", padding: "30px" }}>
               <div style={{ width: "100%", background: viewingArt.content_text ? "var(--bg-main)" : "var(--text-main)", borderRadius: "15px", overflow: "hidden", display: "flex", justifyContent: "center", position: "relative" }} onContextMenu={(e) => e.preventDefault()}>
                 
@@ -1145,7 +1145,8 @@ function FanArtContent() {
 
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "var(--bg-soft)", padding: "6px 18px", borderRadius: "99px", border: "1px solid var(--color-border)" }}>
                         <span style={{ fontSize: "16px" }}>🌍</span>
-                        <select 
+                        <select
+                          data-tour="fanart-translate"
                           value={currentLang}
                           disabled={loadingChapters || translating}
                           onChange={(e) => handleLanguageChange(e.target.value)}
@@ -1223,6 +1224,7 @@ function FanArtContent() {
                     )}
                     <button
                       type="button"
+                      data-tour="fanart-report"
                       onClick={() => enviarReporteObra(viewingArt.id, viewingArt.user_id)}
                       style={{ background: "var(--bg-main)", color: ACC.pink, padding: "10px 16px", borderRadius: "12px", fontWeight: 900, border: `1px solid color-mix(in srgb, ${ACC.pink} 45%, var(--color-border))`, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
                     >
@@ -1233,7 +1235,7 @@ function FanArtContent() {
                     )}
                   </div>
                 </div>
-                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "20px", paddingBottom: "80px" }}>
+                <div data-tour="fanart-thread" style={{ borderTop: "1px solid var(--color-border)", paddingTop: "20px", paddingBottom: "80px" }}>
                   <p style={{ fontSize: "12px", fontWeight: 900, color: ACC.pink, marginBottom: "15px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{t('fanart.lightbox.comments_title')}</p>
                   {comments.length === 0 && <p style={{ fontSize: "13px", color: "var(--text-muted)", margin: 0 }}>{t('fanart.lightbox.empty_comments')}</p>}
                   {renderComments(null)}

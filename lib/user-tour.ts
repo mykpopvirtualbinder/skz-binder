@@ -16,6 +16,7 @@ export const USER_TOUR_PATH: Record<string, string> = {
   fanzone: "/fanzone",
   shop: "/shop",
   binders: "/binders",
+  perfil: "/me",
 };
 
 type Side = "top" | "right" | "bottom" | "left";
@@ -30,6 +31,12 @@ type TourStep = {
   reveal?: { button: string; menu: string };
   /** Si el selector está oculto, usa este otro (por ejemplo la barra de móvil). */
   fallback?: string;
+  /** Clic que abre el elemento de este paso (modal, pestaña, desplegable). */
+  clickBefore?: string;
+  /** Espera extra tras el clic, en ms. */
+  wait?: number;
+  /** Clic al salir del paso, por ejemplo para cerrar un modal. */
+  closeAfter?: string;
 };
 
 const openedMenus = new Set<HTMLSelectElement>();
@@ -116,13 +123,6 @@ function closeHeaderMenus() {
   closeReveal({ selector: "", title: "", text: "", reveal: { button: "[data-tour='hdr-theme']", menu: "[data-tour='hdr-theme-menu']" } });
 }
 
-const adsStep = (text: string): TourStep => ({
-  selector: "[data-tour='site-ads']",
-  title: "Anuncios",
-  text,
-  side: "left",
-});
-
 const stepsFor = (id: string): TourStep[] => {
   const all: Record<string, TourStep[]> = {
     inicio: [
@@ -183,6 +183,25 @@ const stepsFor = (id: string): TourStep[] => {
         text: "Destacamos a quien está llenando Fanart de cosas bonitas. Si tú también creas, más adelante verás cómo pedir el perfil de artista.",
         side: "top",
       },
+      {
+        selector: "[data-tour='hdr-account']",
+        fallback: "[data-tour='hdr-avatar']",
+        title: "Tu cuenta",
+        text: "Entrar abre tu sesión. Cuando ya estás dentro, el avatar lleva a tu perfil: foto, nombre, grupos y el engranaje de ajustes. El sobre, al lado, es el centro de notificaciones.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='hdr-mail']",
+        title: "Notificaciones",
+        text: "El numerito del sobre es lo que no has leído. Ábrelo y caes en tu perfil, pestaña de avisos: trades, comentarios y respuestas del equipo.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='site-footer']",
+        title: "El pie de la web",
+        text: "Abajo del todo: legal, reglas del mercado, privacidad, esta guía, preguntas frecuentes y el botón para reportar un abuso. En todas las secciones, merch incluido.",
+        side: "top",
+      },
     ],
     biblioteca: [
       {
@@ -229,7 +248,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='lib-member']",
         title: "Miembro",
-        text: "Uno, OT8 o el que estés cazando. El nombre sale como lo tenemos en el catálogo.",
+        text: "Un miembro, una unit o una OT (el grupo entero: en unos grupos son 4, en otros 7 u 8). El nombre sale como lo tenemos en el catálogo.",
         side: "bottom",
         expand: true,
       },
@@ -242,17 +261,70 @@ const stepsFor = (id: string): TourStep[] => {
       },
       {
         selector: "[data-tour='lib-grid']",
-        title: "La carta",
-        text: "Pincha una y se abre su ficha: anverso, reverso, stock y estado. Si la photocard ya existe, Aportar anverso o reverso solo te pide la foto: el grupo, la colección y el miembro viajan solos.",
+        title: "La parrilla",
+        text: "Cada carta es una photocard. Debajo tienes el stock, el giro de cara y la i de resumen. Pinchar la foto abre la ficha completa.",
         side: "top",
+      },
+      {
+        selector: "[data-tour='lib-card-stock']",
+        title: "Desplegable de stock",
+        text: "Este botón abre el stock de esa carta sin salir de la parrilla. El número es cuántas llevas entre tengo, cambio, venta y en camino.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='lib-stock-panel']",
+        title: "Tengo, cambio, venta…",
+        text: "Suma o resta: tengo, WTT (cambio), WTS (venta), en camino y wishlist. Guardar lo escribe en tu colección. Cancelar lo deja como estaba.",
+        side: "left",
+        clickBefore: "[data-tour='lib-card-stock']",
+        wait: 350,
+        closeAfter: "[data-tour='lib-card-stock']",
+      },
+      {
+        selector: "[data-tour='lib-card-info']",
+        title: "La i de la carta",
+        text: "Voltea la miniatura y enseña un resumen: grupo, colección, miembro y estado. La ficha grande es pinchando la foto.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='pc-modal']",
+        title: "Ficha de la photocard",
+        text: "Aquí ves la pieza entera. Las flechas pasan a la anterior y a la siguiente. La X, Escape o un clic fuera cierran.",
+        side: "left",
+        clickBefore: "[data-tour='lib-card']",
+        wait: 500,
+      },
+      {
+        selector: "[data-tour='pc-modal-meta']",
+        title: "De dónde es",
+        text: "Grupo, colección, versión, miembro y tipo (selfie, unit u OT). Si ya está en un binder, también sale el pin.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='pc-modal-face']",
+        title: "Anverso, reverso y giro",
+        text: "Cambia de cara y rota la foto si llegó torcida. La lupa la abre a tamaño grande.",
+        side: "left",
+      },
+      {
+        selector: "[data-tour='pc-modal-stock']",
+        title: "Stock dentro de la ficha",
+        text: "Los mismos contadores que el desplegable de la carta, más el precio y las notas. Guardar actualiza tu inventario.",
+        side: "left",
+      },
+      {
+        selector: "[data-tour='pc-modal-contribute']",
+        title: "Aportar esta photocard",
+        text: "Front o Back abre una ventana solo para la foto. El origen ya viene del catálogo. Si la carta no existe, usa ¡Aporta un grupo!",
+        side: "left",
+        closeAfter: "[data-tour='pc-modal-close']",
       },
       {
         selector: "[data-tour='lib-colab']",
         title: "¡Aporta un grupo!",
-        text: "Úsalo cuando la photocard no está en el catálogo, o para mandar un lote. Ahí sí pedimos tipo, nombre, grupo y miembro, más un archivo de hasta 8 MB (PNG, JPG o WEBP) o un enlace. Escape o un clic fuera cierra la ventana.",
+        text: "Para una photocard que no está, o un lote. Pedimos tipo, nombre, grupo y miembro, más un archivo de hasta 8 MB (PNG, JPG o WEBP) o un enlace. Escape o un clic fuera cierra la ventana.",
         side: "left",
       },
-      adsStep("A los lados (y en el móvil, arriba y abajo) verás la campaña del momento. Es el mismo anuncio: solo cambia el tamaño según la pantalla."),
     ],
     albumes: [
       {
@@ -298,17 +370,69 @@ const stepsFor = (id: string): TourStep[] => {
       },
       {
         selector: "[data-tour='merch-stock']",
-        title: "Tu stock",
+        title: "Tu stock en ediciones",
         text: "Estas pastillas cruzan el catálogo con lo que ya marcaste: lo tienes, te falta o está repetido.",
         side: "top",
       },
       {
-        selector: "[data-tour='merch-banner']",
-        title: "Cómo vais de colección",
-        text: "La barra resume el avance. Entra en un álbum para ver portadas, versiones y lo que incluye.",
+        selector: "[data-tour='merch-info']",
+        title: "Ficha de la edición",
+        text: "La i abre el álbum: portada, versión y el stock de esa pieza. Es el mismo tipo de ventana que en merch.",
+        side: "left",
+      },
+      {
+        selector: "[data-tour='merch-modal']",
+        title: "Info del álbum",
+        text: "Grupo, edición y los contadores de stock. Guardar los deja en tu inventario. La X cierra.",
+        side: "left",
+        clickBefore: "[data-tour='merch-info']",
+        wait: 500,
+      },
+      {
+        selector: "[data-tour='merch-modal-stock']",
+        title: "Stock de la edición",
+        text: "Tengo, cambio, venta y en camino. Lo mismo que verás en la photocard, aplicado a esta edición.",
+        side: "left",
+        closeAfter: "[data-tour='merch-modal-close']",
+      },
+      {
+        selector: "[data-tour='albums-inclusions']",
+        title: "Inclusiones",
+        text: "Esta pestaña son las photocards y extras que venían dentro. A partir de aquí la parrilla es la de la biblioteca.",
         side: "bottom",
       },
-      adsStep("El anuncio de los lados es la misma campaña en escritorio, tablet y móvil. La web elige el formato que cabe en tu pantalla."),
+      {
+        selector: "[data-tour='lib-card-stock']",
+        title: "Stock de la inclusión",
+        text: "Cada pieza tiene su desplegable: tengo, WTT, WTS, en camino y wishlist.",
+        side: "top",
+        clickBefore: "[data-tour='albums-inclusions']",
+        wait: 1400,
+      },
+      {
+        selector: "[data-tour='lib-stock-panel']",
+        title: "El desplegable",
+        text: "Ajusta las cantidades y guarda. Cancelar no toca nada.",
+        side: "left",
+        clickBefore: "[data-tour='lib-card-stock']",
+        wait: 350,
+        closeAfter: "[data-tour='lib-card-stock']",
+      },
+      {
+        selector: "[data-tour='pc-modal']",
+        title: "Ficha de la inclusión",
+        text: "Pinchar la foto abre la ficha: caras, miembro, versión y stock. Las flechas recorren la lista.",
+        side: "left",
+        clickBefore: "[data-tour='lib-card']",
+        wait: 500,
+      },
+      {
+        selector: "[data-tour='pc-modal-stock']",
+        title: "Stock en la ficha",
+        text: "Aquí editas el inventario de esa inclusión y, si quieres, dejas una nota o un precio.",
+        side: "left",
+        closeAfter: "[data-tour='pc-modal-close']",
+      },
     ],
     merch: [
       {
@@ -338,12 +462,50 @@ const stepsFor = (id: string): TourStep[] => {
         side: "top",
       },
       {
-        selector: "[data-tour='merch-banner']",
-        title: "Progreso",
-        text: "Un vistazo a cuánto llevas. Si una pieza no existe todavía, el botón de aportar abre el mismo formulario que en la biblioteca.",
+        selector: "[data-tour='go-binders']",
+        title: "Mis binders",
+        text: "Este atajo te lleva a tus binders sin pasar por el menú. Está en merch, en la biblioteca y en álbumes.",
+        side: "left",
+      },
+      {
+        selector: "[data-tour='merch-card-stock']",
+        title: "Stock de la pieza",
+        text: "Tengo, en camino, WTT y WTS suman de uno en uno. La estrella la mete o la saca de la wishlist.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='merch-info']",
+        title: "Info del item",
+        text: "La i abre la ficha: foto, datos y los contadores para editarlos con calma.",
+        side: "left",
+      },
+      {
+        selector: "[data-tour='merch-modal']",
+        title: "Ficha de merch",
+        text: "La misma ventana que en una photocard. Flechas para la pieza anterior y la siguiente. La X cierra.",
+        side: "left",
+        clickBefore: "[data-tour='merch-info']",
+        wait: 500,
+      },
+      {
+        selector: "[data-tour='merch-modal-stock']",
+        title: "Stock en la ficha",
+        text: "Ajusta tengo, cambio, venta y en camino, y guarda. Wishlist se marca desde la tarjeta.",
+        side: "left",
+        closeAfter: "[data-tour='merch-modal-close']",
+      },
+      {
+        selector: "[data-tour='merch-tab-inventory']",
+        title: "Mi inventario",
+        text: "Aquí solo queda lo que ya marcaste como tuyo. El catálogo sigue siendo la lista completa.",
         side: "bottom",
       },
-      adsStep("Merch también deja sitio a una campaña. Si no ves columnas a los lados, estás en una pantalla estrecha y el anuncio se coloca en el contenido."),
+      {
+        selector: "[data-tour='site-footer']",
+        title: "Footer",
+        text: "Merch también cierra con el pie de la web: guía, normas, privacidad y reportar.",
+        side: "top",
+      },
     ],
     market: [
       {
@@ -368,10 +530,55 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='market-tabs']",
         title: "Cambios y ventas",
-        text: "WTT es intercambio. WTS es venta. Cada pestaña tiene su formulario para publicar y su forma de contactar.",
+        text: "WTT es intercambio. WTS es venta. Publicar un anuncio pide sesión y una pieza de tu binder o de tu inventario.",
         side: "bottom",
       },
-      adsStep("El mercado también muestra la campaña activa, adaptada a tu pantalla."),
+      {
+        selector: "[data-tour='market-wtt']",
+        title: "WTT, el cambio",
+        text: "Ves lo que ofrecen o lo que buscan. En cada anuncio, Contactar abre el mensaje y, si quieres, las cartas que propones.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='market-contact-btn']",
+        title: "Contactar",
+        text: "Escribe al fan, adjunta lo que ofreces y envía. La conversación sigue en tus notificaciones.",
+        side: "top",
+        clickBefore: "[data-tour='market-wtt']",
+        wait: 400,
+      },
+      {
+        selector: "[data-tour='market-contact']",
+        title: "El mensaje de cambio",
+        text: "Eliges qué cartas pones encima de la mesa, puedes sumar K-oins y dejas un texto. Enviar lo manda a la otra persona.",
+        side: "left",
+        clickBefore: "[data-tour='market-contact-btn']",
+        wait: 500,
+        closeAfter: "[data-tour='market-contact-close']",
+      },
+      {
+        selector: "[data-tour='market-wts']",
+        title: "WTS, la venta",
+        text: "Aquí los anuncios tienen precio. Comprar reserva el trato. Ofertar propone otro precio o un cambio.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='market-buy']",
+        title: "Comprar u ofertar",
+        text: "Comprar abre el mensaje de compra, ya escrito si no quieres añadir nada. Ofertar es para negociar. Hace falta estar dentro de tu cuenta.",
+        side: "top",
+        clickBefore: "[data-tour='market-wts']",
+        wait: 400,
+      },
+      {
+        selector: "[data-tour='market-contact']",
+        title: "El mensaje de compra",
+        text: "Puedes dejar el texto que ya viene o escribir el tuyo. Enviar se lo manda a quien vende. Hasta que no pulsas enviar, no sale nada.",
+        side: "left",
+        clickBefore: "[data-tour='market-buy']",
+        wait: 500,
+        closeAfter: "[data-tour='market-contact-close']",
+      },
     ],
     fanart: [
       {
@@ -392,7 +599,45 @@ const stepsFor = (id: string): TourStep[] => {
         text: "Estas pastillas cambian el muro: 2D, 3D, artesanía, fanfics o multimedia. En el móvil viven dentro del botón de filtros.",
         side: "bottom",
       },
-      adsStep("Fanart deja un hueco a los anuncios sin tapar las obras. Misma campaña, formato según el dispositivo."),
+      {
+        selector: "[data-tour='fanart-like']",
+        title: "Me gusta",
+        text: "El corazón de la tarjeta suma un like sin abrir la obra. Pide sesión. El número de al lado es el total.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='fanart-card']",
+        title: "Abrir la obra",
+        text: "Pincha la tarjeta para verla grande. Si es vídeo, se reproduce. Si es fanfic, se lee por capítulos.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='fanart-view']",
+        title: "La obra en grande",
+        text: "Foto, vídeo o texto. Ver en grande la pone a pantalla completa. Contactar lleva al perfil de quien la hizo.",
+        side: "left",
+        clickBefore: "[data-tour='fanart-card']",
+        wait: 500,
+      },
+      {
+        selector: "[data-tour='fanart-translate']",
+        title: "Traducir",
+        text: "En un fanfic, este idioma traduce título y capítulos. En un dibujo no aparece: no hay texto que traducir.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='fanart-report']",
+        title: "Denunciar",
+        text: "Si algo no debería estar, denuncia desde aquí. El equipo lo recibe en el panel. Hace falta una cuenta.",
+        side: "left",
+      },
+      {
+        selector: "[data-tour='fanart-thread']",
+        title: "Comentarios",
+        text: "Lee lo que ha dicho la gente y deja el tuyo al final. También puedes denunciar un comentario suelto. La X cierra la obra.",
+        side: "top",
+        closeAfter: "[data-tour='fanart-close']",
+      },
     ],
     fanzone: [
       {
@@ -410,10 +655,33 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='fanzone-composer']",
         title: "Publica",
-        text: "Escribe, menciona con @ y adjunta una foto. Publicar pide sesión. En cada post puedes responder, repostear o denunciar si algo no pinta bien.",
+        text: "Escribe, menciona con @ y adjunta una foto o un vídeo. Publicar pide sesión.",
         side: "bottom",
       },
-      adsStep("En Fanzone el anuncio acompaña al timeline, nunca lo sustituye."),
+      {
+        selector: "[data-tour='fanzone-media']",
+        title: "Foto o vídeo",
+        text: "El clip abre la galería. Vale una imagen o un vídeo corto. En las respuestas se puede adjuntar lo mismo.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='fanzone-actions']",
+        title: "En cada post",
+        text: "Comentar, repostear, dar me gusta y compartir. El nombre abre el perfil de esa persona.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='fanzone-report']",
+        title: "Denunciar",
+        text: "La banderita avisa al equipo si un post no debería estar. En un comentario hay otra igual. Hace falta sesión.",
+        side: "left",
+      },
+      {
+        selector: "[data-tour='site-footer']",
+        title: "Footer",
+        text: "Normas de la comunidad, privacidad y reportar un abuso viven aquí abajo, por si el post no bastaba con la banderita.",
+        side: "top",
+      },
     ],
     shop: [
       {
@@ -439,19 +707,142 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='binders-title']",
         title: "Tus binders",
-        text: "Cada binder es un álbum virtual. El número de al lado es cuántos llevas y cuántos te caben. VIP sube ese tope.",
+        text: "Cada binder es un álbum virtual. Sin sesión, esta página te pide entrar. Con sesión ves la estantería: color, portadas y, al pinchar la miniatura, las páginas por dentro. VIP sube el tope.",
         side: "bottom",
       },
       {
         selector: "[data-tour='binders-create']",
         title: "Crear uno nuevo",
-        text: "Esta tarjeta discontinua añade otro binder, si todavía te queda hueco. Dentro colocas páginas, separadores y las photocards de la biblioteca. Hay que entrar con tu cuenta para crearlo.",
+        text: "Esta tarjeta discontinua añade otro binder, si todavía te queda hueco. Hay que entrar con tu cuenta. VIP sube el máximo.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='binders-style']",
+        title: "Personalizar la estantería",
+        text: "El nombre se edita en el título. Los círculos cambian el color. Las caras (portada, contraportada e interiores) se suben aquí. Algunas son un extra VIP.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='binders-preview']",
+        title: "Hojear sin editar",
+        text: "Ver abre el binder como un libro: pasas páginas y miras las caras. Para colocar cartas, entra en la miniatura.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='binder-preview']",
+        title: "El libro",
+        text: "Aquí solo se mira. Las flechas pasan de página. La X vuelve a la estantería, donde sí se personaliza y se colocan photocards.",
+        side: "left",
+        clickBefore: "[data-tour='binders-preview']",
+        wait: 600,
+        closeAfter: "[data-tour='binder-preview-close']",
+      },
+      {
+        selector: "[data-tour='binders-enter']",
+        title: "Entrar al binder",
+        text: "La miniatura abre el binder de verdad: páginas, bolsillos y las cuatro caras. Ahí se coloca la colección.",
+        side: "top",
+      },
+      {
+        selector: "[data-tour='binder-covers']",
+        title: "Las cuatro caras",
+        text: "Portada, interior delantero, interior trasero y contraportada. Pincha una y la decoras: color, borde e imagen.",
+        side: "bottom",
+        clickBefore: "[data-tour='binders-enter']",
+        wait: 1600,
+      },
+      {
+        selector: "[data-tour='binder-tools']",
+        title: "Páginas y separadores",
+        text: "El + añade una página de bolsillos. El marcador añade un separador. Al lado vas viendo cuántos te quedan del cupo. Guardar fija los cambios.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='binder-page']",
+        title: "La página",
+        text: "Cada hueco es un bolsillo. Pincha uno vacío para meter una photocard de tu biblioteca, o una que ya está para ver su ficha, su stock y moverla.",
+        side: "top",
+      },
+    ],
+    perfil: [
+      {
+        selector: "[data-tour='me-avatar']",
+        fallback: "[data-tour='hdr-account']",
+        title: "Tu foto",
+        text: "Pincha el avatar para cambiarlo. Hay pack básico y extras VIP. Si no has entrado, este tour te deja en la puerta de login.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='me-tab-home']",
+        title: "Inicio del perfil",
+        text: "Tu colección, tu actividad y un resumen de cómo va tu binder. Las otras pestañas son grupos, fanzone y avisos.",
+        side: "bottom",
+      },
+      {
+        selector: "[data-tour='me-settings']",
+        title: "Ajustes",
+        text: "El engranaje abre nombre, bio y el resto de tu ficha. El correo se ve, pero no se cambia desde aquí.",
+        side: "left",
+      },
+      {
+        selector: "[data-tour='me-settings-panel']",
+        title: "Personalizar el perfil",
+        text: "Nombre visible, biografía y lo que quieras que vea el fandom. Guardar lo publica. La X cierra sin insistir.",
+        side: "left",
+        clickBefore: "[data-tour='me-settings']",
+        wait: 400,
+        closeAfter: "[data-tour='me-settings-close']",
+      },
+      {
+        selector: "[data-tour='me-notices']",
+        title: "Notificaciones",
+        text: "Trades, comentarios, likes y avisos del equipo. El sobre del header trae aquí. Puedes marcarlas leídas.",
+        side: "top",
+        clickBefore: "[data-tour='me-tab-notices']",
+        wait: 400,
+      },
+      {
+        selector: "[data-tour='site-footer']",
+        title: "Y el footer",
+        text: "También desde el perfil llegas a la guía, las normas y el reporte de abuso.",
         side: "top",
       },
     ],
   };
   return all[id] ?? [];
 };
+
+function clickSel(selector?: string) {
+  if (!selector) return;
+  const el = document.querySelector(selector);
+  if (el instanceof HTMLElement) el.click();
+}
+
+function shellOf(selector: string): Element | null {
+  const el = document.querySelector(selector);
+  if (!(el instanceof Element)) return null;
+  return el.closest(
+    "[data-tour='pc-modal'], [data-tour='merch-modal'], [data-tour='market-contact'], [data-tour='fanart-view'], [data-tour='me-settings-panel'], [data-tour='binder-preview'], [data-tour='lib-stock-panel']",
+  );
+}
+
+function leaving(step: TourStep, other?: TourStep) {
+  if (!step.closeAfter) return false;
+  if (!other) return true;
+  const shell = shellOf(step.selector);
+  if (!shell) return true;
+  const dest = document.querySelector(other.selector);
+  return !dest || !shell.contains(dest);
+}
+
+const CLOSE_ON_EXIT = [
+  "[data-tour='pc-modal-close']",
+  "[data-tour='merch-modal-close']",
+  "[data-tour='market-contact-close']",
+  "[data-tour='fanart-close']",
+  "[data-tour='me-settings-close']",
+  "[data-tour='binder-preview-close']",
+];
 
 function prepare(id: string) {
   if (id === "biblioteca" && !visibleEl(".library-filters-grid")) {
@@ -470,20 +861,21 @@ export function startUserTour(id: string) {
   collapseSelect();
   closeHeaderMenus();
 
-  const driveSteps: DriveStep[] = steps.map((step) => ({
-    element: () => {
-      if (step.selector === "[data-tour='site-ads']") {
-        const slots = Array.from(document.querySelectorAll(".ad-slot-card"));
-        for (const el of slots) {
-          const box = el.getBoundingClientRect();
-          if (box.width > 20 && box.height > 20) return el;
-        }
-      }
-      return resolveStep(step) as Element;
-    },
+  const canEnterBinder = !!document.querySelector("[data-tour='binders-enter']");
+  const waitFor = (step: TourStep) => {
+    const openerMissing = !!step.clickBefore && !document.querySelector(step.clickBefore);
+    const targetMissing = !document.querySelector(step.selector);
+    if (openerMissing && targetMissing) return 0;
+    if (step.selector.includes("binder-covers") && canEnterBinder) return 8000;
+    if (step.clickBefore?.includes("albums-inclusions")) return 8000;
+    if (step.clickBefore) return 2500;
+    return 0;
+  };
+  const driveSteps: DriveStep[] = steps.map((step, index) => ({
+    element: () => resolveStep(step) as Element,
     disableActiveInteraction: true,
     skipMissingElement: true,
-    waitForElement: 2200,
+    waitForElement: waitFor(step),
     onHighlighted: (el, _step, { driver: drv }) => {
       openReveal(step);
       if (step.expand) expandSelect(el);
@@ -498,6 +890,24 @@ export function startUserTour(id: string) {
       description: step.text,
       side: step.side ?? "bottom",
       align: "start",
+      onNextClick: (_el, _s, opts) => {
+        const next = steps[index + 1];
+        if (!next) {
+          if (step.closeAfter) clickSel(step.closeAfter);
+          opts.driver.moveNext();
+          return;
+        }
+        if (leaving(step, next)) clickSel(step.closeAfter);
+        const needsOpen = Boolean(next.clickBefore) && !visibleEl(next.selector) && !!document.querySelector(next.clickBefore || "");
+        if (needsOpen) clickSel(next.clickBefore);
+        if (needsOpen) window.setTimeout(() => opts.driver.moveNext(), next.wait ?? 700);
+        else opts.driver.moveNext();
+      },
+      onPrevClick: (_el, _s, opts) => {
+        const prev = steps[index - 1];
+        if (leaving(step, prev)) clickSel(step.closeAfter);
+        opts.driver.movePrevious();
+      },
     },
   }));
 
@@ -516,7 +926,7 @@ export function startUserTour(id: string) {
     doneBtnText: "Cerrar",
     disableActiveInteraction: true,
     skipMissingElement: true,
-    waitForElement: 2200,
+    waitForElement: 0,
     steps: driveSteps,
     onPopoverRender: (popover, opts) => {
       const at = opts.index ?? opts.state.activeIndex;
@@ -526,6 +936,8 @@ export function startUserTour(id: string) {
     onDestroyed: () => {
       collapseSelect();
       closeHeaderMenus();
+      if (visibleEl("[data-tour='lib-stock-panel']")) clickSel("[data-tour='lib-card-stock']");
+      for (const sel of CLOSE_ON_EXIT) clickSel(sel);
       if (active === tour) active = null;
     },
   });
@@ -535,7 +947,7 @@ export function startUserTour(id: string) {
   const startedAt = Date.now();
   const begin = () => {
     if (active !== tour) return;
-    const ready = resolveStep(steps[0]) || (steps[0].selector === "[data-tour='site-ads']" && document.querySelector("[data-tour='site-ads']"));
+    const ready = resolveStep(steps[0]);
     if (ready || Date.now() - startedAt > 8000) {
       tour.drive(0);
       return;

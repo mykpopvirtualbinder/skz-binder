@@ -978,7 +978,7 @@ export default function FanZonePage() {
 
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: "15px", borderTop: "1px solid var(--color-border)", paddingTop: "15px" }}>
                   <input type="file" ref={fileInputRef} onChange={(e) => { const f = e.target.files?.[0] || null; void pickMainMedia(f); }} accept="image/*,video/*" style={{ display: "none" }} />
-                  <button type="button" onClick={() => fileInputRef.current?.click()} style={{ background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer", display: "flex", gap: "5px", alignItems: "center", fontWeight: 700 }}>
+                  <button data-tour="fanzone-media" type="button" onClick={() => fileInputRef.current?.click()} style={{ background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer", display: "flex", gap: "5px", alignItems: "center", fontWeight: 700 }}>
                     <ImageIcon size={20} /> <span>{t("fanzone.photo")}</span>
                   </button>
                   <button onClick={handlePost} disabled={!newPost.trim() || isPublishing} style={{ background: newPost.trim() ? "var(--color-primary)" : "var(--bg-soft)", color: newPost.trim() ? "white" : "var(--text-muted)", padding: "10px 25px", borderRadius: "99px", border: "none", fontWeight: 900, cursor: newPost.trim() ? "pointer" : "not-allowed" }}>
@@ -997,7 +997,7 @@ export default function FanZonePage() {
                   if (!onlyFollowed) return true; 
                   return myFavorites.includes(post.user_id); 
                 })
-                .map((post) => {
+                .map((post, postIndex) => {
               const mainComments = post.comments
                 .filter((c:any) => !c.parent_comment_id)
                 .slice()
@@ -1037,7 +1037,7 @@ export default function FanZonePage() {
                         <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>{new Date(post.created_at).toLocaleDateString()}</span>
                       </div>
                       <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                        <button onClick={() => setReportModal({type: 'post', item: post})} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}><Flag size={16} /></button>
+                        <button type="button" data-tour={postIndex === 0 ? "fanzone-report" : undefined} onClick={() => setReportModal({type: 'post', item: post})} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}><Flag size={16} /></button>
                         {(profile?.id === post.user_id || canModerateAllContent) && (
                           <button onClick={() => setDeleteConfirm({type: 'post', id: post.id})} style={{ background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer" }}><Trash2 size={16} /></button>
                         )}
@@ -1071,7 +1071,7 @@ export default function FanZonePage() {
                       </>
                     )}
                     
-                    <div style={{ display: "flex", justifyContent: "space-between", maxWidth: "350px", color: "var(--text-muted)", marginBottom: "5px", marginTop: "10px" }}>
+                    <div data-tour="fanzone-actions" style={{ display: "flex", justifyContent: "space-between", maxWidth: "350px", color: "var(--text-muted)", marginBottom: "5px", marginTop: "10px" }}>
                       <button onClick={() => {
                         setReplyingToId({ postId: post.id });
                         setReplyContent("");

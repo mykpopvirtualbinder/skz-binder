@@ -1,6 +1,7 @@
 "use client";
 
 import AdRailLayout from "../components/AdRailLayout";
+import Footer from "../components/footer";
 import React, { useState, useEffect, useMemo, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -1703,7 +1704,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
              <button onClick={() => { setActiveTab("catalogo_merch"); setActiveStatus("Todos"); }} style={{ background: "none", border: "none", padding: "10px 16px", fontSize: "16px", fontWeight: 900, color: activeTab === "catalogo_merch" ? "var(--accent-vibe-cyan)" : "var(--text-muted)", borderBottom: activeTab === "catalogo_merch" ? "3px solid var(--accent-vibe-cyan)" : "3px solid transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
                <LayoutGrid size={18}/> {t("merch.tab_catalog_merch")}
              </button>
-             <button onClick={() => { setActiveTab("mi_coleccion"); setActiveStatus("Todos"); }} style={{ background: "none", border: "none", padding: "10px 16px", fontSize: "16px", fontWeight: 900, color: activeTab === "mi_coleccion" ? "var(--accent-vibe-pink)" : "var(--text-muted)", borderBottom: activeTab === "mi_coleccion" ? "3px solid var(--accent-vibe-pink)" : "3px solid transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
+             <button data-tour="merch-tab-inventory" onClick={() => { setActiveTab("mi_coleccion"); setActiveStatus("Todos"); }} style={{ background: "none", border: "none", padding: "10px 16px", fontSize: "16px", fontWeight: 900, color: activeTab === "mi_coleccion" ? "var(--accent-vibe-pink)" : "var(--text-muted)", borderBottom: activeTab === "mi_coleccion" ? "3px solid var(--accent-vibe-pink)" : "3px solid transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
                <Archive size={18}/> {t("merch.tab_inventory")}
              </button>
           </div>
@@ -1977,7 +1978,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
           </div> 
         ) : (
           <div className="merch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(195px, 1fr))", gap: "14px", paddingBottom: "80px" }}>
-            {filteredMerch.map((item) => {
+            {filteredMerch.map((item, cardIndex) => {
               const inv = myInventory[item.id] || { have: 0, wtt: 0, wts: 0, wishlist: 0, otw: 0 };
               const isWish = inv.wishlist > 0;
               const albumHeading = isAlbumItem(item) ? merchAlbumCardHeading(item) : item.name;
@@ -2003,7 +2004,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                       )}
                     </div>
                     
-                    <button onClick={() => setInfoModal(item)} style={{ position: "absolute", top: "15px", right: "15px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "50%", padding: "6px", cursor: "pointer", boxShadow: "0 2px 5px var(--shadow-card)" }}><Info size={16} color="var(--accent-vibe-cyan)"/></button>
+                    <button data-tour={cardIndex === 0 ? "merch-info" : undefined} onClick={() => setInfoModal(item)} style={{ position: "absolute", top: "15px", right: "15px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "50%", padding: "6px", cursor: "pointer", boxShadow: "0 2px 5px var(--shadow-card)" }}><Info size={16} color="var(--accent-vibe-cyan)"/></button>
                     
                     <div style={{ position: "absolute", bottom: "15px", left: "15px", display: "flex", gap: "5px", flexWrap: "wrap" }}>
                       {inv.have > 0 && <Badge label={t("merch.inv_badge_have").replace("{{count}}", String(inv.have))} colorObj={COLORS.have} />}
@@ -2022,7 +2023,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                     </span>
                     <h3 style={{ color: "var(--accent-vibe-violet)", fontWeight: 900, fontSize: "15px", margin: "5px 0 15px 0", lineHeight: "1.2" }}>{albumHeading}</h3>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "auto", marginBottom: "8px" }}>
+                    <div data-tour={cardIndex === 0 ? "merch-card-stock" : undefined} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "auto", marginBottom: "8px" }}>
                       <button onClick={() => updateMerchStatus(item.id, 'have', 1)} style={{ background: "transparent", color: "var(--accent-vibe-green)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.have > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-green) 55%, transparent)" : "none" }}><CheckCircle2 size={12}/> {t("merch.label_have")}</button>
                       <button onClick={() => updateMerchStatus(item.id, 'otw', 1)} style={{ background: "transparent", color: "var(--accent-vibe-cyan)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.otw > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-cyan) 55%, transparent)" : "none" }}><Truck size={12}/> {t("merch.label_otw")}</button>
                       <button onClick={() => openMerchWttPicker(item)} style={{ background: "transparent", color: "var(--accent-vibe-violet)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.wtt > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-violet) 55%, transparent)" : "none" }}><Repeat2 size={12}/> {t("merch.label_wtt")}</button>
@@ -2103,6 +2104,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
           >
             <div
               className="library-item-modal-shell"
+              data-tour="merch-modal"
               data-modal-scroll
               onClick={(e) => e.stopPropagation()}
               style={{
@@ -2151,7 +2153,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                   <button type="button" onClick={() => canNext && setInfoModal(navList[navIdx + 1]!)} disabled={!canNext} style={{ ...headerIconBtn, opacity: canNext ? 1 : 0.45 }} title={t("common.next")}>
                     <ChevronRight size={18} strokeWidth={2.6} />
                   </button>
-                  <button type="button" onClick={() => setInfoModal(null)} style={headerIconBtn} title={t("common.close")}>
+                  <button type="button" data-tour="merch-modal-close" onClick={() => setInfoModal(null)} style={headerIconBtn} title={t("common.close")}>
                     ✕
                   </button>
                 </div>
@@ -2196,7 +2198,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                 </div>
 
                 <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
-                  <div style={{ padding: 14, ...subtleCard }}>
+                  <div data-tour="merch-modal-stock" style={{ padding: 14, ...subtleCard }}>
                     <div className="library-item-stock-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
                       <div>
                         <div style={{ fontWeight: 950, marginBottom: 12, color: "var(--color-primary)" }}>{t("library.stock_title")}</div>
@@ -2511,6 +2513,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
+      {variant !== "albums" && <Footer />}
     </div>
   );
 }

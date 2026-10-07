@@ -116,7 +116,8 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
   const insideBackImg = insideBack.imageUrl || insideBackUrl;
 
   return (
-    <div 
+    <div
+    data-tour="binder-preview"
     onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} 
     style={{ 
       position: "fixed", inset: 0, 
@@ -177,7 +178,7 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
           >
             <BookOpen size={16} /> {t("virtual_binder.open_pages") === "virtual_binder.open_pages" ? "Ver páginas" : t("virtual_binder.open_pages")}
           </button>
-          <button onClick={onClose} style={{ background: "var(--bg-card)", border: "none", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-main)", fontWeight: "bold" }}>
+          <button type="button" data-tour="binder-preview-close" onClick={onClose} style={{ background: "var(--bg-card)", border: "none", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-main)", fontWeight: "bold" }}>
             <X size={24} />
           </button>
         </div>

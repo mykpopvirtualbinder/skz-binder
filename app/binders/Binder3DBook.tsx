@@ -16,6 +16,7 @@ type Binder3DBookProps = {
   depth?: number;
   interactive?: boolean;
   onOpenBinder?: () => void;
+  tourId?: string;
   t: (key: string) => string;
   showHint?: boolean;
 };
@@ -30,6 +31,7 @@ export default function Binder3DBook({
   depth = 42,
   interactive = true,
   onOpenBinder,
+  tourId,
   t,
   showHint = true,
 }: Binder3DBookProps) {
@@ -114,8 +116,10 @@ export default function Binder3DBook({
       }}
     >
       <div
+        data-tour={tourId}
         role={interactive ? "button" : undefined}
         tabIndex={interactive ? 0 : undefined}
+        onClick={() => onOpenBinder?.()}
         aria-label={`${title || t("binder_shelf.default_name")}. ${t("binder_shelf.thumb_drag_hint")}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
