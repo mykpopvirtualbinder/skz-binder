@@ -16,8 +16,7 @@ import zh from "../locales/zh.json";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { normalizeThemeId } from "@/lib/theme-unlocks";
 import { persistTheme, themeIdFromUnknown } from "@/lib/theme-persist";
-import { resolveProfileAvatarUrl } from "@/lib/default-profile-avatar";
-import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
+import { DEFAULT_SITE_PROFILE_AVATAR_URL, isUnsetProfileAvatar, resolveProfileAvatarUrl } from "@/lib/default-profile-avatar";
 
 const DICTIONARIES: Record<string, any> = { es, en, fr, de, it, pt, id, th, ja, ko, zh };
 const MASTER_MEMBER_MAP: Record<number, string[]> = {
@@ -263,7 +262,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
 
           // Auto-fix: si el avatar está vacío, guardar el default en DB (best-effort).
           // Esto cubre usuarios antiguos o registros sin completar perfil.
-          if (!profileData.avatar_url) {
+          if (isUnsetProfileAvatar(profileData.avatar_url)) {
             try {
               await supabase
                 .from("profiles")

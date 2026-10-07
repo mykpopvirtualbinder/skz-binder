@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail, isSiteAdminSession } from "@/lib/admin-emails";
+import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 import {
   getCursorUnlockCost,
   getThemeUnlockCost,
@@ -1075,11 +1076,7 @@ export default function Header() {
                     title={t("header.dropdown.my_profile")}
                   >
                     <div style={{ width: 32, height: 32, borderRadius: "50%", border: profile?.is_premium ? "2px solid var(--color-primary)" : "2px solid var(--color-border)", padding: "1px", background: "var(--bg-card)", overflow: "visible", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} alt="Avatar" />
-                      ) : (
-                        <User size={16} color="var(--text-muted)" />
-                      )}
+                      <img src={profile?.avatar_url || DEFAULT_SITE_PROFILE_AVATAR_URL} alt="" style={{ width: "100%", height: "100%", objectFit: (profile?.avatar_url || "").includes("logo-avatar") ? "contain" : "cover", borderRadius: "50%", background: "var(--bg-soft)" }} onError={(e) => { const img = e.currentTarget; if (img.dataset.fallback === "1") return; img.dataset.fallback = "1"; img.src = DEFAULT_SITE_PROFILE_AVATAR_URL; img.style.objectFit = "contain"; }} />
                     </div>
                     {profile?.is_premium && (
                       <div style={{ position: "absolute", top: "-6px", right: "-5px", transform: "rotate(15deg)", width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "color-mix(in srgb, var(--state-warning-bg) 70%, var(--bg-card) 30%)", boxShadow: "0 0 0 1px color-mix(in srgb, var(--state-warning-border) 65%, transparent), 0 6px 12px color-mix(in srgb, var(--state-warning-fg) 45%, transparent)" }}>
@@ -1287,11 +1284,7 @@ export default function Header() {
                 <div onMouseEnter={() => setProfileMenuOpen(true)} onMouseLeave={() => setProfileMenuOpen(false)} style={{ position: "relative", paddingBottom: "15px", marginTop: "15px", marginLeft: "4px" }}>
                   <Link href="/me" onClick={closeAllMenus} style={{ position: "relative", display: "block" }} className="avatar-hover">
                     <div style={{ width: 38, height: 38, borderRadius: "50%", border: profile?.is_premium ? "2px solid var(--color-primary)" : "2px solid var(--color-border)", padding: "2px", background: "var(--bg-card)", boxShadow: "0 4px 12px var(--shadow-card)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} alt="Avatar" />
-                      ) : (
-                        <User size={18} color="var(--text-muted)" />
-                      )}
+                      <img src={profile?.avatar_url || DEFAULT_SITE_PROFILE_AVATAR_URL} alt="" style={{ width: "100%", height: "100%", objectFit: (profile?.avatar_url || "").includes("logo-avatar") ? "contain" : "cover", borderRadius: "50%", background: "var(--bg-soft)" }} onError={(e) => { const img = e.currentTarget; if (img.dataset.fallback === "1") return; img.dataset.fallback = "1"; img.src = DEFAULT_SITE_PROFILE_AVATAR_URL; img.style.objectFit = "contain"; }} />
                     </div>
                     {profile?.is_premium && (
                       <div style={{ position: "absolute", top: "-10px", right: "-7px", transform: "rotate(15deg)", width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "color-mix(in srgb, var(--state-warning-bg) 70%, var(--bg-card) 30%)", boxShadow: "0 0 0 1px color-mix(in srgb, var(--state-warning-border) 70%, transparent), 0 8px 14px color-mix(in srgb, var(--state-warning-fg) 45%, transparent)" }}>

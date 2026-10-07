@@ -61,7 +61,7 @@ const LESSONS: Lesson[] = [
       { hot: "gestor", title: "Quién la gestiona", text: "Asigna Ana, Paula o Silvia para que no la abráis dos a la vez." },
       { hot: "aprobar", title: "Aprobar", text: "Aprobar como artista le da la insignia para que publique desde el Estudio. Denegar cierra la solicitud sin borrar el expediente." },
       { hot: "obra", title: "Publicar su obra", text: "Si hay que subir algo en su nombre, Publicar su obra abre Publicar con esa persona ya elegida. Publicar sigue en el menú para hacerlo a mano." },
-      { hot: "historial", title: "Historial", text: "Historial de acciones lista qué hizo cada una, en qué solicitud y cuándo." },
+      { hot: "historial", title: "Historial", text: "Dentro de la solicitud, Historial de solicitudes de esa persona lista cada alta suya, con estado, quién la gestiona y qué se hizo." },
     ],
   },
   {
@@ -74,7 +74,7 @@ const LESSONS: Lesson[] = [
       { hot: "estado", title: "Estado", text: "Pendiente, en proceso, en investigación, reactivación, aprobada, denegada o completada. El cambio queda en el historial." },
       { hot: "gestor", title: "Responsable", text: "Ana, Paula o Silvia. Así se ve quién tiene el expediente abierto." },
       { hot: "revisar", title: "Revisar", text: "Revisar abre el expediente: pruebas, notas, notificación al denunciante y sanciones. El estado de ahí también se guarda." },
-      { hot: "historial", title: "Historial", text: "El historial del equipo junta las acciones de cada persona en todas las denuncias." },
+      { hot: "historial", title: "Historial", text: "Historial de denuncias de esa persona abre las que ha enviado, con estado y las acciones del equipo." },
     ],
   },
   {
@@ -98,7 +98,7 @@ const LESSONS: Lesson[] = [
       { hot: "estado", title: "Decisión", text: "En proceso mientras la comparas con el catálogo. Aprobada si la foto entra. Denegada si no sirve." },
       { hot: "gestor", title: "Quién la revisa", text: "Asigna a una de las tres para que no descarguéis la misma dos veces." },
       { hot: "descarga", title: "Descargar", text: "Descarga la imagen (el archivo lleva el id de la photocard) y súbela al catálogo antes de darla por aprobada." },
-      { hot: "historial", title: "Historial", text: "Cada cambio de estado, lectura o responsable queda firmado por quien lo hizo." },
+      { hot: "historial", title: "Historial", text: "Historial de aportaciones de esa persona muestra cada foto que ha enviado, el estado y quién la tocó." },
     ],
   },
   {
@@ -108,7 +108,7 @@ const LESSONS: Lesson[] = [
     steps: [
       { hot: "menu", title: "Los apartados", text: "Son los mismos que el panel. Elige uno y la animación recorre esa gestión sola." },
       { hot: "pasos", title: "Paso a paso", text: "Avanza sola. Puedes pausar, volver atrás o saltar a un punto. El recuadro iluminado es lo que tocarías en el panel." },
-      { hot: "movil", title: "En el móvil", text: "Las secciones salen en cuadrícula bajo Admin, con el nombre a la vista. Filtros, estado, responsable e historial se apilan para usarlos con el dedo. La gestión es la misma que en el ordenador." },
+      { hot: "movil", title: "En el móvil", text: "Las secciones salen en cuadrícula y se desplazan con la página, para no tapar el título de la sección. Filtros y estados se apilan. La gestión es la misma que en el ordenador." },
     ],
   },
 ];

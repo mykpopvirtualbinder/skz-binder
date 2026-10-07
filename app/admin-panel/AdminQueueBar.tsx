@@ -27,6 +27,41 @@ const chip: CSSProperties = {
   fontWeight: 800,
 };
 
+export type UserHistoryRow = {
+  id: string;
+  when: string;
+  title: string;
+  status: string;
+  gestor: string;
+  read: string;
+  actions: string;
+};
+
+export function UserCaseHistory({ noun, name, rows }: { noun: string; name: string; rows: UserHistoryRow[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginTop: 12 }}>
+      <button type="button" onClick={() => setOpen((v) => !v)} style={{ ...chip, cursor: "pointer" }}>
+        {open ? "Ocultar historial" : `Historial de ${noun} de ${name}`}
+      </button>
+      {open && (
+        <div style={{ marginTop: 8, background: "var(--bg-main)", border: "1px dashed var(--color-border)", borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+          {rows.map((row) => (
+            <div key={row.id} style={{ borderTop: "1px solid var(--color-border)", paddingTop: 8 }}>
+              <div style={{ fontWeight: 900, color: "var(--text-main)", fontSize: 13 }}>{row.title}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, marginTop: 2 }}>{row.when}</div>
+              <div style={{ fontSize: 13, color: "var(--text-main)", fontWeight: 700, marginTop: 4 }}>
+                Estado: {row.status} · Gestiona: {row.gestor} · {row.read}
+              </div>
+              <p style={{ margin: "6px 0 0", whiteSpace: "pre-wrap", fontSize: 12, color: "var(--text-main)", fontWeight: 650 }}>{row.actions}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AdminQueueFilters({
   queue,
   status,
@@ -35,7 +70,6 @@ export function AdminQueueFilters({
   onStatus,
   onGestor,
   onUserQuery,
-  events,
 }: {
   queue: QueueKind;
   status: string;
@@ -44,11 +78,8 @@ export function AdminQueueFilters({
   onStatus: (value: string) => void;
   onGestor: (value: string) => void;
   onUserQuery: (value: string) => void;
-  events: { at: string; actor: string; action: string; detail: string; caseLabel: string }[];
 }) {
-  const [open, setOpen] = useState(false);
   const statuses = queue === "denuncia" ? DENUNCIA_STATUSES : CORE_STATUSES;
-  const visible = events.filter((ev) => gestor === "todos" || ev.actor === gestorLabel(gestor));
 
   return (
     <div className="aq-filters" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -78,28 +109,7 @@ export function AdminQueueFilters({
           placeholder="Filtrar por usuario"
           style={{ ...chip, minWidth: 180, color: "var(--text-main)", outline: "none" }}
         />
-        <button type="button" onClick={() => setOpen((v) => !v)} style={{ ...chip, cursor: "pointer" }}>
-          {open ? "Ocultar historial" : "Historial de acciones"}
-        </button>
       </div>
-      {open && (
-        <div style={{ background: "var(--bg-main)", border: "1px dashed var(--color-border)", borderRadius: 14, padding: 12, maxHeight: 220, overflowY: "auto" }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>
-            {gestor === "todos" ? "Acciones del equipo" : `Acciones de ${gestorLabel(gestor)}`}
-          </div>
-          {visible.length === 0 ? (
-            <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>Todavía no hay acciones con este filtro.</p>
-          ) : (
-            visible.map((ev, i) => (
-              <div key={`${ev.at}-${i}`} className="aq-hist" style={{ display: "grid", gridTemplateColumns: "148px 72px minmax(0, 1fr)", gap: 8, fontSize: 12, padding: "6px 0", borderTop: i ? "1px solid var(--color-border)" : "none" }}>
-                <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>{new Date(ev.at).toLocaleString()}</span>
-                <span style={{ color: "var(--color-primary)", fontWeight: 900 }}>{ev.actor}</span>
-                <span style={{ color: "var(--text-main)", fontWeight: 700 }}>{ev.caseLabel}: {ev.detail}</span>
-              </div>
-            ))
-          )}
-        </div>
-      )}
       <style jsx>{`
         @media (max-width: 860px) {
           .aq-filter-row { flex-direction: column; align-items: stretch; }

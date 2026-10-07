@@ -14,7 +14,10 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid var(--color-border)", 
   outline: "none", 
   fontSize: "14px", 
-  background: "var(--bg-main)", 
+  background: "var(--bg-main)",
+  color: "var(--text-main)",
+  WebkitTextFillColor: "var(--text-main)",
+  caretColor: "var(--text-main)",
   textAlign: "center",
   boxSizing: "border-box" 
 };

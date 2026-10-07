@@ -24,12 +24,13 @@ import {
   aportacionNativeStatus,
   emptyCase,
   parseQueueMessage,
+  gestorLabel,
   queueKey,
   statusLabel,
   type QueueCase,
   type QueueKind,
 } from "@/lib/admin-queue";
-import { AdminQueueBar, AdminQueueFilters, caseMatchesFilters, historyOf } from "./AdminQueueBar";
+import { AdminQueueBar, AdminQueueFilters, UserCaseHistory, caseMatchesFilters, type UserHistoryRow } from "./AdminQueueBar";
 import AdminManual from "./AdminManual";
 
 
@@ -273,6 +274,25 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
 
   const caseOf = (queue: QueueKind, caseId: string, nativeStatus?: string | null) =>
     queueCases[queueKey(queue, caseId)] || emptyCase(nativeStatus);
+
+  const historyRowsFor = (
+    queue: QueueKind,
+    items: { id: string; when?: string | null; title: string; native?: string | null }[],
+  ): UserHistoryRow[] =>
+    items.map((item) => {
+      const caso = caseOf(queue, item.id, item.native);
+      return {
+        id: item.id,
+        when: item.when ? new Date(item.when).toLocaleString() : "",
+        title: item.title,
+        status: statusLabel(caso.status),
+        gestor: caso.gestor ? gestorLabel(caso.gestor) : "Sin asignar",
+        read: caso.leido ? "Leída" : "No leída",
+        actions: caso.historial.length
+          ? caso.historial.map((ev) => `${new Date(ev.at).toLocaleString()} · ${ev.actor}: ${ev.detail}`).join("\n")
+          : "Sin acciones del equipo todavía.",
+      };
+    });
 
   const queueSink = React.useRef<{
     setDenuncias: React.Dispatch<React.SetStateAction<any[]>>;
@@ -2978,7 +2998,6 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 onStatus={setSolFiltroStatus}
                 onGestor={setSolFiltroGestor}
                 onUserQuery={setSolFiltroUser}
-                events={historyOf(solicitudes.map((sol) => ({ label: sol.nombre || "Solicitud", state: caseOf("solicitud", sol.id) })))}
               />
               
               {solicitudes.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>No hay solicitudes.</p> : 
@@ -3026,6 +3045,15 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                         <button type="button" onClick={() => openPublishFor(sol.user_id, sol.nombre || "")} style={{ background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-primary)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Publicar su obra</button>
                         <button onClick={() => void saveQueueCase("solicitud", sol.id, { status: "denegada", leido: true }, "estado", "Denegada")} style={{ background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Denegar</button>
                       </div>
+                      <UserCaseHistory
+                        noun="solicitudes"
+                        name={sol.nombre || "este usuario"}
+                        rows={historyRowsFor("solicitud", solicitudes.filter((other) => other.id === sol.id || (sol.user_id && other.user_id === sol.user_id) || (!sol.user_id && sol.email && String(other.email || "").toLowerCase() === String(sol.email).toLowerCase())).map((other) => ({
+                          id: other.id,
+                          when: other.created_at,
+                          title: other.nombre || "Solicitud",
+                        })))}
+                      />
                     </div>
                   )
                 })
@@ -3071,7 +3099,6 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     onStatus={setFiltroEstado}
     onGestor={setDenFiltroGestor}
     onUserQuery={setDenFiltroUser}
-    events={historyOf(denuncias.map((d) => ({ label: d.motivo?.slice?.(0, 42) || "Denuncia", state: caseOf("denuncia", d.id, d.estado) })))}
   />
 </div>
 </div>
@@ -3180,6 +3207,16 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             state={caso}
                             busy={queueBusy === queueKey("denuncia", d.id)}
                             onPatch={(patch, action, detail) => void saveQueueCase("denuncia", d.id, patch, action, detail, d.estado)}
+                          />
+                          <UserCaseHistory
+                            noun="denuncias"
+                            name={d.denunciante?.display_name || "este usuario"}
+                            rows={historyRowsFor("denuncia", denuncias.filter((other) => other.id === d.id || (d.reporter_id && other.reporter_id === d.reporter_id)).map((other) => ({
+                              id: other.id,
+                              when: other.created_at,
+                              title: other.categoria || other.motivo?.slice?.(0, 60) || "Denuncia",
+                              native: other.estado,
+                            })))}
                           />
                         </div>
                         );
@@ -3335,7 +3372,6 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 onStatus={setFiltroEstadoAportaciones}
                 onGestor={setApoFiltroGestor}
                 onUserQuery={setApoFiltroUser}
-                events={historyOf(aportaciones.map((a) => ({ label: `PC #${a.item_id}`, state: caseOf("aportacion", a.id, a.status) })))}
               />
 
               {selectedAportacionIds.size > 0 && (
@@ -3391,6 +3427,16 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             state={caso}
                             busy={queueBusy === queueKey("aportacion", a.id)}
                             onPatch={(patch, action, detail) => void saveQueueCase("aportacion", a.id, patch, action, detail, a.status)}
+                          />
+                          <UserCaseHistory
+                            noun="aportaciones"
+                            name={a.userName || "este usuario"}
+                            rows={historyRowsFor("aportacion", aportaciones.filter((other) => other.id === a.id || (a.user_id && other.user_id === a.user_id)).map((other) => ({
+                              id: other.id,
+                              when: other.created_at,
+                              title: `PC #${other.item_id} (${other.face})`,
+                              native: other.status,
+                            })))}
                           />
                         </div>
                         );
@@ -5015,8 +5061,9 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             padding: 0 14px;
           }
           .admin-side {
-            top: 128px;
-            z-index: 20;
+            position: static;
+            top: auto;
+            z-index: auto;
             padding: 12px;
           }
           .admin-brand {

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { canonicalMemberStatName, prettyMemberLabel } from "@/lib/member-labels";
 import { resolveMemberAvatarUrl } from "@/lib/member-image-url";
-import { resolveProfileAvatarUrl } from "@/lib/default-profile-avatar";
+import { DEFAULT_SITE_PROFILE_AVATAR_URL, resolveProfileAvatarUrl } from "@/lib/default-profile-avatar";
 import type { AvatarPublicCatalog } from "@/lib/avatarPublicCatalog.types";
 import { buildVipGroupAssetsRows } from "@/lib/vip-badge-groups";
 import {
@@ -2191,11 +2191,7 @@ function MePageContent() {
             
             {profile?.is_premium ? (
               <div onClick={() => setIsAvatarModalOpen(true)} style={{ width: 110, height: 110, borderRadius: "50%", overflow: "hidden", backgroundColor: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", border: "3px solid var(--state-warning-fg)", padding: "4px", flexShrink: 0 }}>
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} alt="Avatar" />
-                ) : (
-                  <User size={40} color="var(--text-muted)" />
-                )}
+                <img src={profile?.avatar_url || DEFAULT_SITE_PROFILE_AVATAR_URL} alt="" style={{ width: "100%", height: "100%", objectFit: (profile?.avatar_url || "").includes("logo-avatar") ? "contain" : "cover", borderRadius: "50%", background: "var(--bg-soft)" }} onError={(e) => { const img = e.currentTarget; if (img.dataset.fallback === "1") return; img.dataset.fallback = "1"; img.src = DEFAULT_SITE_PROFILE_AVATAR_URL; img.style.objectFit = "contain"; }} />
                 <div style={{ position: "absolute", inset: 0, backgroundColor: "color-mix(in srgb, var(--color-primary) 50%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "1"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0"}>
                   <Camera color="white" size={28} />
                 </div>
@@ -2203,11 +2199,7 @@ function MePageContent() {
             ) : (
               <div className="me-avatar-ring-wrap">
                 <div onClick={() => setIsAvatarModalOpen(true)} style={{ width: 104, height: 104, borderRadius: "50%", overflow: "hidden", backgroundColor: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}>
-                  {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} alt="Avatar" />
-                  ) : (
-                    <User size={40} color="var(--text-muted)" />
-                  )}
+                  <img src={profile?.avatar_url || DEFAULT_SITE_PROFILE_AVATAR_URL} alt="" style={{ width: "100%", height: "100%", objectFit: (profile?.avatar_url || "").includes("logo-avatar") ? "contain" : "cover", borderRadius: "50%", background: "var(--bg-soft)" }} onError={(e) => { const img = e.currentTarget; if (img.dataset.fallback === "1") return; img.dataset.fallback = "1"; img.src = DEFAULT_SITE_PROFILE_AVATAR_URL; img.style.objectFit = "contain"; }} />
                   <div style={{ position: "absolute", inset: 0, backgroundColor: "color-mix(in srgb, var(--color-primary) 50%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "1"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0"}>
                     <Camera color="white" size={28} />
                   </div>
