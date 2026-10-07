@@ -6,14 +6,134 @@ import { supabase } from "@/lib/supabase";
 import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { useGlobal } from "../context/GlobalContext";
 
+export type ColabOrigin = {
+  originKind: string;
+  originTitle: string;
+  originGroup: string;
+  originMember: string;
+};
+
 export type ColabForm = {
   asunto: string;
   email: string;
   mensaje: string;
   adjunto: string;
+} & ColabOrigin;
+
+const EMPTY_ORIGIN: ColabOrigin = {
+  originKind: "albums",
+  originTitle: "",
+  originGroup: "",
+  originMember: "",
 };
 
-const EMPTY: ColabForm = { asunto: "", email: "", mensaje: "", adjunto: "" };
+const EMPTY: ColabForm = { asunto: "", email: "", mensaje: "", adjunto: "", ...EMPTY_ORIGIN };
+
+const ORIGIN_KINDS = [
+  ["albums", "library.modal.origin_album"],
+  ["tours", "library.modal.origin_tour"],
+  ["events", "library.modal.origin_event"],
+  ["seasons-greetings", "library.modal.origin_seasons"],
+  ["merch", "library.modal.origin_merch"],
+  ["pop-ups", "library.modal.origin_popup"],
+  ["memberships", "library.modal.origin_membership"],
+  ["collabs", "library.modal.origin_collab"],
+  ["other", "library.modal.origin_other"],
+] as const;
+
+export function originKindLabel(kind: string, t: (key: string) => string) {
+  const row = ORIGIN_KINDS.find(([value]) => value === kind);
+  return t(row?.[1] ?? "library.modal.origin_other");
+}
+
+export function withOriginMessage(kindLabel: string, origin: ColabOrigin, message: string) {
+  return [
+    `Tipo: ${kindLabel}`,
+    `Colección: ${origin.originTitle.trim()}`,
+    `Grupo: ${origin.originGroup.trim()}`,
+    `Miembro: ${origin.originMember.trim()}`,
+    "",
+    message.trim(),
+  ].join("\n");
+}
+
+const fieldStyle = {
+  width: "100%",
+  padding: "12px",
+  borderRadius: "12px",
+  border: "1px solid var(--color-border)",
+  outline: "none",
+  color: "var(--text-main)",
+  background: "var(--bg-main)",
+  fontWeight: 800,
+} as const;
+
+export function ColabOriginFields({
+  value,
+  onChange,
+}: {
+  value: ColabOrigin;
+  onChange: (next: ColabOrigin) => void;
+}) {
+  const { t } = useGlobal();
+  return (
+    <>
+      <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, lineHeight: 1.4 }}>
+        {t("library.colab_modal.origin_note")}
+      </p>
+      <div>
+        <label style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", display: "block", marginBottom: "5px" }}>
+          {t("library.modal.origin_kind")}
+        </label>
+        <select
+          value={value.originKind}
+          onChange={(e) => onChange({ ...value, originKind: e.target.value })}
+          style={fieldStyle}
+        >
+          {ORIGIN_KINDS.map(([kind, label]) => (
+            <option key={kind} value={kind}>{t(label)}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", display: "block", marginBottom: "5px" }}>
+          {t("library.modal.origin_title")}
+        </label>
+        <input
+          type="text"
+          placeholder={t("library.colab_modal.placeholder_origin_title")}
+          value={value.originTitle}
+          onChange={(e) => onChange({ ...value, originTitle: e.target.value })}
+          style={fieldStyle}
+        />
+      </div>
+      <div>
+        <label style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", display: "block", marginBottom: "5px" }}>
+          {t("library.modal.origin_group")}
+        </label>
+        <input
+          type="text"
+          placeholder={t("library.colab_modal.placeholder_origin_group")}
+          value={value.originGroup}
+          onChange={(e) => onChange({ ...value, originGroup: e.target.value })}
+          style={fieldStyle}
+        />
+      </div>
+      <div>
+        <label style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", display: "block", marginBottom: "5px" }}>
+          {t("library.modal.origin_member")}
+        </label>
+        <input
+          type="text"
+          placeholder={t("library.colab_modal.placeholder_origin_member")}
+          value={value.originMember}
+          onChange={(e) => onChange({ ...value, originMember: e.target.value })}
+          style={fieldStyle}
+        />
+      </div>
+    </>
+  );
+}
 
 export default function ContributeColabModal({
   open,
@@ -39,13 +159,14 @@ export default function ContributeColabModal({
       email: initialEmail,
       mensaje: initialMensaje,
       adjunto: "",
+      ...EMPTY_ORIGIN,
     });
   }, [open, initialAsunto, initialEmail, initialMensaje]);
 
   if (!open) return null;
 
   const submit = async () => {
-    if (!form.asunto || !form.mensaje || !form.email) {
+    if (!form.asunto || !form.mensaje || !form.email || !form.originTitle.trim() || !form.originGroup.trim() || !form.originMember.trim()) {
       showAlert(t("common.error"), t("library.colab_modal.error_fields"));
       return;
     }
@@ -56,7 +177,7 @@ export default function ContributeColabModal({
         user_id: user?.id,
         asunto: form.asunto,
         email: form.email,
-        mensaje: form.mensaje,
+        mensaje: withOriginMessage(originKindLabel(form.originKind, t), form, form.mensaje),
         adjuntos: form.adjunto,
         status: "pendiente",
       }).select("id").maybeSingle();
@@ -162,6 +283,7 @@ export default function ContributeColabModal({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          <ColabOriginFields value={form} onChange={(origin) => setForm({ ...form, ...origin })} />
           <div>
             <label style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", display: "block", marginBottom: "5px" }}>
               {t("library.colab_modal.label_subject")}

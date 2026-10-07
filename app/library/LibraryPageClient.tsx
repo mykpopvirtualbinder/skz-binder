@@ -32,6 +32,7 @@ import { getCurrencyOptions } from "./currencyOptions";
 import WtsListingModal from "./WtsListingModal";
 import WttListingModal from "./WttListingModal";
 import ContributeEmptyState from "../components/ContributeEmptyState";
+import { ColabOriginFields, originKindLabel, withOriginMessage } from "../components/ContributeColabModal";
 import {
   compactFolderKey,
   findFolderAlbumByFilterKey,
@@ -1483,36 +1484,11 @@ function ItemModal({
       : null;
   // ===== Upload UI =====
   const [uploading, setUploading] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const originFormRef = useRef<HTMLDivElement | null>(null);
-  const [originKind, setOriginKind] = useState("albums");
-  const [originTitle, setOriginTitle] = useState("");
-  const [originGroup, setOriginGroup] = useState("");
-  const [originMember, setOriginMember] = useState("");
+  const [contributeSide, setContributeSide] = useState<"front" | "back" | null>(null);
+  const [contributeFile, setContributeFile] = useState<File | null>(null);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploadSide, setUploadSide] = useState<"front" | "back">("front");
-  const [formatHintOpen, setFormatHintOpen] = useState(false);
-  const hintTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (hintTimerRef.current) window.clearTimeout(hintTimerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    setPendingFile(null);
-  }, [item.id]);
-
-  useEffect(() => {
-    if (!pendingFile) return;
-    const node = originFormRef.current;
-    if (!node) return;
-    window.requestAnimationFrame(() => {
-      node.scrollIntoView({ block: "end", inline: "nearest" });
-    });
-  }, [pendingFile]);
   // ===== Report UI =====
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<string>("wrong_info");
@@ -1573,22 +1549,31 @@ function ItemModal({
       const { data: { publicUrl } } = supabase.storage.from('colaboraciones').getPublicUrl(fileName);
 
       // 2. Registrar la aportación en la base de datos
+      const albumLabel = prettyAlbumDisplay(albumName);
+      const versionLabel = item.version ? prettyVersionLabel(item.version) : "";
+      const originTitle = [albumLabel, versionLabel]
+        .filter((part, index) => part && part !== "—" && (index === 0 || part.toLowerCase() !== albumLabel.toLowerCase()))
+        .join(" · ");
+      const originGroup = prettySlug(groupName);
+      const originMember = prettyMemberLabel(item.member);
+
       const { data: created, error: dbError } = await supabase.from('aportaciones_pcs').insert({
         user_id: authData.user.id,
         item_id: item.id,
         face: uploadSide,
         image_url: publicUrl,
         status: 'pendiente',
-        origin_kind: originKind,
-        origin_title: originTitle.trim(),
-        group_name: originGroup.trim(),
-        member_name: originMember.trim(),
+        origin_kind: collectionKind,
+        origin_title: originTitle === "—" ? "" : originTitle,
+        group_name: originGroup === "—" ? "" : originGroup,
+        member_name: originMember === "—" ? "" : originMember,
       }).select("id").maybeSingle();
 
       if (dbError) throw dbError;
       if (created?.id) void pingAdminInbox("aportacion", created.id);
 
-      setPendingFile(null);
+      setContributeFile(null);
+      setContributeSide(null);
       setUploadMsg("✓ ¡Gracias! Hemos recibido tu imagen. Un admin la revisará pronto.");
     } catch (e: any) {
       setUploadMsg("❌ Error: " + e.message);
@@ -1621,7 +1606,10 @@ function ItemModal({
           e.preventDefault();
           e.stopPropagation();
           // Si el modal de reporte está abierto, Esc solo cierra el reporte
-          if (reportOpen) {
+          if (contributeSide) {
+            setContributeSide(null);
+            setContributeFile(null);
+          } else if (reportOpen) {
             setReportOpen(false);
             resetReport();
           } else if (inspectOpen) {
@@ -1645,7 +1633,7 @@ function ItemModal({
 
       window.addEventListener("keydown", onKeyDown);
       return () => window.removeEventListener("keydown", onKeyDown);
-    }, [onClose, reportOpen, reportSent, inspectOpen]);
+    }, [onClose, reportOpen, reportSent, inspectOpen, contributeSide]);
     // 👆 FIN ATAJOS DE TECLADO 👆
   // Helpers UI
   const headerIconBtn: React.CSSProperties = {
@@ -1675,7 +1663,7 @@ function ItemModal({
     <div
       className="library-item-modal-overlay"
       onClick={() => {
-        if (inspectOpen) return;
+        if (inspectOpen || contributeSide) return;
         onClose();
       }}
       style={{
@@ -1702,7 +1690,7 @@ function ItemModal({
           borderRadius: 18,
           border: "1px solid var(--color-border)",
           boxShadow: "0 30px 80px color-mix(in srgb, var(--text-main) 22%, transparent)",
-          overflow: "auto",
+          overflow: "hidden",
           display: "grid",
           gridTemplateRows: "auto auto",
         }}
@@ -1772,10 +1760,10 @@ function ItemModal({
         </div>
 
         {/* BODY */}
-        <div className="library-item-modal-grid" style={{ display: pendingFile ? "flex" : "grid", flexDirection: pendingFile ? "column" : undefined, gridTemplateColumns: pendingFile ? undefined : "420px 520px", columnGap: 18, rowGap: pendingFile ? 14 : undefined, justifyContent: "start", height: pendingFile ? "auto" : "100%", minHeight: 0 }}>
+        <div className="library-item-modal-grid" style={{ display: "grid", gridTemplateColumns: "420px 520px", columnGap: 18, justifyContent: "start", height: "100%", minHeight: 0 }}>
           
           {/* IZQ: PREVIEW FOTO */}
-          <div className={`library-item-modal-photo-col${pendingFile ? " library-item-modal-photo-col--form" : ""}`} style={{ position: "relative", background: "var(--bg-main)", padding: 10, borderRight: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", minHeight: pendingFile ? "min-content" : 0, overflow: "visible" }}>
+          <div className="library-item-modal-photo-col" style={{ position: "relative", background: "var(--bg-main)", padding: 10, borderRight: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", minHeight: 0, overflow: "hidden" }}>
             <div
               role="button"
               tabIndex={0}
@@ -1790,8 +1778,8 @@ function ItemModal({
                 }
               }}
               title={t("library.modal.inspect_hint") || t("binders.zoom")}
-              className={`library-pc-preview library-item-pc-preview${pendingFile ? " library-pc-preview--compact" : ""}`}
-              style={{ width: pendingFile ? 90 : "100%", maxWidth: 380, height: pendingFile ? 130 : "min(62vh, 560px)", minHeight: pendingFile ? 0 : "min(52vh, 420px)", maxHeight: pendingFile ? 130 : undefined, aspectRatio: "2 / 3", position: "relative", overflow: "hidden", borderRadius: 14, isolation: "isolate", background: "transparent", margin: pendingFile ? "4px auto 0" : "12px auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
+              className="library-pc-preview library-item-pc-preview"
+              style={{ width: "100%", maxWidth: 380, height: "min(62vh, 560px)", minHeight: "min(52vh, 420px)", aspectRatio: "2 / 3", position: "relative", overflow: "hidden", borderRadius: 14, isolation: "isolate", background: "transparent", margin: "12px auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
             >
               <div style={{ position: "absolute", inset: 0, perspective: 1100 }}>
               <div
@@ -1888,121 +1876,33 @@ function ItemModal({
                 </div>
                 
                 {/* 👇 BLOQUE DE BOTONES INFALIBLE 👇 */}
-                <div style={{ position: "relative" }}>
-                  <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 15%, transparent)", gap: 4, opacity: uploading ? 0.6 : 1 }}>
-                    {(["front", "back"] as const).map((side) => {
-                      const active = uploadSide === side;
-                      return (
-                        <label
-                          key={side}
-                          onClick={() => {
-                            setUploadSide(side);
-                            setFormatHintOpen(true);
-                            if (hintTimerRef.current) window.clearTimeout(hintTimerRef.current);
-                            hintTimerRef.current = window.setTimeout(() => setFormatHintOpen(false), 5000);
-                          }}
-                          style={{
-                            padding: "7px 12px", borderRadius: 999, border: 0, cursor: uploading ? "not-allowed" : "pointer",
-                            fontWeight: 950, fontSize: 12, background: active ? "var(--bg-soft)" : "transparent",
-                            boxShadow: active ? "0 2px 4px color-mix(in srgb, var(--color-primary) 18%, transparent)" : "none", color: "var(--color-primary)", minWidth: 74, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8
-                          }}
-                        >
-                          {side === "front" ? "Front" : "Back"}
-                          
-                          {/* El input oculto va POR DENTRO del label. Ningún navegador lo bloquea. */}
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            style={{ display: "none" }} 
-                            disabled={uploading}
-                            onChange={(e) => { 
-                              const f = e.target.files?.[0]; 
-                              if (f) {
-                                setPendingFile(f);
-                                setOriginKind(collectionKind);
-                                setOriginTitle(albumName || "");
-                                setOriginGroup(groupName || "");
-                                setOriginMember(niceMembers || "");
-                                setUploadMsg(null);
-                              }
-                              e.target.value = '';
-                            }} 
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                  
-                  {/* Hint de formatos */}
-                  {formatHintOpen && (
-                    <div style={{ 
-                      position: "absolute", 
-                      right: 0, 
-                      bottom: "calc(100% + 12px)", 
-                      width: "max-content",
-                      maxWidth: 280,
-                      borderRadius: 14, 
-                      border: "1px solid var(--color-border)", 
-                      background: "var(--bg-card)", 
-                      boxShadow: "0 -8px 32px color-mix(in srgb, var(--color-primary) 25%, transparent)", 
-                      padding: "12px 16px", 
-                      zIndex: 100 
-                    }}>
-                      <div style={{ fontSize: 12, fontWeight: 950, color: "var(--color-primary)" }}>{t('library.modal.formats_hint')}</div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.35 }}>{t('library.modal.light_hint')}</div>
-                    </div>
-                  )}
+                <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 15%, transparent)", gap: 4, opacity: uploading ? 0.6 : 1 }}>
+                  {(["front", "back"] as const).map((side) => {
+                    const active = uploadSide === side;
+                    return (
+                      <button
+                        key={side}
+                        type="button"
+                        disabled={uploading}
+                        onClick={() => {
+                          setUploadSide(side);
+                          setContributeFile(null);
+                          setUploadMsg(null);
+                          setContributeSide(side);
+                        }}
+                        style={{
+                          padding: "7px 12px", borderRadius: 999, border: 0, cursor: uploading ? "not-allowed" : "pointer",
+                          fontWeight: 950, fontSize: 12, background: active ? "var(--bg-soft)" : "transparent",
+                          boxShadow: active ? "0 2px 4px color-mix(in srgb, var(--color-primary) 18%, transparent)" : "none", color: "var(--color-primary)", minWidth: 74
+                        }}
+                      >
+                        {side === "front" ? "Front" : "Back"}
+                      </button>
+                    );
+                  })}
                 </div>
-                {/* 👆 FIN DEL BLOQUE DE BOTONES 👆 */}
-
               </div>
 
-              {pendingFile && (
-                <div ref={originFormRef} style={{ marginTop: 12, display: "grid", gap: 8, textAlign: "left" }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-main)", lineHeight: 1.35 }}>{t("library.modal.origin_intro")}</div>
-                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "var(--text-muted)" }}>
-                    {t("library.modal.origin_kind")}
-                    <select value={originKind} onChange={(e) => setOriginKind(e.target.value)} style={{ fontWeight: 800, color: "var(--text-main)", WebkitTextFillColor: "var(--text-main)", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }}>
-                      <option value="albums">{t("library.modal.origin_album")}</option>
-                      <option value="tours">{t("library.modal.origin_tour")}</option>
-                      <option value="events">{t("library.modal.origin_event")}</option>
-                      <option value="seasons-greetings">{t("library.modal.origin_seasons")}</option>
-                      <option value="merch">{t("library.modal.origin_merch")}</option>
-                      <option value="pop-ups">{t("library.modal.origin_popup")}</option>
-                      <option value="memberships">{t("library.modal.origin_membership")}</option>
-                      <option value="collabs">{t("library.modal.origin_collab")}</option>
-                      <option value="other">{t("library.modal.origin_other")}</option>
-                    </select>
-                  </label>
-                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "var(--text-muted)" }}>
-                    {t("library.modal.origin_title")}
-                    <input value={originTitle} onChange={(e) => setOriginTitle(e.target.value)} style={{ fontWeight: 800, color: "var(--text-main)", WebkitTextFillColor: "var(--text-main)", caretColor: "var(--text-main)", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }} />
-                  </label>
-                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "var(--text-muted)" }}>
-                    {t("library.modal.origin_group")}
-                    <input value={originGroup} onChange={(e) => setOriginGroup(e.target.value)} style={{ fontWeight: 800, color: "var(--text-main)", WebkitTextFillColor: "var(--text-main)", caretColor: "var(--text-main)", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }} />
-                  </label>
-                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "var(--text-muted)" }}>
-                    {t("library.modal.origin_member")}
-                    <input value={originMember} onChange={(e) => setOriginMember(e.target.value)} style={{ fontWeight: 800, color: "var(--text-main)", WebkitTextFillColor: "var(--text-main)", caretColor: "var(--text-main)", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }} />
-                  </label>
-                  <button
-                    type="button"
-                    disabled={uploading}
-                    onClick={() => {
-                      if (!originKind || !originTitle.trim() || !originGroup.trim() || !originMember.trim()) {
-                        setUploadMsg("❌ " + t("library.modal.origin_required"));
-                        return;
-                      }
-                      void handleUploadFile(pendingFile);
-                    }}
-                    style={{ justifySelf: "start", border: 0, borderRadius: 12, padding: "10px 14px", fontWeight: 900, cursor: uploading ? "not-allowed" : "pointer", background: "var(--color-primary)", color: "var(--bg-card)" }}
-                  >
-                    {t("library.modal.origin_send")}
-                  </button>
-                </div>
-              )}
-              
               {uploadMsg && (
                 <div style={{ marginTop: 10, fontSize: 12, fontWeight: 900, color: uploadMsg.includes("Gracias") ? "var(--color-primary)" : "var(--state-danger-fg)", background: uploadMsg.includes("Gracias") ? "var(--bg-soft)" : "color-mix(in srgb, var(--state-danger-fg) 8%, transparent)", border: `1px solid ${uploadMsg.includes("Gracias") ? "var(--color-border)" : "color-mix(in srgb, var(--state-danger-fg) 18%, transparent)"}`, padding: "10px 12px", borderRadius: 14 }}>
                   {uploadMsg}
@@ -2219,6 +2119,77 @@ function ItemModal({
           </div>
         </div>
       </div>
+
+      {contributeSide ? (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (uploading) return;
+            setContributeSide(null);
+            setContributeFile(null);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "var(--overlay-strong)",
+            zIndex: 10050,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 18,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(420px, 94vw)",
+              borderRadius: 18,
+              border: "1px solid var(--color-border)",
+              background: "var(--bg-card)",
+              boxShadow: "0 22px 70px var(--overlay-medium)",
+              padding: 18,
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ fontWeight: 950, fontSize: 18, color: "var(--color-primary)" }}>
+              {contributeSide === "front" ? t("library.modal.contribute_front") : t("library.modal.contribute_back")}
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.45, color: "var(--text-muted)" }}>
+              {t("library.modal.contribute_conditions")}
+            </div>
+            <label style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-soft)", padding: "10px 14px", fontWeight: 900, color: "var(--color-primary)", cursor: "pointer" }}>
+              {contributeFile ? contributeFile.name : t("library.modal.contribute_pick")}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                style={{ display: "none" }}
+                disabled={uploading}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  setContributeFile(f);
+                  setUploadMsg(null);
+                }}
+              />
+            </label>
+            {uploadMsg && !uploadMsg.includes("Gracias") ? (
+              <div style={{ fontSize: 12, fontWeight: 800, color: "var(--state-danger-fg)", lineHeight: 1.35 }}>{uploadMsg}</div>
+            ) : null}
+            <button
+              type="button"
+              disabled={uploading || !contributeFile}
+              onClick={() => {
+                if (!contributeFile) return;
+                void handleUploadFile(contributeFile);
+              }}
+              style={{ border: 0, borderRadius: 12, padding: "12px 14px", fontWeight: 900, cursor: uploading || !contributeFile ? "not-allowed" : "pointer", background: "var(--color-primary)", color: "var(--bg-card)", opacity: uploading || !contributeFile ? 0.6 : 1 }}
+            >
+              {uploading ? t("library.colab_modal.btn_sending") : t("library.modal.origin_send")}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {inspectOpen && inspectSrc ? (
         <PcInspectLightbox src={inspectSrc} rot={rot} t={t} onClose={() => setInspectOpen(false)} />
@@ -2453,7 +2424,7 @@ function LibraryContent() {
     type UnitFilter = "all" | "single" | "unit" | "ot8";
     const [placedByItem, setPlacedByItem] = useState<Record<number, number>>({});
     const [invByItem, setInvByItem] = useState<Record<number, StatusCounts>>({});
-    const [colabData, setColabData] = useState<{ asunto: string; email: string; mensaje: string; adjunto: string }>({ asunto: "", email: "", mensaje: "", adjunto: "" });
+    const [colabData, setColabData] = useState({ asunto: "", email: "", mensaje: "", adjunto: "", originKind: "albums", originTitle: "", originGroup: "", originMember: "" });
     const [sendingColab, setSendingColab] = useState(false);
     const [showColabModal, setShowColabModal] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -2575,7 +2546,7 @@ const rebuildInvMap = useCallback((rows: UserItemStatusRow[]) => {
 }, []);
 // --- NUEVA FUNCIÓN DEL BUZÓN ---
   const handleSubmitColab = async () => {
-    if (!colabData.asunto || !colabData.mensaje || !colabData.email) {
+    if (!colabData.asunto || !colabData.mensaje || !colabData.email || !colabData.originTitle.trim() || !colabData.originGroup.trim() || !colabData.originMember.trim()) {
       return showAlert(t('common.error'), t('library.colab_modal.error_fields'));
     }
     
@@ -2587,7 +2558,7 @@ const rebuildInvMap = useCallback((rows: UserItemStatusRow[]) => {
         user_id: user?.id,
         asunto: colabData.asunto,
         email: colabData.email,
-        mensaje: colabData.mensaje,
+        mensaje: withOriginMessage(originKindLabel(colabData.originKind, t), colabData, colabData.mensaje),
         adjuntos: colabData.adjunto,
         status: 'pendiente'
       }).select("id").maybeSingle();
@@ -2597,7 +2568,7 @@ const rebuildInvMap = useCallback((rows: UserItemStatusRow[]) => {
 
       showAlert(t('library.colab_modal.success_title'), t('library.colab_modal.success_msg'));
       setShowColabModal(false);
-      setColabData({ asunto: "", email: "", mensaje: "", adjunto: "" });
+      setColabData({ asunto: "", email: "", mensaje: "", adjunto: "", originKind: "albums", originTitle: "", originGroup: "", originMember: "" });
     } catch (e: any) {
       showAlert(t('library.colab_modal.error_title'), t('library.colab_modal.error_msg') + e.message);
     } finally {
@@ -4486,7 +4457,7 @@ return (
 
       {showColabModal && (
         <div className="library-colab-overlay" style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", backdropFilter: "blur(4px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-          <div className="library-colab-shell" style={{ background: "var(--bg-card)", border: "1px solid var(--color-border)", width: "100%", maxWidth: "min(560px, calc(100vw - 40px))", borderRadius: "32px", padding: "30px", position: "relative", boxShadow: "0 25px 50px var(--overlay-soft)" }}>
+          <div className="library-colab-shell" style={{ background: "var(--bg-card)", border: "1px solid var(--color-border)", width: "100%", maxWidth: "min(560px, calc(100vw - 40px))", maxHeight: "90vh", overflowY: "auto", borderRadius: "32px", padding: "30px", position: "relative", boxShadow: "0 25px 50px var(--overlay-soft)" }}>
             
             <button onClick={() => setShowColabModal(false)} style={{ position: "absolute", top: "20px", right: "20px", background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer" }}>
               <X size={24} />
@@ -4531,6 +4502,7 @@ return (
             </div>
 
            <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+              <ColabOriginFields value={colabData} onChange={(origin) => setColabData({ ...colabData, ...origin })} />
               <div>
                 <label style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", display: "block", marginBottom: "5px" }}>{t("library.colab_modal.label_subject")}</label>
                 <input type="text" placeholder={t("library.colab_modal.placeholder_subject")} value={colabData.asunto} onChange={e => setColabData({...colabData, asunto: e.target.value})} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", color: "var(--text-main)", background: "var(--bg-main)" }} />

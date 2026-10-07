@@ -3132,27 +3132,3 @@ textarea:disabled {
   margin: 0;
   max-width: 420px;
 }
-
-.library-item-modal-grid:has(.library-item-modal-photo-col--form) {
-  display: flex !important;
-  flex-direction: column !important;
-  height: auto !important;
-  max-height: none !important;
-}
-
-.library-item-modal-grid > .library-item-modal-photo-col.library-item-modal-photo-col--form {
-  overflow: visible !important;
-  height: auto !important;
-  max-height: none !important;
-  min-height: min-content !important;
-  flex: none !important;
-}
-
-.library-pc-preview.library-item-pc-preview.library-pc-preview--compact {
-  width: 90px !important;
-  max-width: 90px !important;
-  height: 130px !important;
-  min-height: 130px !important;
-  max-height: 130px !important;
-  aspect-ratio: auto !important;
-}
