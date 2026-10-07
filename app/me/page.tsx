@@ -654,6 +654,7 @@ function MePageContent() {
   const [termsAccepted, setTermsAccepted] = useState(true);
   const [newPassword, setNewPassword] = useState("");
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [noticeReadFilter, setNoticeReadFilter] = useState<"all" | "unread" | "read">("all");
   const [fzFilter, setFzFilter] = useState('all');
   const [selectedNotices, setSelectedNotices] = useState<Set<string>>(new Set());
   const [selectedFanzoneNotices, setSelectedFanzoneNotices] = useState<Set<string>>(new Set());
@@ -671,9 +672,15 @@ function MePageContent() {
   const allSelectedFanzoneUnread =
     selectedFanzoneRows.length > 0 && selectedFanzoneRows.every((n: any) => n.read === false);
 
+  const visibleNotices = useMemo(() => {
+    if (noticeReadFilter === "unread") return notifications.filter((n) => !n.read);
+    if (noticeReadFilter === "read") return notifications.filter((n) => !!n.read);
+    return notifications;
+  }, [notifications, noticeReadFilter]);
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedNotices(new Set(notifications.map(n => n.id)));
+      setSelectedNotices(new Set(visibleNotices.map((n) => n.id)));
     } else {
       setSelectedNotices(new Set());
     }
@@ -2579,11 +2586,41 @@ function MePageContent() {
                 <p style={{ color: "var(--text-muted)", fontWeight: 700 }}>No hay notificaciones.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {([
+                      ["all", "Todas"],
+                      ["unread", "No leídas"],
+                      ["read", "Leídas"],
+                    ] as const).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => { setNoticeReadFilter(id); setSelectedNotices(new Set()); }}
+                        style={{
+                          padding: "8px 14px",
+                          borderRadius: "99px",
+                          border: "1px solid var(--color-primary)",
+                          background: noticeReadFilter === id ? "var(--color-primary)" : "transparent",
+                          color: noticeReadFilter === id ? "var(--bg-card)" : "var(--color-primary)",
+                          fontWeight: 900,
+                          fontSize: "13px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {visibleNotices.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontWeight: 700 }}>
+                      {noticeReadFilter === "unread" ? "No hay notificaciones sin leer." : "No hay notificaciones leídas."}
+                    </p>
+                  ) : null}
                   <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
                     <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 800, color: "var(--text-muted)" }}>
                       <input
                         type="checkbox"
-                        checked={notifications.length > 0 && selectedNotices.size === notifications.length}
+                        checked={visibleNotices.length > 0 && visibleNotices.every((n) => selectedNotices.has(n.id))}
                         onChange={(e) => handleSelectAll(e.target.checked)}
                       />
                       Seleccionar todo
@@ -2604,7 +2641,7 @@ function MePageContent() {
                       <Trash2 size={15} />
                     </button>
                   </div>
-                  {notifications.map((n) => (
+                  {visibleNotices.map((n) => (
                     <div key={n.id} onClick={() => handleNoticeRowClick(n)} style={{ padding: "14px 16px", borderRadius: "14px", border: "1px solid var(--color-border)", background: n.read ? "var(--bg-card)" : "var(--bg-soft)", cursor: "pointer" }}
                     >
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>

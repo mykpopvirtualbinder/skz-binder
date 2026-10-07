@@ -429,7 +429,7 @@ export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
   
-  const { profile, showAlert, showConfirm, t, refreshGlobal } = useGlobal();
+  const { profile, setProfile, showAlert, showConfirm, t, refreshGlobal } = useGlobal();
   const [activeTheme, setActiveTheme] = useState<string>(() => {
     if (typeof window !== "undefined") {
       return normalizeThemeId(localStorage.getItem("theme") || document.documentElement.getAttribute("data-theme") || "pastel");
@@ -787,13 +787,16 @@ export default function Header() {
   );
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("ui:language_override");
-    }
     closeAllMenus();
     setUser(null);
+    setProfile(null);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("ui:language_override");
+      localStorage.removeItem("me:profile");
+    }
+    await supabase.auth.signOut();
     router.push("/");
+    router.refresh();
   };
 
   useEffect(() => {
@@ -962,7 +965,7 @@ export default function Header() {
           
           {/* ICONOS EN MÓVIL */}
           {isMobile && (
-            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
               {/* Buscar en el catálogo público */}
               <div ref={searchBoxRef} style={{ position: "relative" }}>
                 <button
@@ -1047,6 +1050,18 @@ export default function Header() {
                   )}
                 </Link>
               )}
+              {hasAccountSession && (
+                <button
+                  type="button"
+                  onClick={() => void handleLogout()}
+                  className="action-btn-mini"
+                  style={{ color: "var(--header-btn-profile)" }}
+                  title={t("header.dropdown.logout")}
+                  aria-label={t("header.dropdown.logout")}
+                >
+                  <LogOut size={16} />
+                </button>
+              )}
 
              {hasAccountSession && (
                 <>
@@ -1088,7 +1103,7 @@ export default function Header() {
                       <Link href="/me" onClick={closeAllMenus} style={dropdownItemStyle} className="dropdown-item-hover">
                         <User size={16} /> {t("header.dropdown.my_profile")}
                       </Link>
-                      <button onClick={handleLogout} style={{ ...dropdownItemStyle, background: "none", border: "none", width: "100%", cursor: "pointer", textAlign: "left" }} className="dropdown-item-hover">
+                      <button onClick={() => void handleLogout()} style={{ ...dropdownItemStyle, background: "none", border: "none", width: "100%", cursor: "pointer", textAlign: "left", color: "var(--state-danger-fg)", fontWeight: 900 }} className="dropdown-item-hover">
                         <LogOut size={16} /> {t("header.dropdown.logout")}
                       </button>
                     </div>

@@ -1,8 +1,8 @@
 /**
- * Avatar por defecto para usuarios nuevos (`public/basic/default-avatar.png`).
+ * Avatar por defecto para usuarios nuevos: el logo de la web.
  * Se guarda en `profiles.avatar_url` al registrarse y se usa como fallback en sesión.
  */
-export const DEFAULT_SITE_PROFILE_AVATAR_URL = "/basic/default-avatar.png";
+export const DEFAULT_SITE_PROFILE_AVATAR_URL = "/branding/logo.png";
 
 export function resolveProfileAvatarUrl(
   stored: string | null | undefined,

@@ -5026,15 +5026,14 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           }
           .admin-brand h1 { font-size: 22px; margin: 0; }
           .admin-brand p { display: none; }
+          .admin-stage { min-width: 0; }
           .admin-nav {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 6px;
-            overflow-x: auto;
+            overflow: visible;
             margin-top: 10px;
-            padding-bottom: 2px;
-            scrollbar-width: none;
           }
-          .admin-nav::-webkit-scrollbar { display: none; }
           .admin-nav-group {
             display: contents;
           }
@@ -5045,9 +5044,16 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           }
           .admin-nav-label { display: none; }
           .admin-nav-btn {
-            width: auto;
-            flex: 0 0 auto;
-            white-space: nowrap;
+            width: 100%;
+            min-height: 58px;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+            white-space: normal;
+            font-size: 11px;
+            line-height: 1.15;
+            padding: 8px 4px;
+            gap: 4px;
             background: var(--bg-main);
             border: 1px solid var(--color-border);
           }

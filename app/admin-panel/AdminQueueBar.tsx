@@ -51,8 +51,8 @@ export function AdminQueueFilters({
   const visible = events.filter((ev) => gestor === "todos" || ev.actor === gestorLabel(gestor));
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+    <div className="aq-filters" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="aq-filter-row" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <label style={chip}>
           Estado
           <select value={status} onChange={(e) => onStatus(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
@@ -91,7 +91,7 @@ export function AdminQueueFilters({
             <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>Todavía no hay acciones con este filtro.</p>
           ) : (
             visible.map((ev, i) => (
-              <div key={`${ev.at}-${i}`} style={{ display: "grid", gridTemplateColumns: "148px 72px 1fr", gap: 8, fontSize: 12, padding: "6px 0", borderTop: i ? "1px solid var(--color-border)" : "none" }}>
+              <div key={`${ev.at}-${i}`} className="aq-hist" style={{ display: "grid", gridTemplateColumns: "148px 72px minmax(0, 1fr)", gap: 8, fontSize: 12, padding: "6px 0", borderTop: i ? "1px solid var(--color-border)" : "none" }}>
                 <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>{new Date(ev.at).toLocaleString()}</span>
                 <span style={{ color: "var(--color-primary)", fontWeight: 900 }}>{ev.actor}</span>
                 <span style={{ color: "var(--text-main)", fontWeight: 700 }}>{ev.caseLabel}: {ev.detail}</span>
@@ -100,6 +100,17 @@ export function AdminQueueFilters({
           )}
         </div>
       )}
+      <style jsx>{`
+        @media (max-width: 860px) {
+          .aq-filter-row { flex-direction: column; align-items: stretch; }
+          .aq-filter-row > :global(label),
+          .aq-filter-row > :global(input),
+          .aq-filter-row > :global(button) { width: 100%; box-sizing: border-box; justify-content: space-between; }
+          :global(.aq-bar) { flex-direction: column; align-items: stretch; }
+          :global(.aq-bar) > :global(*) { width: 100%; box-sizing: border-box; justify-content: space-between; }
+          :global(.aq-hist) { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -117,7 +128,7 @@ export function AdminQueueBar({
 }) {
   const statuses = statusesOf(queue);
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+    <div className="aq-bar" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
       <button
         type="button"
         disabled={busy}

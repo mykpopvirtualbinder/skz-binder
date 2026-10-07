@@ -108,6 +108,7 @@ const LESSONS: Lesson[] = [
     steps: [
       { hot: "menu", title: "Los apartados", text: "Son los mismos que el panel. Elige uno y la animación recorre esa gestión sola." },
       { hot: "pasos", title: "Paso a paso", text: "Avanza sola. Puedes pausar, volver atrás o saltar a un punto. El recuadro iluminado es lo que tocarías en el panel." },
+      { hot: "movil", title: "En el móvil", text: "Las secciones salen en cuadrícula bajo Admin, con el nombre a la vista. Filtros, estado, responsable e historial se apilan para usarlos con el dedo. La gestión es la misma que en el ordenador." },
     ],
   },
 ];
@@ -141,6 +142,7 @@ const HOT_LABEL: Record<string, string> = {
   descarga: "Descargar imagen",
   menu: "Apartados",
   pasos: "Siguiente paso",
+  movil: "Cuadrícula móvil",
 };
 
 export default function AdminManual() {

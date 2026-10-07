@@ -189,8 +189,19 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const { data: sessionWrap } = await supabase.auth.getSession();
+      if (!sessionWrap.session) {
+        setProfile(null);
+        try {
+          localStorage.removeItem("me:profile");
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
       const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
+      const user = authData?.user ?? sessionWrap.session.user;
 
       if (user) {
         const { data: profileData } = await supabase
