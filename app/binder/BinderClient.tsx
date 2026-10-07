@@ -11733,6 +11733,7 @@ color: "var(--text-main)",
     }}>
       <div
         ref={modalFlipWrapRef}
+        data-pc-stage=""
         style={{
           position: "absolute",
           inset: 0,
@@ -12913,6 +12914,7 @@ const isDraggingMe = pageDragFromId === p.id;
    return (
           <div
             key={`carousel-page-${p.id}`}
+            data-binder-strip-card=""
             onClick={() => {
               if (deleteMode) {
                 setSelectedForDeletion(prev =>
@@ -12993,7 +12995,6 @@ const isDraggingMe = pageDragFromId === p.id;
 
               {/* ✅ CONTENEDOR DRAG & DROP (Bloqueado durante el borrado) */}
               <div
-                data-binder-strip-card=""
                 draggable={!isMobile && !deleteMode}
                 onDragStart={(e) => {
                   if (isMobile || deleteMode) return;

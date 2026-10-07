@@ -38,7 +38,7 @@ type TourStep = {
   /** Clic al salir del paso, por ejemplo para cerrar un modal. */
   closeAfter?: string;
   /** Animación visual que no guarda cambios (mover slot, girarlo, reordenar páginas). */
-  demo?: "slot-move" | "slot-spin" | "page-order" | "strip-order";
+  demo?: "slot-move" | "slot-spin" | "page-order" | "strip-order" | "card-spin-flip";
 };
 
 const openedMenus = new Set<HTMLSelectElement>();
@@ -305,8 +305,9 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='pc-modal-face']",
         title: "Anverso, reverso y giro",
-        text: "Cambia de cara y rota la foto si llegó torcida. La lupa la abre a tamaño grande.",
+        text: "La photocard gira y se voltea para que veas el anverso y el reverso. Al acabar vuelve a como estaba: el tour no guarda el giro. La lupa la abre a tamaño grande.",
         side: "left",
+        demo: "card-spin-flip",
       },
       {
         selector: "[data-tour='pc-modal-stock']",
@@ -877,7 +878,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='binder-strip']",
         title: "Las miniaturas de las páginas",
-        text: "Esta tira está junto a los botones, encima del grid donde colocas las PCs. Cada miniatura es una página. Arrastra una encima de otra para cambiar el orden. El + de la izquierda añade una página al principio. El movimiento del tour no guarda nada.",
+        text: "Esta tira está junto a los botones, encima del grid donde colocas las PCs. Cada miniatura es una página. Arrastra una encima de otra para cambiar el orden, como ves ahora. El + de la izquierda añade una página al principio. El movimiento no guarda nada.",
         side: "bottom",
         demo: "strip-order",
       },
@@ -905,11 +906,12 @@ const stepsFor = (id: string): TourStep[] => {
       },
       {
         selector: "[data-tour='binder-rotate']",
-        title: "Rotar el slot",
-        text: "Dentro de la ficha, las flechas giran esa photocard 90 grados. El cambio se ve en el grid y en el carrusel.",
+        title: "Girar y voltear",
+        text: "Dentro de la ficha, la photocard gira y se voltea. Las flechas guardan el giro de verdad; el movimiento del tour no. Al cerrar, la carta sigue como estaba.",
         side: "bottom",
         clickBefore: "[data-tour='binder-slot']",
         wait: 600,
+        demo: "card-spin-flip",
         closeAfter: "[data-tour='binder-slot-close']",
       },
     ],
@@ -1085,33 +1087,83 @@ function playBinderDemo(kind: NonNullable<TourStep["demo"]>) {
     );
     return;
   }
+  if (kind === "card-spin-flip") {
+    const stage = document.querySelector<HTMLElement>("[data-pc-stage]");
+    if (!stage) return;
+    const prevTransition = stage.style.transition;
+    stage.style.transition = "none";
+    const anim = stage.animate(
+      [
+        { transform: "rotate(0deg) rotateY(0deg)" },
+        { transform: "rotate(90deg) rotateY(0deg)", offset: 0.38 },
+        { transform: "rotate(90deg) rotateY(180deg)", offset: 0.72 },
+        { transform: "rotate(0deg) rotateY(0deg)" },
+      ],
+      { duration: 2200, easing: "ease-in-out" },
+    );
+    const restore = () => {
+      stage.style.transition = prevTransition;
+    };
+    anim.onfinish = restore;
+    anim.oncancel = restore;
+    binderDemoAnims.push(anim);
+    return;
+  }
   const cards = Array.from(
     document.querySelectorAll<HTMLElement>(kind === "strip-order" ? "[data-binder-strip-card]" : "[data-binder-page-card]"),
   );
-  if (cards.length < 2) return;
+  if (cards.length < 2) {
+    const only = kind === "strip-order" ? cards[0] : undefined;
+    if (!only) return;
+    binderDemoAnims.push(
+      only.animate(
+        [
+          { transform: "translate(0px, 0px) rotate(0deg)" },
+          { transform: "translate(72px, -18px) rotate(7deg)", offset: 0.45 },
+          { transform: "translate(0px, 0px) rotate(0deg)" },
+        ],
+        { duration: 1700, easing: "ease-in-out" },
+      ),
+    );
+    return;
+  }
   const [first, second] = cards;
   const { x, y } = localDelta(first, second);
-  const motion = { duration: 1700, easing: "ease-in-out" };
-  binderDemoAnims.push(
-    first.animate(
-      [
-        { transform: "translate(0px, 0px)" },
-        { transform: `translate(${x}px, ${y}px)`, offset: 0.45 },
-        { transform: "translate(0px, 0px)" },
-      ],
-      motion,
-    ),
+  const lift = kind === "strip-order" ? -20 : 0;
+  const tilt = kind === "strip-order" ? 7 : 0;
+  const motion = { duration: 1800, easing: "ease-in-out" };
+  const raise = (el: HTMLElement) => {
+    const prev = el.style.zIndex;
+    el.style.zIndex = "30";
+    return () => {
+      el.style.zIndex = prev;
+    };
+  };
+  const dropFirst = raise(first);
+  const dropSecond = raise(second);
+  const go = first.animate(
+    [
+      { transform: "translate(0px, 0px) rotate(0deg)" },
+      { transform: `translate(${x * 0.45}px, ${y * 0.45 + lift}px) rotate(${tilt}deg)`, offset: 0.28 },
+      { transform: `translate(${x}px, ${y}px) rotate(0deg)`, offset: 0.62 },
+      { transform: "translate(0px, 0px) rotate(0deg)" },
+    ],
+    motion,
   );
-  binderDemoAnims.push(
-    second.animate(
-      [
-        { transform: "translate(0px, 0px)" },
-        { transform: `translate(${-x}px, ${-y}px)`, offset: 0.45 },
-        { transform: "translate(0px, 0px)" },
-      ],
-      motion,
-    ),
+  const back = second.animate(
+    [
+      { transform: "translate(0px, 0px) rotate(0deg)" },
+      { transform: `translate(${-x * 0.45}px, ${-y * 0.45 + lift}px) rotate(${-tilt}deg)`, offset: 0.28 },
+      { transform: `translate(${-x}px, ${-y}px) rotate(0deg)`, offset: 0.62 },
+      { transform: "translate(0px, 0px) rotate(0deg)" },
+    ],
+    motion,
   );
+  go.onfinish = dropFirst;
+  go.oncancel = dropFirst;
+  back.onfinish = dropSecond;
+  back.oncancel = dropSecond;
+  binderDemoAnims.push(go, back);
 }
 
 function shellOf(selector: string): Element | null {

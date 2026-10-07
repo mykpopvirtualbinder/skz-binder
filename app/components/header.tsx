@@ -698,10 +698,12 @@ export default function Header() {
     load();
     const timer = window.setInterval(load, 60000);
     window.addEventListener("focus", load);
+    window.addEventListener("admin-pending-refresh", load);
     return () => {
       stop = true;
       window.clearInterval(timer);
       window.removeEventListener("focus", load);
+      window.removeEventListener("admin-pending-refresh", load);
     };
   }, [showAdminPanelInHeader]);
   const hasAccountSession = Boolean(user || profile?.id);

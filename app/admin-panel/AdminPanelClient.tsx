@@ -182,6 +182,9 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [aportaciones, setAportaciones] = useState<any[]>([]);
   const [areaPending, setAreaPending] = useState<AdminPendingByArea>({ solicitudes: 0, denuncias: 0, buzon: 0, aportaciones: 0 });
   const [queueCases, setQueueCases] = useState<Record<string, QueueCase>>({});
+  const [queueLoaded, setQueueLoaded] = useState(false);
+  const tourBuzonId = React.useRef<string | null>(null);
+  const buzonReadOnce = React.useRef<Set<string>>(new Set());
   const [queueBusy, setQueueBusy] = useState<string | null>(null);
   const [solFiltroStatus, setSolFiltroStatus] = useState("todos");
   const [solFiltroGestor, setSolFiltroGestor] = useState("todos");
@@ -299,6 +302,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
       next[row.email] = { ...parsed, rowId: row.id };
     });
     setQueueCases(next);
+    setQueueLoaded(true);
   };
 
   const caseOf = (queue: QueueKind, caseId: string, nativeStatus?: string | null) =>
@@ -438,6 +442,16 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
     }
     setQueueCases((map) => ({ ...map, [key]: { ...next, rowId } }));
     setQueueBusy(null);
+    if (queue === "buzon" && typeof patch.leido === "boolean" && patch.leido !== prev.leido) {
+      const row = buzon.find((item) => item.id === caseId);
+      const status = String(row?.status || "pendiente").toLowerCase();
+      const stillOpen = status === "" || status === "pendiente" || status === "gestionando";
+      if (stillOpen) {
+        const delta = patch.leido ? -1 : 1;
+        setAreaPending((areas) => ({ ...areas, buzon: Math.max(0, areas.buzon + delta) }));
+        window.dispatchEvent(new Event("admin-pending-refresh"));
+      }
+    }
   };
 
   const markQueueRead = async (queue: QueueKind, ids: string[], leido: boolean) => {
@@ -2688,6 +2702,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
       if (selectedBuzon) return;
       const first = buzon.find((item) => item.asunto !== ADMIN_QUEUE_SUBJECT);
       if (!first) return;
+      tourBuzonId.current = String(first.id);
       setSelectedBuzon(first);
     },
     showArtworkFields: () => {
@@ -2708,11 +2723,26 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     };
     load();
     const timer = window.setInterval(load, 30000);
+    window.addEventListener("admin-pending-refresh", load);
     return () => {
       stop = true;
       window.clearInterval(timer);
+      window.removeEventListener("admin-pending-refresh", load);
     };
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!selectedBuzon?.id) {
+      tourBuzonId.current = null;
+      return;
+    }
+    if (!queueLoaded || activeTab !== "buzon") return;
+    const id = String(selectedBuzon.id);
+    if (tourBuzonId.current === id) return;
+    if (buzonReadOnce.current.has(id) || caseOf("buzon", id).leido) return;
+    buzonReadOnce.current.add(id);
+    void markQueueRead("buzon", [id], true);
+  }, [queueLoaded, activeTab, selectedBuzon?.id, queueCases]);
 
   if (authLoading) {
     return <CatalogLoadingFun fullPage />;

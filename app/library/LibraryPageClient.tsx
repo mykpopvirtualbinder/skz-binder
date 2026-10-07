@@ -1791,6 +1791,7 @@ function ItemModal({
             >
               <div style={{ position: "absolute", inset: 0, perspective: 1100 }}>
               <div
+                data-pc-stage=""
                 style={{
                   position: "absolute",
                   inset: 0,
