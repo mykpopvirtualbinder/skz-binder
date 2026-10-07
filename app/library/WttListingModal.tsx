@@ -91,7 +91,7 @@ const handleSave = () => {
 
   return (
    <div className="wtt-modal-overlay" style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 100000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", backdropFilter: "blur(4px)" }}>
-      <div className="wtt-modal-shell" style={{ background: "var(--bg-card)", borderRadius: "24px", width: "100%", maxWidth: "450px", overflow: "hidden", border: "1px solid var(--color-border)", boxShadow: "0 20px 50px var(--shadow-card)" }}>
+      <div data-tour="wtt-listing" className="wtt-modal-shell" style={{ background: "var(--bg-card)", borderRadius: "24px", width: "100%", maxWidth: "450px", overflow: "hidden", border: "1px solid var(--color-border)", boxShadow: "0 20px 50px var(--shadow-card)" }}>
 
         {/* HEADER */}
         <div className="wtt-modal-header" style={{ padding: "18px 24px", background: "var(--bg-soft)", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -101,7 +101,9 @@ const handleSave = () => {
                 {t('wtt.modal_title')}
             </h2>
           </div>
-          <X onClick={onClose} style={{ cursor: "pointer", color: "var(--text-muted)" }} size={22} />
+          <button type="button" data-tour="wtt-listing-close" onClick={onClose} aria-label={t("common.close")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--text-muted)", display: "flex" }}>
+            <X size={22} />
+          </button>
         </div>
 
         <div className="wtt-modal-body" style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -113,7 +115,7 @@ const handleSave = () => {
           </div>
 
          {/* OPCIONES DE CAMBIO (MULTISELECCIÓN) */}
-<div>
+<div data-tour="wtt-conditions">
   <label style={labelStyle}>{t('wtt.conditions_label')}</label>
   <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
     {[

@@ -249,6 +249,7 @@ export default function WtsListingModal({
   }}
 >
   <div
+    data-tour="wts-listing"
     className="wts-modal-shell"
     style={{
       width: "100%",
@@ -282,7 +283,7 @@ export default function WtsListingModal({
     </div>
   </div>
 
-          <button style={{...whitePinkBtnStyle, padding: "4px 8px"}} onClick={onClose}>
+          <button type="button" data-tour="wts-listing-close" style={{...whitePinkBtnStyle, padding: "4px 8px"}} onClick={onClose}>
             ✕
           </button>
         </div>
@@ -302,6 +303,7 @@ export default function WtsListingModal({
             <div style={{ flex: 1 }}>
               <div style={labelStyle}>{t("wts_listing.price_label")}</div>
               <input
+                data-tour="wts-price"
                 type="number"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
@@ -312,6 +314,7 @@ export default function WtsListingModal({
             <div style={{ flex: 1 }}>
               <div style={labelStyle}>{t("wts_listing.currency_label")}</div>
               <input
+                data-tour="wts-currency"
                 list="binder-currency-list"
                 value={currencyInput}
                 onChange={(e) => handleCurrencyChange(e.target.value)}
@@ -331,6 +334,7 @@ export default function WtsListingModal({
               <Coins size={14} /> {t("wts_listing.koins_label") === "wts_listing.koins_label" ? "K-oins (opcional)" : t("wts_listing.koins_label")}
             </div>
             <input
+              data-tour="wts-koins"
               type="number"
               min={0}
               step={1}

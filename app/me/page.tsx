@@ -2281,7 +2281,7 @@ function MePageContent() {
 
         <div style={{ minHeight: "400px" }}>
           {tab === "home" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "30px" }}>
+            <div data-tour="me-home" style={{ display: "flex", flexDirection: "column", gap: "30px" }}>
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.5fr 1fr", gap: "20px" }}>
                 <div className="me-panel-card" style={{ backgroundColor: "var(--bg-card)", padding: "30px", borderRadius: "24px" }}>
                   <h3 style={{ color: "var(--me-tab-accent)", fontWeight: 900, fontSize: "18px", margin: "0 0 20px 0", display: "flex", alignItems: "center", gap: "10px" }}><Boxes size={20}/> {t('me.my_collection_title')}</h3>
@@ -2348,7 +2348,7 @@ function MePageContent() {
           )}
 
           {tab === "groups" && !isViewingOtherUser && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div data-tour="me-bias" style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
               <div className="me-panel-card" style={{ backgroundColor: "var(--bg-card)", padding: "20px 30px", borderRadius: "24px" }}>
                 <h3 className="tan-font" style={{ color: "var(--me-tab-accent)", fontSize: "20px", margin: "0 0 15px 0" }}>{t("me.preferences.title")}</h3>
                 <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "14px", marginBottom: "12px" }}>{t("me.preferences.subtitle")}</p>
@@ -2494,7 +2494,7 @@ function MePageContent() {
           )}
 
           {tab === "fanzone" && (
-            <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+            <div data-tour="me-fanzone" style={{ maxWidth: "800px", margin: "0 auto" }}>
               <h2 style={{ color: "var(--me-tab-accent)", fontWeight: 900, fontSize: "22px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "10px" }}><MessageCircle size={22} /> {t("me.tabs.fanzone")}</h2>
               {loadingFanzone ? (
                 <div style={{ textAlign: "center", padding: "40px" }}><Loader2 className="spinner" color="var(--color-primary)" /></div>
@@ -2923,10 +2923,10 @@ function MePageContent() {
       {/* MODAL AVATAR */}
       {isAvatarModalOpen && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 4000, padding: "20px", backdropFilter: "blur(4px)" }} onClick={() => setIsAvatarModalOpen(false)}>
-          <div style={{ backgroundColor: "var(--bg-main)", borderRadius: "32px", width: "100%", maxWidth: "750px", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid var(--color-border)", boxShadow: "0 20px 50px var(--shadow-card)" }} onClick={(e) => e.stopPropagation()}>
+          <div data-tour="me-avatar-modal" style={{ backgroundColor: "var(--bg-main)", borderRadius: "32px", width: "100%", maxWidth: "750px", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", border: "1px solid var(--color-border)", boxShadow: "0 20px 50px var(--shadow-card)" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: "25px", borderBottom: "1px solid var(--color-border)", textAlign: "center", position: "relative", background: "var(--bg-soft)", flexShrink: 0 }}>
               <h2 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "28px", margin: 0 }}>{t("me.avatar_modal.title")}</h2>
-              <button onClick={() => setIsAvatarModalOpen(false)} style={{ position: "absolute", top: "20px", right: "20px", background: "none", border: "none", cursor: "pointer" }}><X size={24} color="var(--color-primary)"/></button>
+              <button type="button" data-tour="me-avatar-close" onClick={() => setIsAvatarModalOpen(false)} style={{ position: "absolute", top: "20px", right: "20px", background: "none", border: "none", cursor: "pointer" }}><X size={24} color="var(--color-primary)"/></button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "30px" }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", marginBottom: "24px", alignItems: "center" }}>

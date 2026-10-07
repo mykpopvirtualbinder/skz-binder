@@ -6632,6 +6632,7 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
       aria-modal="true" 
     > 
       <div 
+        data-tour="binder-carousel"
         onMouseDown={(e) => e.stopPropagation()} 
         style={{ 
           width: "min(1160px, 96vw)", 
@@ -6750,6 +6751,7 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
     )}
     <button 
       type="button" 
+      data-tour="binder-carousel-close"
       onClick={closePagesModal} 
       title={t('common.close')}
       className="iconDangerHover modalCloseBtn" 
@@ -8570,6 +8572,7 @@ onMouseEnter={() => {
   if (!isBiasPC) return;
   burstHearts();
 }}
+data-tour={assigned ? "binder-slot" : undefined}
 onClick={() => openItemModal(slotIndex, assigned)}
 >
   <div style={{ width: "100%", height: "100%", perspective: 900 }}>
@@ -11688,7 +11691,7 @@ color: "var(--text-main)",
   </button>
   {/* ✅ FIN DE BOTONES DE NAVEGACIÓN */}
 
-  <button type="button" onClick={onClose} style={iconBtnStyle} title={t('common.close')} className="iconDangerHover modalCloseBtn">
+  <button type="button" data-tour="binder-slot-close" onClick={onClose} style={iconBtnStyle} title={t('common.close')} className="iconDangerHover modalCloseBtn">
   ✕
   </button>
   </div>
@@ -11761,7 +11764,7 @@ color: "var(--text-main)",
         <ZoomIn size={16} strokeWidth={2.4} />
       </div>
     </div>
-    <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", zIndex: 10 }}>
+    <div data-tour="binder-rotate" style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", zIndex: 10 }}>
       <button type="button" onClick={onToggleFaceAnimated} style={{ ...iconBtnStyle, width: "auto", padding: "10px 14px", gap: 8 }}>
         {modalFaceUI === "front" ? t("library.card.view_back") : t("library.card.view_front")}
       </button>
@@ -13316,6 +13319,7 @@ const isDraggingMe = pageDragFromId === p.id;
   <div ref={layoutBoxRef} style={{ position: "relative", display: "inline-block" }}> 
     <button 
       type="button" 
+      data-tour="binder-format"
       onClick={() => setLayoutOpen((v) => !v)} 
       style={{ 
         ...topBtnStyle, 
@@ -13338,7 +13342,7 @@ const isDraggingMe = pageDragFromId === p.id;
       <span style={{ fontSize: 10, opacity: 0.55, color: "var(--binder-btn-outline-fg)" }}>{layoutOpen ? "▲" : "▼"}</span> 
     </button> 
     {layoutOpen && ( 
-      <div style={{ 
+      <div data-tour="binder-format-menu" style={{ 
         position: "absolute", top: "calc(100% + 8px)", left: isMobile ? "auto" : 0, 
         right: isMobile ? 0 : "auto", zIndex: 1000, width: "260px", 
         background: "var(--bg-card)", border: "1px solid var(--state-disabled-border)", borderRadius: 12, 
@@ -13456,6 +13460,7 @@ const isDraggingMe = pageDragFromId === p.id;
   {/* Botón Ver todas */}
   <button 
     type="button" 
+    data-tour="binder-pages"
     onClick={() => setPagesOpen(true)} 
     style={{ 
       ...topBtnStyle, 
@@ -13631,7 +13636,7 @@ const isDraggingMe = pageDragFromId === p.id;
     </div>
 
    {/* FILA 3: ZOOM Y GUARDADO MAESTRO */}
-  <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center", width: "100%", marginTop: 10, flexWrap: "wrap" }}>
+  <div data-tour="binder-zoom" style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center", width: "100%", marginTop: 10, flexWrap: "wrap" }}>
     <span style={{ fontSize: 13, color: "var(--binder-btn-outline-fg)", fontWeight: 900 }}>{t("binders.zoom")}</span>
     <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 999, border: "1px solid var(--binder-btn-outline-border)", background: "var(--binder-btn-outline-bg)", boxShadow: "var(--binder-btn-outline-shadow)" }}>
       <button type="button" onClick={zoomOut} style={{ width: 28, height: 28, borderRadius: 999, border: "none", background: "none", color: "var(--binder-btn-outline-fg)", fontWeight: 900, cursor: "pointer" }}>-</button>
@@ -13643,6 +13648,7 @@ const isDraggingMe = pageDragFromId === p.id;
     {/* ✅ NUEVO BOTÓN PREVISUALIZAR */}
     <button 
       type="button" 
+      data-tour="binder-live-preview"
       onClick={async () => {
         await loadPageThumbs();
         setPreviewBinderOpen(true);

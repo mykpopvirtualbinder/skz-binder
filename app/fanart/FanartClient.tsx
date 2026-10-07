@@ -917,6 +917,24 @@ function FanArtContent() {
           >
             <Plus size={20} strokeWidth={3} /> {t('fanart.btn_upload')}
           </button>
+          <button
+            type="button"
+            data-tour="fanart-open-apply"
+            tabIndex={-1}
+            aria-hidden
+            onClick={() => {
+              void (async () => {
+                const { data: authData } = await supabase.auth.getUser();
+                const userId = authData.user?.id;
+                if (userId) {
+                  const { data: row } = await supabase.from("profiles").select("is_artist").eq("user_id", userId).single();
+                  if (row?.is_artist) return;
+                }
+                setIsModalOpen(true);
+              })();
+            }}
+            style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
+          />
         </div>
 
         {isCompactViewport && showCompactFilters && (
@@ -1389,7 +1407,7 @@ function FanArtContent() {
       {/* MODAL DE FORMULARIO DE ENVÍO */}
       {isModalOpen && (
         <div onClick={() => setIsModalOpen(false)} style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-medium)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "var(--bg-card)", width: "100%", maxWidth: "600px", borderRadius: "24px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 28%, var(--color-border))`, maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column", boxShadow: "0 20px 40px var(--shadow-card)" }}>
+          <div data-tour="fanart-apply" onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "var(--bg-card)", width: "100%", maxWidth: "600px", borderRadius: "24px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 28%, var(--color-border))`, maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column", boxShadow: "0 20px 40px var(--shadow-card)" }}>
             <div style={{ padding: "20px 25px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, backgroundColor: "var(--bg-card)", zIndex: 10 }}>
               <div>
                 <h2 className="tan-font" style={{ margin: 0, color: ACC.violet, fontSize: "24px" }}>
@@ -1399,7 +1417,7 @@ function FanArtContent() {
                   {t('fanart.join_artist_subtitle')}
                 </p>
               </div>
-              <button type="button" onClick={() => setIsModalOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: ACC.pink }}><X size={28} /></button>
+              <button type="button" data-tour="fanart-apply-close" onClick={() => setIsModalOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: ACC.pink }}><X size={28} /></button>
             </div>
             <form onSubmit={handleSubmit} style={{ padding: "25px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 15px" }}>

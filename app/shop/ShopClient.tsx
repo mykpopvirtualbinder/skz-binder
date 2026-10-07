@@ -359,7 +359,7 @@ export default function ShopClient() {
 
   const renderProducts = (items: any[]) => (
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
-      {items.map((prod) => {
+      {items.map((prod, packIndex) => {
         
         const rawPlan = (profile as any)?.plan_type || "free";
         const effectivePlan = isUserVip && rawPlan === "free" ? "mensual" : rawPlan;
@@ -406,6 +406,7 @@ export default function ShopClient() {
         return (
           <div
             key={prod.id}
+            data-tour={activeTab === "koins" && packIndex === 0 ? "shop-koins-pack" : undefined}
             style={{
               ...cardStyle,
               ...(prod.popular
@@ -549,6 +550,7 @@ export default function ShopClient() {
             </span>
             <button
               type="button"
+              data-tour="shop-koins-how"
               title={t("shop.koins_info_title") || "Información sobre K-oins"}
               onClick={() =>
                 showAlert(
@@ -583,7 +585,8 @@ export default function ShopClient() {
               const on = activeTab === tab.key;
               return (
               <button 
-                key={tab.key} 
+                key={tab.key}
+                data-tour={tab.key === "koins" ? "shop-tab-koins" : undefined}
                 onClick={() => router.push(`/shop?item=${tab.key}`)} 
                 style={{ 
                   display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 99, 

@@ -2108,7 +2108,7 @@ function ItemModal({
               <div style={{ padding: 14, ...subtleCard }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                   <div style={{ fontWeight: 950, marginBottom: 0, color: "var(--color-primary)" }}>{t('library.modal.busco_wtt')}</div>
-                  <button type="button" onClick={onOpenWttOffer} disabled={wttDisabled} style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", cursor: wttDisabled ? "not-allowed" : "pointer", fontWeight: 900, fontSize: 12, color: "var(--color-primary)", opacity: wttDisabled ? 0.6 : 1, boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 15%, transparent)" }}>{t('library.modal.mis_trades')}</button>
+                  <button type="button" data-tour="wtt-open-picker" onClick={onOpenWttOffer} disabled={wttDisabled} style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", cursor: wttDisabled ? "not-allowed" : "pointer", fontWeight: 900, fontSize: 12, color: "var(--color-primary)", opacity: wttDisabled ? 0.6 : 1, boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 15%, transparent)" }}>{t('library.modal.mis_trades')}</button>
                 </div>
                 
                 {/* SOLUCIONADO EL ERROR DE LAS DOS FILAS: Un solo carrusel condicional */}
@@ -4278,6 +4278,7 @@ return (
           }}
         >
           <div
+            data-tour="wtt-picker"
             className="library-wtt-offer-shell"
             style={{
               width: "min(980px, 96vw)",
@@ -4456,6 +4457,7 @@ return (
                 </button>
                 <button
                   type="button"
+                  data-tour="wtt-picker-close"
                   onClick={() => setWttOfferOpen(false)}
                   style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid var(--library-stock-cancel-border)", background: "var(--library-stock-cancel-bg)", cursor: "pointer", fontWeight: 900, color: "var(--library-stock-cancel-fg)" }}
                 >

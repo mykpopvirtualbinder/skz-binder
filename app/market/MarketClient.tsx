@@ -15,6 +15,8 @@ import { useGlobal } from "../context/GlobalContext";
 import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
 import { MERCH_ALBUM_DB_CATEGORY } from "@/lib/merch-album-filter-meta";
 import { getCurrencyOptions } from "../library/currencyOptions";
+import WtsListingModal from "../library/WtsListingModal";
+import WttListingModal from "../library/WttListingModal";
 import { requireLoggedIn } from "@/lib/auth-gate";
 import { goToNoticeChat, readNoticeReturn } from "@/lib/notice-return";
 import {
@@ -433,6 +435,7 @@ function MarketContent() {
   // USA targetUserId en lugar de currentUserId.
 
   const [tab, setTab] = useState<"wtt" | "wts">("wtt");
+  const [publishDemo, setPublishDemo] = useState<null | "wtt" | "wts">(null);
   const [search, setSearch] = useState("");
   const [searchMode, setSearchMode] = useState<"offered" | "wanted">("offered");
   const [isCompactViewport, setIsCompactViewport] = useState(false);
@@ -1492,8 +1495,11 @@ const openPublicProfile = async (userId: string) => {
             marginBottom: "30px",
             borderBottom: "2px solid var(--color-border)",
             paddingBottom: "12px",
+            position: "relative",
           }}
         >
+          <button type="button" data-tour="market-open-wtt" tabIndex={-1} aria-hidden onClick={() => setPublishDemo("wtt")} style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }} />
+          <button type="button" data-tour="market-open-wts" tabIndex={-1} aria-hidden onClick={() => setPublishDemo("wts")} style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }} />
           <button
             data-tour="market-wtt"
             onClick={() => {
@@ -2297,6 +2303,21 @@ const openPublicProfile = async (userId: string) => {
           </div>
         </div>
       )}
+
+      <WttListingModal
+        open={publishDemo === "wtt"}
+        itemId={typeof ads.find((ad) => typeof ad.item_id === "number")?.item_id === "number" ? (ads.find((ad) => typeof ad.item_id === "number")!.item_id as number) : 1}
+        initialPublicMessage=""
+        onSavePublicMessage={() => {}}
+        onClose={() => setPublishDemo(null)}
+        onSaved={() => setPublishDemo(null)}
+      />
+      <WtsListingModal
+        open={publishDemo === "wts"}
+        itemId={typeof ads.find((ad) => typeof ad.item_id === "number")?.item_id === "number" ? (ads.find((ad) => typeof ad.item_id === "number")!.item_id as number) : 1}
+        onClose={() => setPublishDemo(null)}
+        onSaved={() => setPublishDemo(null)}
+      />
 
       {/* ESTILOS CSS GLOBALES */}
       <style jsx global>{`
