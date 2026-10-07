@@ -18,6 +18,19 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { splitTitleBody } from "@/lib/fanfic-translation";
+import {
+  ADMIN_QUEUE_SUBJECT,
+  actorFromEmail,
+  aportacionNativeStatus,
+  emptyCase,
+  parseQueueMessage,
+  queueKey,
+  statusLabel,
+  type QueueCase,
+  type QueueKind,
+} from "@/lib/admin-queue";
+import { AdminQueueBar, AdminQueueFilters, caseMatchesFilters, historyOf } from "./AdminQueueBar";
+import AdminManual from "./AdminManual";
 
 
 
@@ -142,6 +155,15 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   // ESTADOS BUZÓN Y APORTACIONES
   const [buzon, setBuzon] = useState<any[]>([]);
   const [aportaciones, setAportaciones] = useState<any[]>([]);
+  const [queueCases, setQueueCases] = useState<Record<string, QueueCase>>({});
+  const [queueBusy, setQueueBusy] = useState<string | null>(null);
+  const [solFiltroStatus, setSolFiltroStatus] = useState("todos");
+  const [solFiltroGestor, setSolFiltroGestor] = useState("todos");
+  const [solFiltroUser, setSolFiltroUser] = useState("");
+  const [denFiltroGestor, setDenFiltroGestor] = useState("todos");
+  const [denFiltroUser, setDenFiltroUser] = useState("");
+  const [apoFiltroGestor, setApoFiltroGestor] = useState("todos");
+  const [apoFiltroUser, setApoFiltroUser] = useState("");
   const [selectedBuzon, setSelectedBuzon] = useState<any | null>(null);
   const [selectedAportacion, setSelectedAportacion] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState("publicar");
@@ -185,7 +207,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
     // Si hay un ID en la URL y ya se han cargado los datos, lo abrimos
     if (bId && buzon.length > 0) {
       const item = buzon.find(x => x.id === bId);
-      if (item) setSelectedBuzon(item);
+      if (item && item.asunto !== ADMIN_QUEUE_SUBJECT) setSelectedBuzon(item);
     }
     if (aId && aportaciones.length > 0) {
       const item = aportaciones.find(x => x.id === aId);
@@ -215,7 +237,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
       }
     }
 
-    const buzonConNombres = buzonList.map(b => ({
+    const buzonConNombres = buzonList.filter((b) => b.asunto !== ADMIN_QUEUE_SUBJECT).map(b => ({
       ...b,
       userName: profilesMap[b.user_id]?.display_name || "Usuario Anónimo"
     }));
@@ -227,6 +249,98 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
 
     setBuzon(buzonConNombres);
     setAportaciones(aportacionesConNombres);
+  };
+
+  const loadQueueCases = async () => {
+    const { data, error } = await supabase
+      .from("buzon_colaboraciones")
+      .select("id,email,mensaje,asunto")
+      .eq("asunto", ADMIN_QUEUE_SUBJECT);
+    if (error || !data) return;
+    const next: Record<string, QueueCase> = {};
+    data.forEach((row) => {
+      const parsed = parseQueueMessage(row.mensaje);
+      if (!parsed || !row.email) return;
+      next[row.email] = { ...parsed, rowId: row.id };
+    });
+    setQueueCases(next);
+  };
+
+  const caseOf = (queue: QueueKind, caseId: string, nativeStatus?: string | null) =>
+    queueCases[queueKey(queue, caseId)] || emptyCase(nativeStatus);
+
+  const queueSink = React.useRef<{
+    setDenuncias: React.Dispatch<React.SetStateAction<any[]>>;
+    setSelectedDenuncia: React.Dispatch<React.SetStateAction<any | null>>;
+  } | null>(null);
+
+  const saveQueueCase = async (
+    queue: QueueKind,
+    caseId: string,
+    patch: Partial<Pick<QueueCase, "leido" | "status" | "gestor">>,
+    action: string,
+    detail: string,
+    nativeStatus?: string | null,
+  ) => {
+    const key = queueKey(queue, caseId);
+    const prev = queueCases[key] || emptyCase(nativeStatus);
+    const next: QueueCase = {
+      ...prev,
+      ...patch,
+      historial: [
+        ...prev.historial,
+        { at: new Date().toISOString(), actor: actorFromEmail(userEmail), action, detail },
+      ],
+    };
+    setQueueBusy(key);
+    const mensaje = JSON.stringify({
+      leido: next.leido,
+      status: next.status,
+      gestor: next.gestor,
+      historial: next.historial,
+    });
+    let rowId = prev.rowId;
+    if (!rowId) {
+      const { data: found } = await supabase
+        .from("buzon_colaboraciones")
+        .select("id")
+        .eq("asunto", ADMIN_QUEUE_SUBJECT)
+        .eq("email", key)
+        .maybeSingle();
+      rowId = found?.id;
+    }
+    if (rowId) {
+      const { error } = await supabase.from("buzon_colaboraciones").update({ mensaje }).eq("id", rowId);
+      if (error) {
+        showAlert("Error", error.message);
+        setQueueBusy(null);
+        return;
+      }
+    } else {
+      const { data, error } = await supabase
+        .from("buzon_colaboraciones")
+        .insert({ asunto: ADMIN_QUEUE_SUBJECT, email: key, mensaje, status: "pendiente" })
+        .select("id")
+        .single();
+      if (error || !data) {
+        showAlert("Error", error?.message || "No se pudo guardar el seguimiento.");
+        setQueueBusy(null);
+        return;
+      }
+      rowId = data.id;
+    }
+    if (queue === "denuncia") {
+      await supabase.from("denuncias").update({ estado: next.status }).eq("id", caseId);
+      queueSink.current?.setDenuncias((list) => list.map((d) => (d.id === caseId ? { ...d, estado: next.status } : d)));
+      queueSink.current?.setSelectedDenuncia((cur: any) => (cur && cur.id === caseId ? { ...cur, estado: next.status } : cur));
+    }
+    if (queue === "aportacion") {
+      const native = aportacionNativeStatus(next.status);
+      await supabase.from("aportaciones_pcs").update({ status: native }).eq("id", caseId);
+      setAportaciones((list) => list.map((a) => (a.id === caseId ? { ...a, status: native } : a)));
+    }
+    setQueueCases((map) => ({ ...map, [key]: { ...next, rowId } }));
+    setQueueBusy(null);
   };
 
   const fetchAdCampaigns = async () => {
@@ -510,6 +624,9 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
 
   useEffect(() => {
     if (activeTab === "buzon" || activeTab === "aportaciones") fetchNuevasTabs();
+    if (activeTab === "solicitudes" || activeTab === "denuncias" || activeTab === "aportaciones" || activeTab === "buzon") {
+      void loadQueueCases();
+    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -671,6 +788,7 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
 
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [denuncias, setDenuncias] = useState<any[]>([]);
+  queueSink.current = { setDenuncias, setSelectedDenuncia };
 
   useEffect(() => {
     setSearchTerm("");
@@ -1406,7 +1524,7 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
       )}
     }
   };
-  const aprobarArtista = async (targetId: string, userName: string, isAlreadyArtist: boolean, e: React.MouseEvent) => {
+  const aprobarArtista = async (targetId: string, userName: string, isAlreadyArtist: boolean, e: React.MouseEvent, solicitudId?: string) => {
     e.stopPropagation();
     if (isAlreadyArtist) {
       showAlert("Aviso", `${userName} ya tiene permisos de artista.`);
@@ -1424,6 +1542,9 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
         if (error) {
           showAlert("Error", "Error al dar permisos: " + error.message);
         } else {
+          if (solicitudId) {
+            await saveQueueCase("solicitud", solicitudId, { status: "aprobada", leido: true }, "estado", "Aprobada como artista");
+          }
           showAlert("Éxito", `¡Listo! ${userName} ahora es un Artista Verificado.`);
           setSearchTerm(searchTerm + " ");
           setTimeout(() => setSearchTerm(searchTerm.trim()), 100);
@@ -2744,9 +2865,20 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
           {activeTab === "solicitudes" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Bandeja de Solicitudes</h2>
+              <AdminQueueFilters
+                queue="solicitud"
+                status={solFiltroStatus}
+                gestor={solFiltroGestor}
+                userQuery={solFiltroUser}
+                onStatus={setSolFiltroStatus}
+                onGestor={setSolFiltroGestor}
+                onUserQuery={setSolFiltroUser}
+                events={historyOf(solicitudes.map((sol) => ({ label: sol.nombre || "Solicitud", state: caseOf("solicitud", sol.id) })))}
+              />
               
-              {solicitudes.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>No hay solicitudes pendientes.</p> : 
-                solicitudes.map(sol => {
+              {solicitudes.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>No hay solicitudes.</p> : 
+                solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`)).length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>Nada con estos filtros.</p> :
+                solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`)).map(sol => {
                   const rawText = sol.comentarios || "";
                   const links = rawText.match(/(https?:\/\/[^\s"]+)/g) || [];
                   const adjuntos = (Array.from(new Set(links)) as string[]).filter((l: string) => !l.includes('ui-avatars'));
@@ -2776,9 +2908,17 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                         </div>
                       </div>
                       
-                      <div style={{ marginTop: "20px", paddingTop: "15px", borderTop: "1px dashed var(--color-border)", display: "flex", gap: "10px" }}>
-                        <button onClick={(e) => aprobarArtista(sol.user_id, sol.nombre, false, e)} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Aprobar como Artista</button>
-                        <button onClick={() => resolverSolicitud(sol.id)} style={{ background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Descartar</button>
+                      <div style={{ marginTop: "16px" }}>
+                        <AdminQueueBar
+                          queue="solicitud"
+                          state={caseOf("solicitud", sol.id)}
+                          busy={queueBusy === queueKey("solicitud", sol.id)}
+                          onPatch={(patch, action, detail) => void saveQueueCase("solicitud", sol.id, patch, action, detail)}
+                        />
+                      </div>
+                      <div style={{ marginTop: "16px", paddingTop: "15px", borderTop: "1px dashed var(--color-border)", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                        <button onClick={(e) => aprobarArtista(sol.user_id, sol.nombre, false, e, sol.id)} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Aprobar como Artista</button>
+                        <button onClick={() => void saveQueueCase("solicitud", sol.id, { status: "denegada", leido: true }, "estado", "Denegada")} style={{ background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Denegar</button>
                       </div>
                     </div>
                   )
@@ -2817,60 +2957,16 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     </div>
   </div>
 
-  {/* FILTRO DE ESTADO PERSONALIZADO (EL "MONO") */}
-  <div style={{ display: "flex", flexDirection: "column", gap: "5px", position: 'relative' }}>
-    <span style={{ fontWeight: 900, fontSize: "11px", color: "var(--color-primary)", textTransform: "uppercase", marginLeft: "10px" }}>Estado del Proceso</span>
-    
-    <div 
-      onClick={() => setMenuEstadoAbierto(!menuEstadoAbierto)}
-      style={{ 
-        display: "flex", alignItems: "center", gap: "10px", background: "var(--bg-main)", 
-        padding: "8px 18px", borderRadius: "99px", border: "1px solid var(--color-border)",
-        cursor: "pointer", minWidth: "220px", justifyContent: "space-between"
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--color-primary)", fontWeight: 800, fontSize: "13px" }}>
-        {filtroEstado === 'todos' && <><Sparkles size={16} color="var(--color-primary)" /> Todos</>}
-        {filtroEstado === 'pendiente' && <><AlertTriangle size={16} color="var(--state-warning-fg)" /> Pendientes</>}
-        {filtroEstado === 'en_investigacion' && <><Search size={16} color="var(--state-info-border)" /> Investigación</>}
-        {filtroEstado === 'revisar_reactivacion' && <><RefreshCw size={16} color="var(--text-muted)" /> Reactivación</>}
-        {filtroEstado === 'completada' && <><CheckCircle2 size={16} color="var(--state-success-border)" /> Completadas</>}
-      </div>
-      <ChevronDown size={14} color="var(--color-primary)" style={{ transform: menuEstadoAbierto ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
-    </div>
-
-    {/* MENÚ DESPLEGABLE (POPOVER) */}
-    {menuEstadoAbierto && (
-      <div style={{ 
-        position: 'absolute', top: '105%', left: 0, zIndex: 1000, 
-        background: 'var(--bg-card)', border: '1px solid var(--color-border)', borderRadius: '20px', 
-        boxShadow: '0 10px 30px var(--shadow-card)', padding: '8px', minWidth: '240px' 
-      }}>
-        {[
-          { id: 'todos', label: 'Ver Todo', icon: <Sparkles size={16} />, color: "var(--color-primary)" },
-          { id: 'pendiente', label: 'Pendientes', icon: <AlertTriangle size={16} />, color: "var(--state-warning-fg)" },
-          { id: 'en_investigacion', label: 'En investigación', icon: <Search size={16} />, color: "var(--state-info-border)" },
-          { id: 'revisar_reactivacion', label: 'Revisar Reactivación', icon: <RefreshCw size={16} />, color: "var(--text-muted)" },
-          { id: 'completada', label: 'Completadas', icon: <CheckCircle2 size={16} />, color: "var(--state-success-border)" }
-        ].map((opt) => (
-          <div
-            key={opt.id}
-            onClick={() => { setFiltroEstado(opt.id); setMenuEstadoAbierto(false); }}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 15px', 
-              borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 700,
-              color: filtroEstado === opt.id ? 'white' : 'var(--text-muted)',
-              background: filtroEstado === opt.id ? 'var(--color-primary)' : 'transparent',
-              transition: '0.2s'
-            }}
-          >
-            <span style={{ color: filtroEstado === opt.id ? 'white' : opt.color }}>{opt.icon}</span>
-            {opt.label}
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
+  <AdminQueueFilters
+    queue="denuncia"
+    status={filtroEstado}
+    gestor={denFiltroGestor}
+    userQuery={denFiltroUser}
+    onStatus={setFiltroEstado}
+    onGestor={setDenFiltroGestor}
+    onUserQuery={setDenFiltroUser}
+    events={historyOf(denuncias.map((d) => ({ label: d.motivo?.slice?.(0, 42) || "Denuncia", state: caseOf("denuncia", d.id, d.estado) })))}
+  />
 </div>
 </div>
 
@@ -2904,7 +3000,13 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                   });
 
                   const filtradasPorCat = filtroDenuncia === "all" ? denunciasClasificadas : denunciasClasificadas.filter(d => d.filterKey === filtroDenuncia);
-                  const filtradas = filtroEstado === "todos" ? filtradasPorCat : filtradasPorCat.filter(d => (d.estado || 'pendiente') === filtroEstado);
+                  const filtradas = filtradasPorCat.filter((d) => caseMatchesFilters(
+                    caseOf("denuncia", d.id, d.estado),
+                    filtroEstado,
+                    denFiltroGestor,
+                    denFiltroUser,
+                    `${d.denunciante?.display_name || ""} ${d.denunciado?.display_name || ""} ${d.motivo || ""}`,
+                  ));
 
                   if (filtradas.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>No hay reportes con estos filtros.</p>;
 
@@ -2920,8 +3022,11 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                         <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--color-primary)" }}>Seleccionar todas</span>
                       </div>
 
-                      {filtradas.map((d) => (
-                        <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--color-border)", padding: "15px 20px", borderRadius: "16px", background: selectedDenuncias.has(d.id) ? "var(--bg-soft)" : "var(--bg-card)", transition: "0.2s" }}>
+                      {filtradas.map((d) => {
+                        const caso = caseOf("denuncia", d.id, d.estado);
+                        return (
+                        <div key={d.id} style={{ display: "flex", flexDirection: "column", gap: "12px", border: "1px solid var(--color-border)", padding: "15px 20px", borderRadius: "16px", background: selectedDenuncias.has(d.id) ? "var(--bg-soft)" : "var(--bg-card)", transition: "0.2s" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
                             <input 
                               type="checkbox" 
@@ -2945,7 +3050,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                                background: d.estado === 'completada'? "var(--state-success-bg)": d.estado === 'en_investigacion'? "var(--state-warning-bg)": d.estado === 'revisar_reactivacion' ? "var(--state-info-bg)" : "var(--bg-soft)",
  color: d.estado === 'completada' ? "var(--state-success-fg)" : d.estado === 'en_investigacion'? "var(--state-warning-fg)": d.estado === 'revisar_reactivacion' ? "var(--state-info-fg)" : "var(--color-primary)"
                                 }}>
-                                  {d.estado || 'pendiente'}
+                                  {statusLabel(caso.status)}
                                 </span>
                               </div>
                             </div>
@@ -2953,7 +3058,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                           
                           <div style={{ display: "flex", gap: "10px" }}>
                             <button onClick={() => {
-   setSelectedDenuncia(d);
+   setSelectedDenuncia({ ...d, estado: caso.status });
    router.push(`/admin-panel?tab=denuncias&reopen=${d.id}`);
 }}
 style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>
@@ -2963,8 +3068,16 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                               <Trash2 size={20} />
                             </button>
                           </div>
+                          </div>
+                          <AdminQueueBar
+                            queue="denuncia"
+                            state={caso}
+                            busy={queueBusy === queueKey("denuncia", d.id)}
+                            onPatch={(patch, action, detail) => void saveQueueCase("denuncia", d.id, patch, action, detail, d.estado)}
+                          />
                         </div>
-                      ))}
+                        );
+                      })}
                     </>
                   );
                 })()
@@ -3107,15 +3220,17 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
                 <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Mejoras de Photocards</h2>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 900, fontSize: "12px", color: "var(--color-primary)" }}>ESTADO:</span>
-                  {["todos", "pendiente", "aprobada", "rechazada"].map(est => (
-                    <button key={est} onClick={() => setFiltroEstadoAportaciones(est)} style={{ padding: "6px 12px", borderRadius: "99px", border: "1px solid var(--color-border)", fontSize: "11px", fontWeight: 800, cursor: "pointer", background: filtroEstadoAportaciones === est ? "var(--color-primary)" : "var(--bg-card)", color: filtroEstadoAportaciones === est ? "var(--bg-card)" : "var(--color-primary)", textTransform: "uppercase", transition: "0.2s" }}>
-                      {est}
-                    </button>
-                  ))}
-                </div>
               </div>
+              <AdminQueueFilters
+                queue="aportacion"
+                status={filtroEstadoAportaciones}
+                gestor={apoFiltroGestor}
+                userQuery={apoFiltroUser}
+                onStatus={setFiltroEstadoAportaciones}
+                onGestor={setApoFiltroGestor}
+                onUserQuery={setApoFiltroUser}
+                events={historyOf(aportaciones.map((a) => ({ label: `PC #${a.item_id}`, state: caseOf("aportacion", a.id, a.status) })))}
+              />
 
               {selectedAportacionIds.size > 0 && (
                 <div style={{ display: "flex", gap: "10px", background: "var(--bg-soft)", padding: "10px 15px", borderRadius: "12px", alignItems: "center" }}>
@@ -3128,7 +3243,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
 
               {!selectedAportacion ? (
                 (() => {
-                  const filtrados = filtroEstadoAportaciones === "todos" ? aportaciones : aportaciones.filter(a => (a.status || 'pendiente') === filtroEstadoAportaciones);
+                  const filtrados = aportaciones.filter((a) => caseMatchesFilters(
+                    caseOf("aportacion", a.id, a.status),
+                    filtroEstadoAportaciones,
+                    apoFiltroGestor,
+                    apoFiltroUser,
+                    `${a.userName || ""} ${a.item_id || ""}`,
+                  ));
                   if (filtrados.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>Bandeja limpia.</p>;
                   
                   return (
@@ -3138,8 +3259,11 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--color-primary)" }}>Seleccionar todas</span>
                       </div>
 
-                      {filtrados.map((a) => (
-                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--color-border)", padding: "15px 20px", borderRadius: "16px", background: selectedAportacionIds.has(a.id) ? "var(--bg-soft)" : "var(--bg-card)" }}>
+                      {filtrados.map((a) => {
+                        const caso = caseOf("aportacion", a.id, a.status);
+                        return (
+                        <div key={a.id} style={{ display: "flex", flexDirection: "column", gap: "12px", border: "1px solid var(--color-border)", padding: "15px 20px", borderRadius: "16px", background: selectedAportacionIds.has(a.id) ? "var(--bg-soft)" : "var(--bg-card)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
                             <input type="checkbox" checked={selectedAportacionIds.has(a.id)} onChange={(e) => { const next = new Set(selectedAportacionIds); e.target.checked ? next.add(a.id) : next.delete(a.id); setSelectedAportacionIds(next); }} style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} />
                             <ImagePlus size={18} color="var(--color-primary)" />
@@ -3147,7 +3271,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                               <span style={{ fontWeight: 900, color: "var(--text-main)", fontSize: "16px" }}>Mejora para Photocard #{a.item_id} ({a.face})</span>
                               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "5px" }}>
                                 <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "bold" }}>Por: {a.userName || "Usuario Anónimo"}</span>
-                                <span style={{ padding: "4px 10px", borderRadius: "8px", fontSize: "10px", fontWeight: 900, textTransform: "uppercase", background: a.status === 'aprobada' ? "var(--state-success-bg)" : a.status === 'rechazada' ? "var(--bg-soft)" : "var(--state-warning-bg)", color: a.status === 'aprobada' ? "var(--state-success-fg)" : a.status === 'rechazada' ? "var(--color-primary)" : "var(--state-warning-fg)" }}>{a.status || 'pendiente'}</span>
+                                <span style={{ padding: "4px 10px", borderRadius: "8px", fontSize: "10px", fontWeight: 900, textTransform: "uppercase", background: caso.status === "aprobada" ? "var(--state-success-bg)" : caso.status === "denegada" ? "var(--bg-soft)" : "var(--state-warning-bg)", color: caso.status === "aprobada" ? "var(--state-success-fg)" : "var(--color-primary)" }}>{statusLabel(caso.status)}</span>
                               </div>
                             </div>
                           </div>
@@ -3155,8 +3279,16 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
   setSelectedAportacion(a);
   router.push(`/admin-panel?tab=aportaciones&aportacionId=${a.id}`);
 }}style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>Revisar</button>
+                          </div>
+                          <AdminQueueBar
+                            queue="aportacion"
+                            state={caso}
+                            busy={queueBusy === queueKey("aportacion", a.id)}
+                            onPatch={(patch, action, detail) => void saveQueueCase("aportacion", a.id, patch, action, detail, a.status)}
+                          />
                         </div>
-                      ))}
+                        );
+                      })}
                     </>
                   );
                 })()
@@ -3208,46 +3340,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
 </button>
   </div>
                    
-                   <div style={{ display: "flex", gap: "10px", alignItems: "center", borderTop: "1px dashed var(--color-border)", paddingTop: "15px", marginTop: "15px" }}>
-                    <span style={{ fontWeight: 900, fontSize: "14px", color: "var(--color-primary)" }}>DECISIÓN:</span>
-                    <select
-  // El valor es el estado actual de la denuncia que tienes abierta
-  value={selectedDenuncia.estado || 'pendiente'} 
-  onChange={async (e) => {
-    const nuevoEstado = e.target.value;
-    
-    // 1. Actualizamos visualmente el modal para que veas el cambio
-    setSelectedDenuncia({ ...selectedDenuncia, estado: nuevoEstado });
-
-    // 2. Guardamos el cambio en la base de datos para esta denuncia en concreto
-    const { error } = await supabase
-      .from('denuncias')
-      .update({ estado: nuevoEstado })
-      .eq('id', selectedDenuncia.id);
-
-    if (error) {
-      showAlert("Error", "No se pudo guardar el estado: " + error.message);
-    } else {
-      // 3. Refrescamos la lista de atrás para que se vea el cambio en la tabla
-      fetchDenuncias(); 
-    }
-  }}
-  style={{ 
-    padding: "8px 12px", 
-    borderRadius: "10px", 
-    border: "1px solid var(--color-border)", 
-    outline: "none", 
-    color: "var(--color-primary)", 
-    fontWeight: 800, 
-    background: "var(--bg-card)", 
-    cursor: "pointer" 
-  }}
->
-  <option value="pendiente">🟠 Pendiente</option>
-  <option value="en_investigacion">🔍 En investigación</option>
-  <option value="revisar_reactivacion">⏳ Revisar Reactivación</option>
-  <option value="completada">✅ Completada</option>
-</select>
+                   <div style={{ borderTop: "1px dashed var(--color-border)", paddingTop: "15px", marginTop: "15px" }}>
+                    <AdminQueueBar
+                      queue="aportacion"
+                      state={caseOf("aportacion", selectedAportacion.id, selectedAportacion.status)}
+                      busy={queueBusy === queueKey("aportacion", selectedAportacion.id)}
+                      onPatch={(patch, action, detail) => void saveQueueCase("aportacion", selectedAportacion.id, patch, action, detail, selectedAportacion.status)}
+                    />
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px", marginTop: "20px" }}>
@@ -3850,133 +3949,9 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
 
           {/* PESTAÑA 5: MANUAL INTERACTIVO */}
           {activeTab === "manual" && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
-              {(() => {
-                const slides = [
-                  {
-                    icon: <Users size={60} color="var(--color-primary)" />,
-                    title: "1. Gestión de Usuarios",
-                    subtitle: "El Modo Dios de la plataforma.",
-                    content: (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px", textAlign: "left" }}>
-                        <div style={{ background: "var(--bg-main)", padding: "15px", borderRadius: "12px", borderLeft: "4px solid var(--state-warning-fg)" }}><strong>👑 Hacer Premium:</strong> Otorga el marco dorado. Útil para regalos o incidencias.</div>
-                        <div style={{ background: "var(--bg-main)", padding: "15px", borderRadius: "12px", borderLeft: "4px solid var(--state-success-fg)" }}><strong>✨ Hacer Artista:</strong> Da acceso al Creator Studio.</div>
-                        <div style={{ background: "var(--bg-main)", padding: "15px", borderRadius: "12px", borderLeft: "4px solid var(--text-muted)" }}><strong>🛑 Restringir Perfil:</strong> El castigo silencioso. No podrán publicar ni comentar, pero su cuenta sigue viva.</div>
-                        <div style={{ background: "var(--bg-soft)", padding: "15px", borderRadius: "12px", borderLeft: "4px solid var(--text-main)" }}><strong>⚠️ FULMINAR:</strong> Borra TODO rastro del usuario. Solo para fraudes. No se puede deshacer.</div>
-                      </div>
-                    )
-                  },
-                  {
-                    icon: <ShieldAlert size={60} color="var(--color-primary)" />,
-                    title: "2. Moderación y Denuncias",
-                    subtitle: "El Circuito Cerrado de Seguridad.",
-                    content: (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px", textAlign: "left" }}>
-                        <p style={{ fontSize: "15px", color: "var(--text-muted)", fontWeight: 600 }}>Al abrir un expediente, podéis:</p>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--bg-soft)", padding: "12px", borderRadius: "8px" }}><CheckCircle2 size={18} color="var(--color-primary)"/> <span><strong>Cambiar el estado</strong> a "En investigación".</span></div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--bg-soft)", padding: "12px", borderRadius: "8px" }}><CheckCircle2 size={18} color="var(--color-primary)"/> <span><strong>Ver pruebas adjuntas</strong> en el visor de pantalla completa.</span></div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--bg-soft)", padding: "12px", borderRadius: "8px" }}><CheckCircle2 size={18} color="var(--color-primary)"/> <span><strong>Abrir obra/muro:</strong> Salta a la página (resaltando el comentario si lo hay).</span></div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--bg-soft)", padding: "12px", borderRadius: "8px" }}><CheckCircle2 size={18} color="var(--color-primary)"/> <span><strong>Notificar al denunciante</strong> con un solo clic.</span></div>
-                      </div>
-                    )
-                  },
-                  {
-                    icon: <Mail size={60} color="var(--color-primary)" />,
-                    title: "3. Solicitudes de Artistas",
-                    subtitle: "El Modo Cazatalentos.",
-                    content: (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px", textAlign: "center" }}>
-                        <p style={{ fontSize: "16px", color: "var(--text-muted)", fontWeight: 600, lineHeight: "1.6" }}>Aquí llegan los portfolios de los usuarios que quieren la insignia de Artista Verificado.</p>
-                        <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "10px" }}>
-                          <div style={{ background: "var(--state-success-bg)", color: "var(--state-success-fg)", padding: "15px", borderRadius: "16px", flex: 1 }}><strong>APROBAR:</strong> Da medalla y avisa.</div>
-                          <div style={{ background: "var(--bg-soft)", color: "var(--text-main)", padding: "15px", borderRadius: "16px", flex: 1, border: "1px solid var(--color-border)" }}><strong>DESCARTAR:</strong> Limpia la bandeja.</div>
-                        </div>
-                      </div>
-                    )
-                  },
-                  {
-                    icon: <PenTool size={60} color="var(--color-primary)" />,
-                    title: "4. Publicar en nombre de otros",
-                    subtitle: "Magia asistida por IA.",
-                    content: (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px", textAlign: "left" }}>
-                        <p style={{ fontSize: "15px", color: "var(--text-muted)", fontWeight: 600 }}>Asigna obras a otros usuarios manualmente (concursos, VIPs...).</p>
-                        <div style={{ background: "var(--bg-main)", padding: "20px", borderRadius: "16px", border: "1px dashed var(--color-border)" }}>
-                          <strong style={{ color: "var(--color-primary)", fontSize: "16px" }}>✨ El poder de la IA en Fanfics:</strong>
-                          <p style={{ fontSize: "14px", color: "var(--text-main)", marginTop: "10px", lineHeight: "1.5" }}>Al pegar el texto en español, nuestra Inteligencia Artificial creará el capítulo y <strong>lo traducirá a 10 idiomas distintos</strong> automáticamente. <em>(Tarda unos 15 segs, ¡paciencia!).</em></p>
-                        </div>
-                      </div>
-                    )
-                  },
-                  {
-                   icon: <Sparkles size={60} color="var(--color-primary)" />,
-                   title: "5. Buzón, PCs y K-oins",
-                   subtitle: "Cuidando a la comunidad.",
-                   content: (
-                     <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "20px", textAlign: "left" }}>
-                       <div style={{ background: "var(--bg-soft)", padding: "12px", borderRadius: "12px", borderLeft: "4px solid var(--color-primary)", fontSize: "13px" }}>
-                         <strong>📧 Buzón:</strong> Haz clic en el @nombre para ir a su perfil y darle K-oins por su ayuda. Las respuestas quedan registradas para todo el equipo.
-                       </div>
-                       <div style={{ background: "var(--bg-main)", padding: "12px", borderRadius: "12px", borderLeft: "4px solid var(--state-warning-fg)", fontSize: "13px" }}>
-                         <strong>📸 Nuevas PCs:</strong> Descarga la imagen (el nombre se pone solo con el ID) y súbela a la BD oficial antes de aprobar el aporte.
-                       </div>
-                       <div style={{ background: "var(--state-success-bg)", padding: "12px", borderRadius: "12px", borderLeft: "4px solid var(--state-success-fg)", fontSize: "13px" }}>
-                         <strong>💰 Sistema de K-oins:</strong> Premia las aportaciones desde 'Gestión Usuarios'. Los usuarios podrán canjearlos en la Shop por recursos gratis.
-                       </div>
-                     </div>
-                   )
-                  }
-                ];
-
-                const current = slides[tutorialSlide];
-
-                return (
-                  <div className="animate-slide" key={tutorialSlide} style={{ background: "var(--bg-card)", width: "100%", maxWidth: "600px", padding: "40px", borderRadius: "32px", border: "1px solid var(--color-border)", boxShadow: "0 20px 40px var(--shadow-card)", textAlign: "center", position: "relative", overflow: "hidden" }}>
-                    
-                    {/* BARRA DE PROGRESO */}
-                    <div style={{ display: "flex", gap: "4px", position: "absolute", top: "20px", left: "30px", right: "30px" }}>
-                      {slides.map((_, idx) => (
-                        <div key={idx} style={{ height: "5px", flex: 1, background: idx <= tutorialSlide ? "var(--color-primary)" : "var(--color-border)", borderRadius: "99px", transition: "all 0.3s" }} />
-                      ))}
-                    </div>
-
-                    <div style={{ marginTop: "20px", display: "flex", justifyContent: "center" }}>
-                      <div style={{ background: "var(--bg-soft)", padding: "25px", borderRadius: "50%" }}>{current.icon}</div>
-                    </div>
-                    <h2 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "28px", margin: "20px 0 5px 0" }}>{current.title}</h2>
-                    <p style={{ color: "var(--text-muted)", fontSize: "16px", fontWeight: 800, margin: 0 }}>{current.subtitle}</p>
-                    
-                    <div style={{ minHeight: "220px" }}>
-                      {current.content}
-                    </div>
-
-                    {/* CONTROLES DE NAVEGACIÓN */}
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "30px", borderTop: "1px solid var(--color-border)", paddingTop: "20px" }}>
-                      <button 
-                        onClick={() => setTutorialSlide(prev => Math.max(0, prev - 1))}
-                        style={{ background: "transparent", border: "none", color: tutorialSlide === 0 ? "var(--color-border)" : "var(--color-primary)", fontWeight: 900, cursor: tutorialSlide === 0 ? "default" : "pointer", fontSize: "14px", display: "flex", alignItems: "center", gap: "5px" }}
-                      >
-                        <ChevronLeft size={18} /> ANTERIOR
-                      </button>
-                      
-                      {tutorialSlide === slides.length - 1 ? (
-                        <button onClick={() => openAdminTab("denuncias")} style={{ background: "var(--text-main)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "99px", fontWeight: 900, cursor: "pointer", fontSize: "14px", boxShadow: "0 4px 10px var(--overlay-soft)" }}>
-                          ¡ENTENDIDO!
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => setTutorialSlide(prev => Math.min(slides.length - 1, prev + 1))}
-                          style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "99px", fontWeight: 900, cursor: "pointer", fontSize: "14px", display: "flex", alignItems: "center", gap: "5px", boxShadow: "0 4px 10px var(--shadow-card)" }}
-                        >
-                          SIGUIENTE <ChevronRight size={18} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+            <AdminManual />
           )}
+
 
         </div>
         {/* MODAL VISOR DE ARCHIVOS PAGINADO */}
@@ -4235,11 +4210,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
     }}
   >
     <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--color-primary)", fontWeight: 800, fontSize: "13px" }}>
-      {selectedDenuncia.estado === 'pendiente' && <><AlertTriangle size={16} color="var(--state-warning-fg)" /> Pendiente</>}
-      {selectedDenuncia.estado === 'en_investigacion' && <><Search size={16} color="var(--state-info-border)" /> En investigación</>}
-      {selectedDenuncia.estado === 'revisar_reactivacion' && <><RefreshCw size={16} color="var(--text-muted)" /> Revisar Reactivación</>}
-      {selectedDenuncia.estado === 'completada' && <><CheckCircle2 size={16} color="var(--state-success-border)" /> Completada</>}
-      {!selectedDenuncia.estado && <><AlertTriangle size={16} color="var(--state-warning-fg)" /> Pendiente</>}
+      <span>{statusLabel(caseOf("denuncia", selectedDenuncia.id, selectedDenuncia.estado).status)}</span>
     </div>
     <ChevronDown size={14} color="var(--color-primary)" style={{ transform: menuEstadoDenuncia ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
   </div>
@@ -4252,30 +4223,19 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
       boxShadow: '0 10px 25px var(--shadow-card)', padding: '8px', width: '100%' 
     }}>
       {[
-        { id: 'pendiente', label: 'Marcar como Pendiente', icon: <AlertTriangle size={16} />, color: "var(--state-warning-fg)" },
-        { id: 'en_investigacion', label: 'Iniciar Investigación', icon: <Search size={16} />, color: "var(--state-info-border)" },
-        { id: 'revisar_reactivacion', label: 'Mandar a Reactivación', icon: <RefreshCw size={16} />, color: "var(--text-muted)" },
-        { id: 'completada', label: 'Marcar como Completada', icon: <CheckCircle2 size={16} />, color: "var(--state-success-border)" }
+        { id: 'pendiente', label: 'Pendiente', icon: <AlertTriangle size={16} />, color: "var(--state-warning-fg)" },
+        { id: 'en_proceso', label: 'En proceso', icon: <RefreshCw size={16} />, color: "var(--color-primary)" },
+        { id: 'en_investigacion', label: 'En investigación', icon: <Search size={16} />, color: "var(--state-info-border)" },
+        { id: 'revisar_reactivacion', label: 'Revisar reactivación', icon: <RefreshCw size={16} />, color: "var(--text-muted)" },
+        { id: 'aprobada', label: 'Aprobada', icon: <CheckCircle2 size={16} />, color: "var(--state-success-border)" },
+        { id: 'denegada', label: 'Denegada', icon: <AlertTriangle size={16} />, color: "var(--state-danger-fg)" },
+        { id: 'completada', label: 'Completada', icon: <CheckCircle2 size={16} />, color: "var(--state-success-border)" }
       ].map((opt) => (
         <div
           key={opt.id}
-          onClick={async () => {
-            // 1. Actualizar visualmente la denuncia abierta [cite: 940, 941]
-            setSelectedDenuncia({ ...selectedDenuncia, estado: opt.id });
+          onClick={() => {
             setMenuEstadoDenuncia(false);
-            
-            // 2. GUARDAR EN SUPABASE REAL [cite: 935, 936, 938]
-            const { error } = await supabase
-              .from('denuncias')
-              .update({ estado: opt.id })
-              .eq('id', selectedDenuncia.id);
-            
-            if (error) {
-              showAlert("Error", "No se pudo cambiar el estado: " + error.message);
-            } else {
-              // 3. Refrescar la lista de fondo [cite: 942, 943]
-              fetchDenuncias();
-            }
+            void saveQueueCase("denuncia", selectedDenuncia.id, { status: opt.id as QueueCase["status"] }, "estado", opt.label, selectedDenuncia.estado);
           }}
           style={{ 
             display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 15px', 
@@ -4291,6 +4251,14 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
       ))}
     </div>
   )}
+</div>
+<div style={{ marginTop: 12 }}>
+  <AdminQueueBar
+    queue="denuncia"
+    state={caseOf("denuncia", selectedDenuncia.id, selectedDenuncia.estado)}
+    busy={queueBusy === queueKey("denuncia", selectedDenuncia.id)}
+    onPatch={(patch, action, detail) => void saveQueueCase("denuncia", selectedDenuncia.id, patch, action, detail, selectedDenuncia.estado)}
+  />
 </div>
 
              {/* NUEVA LÓGICA DE RUTEO INTELIGENTE (PARA FANART, MURO Y FANZONE) */}
