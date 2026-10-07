@@ -2298,26 +2298,49 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     );
   };
 
-const TabButton = ({ id, icon, label, active, onClick }: { id: string, icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    style={{
-      flex: 1, display: "flex", flexDirection: "column",
-      alignItems: "center", gap: "8px",
-      padding: "15px", borderRadius: "16px", border: "none",
-      cursor: "pointer", transition: "all 0.2s",
-      background: active ? "var(--color-primary)" : "var(--bg-card)",
-      color: active ? "white" : "var(--color-primary)",
-      boxShadow: active ? "0 10px 20px var(--shadow-card)" : "0 4px 10px color-mix(in srgb, var(--text-main) 5%, transparent)",
-      minWidth: "100px",
-      fontWeight: 900, fontSize: "14px"
-    }}
-  >
-    {icon}
-    {label}
-  </button>
-);
+  const adminNav = [
+    {
+      label: "Contenido",
+      items: [
+        { id: "publicar", label: "Publicar", icon: PenTool },
+        { id: "catalogo", label: "Catálogo", icon: Tags },
+        { id: "publicidad", label: "Publicidad", icon: Sparkles },
+      ],
+    },
+    {
+      label: "Comunidad",
+      items: [
+        { id: "usuarios", label: "Usuarios", icon: Users },
+        { id: "solicitudes", label: "Solicitudes", icon: Mail },
+        { id: "denuncias", label: "Denuncias", icon: ShieldAlert },
+        { id: "buzon", label: "Buzón", icon: MailOpen },
+        { id: "aportaciones", label: "Aportaciones", icon: ImagePlus },
+      ],
+    },
+    {
+      label: "Ayuda",
+      items: [{ id: "manual", label: "Manual", icon: HelpCircle }],
+    },
+  ];
+
+  const openAdminTab = (id: string) => {
+    setActiveTab(id);
+    const params = new URLSearchParams(searchParams.toString());
+    const already =
+      params.get("tab") === id &&
+      !params.get("reopen") &&
+      !params.get("buzonId") &&
+      !params.get("aportacionId");
+    if (already) return;
+    params.set("tab", id);
+    params.delete("reopen");
+    params.delete("buzonId");
+    params.delete("aportacionId");
+    setSelectedDenuncia(null);
+    setSelectedBuzon(null);
+    setSelectedAportacion(null);
+    router.replace(`/admin-panel?${params.toString()}`, { scroll: false });
+  };
 
   if (authLoading) {
     return <CatalogLoadingFun fullPage />;
@@ -2338,75 +2361,40 @@ const TabButton = ({ id, icon, label, active, onClick }: { id: string, icon: Rea
 
   return (
     <div className="admin-panel-root" style={{ minHeight: "100vh", backgroundColor: "var(--bg-main)", color: "var(--text-main)", paddingBottom: "100px" }}>
-      <main style={{ maxWidth: activeTab === "catalogo" || activeTab === "usuarios" ? "980px" : "800px", margin: "40px auto", padding: "20px" }}>
-        <div style={{ textAlign: "center", marginBottom: "40px" }}>
-     <h1 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "38px", margin: 0 }}>
-  Panel de Administración
-</h1>
-<p style={{ color: "var(--text-subheading)", fontWeight: 800, marginTop: "5px" }}>
-  Gestión centralizada de la plataforma
-</p>
-        </div>
+      <div className="admin-shell">
+        <aside className="admin-side">
+          <div className="admin-brand">
+            <span className="admin-kicker">My K-pop Binder</span>
+            <h1 className="tan-font">Admin</h1>
+            <p>Gestión de la plataforma</p>
+          </div>
+          <nav className="admin-nav" aria-label="Secciones del panel">
+            {adminNav.map((group) => (
+              <div key={group.label} className="admin-nav-group">
+                <span className="admin-nav-label">{group.label}</span>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={active ? "admin-nav-btn is-active" : "admin-nav-btn"}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => openAdminTab(item.id)}
+                    >
+                      <Icon size={16} />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+        </aside>
 
-      <div style={{ display: "flex", gap: "15px", marginBottom: "30px", overflowX: "auto", paddingBottom: "10px" }}>
-  <TabButton 
-    id="publicar" 
-    icon={<PenTool size={24} />} 
-    label="Publicar" 
-    active={activeTab === "publicar"} 
-    onClick={() => setActiveTab("publicar")} 
-  />
-  <TabButton 
-    id="usuarios" 
-    icon={<Users size={24} />} 
-    label="Usuarios" 
-    active={activeTab === "usuarios"} 
-    onClick={() => setActiveTab("usuarios")} 
-  />
-  <TabButton 
-    id="solicitudes" 
-    icon={<Mail size={24} />} 
-    label="Solicitudes" 
-    active={activeTab === "solicitudes"} 
-    onClick={() => setActiveTab("solicitudes")} 
-  />
-  <TabButton 
-    id="denuncias" 
-    icon={<ShieldAlert size={24} />} 
-    label="Denuncias" 
-    active={activeTab === "denuncias"} 
-    onClick={() => setActiveTab("denuncias")} 
-  />
-  <TabButton
-    id="publicidad"
-    icon={<Sparkles size={24} />}
-    label="Publicidad"
-    active={activeTab === "publicidad"}
-    onClick={() => setActiveTab("publicidad")}
-  />
-  <TabButton
-    id="catalogo"
-    icon={<Tags size={24} />}
-    label="Catálogo"
-    active={activeTab === "catalogo"}
-    onClick={() => setActiveTab("catalogo")}
-  />
-  <TabButton 
-    id="manual" 
-    icon={<HelpCircle size={24} />} 
-    label="Manual" 
-    active={activeTab === "manual"} 
-    onClick={() => setActiveTab("manual")} 
-  />
-</div>
-
-        <div style={{ 
-          background: activeTab === "manual" ? "transparent" : "var(--bg-card)", 
-          padding: activeTab === "manual" ? "0" : "40px", 
-          borderRadius: "24px", 
-          border: activeTab === "manual" ? "none" : "1px solid var(--border-card)", 
-          boxShadow: activeTab === "manual" ? "none" : "0 10px 30px var(--shadow-card)" 
-        }}>
+        <main className="admin-stage">
+        <div className={activeTab === "manual" ? "admin-stage-body is-plain" : "admin-stage-body"}>
           
           {/* PESTAÑA 1: PUBLICAR OBRA */}
           {activeTab === "publicar" && (
@@ -2416,7 +2404,7 @@ const TabButton = ({ id, icon, label, active, onClick }: { id: string, icon: Rea
                 <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Publicar en nombre de un usuario</h2>
               </div>
               
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px" }}>
                 <div>
                   <label style={labelStyle}>Título de la obra *</label>
                   <input
@@ -3291,7 +3279,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Campañas de Publicidad</h2>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "14px" }}>
                 <input style={inputStyle} placeholder="Titulo del anuncio*" value={adForm.title} onChange={(e) => setAdForm((p) => ({ ...p, title: e.target.value }))} />
                 <input style={inputStyle} placeholder="Subtitulo" value={adForm.subtitle} onChange={(e) => setAdForm((p) => ({ ...p, subtitle: e.target.value }))} />
                 <input style={inputStyle} placeholder="URL destino*" value={adForm.target_url} onChange={(e) => setAdForm((p) => ({ ...p, target_url: e.target.value }))} />
@@ -3400,7 +3388,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", alignItems: "start" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px", alignItems: "start" }}>
                     <div style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)" }}>
                       <h3 style={{ margin: "0 0 14px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>Grupo</h3>
                       <label style={labelStyle}>Nombre (visible)</label>
@@ -3972,7 +3960,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       </button>
                       
                       {tutorialSlide === slides.length - 1 ? (
-                        <button onClick={() => setActiveTab("denuncias")} style={{ background: "var(--text-main)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "99px", fontWeight: 900, cursor: "pointer", fontSize: "14px", boxShadow: "0 4px 10px var(--overlay-soft)" }}>
+                        <button onClick={() => openAdminTab("denuncias")} style={{ background: "var(--text-main)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "99px", fontWeight: 900, cursor: "pointer", fontSize: "14px", boxShadow: "0 4px 10px var(--overlay-soft)" }}>
                           ¡ENTENDIDO!
                         </button>
                       ) : (
@@ -4758,9 +4746,150 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
         
       )}
       
-      </main>
+        </main>
+      </div>
 
       <style jsx>{`
+        .admin-shell {
+          max-width: 1180px;
+          margin: 28px auto 0;
+          padding: 0 20px;
+          display: grid;
+          grid-template-columns: 232px minmax(0, 1fr);
+          gap: 22px;
+          align-items: start;
+        }
+        .admin-side {
+          position: sticky;
+          top: 112px;
+          background: var(--bg-card);
+          border: 1px solid var(--border-card);
+          border-radius: 24px;
+          box-shadow: 0 10px 30px var(--shadow-card);
+          padding: 18px 14px 14px;
+        }
+        .admin-brand h1 {
+          color: var(--color-primary);
+          font-size: 32px;
+          line-height: 1;
+          margin: 2px 0 6px;
+        }
+        .admin-kicker {
+          display: block;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+        }
+        .admin-brand p {
+          margin: 0 0 8px;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--text-subheading);
+        }
+        .admin-nav-group + .admin-nav-group {
+          margin-top: 14px;
+          padding-top: 12px;
+          border-top: 1px solid var(--color-border);
+        }
+        .admin-nav-label {
+          display: block;
+          margin: 0 8px 6px;
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+        }
+        .admin-nav-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 9px 10px;
+          margin: 2px 0;
+          border: none;
+          border-radius: 12px;
+          background: transparent;
+          color: var(--text-main);
+          font-weight: 800;
+          font-size: 13px;
+          cursor: pointer;
+          text-align: left;
+        }
+        .admin-nav-btn.is-active {
+          background: color-mix(in srgb, var(--color-primary) 16%, var(--bg-card));
+          color: var(--color-primary);
+        }
+        .admin-stage-body {
+          background: var(--bg-card);
+          padding: 28px;
+          border-radius: 24px;
+          border: 1px solid var(--border-card);
+          box-shadow: 0 10px 30px var(--shadow-card);
+        }
+        .admin-stage-body.is-plain {
+          background: transparent;
+          padding: 0;
+          border: none;
+          box-shadow: none;
+        }
+        .admin-nav-btn:hover {
+          background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+        }
+        .admin-nav-btn.is-active:hover {
+          background: color-mix(in srgb, var(--color-primary) 16%, var(--bg-card));
+        }
+        @media (max-width: 999px) {
+          .admin-side { top: 132px; }
+        }
+        @media (max-width: 860px) {
+          .admin-shell {
+            grid-template-columns: 1fr;
+            margin-top: 12px;
+            gap: 14px;
+            padding: 0 14px;
+          }
+          .admin-side {
+            top: 128px;
+            z-index: 20;
+            padding: 12px;
+          }
+          .admin-brand {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+          }
+          .admin-brand h1 { font-size: 22px; margin: 0; }
+          .admin-brand p { display: none; }
+          .admin-nav {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            margin-top: 10px;
+            padding-bottom: 2px;
+            scrollbar-width: none;
+          }
+          .admin-nav::-webkit-scrollbar { display: none; }
+          .admin-nav-group {
+            display: contents;
+          }
+          .admin-nav-group + .admin-nav-group {
+            margin: 0;
+            padding: 0;
+            border: none;
+          }
+          .admin-nav-label { display: none; }
+          .admin-nav-btn {
+            width: auto;
+            flex: 0 0 auto;
+            white-space: nowrap;
+            background: var(--bg-main);
+            border: 1px solid var(--color-border);
+          }
+          .admin-stage-body { padding: 16px; border-radius: 18px; }
+        }
         .admin-panel-root input,
         .admin-panel-root textarea,
         .admin-panel-root select {
