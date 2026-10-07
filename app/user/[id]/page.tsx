@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { Sparkles, ChevronLeft, ChevronRight, Crown, BookOpen, LayoutGrid, Palette, MessageSquare, X, Share2, Store, Repeat2, MessageCircle, Send, Heart, Star, AlertTriangle, Wallet, Boxes } from "lucide-react";
 import VirtualBinder from "@/app/components/VirtualBinder";
 
@@ -195,7 +196,8 @@ export default function PublicProfilePage() {
   const handleSubmitReport = async () => {
     if (!reportReason.trim()) return;
     setIsSending(true);
-    await supabase.from('denuncias').insert({ reported_user_id: profile.user_id, reporter_id: currentUserId, motivo: "Reporte de perfil: " + reportReason, estado: 'pendiente' });
+    const { data: created } = await supabase.from('denuncias').insert({ reported_user_id: profile.user_id, reporter_id: currentUserId, motivo: "Reporte de perfil: " + reportReason, estado: 'pendiente' }).select("id").maybeSingle();
+    if (created?.id) void pingAdminInbox("denuncia", created.id);
     setShowReportModal(false);
     setReportReason("");
     setIsSending(false);

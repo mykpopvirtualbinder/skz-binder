@@ -30,7 +30,7 @@ import {
   type QueueCase,
   type QueueKind,
 } from "@/lib/admin-queue";
-import { AdminQueueBar, AdminQueueFilters, UserCaseHistory, caseMatchesFilters, type UserHistoryRow } from "./AdminQueueBar";
+import { AdminQueueBar, AdminQueueFilters, ReadSelectionBar, UserCaseHistory, caseMatchesFilters, type UserHistoryRow } from "./AdminQueueBar";
 import AdminManual from "./AdminManual";
 
 
@@ -419,6 +419,18 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
     setQueueBusy(null);
   };
 
+  const markQueueRead = async (queue: QueueKind, ids: string[], leido: boolean) => {
+    const detail = leido ? "Marcada como leída" : "Marcada como no leída";
+    for (const id of ids) {
+      const native = queue === "denuncia"
+        ? denuncias.find((d) => d.id === id)?.estado
+        : queue === "aportacion"
+          ? aportaciones.find((a) => a.id === id)?.status
+          : undefined;
+      await saveQueueCase(queue, id, { leido }, "lectura", detail, native);
+    }
+  };
+
   const fetchAdCampaigns = async () => {
     const canonicalSelect =
       "id,title,subtitle,image_url,target_url,placement,device,section,priority,active,start_at,end_at";
@@ -571,6 +583,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
 
   const [filtroEstadoBuzon, setFiltroEstadoBuzon] = useState("todos");
   const [selectedBuzonIds, setSelectedBuzonIds] = useState<Set<string>>(new Set());
+  const [selectedSolicitudIds, setSelectedSolicitudIds] = useState<Set<string>>(new Set());
   const [respuestaBuzon, setRespuestaBuzon] = useState("");
   const [respuestaAportacion, setRespuestaAportacion] = useState("");
   const [filtroEstadoAportaciones, setFiltroEstadoAportaciones] = useState("todos");
@@ -3053,16 +3066,29 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 onRead={setSolFiltroLeido}
               />
               
-              {solicitudes.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>No hay solicitudes.</p> : 
-                solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`, solFiltroLeido)).length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>Nada con estos filtros.</p> :
-                solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`, solFiltroLeido)).map(sol => {
+              {(() => {
+                const visible = solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`, solFiltroLeido));
+                if (solicitudes.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700}}>No hay solicitudes.</p>;
+                return (
+                  <>
+                    <ReadSelectionBar
+                      ids={visible.map((sol) => sol.id)}
+                      selected={selectedSolicitudIds}
+                      onChange={setSelectedSolicitudIds}
+                      onMark={(ids, leido) => void markQueueRead("solicitud", ids, leido)}
+                    />
+                    {visible.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>Nada con estos filtros.</p> : visible.map(sol => {
                   const rawText = sol.comentarios || "";
                   const links = rawText.match(/(https?:\/\/[^\s"]+)/g) || [];
                   const adjuntos = (Array.from(new Set(links)) as string[]).filter((l: string) => !l.includes('ui-avatars'));
                   const textoLimpio = rawText.replace(/(https?:\/\/[^\s"']+)/g, '').replace(/URLs del portfolio:/gi, '').trim();
 
                   return (
-                    <div id={`admin-case-solicitud-${sol.id}`} key={sol.id} style={{ border: "1px solid var(--color-border)", padding: "20px", borderRadius: "16px", background: "var(--bg-main)", boxShadow: highlightCase === `admin-case-solicitud-${sol.id}` ? "0 0 0 3px var(--color-primary)" : "0 4px 12px var(--shadow-card)" }}>
+                    <div id={`admin-case-solicitud-${sol.id}`} key={sol.id} style={{ border: "1px solid var(--color-border)", padding: "20px", borderRadius: "16px", background: selectedSolicitudIds.has(sol.id) ? "var(--bg-soft)" : "var(--bg-main)", boxShadow: highlightCase === `admin-case-solicitud-${sol.id}` ? "0 0 0 3px var(--color-primary)" : "0 4px 12px var(--shadow-card)" }}>
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 800, color: "var(--color-primary)", marginBottom: 10 }}>
+                        <input type="checkbox" checked={selectedSolicitudIds.has(sol.id)} onChange={(e) => { const next = new Set(selectedSolicitudIds); e.target.checked ? next.add(sol.id) : next.delete(sol.id); setSelectedSolicitudIds(next); }} style={{ accentColor: "var(--color-primary)" }} />
+                        Seleccionar
+                      </label>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px" }}>
                         <div>
                           <p style={{margin: "0 0 8px 0", fontSize: "15px"}}><strong>Nombre:</strong> {sol.nombre}</p>
@@ -3109,9 +3135,11 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                         })))}
                       />
                     </div>
-                  )
-                })
-              }
+                  );
+                })}
+                  </>
+                );
+              })()}
             </div>
           )}
 
@@ -3202,15 +3230,12 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
                   return (
                     <>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "0 5px" }}>
-                        <input 
-                          type="checkbox" 
-                          checked={selectedDenuncias.size === filtradas.length && filtradas.length > 0} 
-                          onChange={(e) => handleSelectAllDenuncias(e.target.checked, filtradas)} 
-                          style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} 
-                        />
-                        <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--color-primary)" }}>Seleccionar todas</span>
-                      </div>
+                      <ReadSelectionBar
+                        ids={filtradas.map((d) => d.id)}
+                        selected={selectedDenuncias}
+                        onChange={(next) => { setSelectedDenuncias(next); }}
+                        onMark={(ids, leido) => void markQueueRead("denuncia", ids, leido)}
+                      />
 
                       {filtradas.map((d) => {
                         const caso = caseOf("denuncia", d.id, d.estado);
@@ -3328,10 +3353,12 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   
                   return (
                     <>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "0 5px" }}>
-                        <input type="checkbox" checked={selectedBuzonIds.size === filtrados.length} onChange={(e) => setSelectedBuzonIds(e.target.checked ? new Set(filtrados.map(f => f.id)) : new Set())} style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} />
-                        <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--color-primary)" }}>Seleccionar todos</span>
-                      </div>
+                      <ReadSelectionBar
+                        ids={filtrados.map((b) => b.id)}
+                        selected={selectedBuzonIds}
+                        onChange={setSelectedBuzonIds}
+                        onMark={(ids, leido) => void markQueueRead("buzon", ids, leido)}
+                      />
                       
                       {filtrados.map((b) => {
                         return (
@@ -3473,10 +3500,12 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   
                   return (
                     <>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "0 5px" }}>
-                        <input type="checkbox" checked={selectedAportacionIds.size === filtrados.length} onChange={(e) => setSelectedAportacionIds(e.target.checked ? new Set(filtrados.map(f => f.id)) : new Set())} style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} />
-                        <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--color-primary)" }}>Seleccionar todas</span>
-                      </div>
+                      <ReadSelectionBar
+                        ids={filtrados.map((a) => a.id)}
+                        selected={selectedAportacionIds}
+                        onChange={setSelectedAportacionIds}
+                        onMark={(ids, leido) => void markQueueRead("aportacion", ids, leido)}
+                      />
 
                       {filtrados.map((a) => {
                         const caso = caseOf("aportacion", a.id, a.status);

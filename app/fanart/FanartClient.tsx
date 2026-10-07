@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { canModerateGlobalContent } from "@/lib/admin-emails";
 import { useGlobal } from "@/app/context/GlobalContext";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -630,32 +631,38 @@ function FanArtContent() {
   const enviarReporteComentario = (commentId: string, reportedUserId: string) => {
     if (!activeUser) return showAlert(t("fanart.alerts.login_report_title"), t("fanart.alerts.login_report_msg"));
     showPrompt(t("fanart.report_comment"), t("fanart.report_reason"), async (reason, isAnonymous) => {
-      const { error } = await supabase.from('denuncias').insert({
+      const { data, error } = await supabase.from('denuncias').insert({
         reporter_id: isAnonymous ? null : activeUser.id,
         reported_user_id: reportedUserId,
         fanart_id: viewingArt?.id,
         motivo: `[Comentario: ${commentId}] ${reason}`,
         estado: 'pendiente'
-      });
+      }).select("id").maybeSingle();
       
       if (error) showAlert(t("common.error"), `${t("common.error")}: ${error.message}`);
-      else showAlert(t("fanart.alerts.report_success_title"), t("fanart.report_success"));
+      else {
+        if (data?.id) void pingAdminInbox("denuncia", data.id);
+        showAlert(t("fanart.alerts.report_success_title"), t("fanart.report_success"));
+      }
     });
   };
 
   const enviarReporteObra = (artId: string, reportedUserId: string) => {
     if (!activeUser) return showAlert(t("fanart.alerts.login_report_title"), t("fanart.alerts.login_report_msg"));
     showPrompt(t("fanart.report_art"), t("fanart.report_art_reason"), async (reason, isAnonymous) => {
-      const { error } = await supabase.from('denuncias').insert({
+      const { data, error } = await supabase.from('denuncias').insert({
         reporter_id: isAnonymous ? null : activeUser.id,
         reported_user_id: reportedUserId,
         fanart_id: artId,
         motivo: `[Reporte de Obra] ${reason}`,
         estado: 'pendiente'
-      });
+      }).select("id").maybeSingle();
       
       if (error) showAlert(t("common.error"), `${t("common.error")}: ${error.message}`);
-      else showAlert(t("fanart.alerts.report_success_title"), t("fanart.report_success"));
+      else {
+        if (data?.id) void pingAdminInbox("denuncia", data.id);
+        showAlert(t("fanart.alerts.report_success_title"), t("fanart.report_success"));
+      }
     });
   };
 

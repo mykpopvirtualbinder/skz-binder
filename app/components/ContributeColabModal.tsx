@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { useGlobal } from "../context/GlobalContext";
 
 export type ColabForm = {
@@ -51,15 +52,16 @@ export default function ContributeColabModal({
     try {
       setSending(true);
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from("buzon_colaboraciones").insert({
+      const { data: created, error } = await supabase.from("buzon_colaboraciones").insert({
         user_id: user?.id,
         asunto: form.asunto,
         email: form.email,
         mensaje: form.mensaje,
         adjuntos: form.adjunto,
         status: "pendiente",
-      });
+      }).select("id").maybeSingle();
       if (error) throw error;
+      if (created?.id) void pingAdminInbox("buzon", created.id);
       showAlert(t("library.colab_modal.success_title"), t("library.colab_modal.success_msg"));
       onClose();
       setForm(EMPTY);

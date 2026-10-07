@@ -67,6 +67,38 @@ export function UserCaseHistory({ noun, name, rows, onOpen }: { noun: string; na
   );
 }
 
+export function ReadSelectionBar({
+  ids,
+  selected,
+  onChange,
+  onMark,
+}: {
+  ids: string[];
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+  onMark: (ids: string[], leido: boolean) => void;
+}) {
+  const allOn = ids.length > 0 && ids.every((id) => selected.has(id));
+  const btn: CSSProperties = { ...chip, cursor: "pointer", background: "var(--bg-card)" };
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+      <label style={{ ...chip, cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          checked={allOn}
+          onChange={(e) => onChange(e.target.checked ? new Set(ids) : new Set())}
+          style={{ accentColor: "var(--color-primary)" }}
+        />
+        Seleccionar todas
+      </label>
+      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), true)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>Marcar seleccionadas leídas</button>
+      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), false)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>Marcar seleccionadas no leídas</button>
+      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, true)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>Marcar todas leídas</button>
+      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, false)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>Marcar todas no leídas</button>
+    </div>
+  );
+}
+
 export function AdminQueueFilters({
   queue,
   status,

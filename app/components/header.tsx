@@ -9,7 +9,7 @@ import {
   ChevronLeft, ChevronRight, Disc,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { isAdminTeamEmail, isSiteAdminSession } from "@/lib/admin-emails";
+import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 import {
   getCursorUnlockCost,
@@ -705,7 +705,7 @@ export default function Header() {
 
   const sessionEmail = (user?.email ?? "").trim();
   const isAdmin = isAdminTeamEmail(sessionEmail || null);
-  const showAdminPanelInHeader = isSiteAdminSession(sessionEmail || null);
+  const showAdminPanelInHeader = isAdminTeamEmail(sessionEmail || null);
   const hasAccountSession = Boolean(user || profile?.id);
 
   const applyVipCursorSelection = useCallback(
@@ -1037,6 +1037,12 @@ export default function Header() {
                 )}
               </div>
 
+              {showAdminPanelInHeader && (
+                <Link href="/admin-panel" onPointerDown={closeAllMenus} className="action-btn-mini header-admin-link" title={t("header.dropdown.admin_panel")} style={{ color: "var(--header-btn-profile)" }}>
+                  <ShieldAlert size={14} />
+                  Admin
+                </Link>
+              )}
               {user && (
                 <Link
                   href="/me?tab=notices"
@@ -1257,6 +1263,12 @@ export default function Header() {
                 <div className="site-header__toolbar-divider" />
 
                 <div className="site-header__action-cluster">
+                {showAdminPanelInHeader && (
+                  <Link href="/admin-panel" className="action-btn-mini header-admin-link" title={t("header.dropdown.admin_panel")} style={{ color: "var(--header-btn-profile)" }}>
+                    <ShieldAlert size={15} />
+                    Admin
+                  </Link>
+                )}
                 <Link href="/binders" className="action-btn-mini" style={{ color: "var(--nav-binders, var(--header-btn-profile))" }} title={t('header.dropdown.my_binders')}>
                   <BookHeart size={16} />
                 </Link>
@@ -1443,6 +1455,17 @@ export default function Header() {
           text-decoration: none;
           padding: 0;
           position: relative;
+        }
+        .header-admin-link {
+          flex: 0 0 auto;
+          width: auto;
+          max-width: none;
+          min-width: 0;
+          padding: 0 10px;
+          gap: 4px;
+          font-size: 12px;
+          font-weight: 900;
+          text-decoration: none;
         }
         .action-btn-mini:hover {
           background-color: var(--bg-soft);

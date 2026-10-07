@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { resolveMemberAvatarUrl } from "@/lib/member-image-url";
 
 import Footer from "../components/footer";
@@ -180,12 +181,13 @@ const { profile, showAlert, showPrompt, t } = useGlobal();
   const handleReport = (postId: string, reportedUserId: string) => {
     if (!profile?.id) return showAlert("Aviso", t('artist_month.error_login'));
     showPrompt(t('artist_month.report_prompt_title'), t('artist_month.report_prompt_msg'), async (razon, isAnonymous) => {
-      await supabase.from('denuncias').insert({
+      const { data: created } = await supabase.from('denuncias').insert({
         reporter_id: isAnonymous ? null : profile.id,
         reported_user_id: reportedUserId,
         motivo: `[Muro Artista - Mensaje: ${postId}] ${razon}`,
         estado: 'pendiente'
-      });
+      }).select("id").maybeSingle();
+      if (created?.id) void pingAdminInbox("denuncia", created.id);
       showAlert(t('artist_month.report_success_title'), t('artist_month.report_success_msg'));
     });
   };

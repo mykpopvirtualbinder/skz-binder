@@ -7,6 +7,7 @@ import { AlertTriangle, ShieldCheck, FileWarning, X, Loader2, Send, UploadCloud,
 import Footer from "../components/footer";
 import { useGlobal } from "../context/GlobalContext";
 import { supabase } from "@/lib/supabase";
+import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -107,14 +108,15 @@ export default function ReportPage() {
       }
 
       // 2. ENVIAMOS LA DENUNCIA
-      const { error } = await supabase.from('denuncias').insert({
+      const { data: created, error } = await supabase.from('denuncias').insert({
         reporter_id: isAnonymous ? null : profile.id,
         reported_user_id: selectedUser.user_id,
         motivo: finalMotivo,
         estado: 'pendiente'
-      });
+      }).select("id").maybeSingle();
 
       if (error) throw error;
+      if (created?.id) void pingAdminInbox("denuncia", created.id);
 
       setCustomAlert({
         title: t("report.alert_success_title"),

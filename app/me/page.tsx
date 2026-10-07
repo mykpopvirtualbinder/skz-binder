@@ -13,6 +13,7 @@ import {
   type VipBadgeSectionKey,
 } from "./ui/AvatarModalInsigniasSection";
 import { isAdminTeamEmail, isSiteAdminSession } from "@/lib/admin-emails";
+import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { getThemeUnlockCost, isVipThemeKey, normalizeThemeId, unlockKeyForTheme } from "@/lib/theme-unlocks";
 import { persistTheme } from "@/lib/theme-persist";
 import Footer from "../components/footer";
@@ -660,19 +661,6 @@ function MePageContent() {
   const [selectedNotices, setSelectedNotices] = useState<Set<string>>(new Set());
   const [selectedFanzoneNotices, setSelectedFanzoneNotices] = useState<Set<string>>(new Set());
   const [itemsSeleccionados, setItemsSeleccionados] = useState<string[]>([]);
-  const selectedNoticeRows = useMemo(
-    () => notifications.filter((n) => selectedNotices.has(n.id)),
-    [notifications, selectedNotices]
-  );
-  const selectedFanzoneRows = useMemo(
-    () => fanzoneNotices.filter((n: any) => selectedFanzoneNotices.has(String(n.id))),
-    [fanzoneNotices, selectedFanzoneNotices]
-  );
-  const allSelectedNoticesUnread =
-    selectedNoticeRows.length > 0 && selectedNoticeRows.every((n) => n.read === false);
-  const allSelectedFanzoneUnread =
-    selectedFanzoneRows.length > 0 && selectedFanzoneRows.every((n: any) => n.read === false);
-
   const visibleNotices = useMemo(() => {
     if (noticeReadFilter === "unread") return notifications.filter((n) => !n.read);
     if (noticeReadFilter === "read") return notifications.filter((n) => !!n.read);
@@ -724,6 +712,21 @@ function MePageContent() {
     setSelectedNotices(new Set());
     await supabase.from("notifications").update({ read: true }).in("id", ids);
     window.dispatchEvent(new Event("update_notifications"));
+  };
+
+  const markVisibleNotices = async (read: boolean) => {
+    const ids = visibleNotices.map((n) => n.id);
+    if (!ids.length) return;
+    setNotifications((prev) => prev.map((n) => (ids.includes(n.id) ? { ...n, read } : n)));
+    await supabase.from("notifications").update({ read }).in("id", ids);
+    window.dispatchEvent(new Event("update_notifications"));
+  };
+
+  const markVisibleFanzone = async (read: boolean) => {
+    const ids = visibleFanzoneNotices.map((n) => String(n.id));
+    if (!ids.length) return;
+    setFanzoneNotices((prev) => prev.map((n) => (ids.includes(String(n.id)) ? { ...n, read } : n)));
+    await supabase.from("fanzone_notifications").update({ read }).in("id", ids);
   };
 
   const markAsUnread = async (id: string, e: React.MouseEvent) => {
@@ -1882,12 +1885,13 @@ function MePageContent() {
             }).eq('id', denunciaOriginal.id);
             showAlert(t("me.sent"), t("me.appeal_added"));
           } else {
-            await supabase.from('denuncias').insert({
+            const { data: created } = await supabase.from('denuncias').insert({
               reported_user_id: profile?.id,
               motivo: "Apelación de restricción",
               notas_admin: textoApelacion,
               estado: 'pendiente'
-            });
+            }).select("id").maybeSingle();
+            if (created?.id) void pingAdminInbox("denuncia", created.id);
             showAlert(t("me.sent"), t("me.appeal_new"));
           }
         } catch (err: any) {
@@ -2535,13 +2539,10 @@ function MePageContent() {
                       />
                       Seleccionar todo
                     </label>
-                    <button
-                      type="button"
-                      onClick={allSelectedFanzoneUnread ? markFanzoneSelectedAsRead : markFanzoneSelectedAsUnread}
-                      style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}
-                    >
-                      {allSelectedFanzoneUnread ? "Marcar leído" : "Marcar no leído"}
-                    </button>
+                    <button type="button" onClick={markFanzoneSelectedAsRead} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Seleccionadas leídas</button>
+                    <button type="button" onClick={markFanzoneSelectedAsUnread} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Seleccionadas no leídas</button>
+                    <button type="button" onClick={() => void markVisibleFanzone(true)} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Todas leídas</button>
+                    <button type="button" onClick={() => void markVisibleFanzone(false)} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Todas no leídas</button>
                     <button
                       type="button"
                       title="Borrar seleccionadas"
@@ -2653,13 +2654,10 @@ function MePageContent() {
                       />
                       Seleccionar todo
                     </label>
-                    <button
-                      type="button"
-                      onClick={allSelectedNoticesUnread ? markSelectedAsRead : markSelectedAsUnread}
-                      style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}
-                    >
-                      {allSelectedNoticesUnread ? "Marcar leído" : "Marcar no leído"}
-                    </button>
+                    <button type="button" onClick={markSelectedAsRead} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Seleccionadas leídas</button>
+                    <button type="button" onClick={markSelectedAsUnread} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Seleccionadas no leídas</button>
+                    <button type="button" onClick={() => void markVisibleNotices(true)} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Todas leídas</button>
+                    <button type="button" onClick={() => void markVisibleNotices(false)} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Todas no leídas</button>
                     <button
                       type="button"
                       title="Borrar seleccionadas"
@@ -2730,7 +2728,7 @@ function MePageContent() {
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <button onClick={() => { showPrompt(t("me.report_chat_title"), t("me.report_chat_desc").replace('{name}', activeChatUser.name), async (razon, isAnonymous) => { await supabase.from('denuncias').insert({ reported_user_id: activeChatUser.id, reporter_id: isAnonymous ? null : profile?.id, motivo: "[Reporte de Chat] " + razon, estado: 'pendiente' }); showAlert(t("me.report_sent_title"), t("me.report_sent_msg")); }); }} style={{ background: "var(--bg-main)", border: "1px solid var(--color-primary)", color: "var(--color-primary)", padding: "4px 8px", borderRadius: "8px", fontSize: "10px", fontWeight: 900, cursor: "pointer" }}>{t('common.report')}</button>
+                <button onClick={() => { showPrompt(t("me.report_chat_title"), t("me.report_chat_desc").replace('{name}', activeChatUser.name), async (razon, isAnonymous) => { const { data: created } = await supabase.from('denuncias').insert({ reported_user_id: activeChatUser.id, reporter_id: isAnonymous ? null : profile?.id, motivo: "[Reporte de Chat] " + razon, estado: 'pendiente' }).select("id").maybeSingle(); if (created?.id) void pingAdminInbox("denuncia", created.id); showAlert(t("me.report_sent_title"), t("me.report_sent_msg")); }); }} style={{ background: "var(--bg-main)", border: "1px solid var(--color-primary)", color: "var(--color-primary)", padding: "4px 8px", borderRadius: "8px", fontSize: "10px", fontWeight: 900, cursor: "pointer" }}>{t('common.report')}</button>
                 <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "10px", color: "var(--color-primary)", fontWeight: 800, cursor: "pointer" }}>
                   <input
                     type="checkbox"

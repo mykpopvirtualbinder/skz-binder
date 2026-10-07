@@ -20,6 +20,7 @@ import {
 } from "@/lib/collection-filters";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { avisarFavoritos } from "@/lib/avisos";
+import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { withWtsKoinsMark } from "@/lib/wts-koins-mark";
 import { stockStatusRank } from "@/lib/catalog-sort";
 import BindersShortcut from "../components/BindersShortcut";
@@ -1553,15 +1554,16 @@ function ItemModal({
       const { data: { publicUrl } } = supabase.storage.from('colaboraciones').getPublicUrl(fileName);
 
       // 2. Registrar la aportación en la base de datos
-      const { error: dbError } = await supabase.from('aportaciones_pcs').insert({
+      const { data: created, error: dbError } = await supabase.from('aportaciones_pcs').insert({
         user_id: authData.user.id,
         item_id: item.id,
         face: uploadSide,
         image_url: publicUrl,
         status: 'pendiente'
-      });
+      }).select("id").maybeSingle();
 
       if (dbError) throw dbError;
+      if (created?.id) void pingAdminInbox("aportacion", created.id);
 
       setUploadMsg("✓ ¡Gracias! Hemos recibido tu imagen. Un admin la revisará pronto.");
     } catch (e: any) {
@@ -2504,16 +2506,17 @@ const rebuildInvMap = useCallback((rows: UserItemStatusRow[]) => {
       setSendingColab(true);
       const { data: { user } } = await supabase.auth.getUser();
 
-      const { error } = await supabase.from('buzon_colaboraciones').insert({
+      const { data: created, error } = await supabase.from('buzon_colaboraciones').insert({
         user_id: user?.id,
         asunto: colabData.asunto,
         email: colabData.email,
         mensaje: colabData.mensaje,
         adjuntos: colabData.adjunto,
         status: 'pendiente'
-      });
+      }).select("id").maybeSingle();
 
       if (error) throw error;
+      if (created?.id) void pingAdminInbox("buzon", created.id);
 
       showAlert(t('library.colab_modal.success_title'), t('library.colab_modal.success_msg'));
       setShowColabModal(false);

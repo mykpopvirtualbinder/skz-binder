@@ -6,6 +6,7 @@ import AdRailLayout from "../components/AdRailLayout";
 import BackToMessagesBar from "../components/BackToMessagesBar";
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { useGlobal } from "../context/GlobalContext";
 import { requireLoggedIn } from "@/lib/auth-gate";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
@@ -600,12 +601,13 @@ export default function FanZonePage() {
     const prefix = reportModal.type === 'post' ? 'post' : 'comment';
     const postLink = `${window.location.origin}/fanzone#${prefix}-${item.id}`;
     
-    const { error } = await supabase.from("denuncias").insert([{ 
+    const { data: created, error } = await supabase.from("denuncias").insert([{ 
         reported_user_id: item.user_id,
         reporter_id: profile.id, 
         motivo: `[FANZONE ${reportModal.type.toUpperCase()}] \nMotivo: ${reportReason}\nEnlace: ${postLink}`,
         estado: 'pendiente'
-    }]);
+    }]).select("id").maybeSingle();
+    if (created?.id) void pingAdminInbox("denuncia", created.id);
 
     if (!error) {
       showAlert(t("fanzone.alerts.report_title"), t("fanzone.alerts.report_success"));
