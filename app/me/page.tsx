@@ -655,6 +655,7 @@ function MePageContent() {
   const [newPassword, setNewPassword] = useState("");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [noticeReadFilter, setNoticeReadFilter] = useState<"all" | "unread" | "read">("all");
+  const [fanzoneReadFilter, setFanzoneReadFilter] = useState<"all" | "unread" | "read">("all");
   const [fzFilter, setFzFilter] = useState('all');
   const [selectedNotices, setSelectedNotices] = useState<Set<string>>(new Set());
   const [selectedFanzoneNotices, setSelectedFanzoneNotices] = useState<Set<string>>(new Set());
@@ -677,6 +678,11 @@ function MePageContent() {
     if (noticeReadFilter === "read") return notifications.filter((n) => !!n.read);
     return notifications;
   }, [notifications, noticeReadFilter]);
+  const visibleFanzoneNotices = useMemo(() => {
+    if (fanzoneReadFilter === "unread") return fanzoneNotices.filter((n: any) => n.read === false);
+    if (fanzoneReadFilter === "read") return fanzoneNotices.filter((n: any) => n.read !== false);
+    return fanzoneNotices;
+  }, [fanzoneNotices, fanzoneReadFilter]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -750,7 +756,7 @@ function MePageContent() {
 
   const handleSelectAllFanzone = (checked: boolean) => {
     if (checked) {
-      setSelectedFanzoneNotices(new Set(fanzoneNotices.map((n) => String(n.id))));
+      setSelectedFanzoneNotices(new Set(visibleFanzoneNotices.map((n) => String(n.id))));
     } else {
       setSelectedFanzoneNotices(new Set());
     }
@@ -2490,11 +2496,41 @@ function MePageContent() {
                 <div style={{ textAlign: "center", padding: "40px" }}><Loader2 className="spinner" color="var(--color-primary)" /></div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    {([
+                      ["all", "Todas"],
+                      ["unread", "No leídas"],
+                      ["read", "Leídas"],
+                    ] as const).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => { setFanzoneReadFilter(id); setSelectedFanzoneNotices(new Set()); }}
+                        style={{
+                          padding: "8px 14px",
+                          borderRadius: "99px",
+                          border: "1px solid var(--color-primary)",
+                          background: fanzoneReadFilter === id ? "var(--color-primary)" : "transparent",
+                          color: fanzoneReadFilter === id ? "var(--bg-card)" : "var(--color-primary)",
+                          fontWeight: 900,
+                          fontSize: "13px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {fanzoneNotices.length > 0 && visibleFanzoneNotices.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontWeight: 700 }}>
+                      {fanzoneReadFilter === "unread" ? "No hay avisos sin leer." : "No hay avisos leídos."}
+                    </p>
+                  ) : null}
                   <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
                     <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 800, color: "var(--text-muted)" }}>
                       <input
                         type="checkbox"
-                        checked={fanzoneNotices.length > 0 && selectedFanzoneNotices.size === fanzoneNotices.length}
+                        checked={visibleFanzoneNotices.length > 0 && visibleFanzoneNotices.every((n) => selectedFanzoneNotices.has(String(n.id)))}
                         onChange={(e) => handleSelectAllFanzone(e.target.checked)}
                       />
                       Seleccionar todo
@@ -2515,7 +2551,7 @@ function MePageContent() {
                       <Trash2 size={15} />
                     </button>
                   </div>
-                  {fanzoneNotices.map((n: any) => (
+                  {visibleFanzoneNotices.map((n: any) => (
                     <div key={`fz-${n.id}`} onClick={() => router.push("/fanzone")} style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid var(--color-border)", background: n.read === false ? "var(--bg-soft)" : "var(--bg-card)", cursor: "pointer" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
                         <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer" }} onClick={(e) => e.stopPropagation()}>

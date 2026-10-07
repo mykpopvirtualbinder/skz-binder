@@ -166,10 +166,19 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [solFiltroStatus, setSolFiltroStatus] = useState("todos");
   const [solFiltroGestor, setSolFiltroGestor] = useState("todos");
   const [solFiltroUser, setSolFiltroUser] = useState("");
+  const [solFiltroLeido, setSolFiltroLeido] = useState("todos");
   const [denFiltroGestor, setDenFiltroGestor] = useState("todos");
   const [denFiltroUser, setDenFiltroUser] = useState("");
+  const [denFiltroLeido, setDenFiltroLeido] = useState("todos");
   const [apoFiltroGestor, setApoFiltroGestor] = useState("todos");
   const [apoFiltroUser, setApoFiltroUser] = useState("");
+  const [apoFiltroLeido, setApoFiltroLeido] = useState("todos");
+  const [buzonFiltroLeido, setBuzonFiltroLeido] = useState("todos");
+  const [catalogGroupQuery, setCatalogGroupQuery] = useState("");
+  const [catalogMemberGroupQuery, setCatalogMemberGroupQuery] = useState("");
+  const [catalogMemberQuery, setCatalogMemberQuery] = useState("");
+  const [pendingJump, setPendingJump] = useState<string | null>(null);
+  const [highlightCase, setHighlightCase] = useState<string | null>(null);
   const [selectedBuzon, setSelectedBuzon] = useState<any | null>(null);
   const [selectedAportacion, setSelectedAportacion] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState("publicar");
@@ -293,6 +302,48 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
           : "Sin acciones del equipo todavía.",
       };
     });
+
+  const revealCase = (queue: QueueKind, id: string) => {
+    if (queue === "solicitud") {
+      setSolFiltroStatus("todos");
+      setSolFiltroGestor("todos");
+      setSolFiltroUser("");
+      setSolFiltroLeido("todos");
+      setActiveTab("solicitudes");
+      setPendingJump(`admin-case-solicitud-${id}`);
+      return;
+    }
+    if (queue === "denuncia") {
+      const found = denuncias.find((item) => item.id === id);
+      if (!found) return;
+      setSelectedDenuncia({ ...found, estado: caseOf("denuncia", id, found.estado).status });
+      setActiveTab("denuncias");
+      router.push(`/admin-panel?tab=denuncias&reopen=${id}`);
+      return;
+    }
+    if (queue === "aportacion") {
+      const found = aportaciones.find((item) => item.id === id);
+      if (!found) return;
+      setSelectedAportacion(found);
+      setActiveTab("aportaciones");
+      router.push(`/admin-panel?tab=aportaciones&aportacionId=${id}`);
+    }
+  };
+
+  useEffect(() => {
+    if (!pendingJump) return;
+    const el = document.getElementById(pendingJump);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightCase(pendingJump);
+    setPendingJump(null);
+  }, [pendingJump]);
+
+  useEffect(() => {
+    if (!highlightCase) return;
+    const timer = window.setTimeout(() => setHighlightCase(null), 1600);
+    return () => window.clearTimeout(timer);
+  }, [highlightCase]);
 
   const queueSink = React.useRef<{
     setDenuncias: React.Dispatch<React.SetStateAction<any[]>>;
@@ -2995,21 +3046,23 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 status={solFiltroStatus}
                 gestor={solFiltroGestor}
                 userQuery={solFiltroUser}
+                read={solFiltroLeido}
                 onStatus={setSolFiltroStatus}
                 onGestor={setSolFiltroGestor}
                 onUserQuery={setSolFiltroUser}
+                onRead={setSolFiltroLeido}
               />
               
               {solicitudes.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>No hay solicitudes.</p> : 
-                solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`)).length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>Nada con estos filtros.</p> :
-                solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`)).map(sol => {
+                solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`, solFiltroLeido)).length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>Nada con estos filtros.</p> :
+                solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`, solFiltroLeido)).map(sol => {
                   const rawText = sol.comentarios || "";
                   const links = rawText.match(/(https?:\/\/[^\s"]+)/g) || [];
                   const adjuntos = (Array.from(new Set(links)) as string[]).filter((l: string) => !l.includes('ui-avatars'));
                   const textoLimpio = rawText.replace(/(https?:\/\/[^\s"']+)/g, '').replace(/URLs del portfolio:/gi, '').trim();
 
                   return (
-                    <div key={sol.id} style={{ border: "1px solid var(--color-border)", padding: "20px", borderRadius: "16px", background: "var(--bg-main)", boxShadow: "0 4px 12px var(--shadow-card)" }}>
+                    <div id={`admin-case-solicitud-${sol.id}`} key={sol.id} style={{ border: "1px solid var(--color-border)", padding: "20px", borderRadius: "16px", background: "var(--bg-main)", boxShadow: highlightCase === `admin-case-solicitud-${sol.id}` ? "0 0 0 3px var(--color-primary)" : "0 4px 12px var(--shadow-card)" }}>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px" }}>
                         <div>
                           <p style={{margin: "0 0 8px 0", fontSize: "15px"}}><strong>Nombre:</strong> {sol.nombre}</p>
@@ -3048,6 +3101,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       <UserCaseHistory
                         noun="solicitudes"
                         name={sol.nombre || "este usuario"}
+                        onOpen={(id) => revealCase("solicitud", id)}
                         rows={historyRowsFor("solicitud", solicitudes.filter((other) => other.id === sol.id || (sol.user_id && other.user_id === sol.user_id) || (!sol.user_id && sol.email && String(other.email || "").toLowerCase() === String(sol.email).toLowerCase())).map((other) => ({
                           id: other.id,
                           when: other.created_at,
@@ -3096,9 +3150,11 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     status={filtroEstado}
     gestor={denFiltroGestor}
     userQuery={denFiltroUser}
+    read={denFiltroLeido}
     onStatus={setFiltroEstado}
     onGestor={setDenFiltroGestor}
     onUserQuery={setDenFiltroUser}
+    onRead={setDenFiltroLeido}
   />
 </div>
 </div>
@@ -3139,6 +3195,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                     denFiltroGestor,
                     denFiltroUser,
                     `${d.denunciante?.display_name || ""} ${d.denunciado?.display_name || ""} ${d.motivo || ""}`,
+                    denFiltroLeido,
                   ));
 
                   if (filtradas.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>No hay reportes con estos filtros.</p>;
@@ -3211,6 +3268,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           <UserCaseHistory
                             noun="denuncias"
                             name={d.denunciante?.display_name || "este usuario"}
+                            onOpen={(id) => revealCase("denuncia", id)}
                             rows={historyRowsFor("denuncia", denuncias.filter((other) => other.id === d.id || (d.reporter_id && other.reporter_id === d.reporter_id)).map((other) => ({
                               id: other.id,
                               when: other.created_at,
@@ -3240,6 +3298,11 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       {est}
                     </button>
                   ))}
+                  {(["todos", "no_leidas", "leidas"] as const).map((id) => (
+                    <button key={id} type="button" onClick={() => setBuzonFiltroLeido(id)} style={{ padding: "6px 12px", borderRadius: "99px", border: "1px solid var(--color-border)", fontSize: "11px", fontWeight: 800, cursor: "pointer", background: buzonFiltroLeido === id ? "var(--color-primary)" : "var(--bg-card)", color: buzonFiltroLeido === id ? "var(--bg-card)" : "var(--color-primary)" }}>
+                      {id === "todos" ? "Todas" : id === "no_leidas" ? "No leídas" : "Leídas"}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -3254,7 +3317,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
               
               {!selectedBuzon ? (
                 (() => {
-                  const filtrados = filtroEstadoBuzon === "todos" ? buzon : buzon.filter(b => (b.status || 'pendiente') === filtroEstadoBuzon);
+                  const filtrados = buzon.filter((b) => {
+                    if (filtroEstadoBuzon !== "todos" && (b.status || "pendiente") !== filtroEstadoBuzon) return false;
+                    const leido = caseOf("buzon", b.id).leido;
+                    if (buzonFiltroLeido === "leidas" && !leido) return false;
+                    if (buzonFiltroLeido === "no_leidas" && leido) return false;
+                    return true;
+                  });
                   if (filtrados.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>Bandeja limpia.</p>;
                   
                   return (
@@ -3278,10 +3347,15 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                                 </div>
                               </div>
                             </div>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                            <button type="button" onClick={() => void saveQueueCase("buzon", b.id, { leido: !caseOf("buzon", b.id).leido }, "lectura", caseOf("buzon", b.id).leido ? "Marcada como no leída" : "Marcada como leída")} style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>
+                              {caseOf("buzon", b.id).leido ? "Marcar como no leída" : "Marcar como leída"}
+                            </button>
                             <button onClick={() => {
   setSelectedBuzon(b);
   router.push(`/admin-panel?tab=buzon&buzonId=${b.id}`);
 }} style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>Abrir Hilo</button>
+                            </div>
                           </div>
                         );
                       })}
@@ -3369,9 +3443,11 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 status={filtroEstadoAportaciones}
                 gestor={apoFiltroGestor}
                 userQuery={apoFiltroUser}
+                read={apoFiltroLeido}
                 onStatus={setFiltroEstadoAportaciones}
                 onGestor={setApoFiltroGestor}
                 onUserQuery={setApoFiltroUser}
+                onRead={setApoFiltroLeido}
               />
 
               {selectedAportacionIds.size > 0 && (
@@ -3391,6 +3467,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     apoFiltroGestor,
                     apoFiltroUser,
                     `${a.userName || ""} ${a.item_id || ""}`,
+                    apoFiltroLeido,
                   ));
                   if (filtrados.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>Bandeja limpia.</p>;
                   
@@ -3431,6 +3508,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           <UserCaseHistory
                             noun="aportaciones"
                             name={a.userName || "este usuario"}
+                            onOpen={(id) => revealCase("aportacion", id)}
                             rows={historyRowsFor("aportacion", aportaciones.filter((other) => other.id === a.id || (a.user_id && other.user_id === a.user_id)).map((other) => ({
                               id: other.id,
                               when: other.created_at,
@@ -3879,8 +3957,18 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
 
                   <div style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 16, background: "var(--bg-main)" }}>
                     <h3 style={{ margin: "0 0 12px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 15 }}>Lista de grupos</h3>
+                    <input
+                      value={catalogGroupQuery}
+                      onChange={(e) => setCatalogGroupQuery(e.target.value)}
+                      placeholder="Buscar grupo"
+                      style={{ ...inputStyle, marginBottom: 12 }}
+                    />
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto" }}>
-                      {catalogGroups.map((g) => (
+                      {catalogGroups.filter((g) => {
+                        const q = catalogGroupQuery.trim().toLowerCase();
+                        if (!q) return true;
+                        return `${g.name || ""} ${g.slug || ""}`.toLowerCase().includes(q);
+                      }).map((g) => (
                         <div
                           key={g.id}
                           style={{
@@ -3977,13 +4065,38 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       {!catalogGroups.length && (
                         <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>No hay grupos.</p>
                       )}
+                      {catalogGroups.length > 0 && catalogGroupQuery.trim() && !catalogGroups.some((g) => `${g.name || ""} ${g.slug || ""}`.toLowerCase().includes(catalogGroupQuery.trim().toLowerCase())) && (
+                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>Ningún grupo con esa búsqueda.</p>
+                      )}
                     </div>
                   </div>
 
                   <div style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 16, background: "var(--bg-main)" }}>
                     <h3 style={{ margin: "0 0 12px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 15 }}>Miembros</h3>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                      <input
+                        value={catalogMemberGroupQuery}
+                        onChange={(e) => setCatalogMemberGroupQuery(e.target.value)}
+                        placeholder="Buscar por grupo"
+                        style={{ ...inputStyle, flex: "1 1 180px", margin: 0 }}
+                      />
+                      <input
+                        value={catalogMemberQuery}
+                        onChange={(e) => setCatalogMemberQuery(e.target.value)}
+                        placeholder="Buscar miembro"
+                        style={{ ...inputStyle, flex: "1 1 180px", margin: 0 }}
+                      />
+                    </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 360, overflowY: "auto" }}>
-                      {catalogMembers.map((m) => {
+                      {catalogMembers.filter((m) => {
+                        const gid = m.group_id != null ? Number(m.group_id) : NaN;
+                        const gname = catalogGroups.find((x) => Number(x.id) === gid)?.name || "";
+                        const groupQ = catalogMemberGroupQuery.trim().toLowerCase();
+                        const nameQ = catalogMemberQuery.trim().toLowerCase();
+                        if (groupQ && !`${gname}`.toLowerCase().includes(groupQ)) return false;
+                        if (nameQ && !`${m.name || ""} ${m.slug || ""}`.toLowerCase().includes(nameQ)) return false;
+                        return true;
+                      }).map((m) => {
                         const mid = Number(m.member_id ?? m.id);
                         const gid = m.group_id != null ? Number(m.group_id) : NaN;
                         const gname = catalogGroups.find((x) => Number(x.id) === gid)?.name ?? `Grupo ${gid}`;
@@ -4091,6 +4204,17 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       })}
                       {!catalogMembers.length && (
                         <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>No hay miembros.</p>
+                      )}
+                      {catalogMembers.length > 0 && (catalogMemberGroupQuery.trim() || catalogMemberQuery.trim()) && !catalogMembers.some((m) => {
+                        const gid = m.group_id != null ? Number(m.group_id) : NaN;
+                        const gname = catalogGroups.find((x) => Number(x.id) === gid)?.name || "";
+                        const groupQ = catalogMemberGroupQuery.trim().toLowerCase();
+                        const nameQ = catalogMemberQuery.trim().toLowerCase();
+                        if (groupQ && !gname.toLowerCase().includes(groupQ)) return false;
+                        if (nameQ && !`${m.name || ""} ${m.slug || ""}`.toLowerCase().includes(nameQ)) return false;
+                        return true;
+                      }) && (
+                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>Ningún miembro con esa búsqueda.</p>
                       )}
                     </div>
                   </div>

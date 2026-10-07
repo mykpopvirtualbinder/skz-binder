@@ -37,7 +37,7 @@ export type UserHistoryRow = {
   actions: string;
 };
 
-export function UserCaseHistory({ noun, name, rows }: { noun: string; name: string; rows: UserHistoryRow[] }) {
+export function UserCaseHistory({ noun, name, rows, onOpen }: { noun: string; name: string; rows: UserHistoryRow[]; onOpen?: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ marginTop: 12 }}>
@@ -47,14 +47,19 @@ export function UserCaseHistory({ noun, name, rows }: { noun: string; name: stri
       {open && (
         <div style={{ marginTop: 8, background: "var(--bg-main)", border: "1px dashed var(--color-border)", borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
           {rows.map((row) => (
-            <div key={row.id} style={{ borderTop: "1px solid var(--color-border)", paddingTop: 8 }}>
-              <div style={{ fontWeight: 900, color: "var(--text-main)", fontSize: 13 }}>{row.title}</div>
+            <button
+              key={row.id}
+              type="button"
+              onClick={() => onOpen?.(row.id)}
+              style={{ textAlign: "left", cursor: onOpen ? "pointer" : "default", background: "transparent", border: "none", borderTop: "1px solid var(--color-border)", padding: "8px 0 0", color: "inherit" }}
+            >
+              <div style={{ fontWeight: 900, color: "var(--color-primary)", fontSize: 13, textDecoration: onOpen ? "underline" : "none" }}>{row.title}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, marginTop: 2 }}>{row.when}</div>
               <div style={{ fontSize: 13, color: "var(--text-main)", fontWeight: 700, marginTop: 4 }}>
                 Estado: {row.status} · Gestiona: {row.gestor} · {row.read}
               </div>
               <p style={{ margin: "6px 0 0", whiteSpace: "pre-wrap", fontSize: 12, color: "var(--text-main)", fontWeight: 650 }}>{row.actions}</p>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -67,17 +72,21 @@ export function AdminQueueFilters({
   status,
   gestor,
   userQuery,
+  read,
   onStatus,
   onGestor,
   onUserQuery,
+  onRead,
 }: {
   queue: QueueKind;
   status: string;
   gestor: string;
   userQuery: string;
+  read: string;
   onStatus: (value: string) => void;
   onGestor: (value: string) => void;
   onUserQuery: (value: string) => void;
+  onRead: (value: string) => void;
 }) {
   const statuses = queue === "denuncia" ? DENUNCIA_STATUSES : CORE_STATUSES;
 
@@ -109,6 +118,14 @@ export function AdminQueueFilters({
           placeholder="Filtrar por usuario"
           style={{ ...chip, minWidth: 180, color: "var(--text-main)", outline: "none" }}
         />
+        <label style={chip}>
+          Lectura
+          <select value={read} onChange={(e) => onRead(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
+            <option value="todos">Todas</option>
+            <option value="no_leidas">No leídas</option>
+            <option value="leidas">Leídas</option>
+          </select>
+        </label>
       </div>
       <style jsx>{`
         @media (max-width: 860px) {
@@ -150,7 +167,7 @@ export function AdminQueueBar({
         }}
       >
         <span style={{ width: 8, height: 8, borderRadius: 99, background: state.leido ? "var(--text-muted)" : "var(--color-primary)" }} />
-        {state.leido ? "Leída" : "No leída"}
+        {state.leido ? "Marcar como no leída" : "Marcar como leída"}
       </button>
       <label style={chip}>
         Estado
@@ -198,10 +215,12 @@ function statusesOf(queue: QueueKind) {
   return queue === "denuncia" ? DENUNCIA_STATUSES : CORE_STATUSES;
 }
 
-export function caseMatchesFilters(state: QueueCase, status: string, gestor: string, userQuery: string, userHaystack: string) {
+export function caseMatchesFilters(state: QueueCase, status: string, gestor: string, userQuery: string, userHaystack: string, read = "todos") {
   if (status !== "todos" && state.status !== status) return false;
   if (gestor === "sin_asignar" && state.gestor) return false;
   if (gestor !== "todos" && gestor !== "sin_asignar" && state.gestor !== gestor) return false;
+  if (read === "leidas" && !state.leido) return false;
+  if (read === "no_leidas" && state.leido) return false;
   const q = userQuery.trim().toLowerCase();
   if (q && !userHaystack.toLowerCase().includes(q)) return false;
   return true;

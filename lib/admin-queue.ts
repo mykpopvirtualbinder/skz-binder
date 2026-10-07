@@ -1,6 +1,6 @@
 export const ADMIN_QUEUE_SUBJECT = "admin-queue";
 
-export type QueueKind = "solicitud" | "denuncia" | "aportacion";
+export type QueueKind = "solicitud" | "denuncia" | "aportacion" | "buzon";
 
 export type QueueStatus =
   | "pendiente"

@@ -23,8 +23,8 @@ const LESSONS: Lesson[] = [
     label: "Catálogo",
     group: "Contenido",
     steps: [
-      { hot: "grupo", title: "Grupo", text: "El nombre y el logo son lo que ve la gente en el alta y en el perfil. El slug es interno y opcional." },
-      { hot: "miembro", title: "Miembro", text: "Elige el grupo, pon el nombre del idol y su foto. Así entra en filtros de biblioteca y ediciones." },
+      { hot: "grupo", title: "Grupo", text: "El nombre y el logo son lo que ve la gente en el alta y en el perfil. El slug es interno y opcional. En la lista, el buscador filtra por nombre." },
+      { hot: "miembro", title: "Miembro", text: "Elige el grupo, pon el nombre del idol y su foto. En la lista puedes buscar por grupo y, aparte, por el nombre del miembro." },
       { hot: "guardar", title: "Guardar", text: "Guarda el grupo o el miembro. Si no ves el cambio, usa Recargar." },
     ],
   },
@@ -55,8 +55,8 @@ const LESSONS: Lesson[] = [
     label: "Solicitudes",
     group: "Comunidad",
     steps: [
-      { hot: "filtros", title: "Filtros", text: "Filtra por estado (pendiente, en proceso, aprobada, denegada) o por quién la lleva: Ana, Paula o Silvia. También por el nombre de quien escribió." },
-      { hot: "leido", title: "Leída o no", text: "El punto lila es una solicitud nueva. Márcala como leída cuando ya la hayas mirado, o déjala sin leer para el resto del equipo." },
+      { hot: "filtros", title: "Filtros", text: "Filtra por estado, por quién la lleva, por el nombre de quien escribió y por leídas o no leídas." },
+      { hot: "leido", title: "Leída o no", text: "Marcar como leída cuando ya la hayas mirado, o como no leída para que siga pendiente para el equipo. En el historial, pulsa una solicitud para abrirla." },
       { hot: "estado", title: "Estado", text: "Pásala a en proceso mientras la revisas. Aprobada o denegada la deja en el histórico: ya no se borra al descartarla." },
       { hot: "gestor", title: "Quién la gestiona", text: "Asigna Ana, Paula o Silvia para que no la abráis dos a la vez." },
       { hot: "aprobar", title: "Aprobar", text: "Aprobar como artista le da la insignia para que publique desde el Estudio. Denegar cierra la solicitud sin borrar el expediente." },
@@ -69,8 +69,8 @@ const LESSONS: Lesson[] = [
     label: "Denuncias",
     group: "Comunidad",
     steps: [
-      { hot: "filtros", title: "Filtros", text: "Además de la categoría, filtra por estado y por quién la está llevando, o busca al usuario denunciante o denunciado." },
-      { hot: "leido", title: "Leída o no", text: "Una denuncia no leída sigue marcada hasta que alguien del equipo la pulse como leída." },
+      { hot: "filtros", title: "Filtros", text: "Además de la categoría, filtra por estado, por quién la está llevando, por usuario y por leídas o no leídas." },
+      { hot: "leido", title: "Leída o no", text: "Marca la denuncia como leída o vuelve a dejarla sin leer. En el historial, pulsa una para abrir esa denuncia." },
       { hot: "estado", title: "Estado", text: "Pendiente, en proceso, en investigación, reactivación, aprobada, denegada o completada. El cambio queda en el historial." },
       { hot: "gestor", title: "Responsable", text: "Ana, Paula o Silvia. Así se ve quién tiene el expediente abierto." },
       { hot: "revisar", title: "Revisar", text: "Revisar abre el expediente: pruebas, notas, notificación al denunciante y sanciones. El estado de ahí también se guarda." },
@@ -82,7 +82,7 @@ const LESSONS: Lesson[] = [
     label: "Buzón",
     group: "Comunidad",
     steps: [
-      { hot: "filtros", title: "La bandeja", text: "Pendiente, gestionando o cerrado. Abre el hilo para leer el mensaje y los adjuntos." },
+      { hot: "filtros", title: "La bandeja", text: "Pendiente, gestionando o cerrado, y también leídas o no leídas. Cada mensaje se marca como leído o se deja sin leer. Abre el hilo para ver el texto y los adjuntos." },
       { hot: "estado", title: "Estado del hilo", text: "Cambia el estado desde el desplegable del hilo. Gestionando avisa de que ya hay alguien en ello." },
       { hot: "nota", title: "Nota interna", text: "La respuesta se guarda en el hilo con tu nombre, para que el resto del equipo la vea." },
       { hot: "perfil", title: "K-oins", text: "El @ del usuario abre su perfil desde el admin para premiar la colaboración con K-oins." },
@@ -93,8 +93,8 @@ const LESSONS: Lesson[] = [
     label: "Aportaciones",
     group: "Comunidad",
     steps: [
-      { hot: "filtros", title: "Filtros", text: "Igual que en solicitudes: estado, Ana / Paula / Silvia, y el usuario que subió la foto." },
-      { hot: "leido", title: "Leída o no", text: "Marca la aportación como leída cuando ya has visto la imagen, o déjala nueva." },
+      { hot: "filtros", title: "Filtros", text: "Igual que en solicitudes: estado, Ana / Paula / Silvia, el usuario que subió la foto, y leídas o no leídas." },
+      { hot: "leido", title: "Leída o no", text: "Marca la aportación como leída cuando ya has visto la imagen, o como no leída si tiene que volver a la bandeja. En el historial, pulsa una para abrirla." },
       { hot: "estado", title: "Decisión", text: "En proceso mientras la comparas con el catálogo. Aprobada si la foto entra. Denegada si no sirve." },
       { hot: "gestor", title: "Quién la revisa", text: "Asigna a una de las tres para que no descarguéis la misma dos veces." },
       { hot: "descarga", title: "Descargar", text: "Descarga la imagen (el archivo lleva el id de la photocard) y súbela al catálogo antes de darla por aprobada." },
