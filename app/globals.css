@@ -1757,11 +1757,11 @@ textarea:disabled {
 
 .site-header__rail-grid {
   width: 100%;
-  max-width: 1560px;
+  max-width: none;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: var(--header-side, auto) minmax(0, 1fr) var(--header-side, auto);
-  column-gap: 20px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: 16px;
   align-items: center;
   box-sizing: border-box;
 }
@@ -1825,9 +1825,13 @@ textarea:disabled {
   align-items: center;
   justify-content: center;
   flex-wrap: nowrap;
-  gap: 30px;
+  gap: 16px;
   width: max-content;
   min-width: 100%;
+}
+
+.desktop-header-nav--scrollable .desktop-header-nav__track {
+  justify-content: flex-start;
 }
 
 .desktop-header-nav .header-nav-link {
@@ -3131,4 +3135,126 @@ textarea:disabled {
   color: var(--text-muted);
   margin: 0;
   max-width: 420px;
+}
+
+.colab-stage {
+  position: relative;
+  height: 156px;
+  border-radius: 20px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 30%, color-mix(in srgb, var(--color-secondary) 42%, transparent), transparent 58%),
+    radial-gradient(circle at 82% 72%, color-mix(in srgb, var(--color-primary) 30%, transparent), transparent 52%),
+    var(--bg-soft);
+  border: 1px solid var(--color-border);
+}
+
+.colab-stage__binder {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  width: 92px;
+  height: 120px;
+  margin-left: 18px;
+  border-radius: 6px 16px 16px 6px;
+  background: color-mix(in srgb, var(--bg-card) 82%, var(--color-primary));
+  border: 1px solid var(--color-border);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.colab-stage__binder::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 10px;
+  bottom: 10px;
+  width: 7px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, var(--bg-card) 2px, transparent 2.5px) 0 8px / 7px 16px repeat-y,
+    color-mix(in srgb, var(--color-primary) 35%, var(--bg-soft));
+}
+
+.colab-stage__page {
+  position: absolute;
+  left: 22px;
+  top: 12px;
+  width: 58px;
+  height: 96px;
+  border-radius: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--color-border);
+}
+
+.colab-stage__card {
+  position: absolute;
+  left: 50%;
+  top: 34px;
+  width: 46px;
+  height: 66px;
+  margin-left: -8px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--text-main) 12%, transparent);
+  animation: colab-card-in 3.8s ease-in-out infinite;
+}
+
+.colab-stage__photo {
+  display: block;
+  margin: 5px;
+  height: 40px;
+  border-radius: 4px;
+  background: linear-gradient(160deg, var(--color-secondary), var(--color-primary));
+}
+
+.colab-stage__card::after {
+  content: "";
+  display: block;
+  margin: 4px 8px 0;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 45%, var(--bg-soft));
+}
+
+.colab-stage__badge {
+  position: absolute;
+  left: calc(50% + 52px);
+  top: 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: var(--bg-card);
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0;
+  animation: colab-badge-pop 3.8s ease-in-out infinite;
+}
+
+@keyframes colab-card-in {
+  0% { transform: translate(-150px, 22px) rotate(-16deg); opacity: 0; }
+  16% { opacity: 1; }
+  46% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  72% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(0, 6px) scale(0.96); opacity: 0; }
+}
+
+@keyframes colab-badge-pop {
+  0%, 40% { opacity: 0; transform: scale(0.6); }
+  52%, 74% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .colab-stage__card,
+  .colab-stage__badge {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }

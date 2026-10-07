@@ -471,9 +471,6 @@ export default function Header() {
   }, []);
   const searchBoxRef = useRef<HTMLDivElement | null>(null);
   const userSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const headerRailRef = useRef<HTMLDivElement | null>(null);
-  const headerLeftRef = useRef<HTMLDivElement | null>(null);
-  const headerRightRef = useRef<HTMLDivElement | null>(null);
 
   // ✨ SEGUIDOR DE RATÓN GLOBAL ✨ (solo sincroniza si el perfil trae la clave cursor_url; evita borrar al refrescar con JSON viejo sin esa clave)
   useEffect(() => {
@@ -523,29 +520,6 @@ export default function Header() {
       window.removeEventListener("keydown", handleEsc);
     };
   }, [pathname, profile?.language, closeAllMenus]);
-
-  useEffect(() => {
-    if (!mounted || isMobile) return;
-    const rail = headerRailRef.current;
-    const left = headerLeftRef.current;
-    const right = headerRightRef.current;
-    if (!rail || !left || !right) return;
-
-    const apply = () => {
-      const side = Math.ceil(Math.max(left.scrollWidth, right.scrollWidth));
-      if (side > 0) rail.style.setProperty("--header-side", `${side}px`);
-    };
-
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(left);
-    ro.observe(right);
-    window.addEventListener("resize", apply);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", apply);
-    };
-  }, [mounted, isMobile, user, unreadCount]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -1139,8 +1113,8 @@ export default function Header() {
         </div>
         </>
         ) : (
-        <div className="site-header__rail-grid" ref={headerRailRef}>
-          <div className="site-header__col-left" ref={headerLeftRef}>
+        <div className="site-header__rail-grid">
+          <div className="site-header__col-left">
             <Link href="/" onPointerDown={closeAllMenus}>
               <img
                 src="/branding/logo.png"
@@ -1169,7 +1143,7 @@ export default function Header() {
         </div>
 
         {/* --- ZONA DERECHA (Escritorio) --- */}
-          <div className="site-header__col-right" ref={headerRightRef}>
+          <div className="site-header__col-right">
             <div className="site-header__toolbar">
             <div className="site-header__action-cluster">
             <div ref={searchBoxRef} style={{ position: "relative" }}>

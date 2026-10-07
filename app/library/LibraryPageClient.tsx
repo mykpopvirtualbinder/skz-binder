@@ -32,7 +32,7 @@ import { getCurrencyOptions } from "./currencyOptions";
 import WtsListingModal from "./WtsListingModal";
 import WttListingModal from "./WttListingModal";
 import ContributeEmptyState from "../components/ContributeEmptyState";
-import { ColabOriginFields, originKindLabel, withOriginMessage } from "../components/ContributeColabModal";
+import { ColabContributeStage, ColabFileField, ColabOriginFields, colabFileError, originKindLabel, uploadColabAttachment, withOriginMessage } from "../components/ContributeColabModal";
 import {
   compactFolderKey,
   findFolderAlbumByFilterKey,
@@ -2426,6 +2426,7 @@ function LibraryContent() {
     const [invByItem, setInvByItem] = useState<Record<number, StatusCounts>>({});
     const [colabData, setColabData] = useState({ asunto: "", email: "", mensaje: "", adjunto: "", originKind: "albums", originTitle: "", originGroup: "", originMember: "" });
     const [sendingColab, setSendingColab] = useState(false);
+    const [colabFile, setColabFile] = useState<File | null>(null);
     const [showColabModal, setShowColabModal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -2550,16 +2551,27 @@ const rebuildInvMap = useCallback((rows: UserItemStatusRow[]) => {
       return showAlert(t('common.error'), t('library.colab_modal.error_fields'));
     }
     
+    if (colabFile) {
+      const problem = colabFileError(colabFile, t);
+      if (problem) return showAlert(t('common.error'), problem);
+    }
+
     try {
       setSendingColab(true);
       const { data: { user } } = await supabase.auth.getUser();
+      let fileUrl = "";
+      if (colabFile) {
+        if (!user?.id) return showAlert(t('common.error'), t('library.colab_modal.file_login'));
+        fileUrl = await uploadColabAttachment(colabFile, user.id);
+      }
+      const adjuntos = [fileUrl, colabData.adjunto.trim()].filter(Boolean).join("\n");
 
       const { data: created, error } = await supabase.from('buzon_colaboraciones').insert({
         user_id: user?.id,
         asunto: colabData.asunto,
         email: colabData.email,
         mensaje: withOriginMessage(originKindLabel(colabData.originKind, t), colabData, colabData.mensaje),
-        adjuntos: colabData.adjunto,
+        adjuntos,
         status: 'pendiente'
       }).select("id").maybeSingle();
 
@@ -2568,6 +2580,7 @@ const rebuildInvMap = useCallback((rows: UserItemStatusRow[]) => {
 
       showAlert(t('library.colab_modal.success_title'), t('library.colab_modal.success_msg'));
       setShowColabModal(false);
+      setColabFile(null);
       setColabData({ asunto: "", email: "", mensaje: "", adjunto: "", originKind: "albums", originTitle: "", originGroup: "", originMember: "" });
     } catch (e: any) {
       showAlert(t('library.colab_modal.error_title'), t('library.colab_modal.error_msg') + e.message);
@@ -3306,6 +3319,7 @@ const filtered = useMemo(() => {
           ? t("common.contribute_empty_subject").replace("{{folder}}", contributeFolderLabel)
           : d.asunto,
     }));
+    setColabFile(null);
     setShowColabModal(true);
   };
  // Resetea a la página 1 cada vez que cambias un filtro o buscas algo
@@ -4464,38 +4478,8 @@ return (
             </button>
 
             <div style={{ textAlign: "center", marginBottom: "25px" }}>
-              <div
-                aria-hidden
-                style={{
-                  margin: "0 auto 15px",
-                  width: "100%",
-                  maxWidth: "100%",
-                  aspectRatio: "1440 / 810",
-                  position: "relative",
-                  borderRadius: 20,
-                  overflow: "hidden",
-                  background: "var(--bg-soft)",
-                  boxShadow: "0 8px 24px color-mix(in srgb, var(--color-primary) 12%, transparent)",
-                }}
-              >
-                <video
-                  src="/colab-modal-hero.mp4"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="auto"
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    pointerEvents: "none",
-                    background: "var(--bg-soft)",
-                  }}
-                />
+              <div style={{ margin: "0 auto 15px" }}>
+                <ColabContributeStage />
               </div>
               <h2 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "28px", margin: 0 }}>{t("library.colab_modal.title")}</h2>
               <p style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "14px" }}>{t("library.colab_modal.subtitle")}</p>
@@ -4523,6 +4507,8 @@ return (
                 <p style={{fontSize: "11px", color: "var(--text-muted)", margin: "0 0 8px 0", fontWeight: 600}}>{t("library.colab_modal.link_hint")}</p>
                 <input type="text" placeholder={t("library.colab_modal.placeholder_link")} value={colabData.adjunto} onChange={e => setColabData({...colabData, adjunto: e.target.value})} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", color: "var(--text-main)", background: "var(--bg-main)" }} />
               </div>
+
+              <ColabFileField file={colabFile} onFile={setColabFile} />
 
               <div style={{ border: "1px dashed var(--color-border)", borderRadius: 14, background: "var(--bg-soft)", padding: "12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>

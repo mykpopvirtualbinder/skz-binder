@@ -29,6 +29,79 @@ const EMPTY_ORIGIN: ColabOrigin = {
 
 const EMPTY: ColabForm = { asunto: "", email: "", mensaje: "", adjunto: "", ...EMPTY_ORIGIN };
 
+export const COLAB_FILE_MAX_BYTES = 8 * 1024 * 1024;
+
+export function colabFileError(file: File, t: (key: string) => string): string | null {
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) return t("library.colab_modal.file_type");
+  if (file.size > COLAB_FILE_MAX_BYTES) return t("library.colab_modal.file_too_big");
+  return null;
+}
+
+export async function uploadColabAttachment(file: File, userId: string): Promise<string> {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const fileName = `${userId}-colab-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("colaboraciones").upload(fileName, file, { contentType: file.type || undefined });
+  if (error) throw error;
+  return supabase.storage.from("colaboraciones").getPublicUrl(fileName).data.publicUrl;
+}
+
+export function ColabContributeStage() {
+  return (
+    <div className="colab-stage" aria-hidden>
+      <div className="colab-stage__binder">
+        <span className="colab-stage__page" />
+      </div>
+      <div className="colab-stage__card">
+        <span className="colab-stage__photo" />
+      </div>
+      <div className="colab-stage__badge">+</div>
+    </div>
+  );
+}
+
+export function ColabFileField({
+  file,
+  onFile,
+}: {
+  file: File | null;
+  onFile: (file: File | null) => void;
+}) {
+  const { t, showAlert } = useGlobal();
+  return (
+    <div>
+      <label style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", display: "block", marginBottom: "5px" }}>
+        {t("library.colab_modal.label_file")}
+      </label>
+      <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 8px 0", fontWeight: 600 }}>
+        {t("library.colab_modal.file_hint")}
+      </p>
+      <label style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "12px", borderRadius: "12px", border: "1px dashed var(--color-border)", background: "var(--bg-soft)", color: "var(--color-primary)", fontWeight: 900, cursor: "pointer" }}>
+        {file ? file.name : t("library.colab_modal.file_pick")}
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const next = e.target.files?.[0] ?? null;
+            if (!next) {
+              onFile(null);
+              return;
+            }
+            const problem = colabFileError(next, t);
+            if (problem) {
+              showAlert(t("common.error"), problem);
+              e.target.value = "";
+              onFile(null);
+              return;
+            }
+            onFile(next);
+          }}
+        />
+      </label>
+    </div>
+  );
+}
+
 const ORIGIN_KINDS = [
   ["albums", "library.modal.origin_album"],
   ["tours", "library.modal.origin_tour"],
@@ -150,10 +223,12 @@ export default function ContributeColabModal({
 }) {
   const { t, showAlert } = useGlobal();
   const [form, setForm] = useState<ColabForm>(EMPTY);
+  const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setFile(null);
     setForm({
       asunto: initialAsunto,
       email: initialEmail,
@@ -170,21 +245,38 @@ export default function ContributeColabModal({
       showAlert(t("common.error"), t("library.colab_modal.error_fields"));
       return;
     }
+    if (file) {
+      const problem = colabFileError(file, t);
+      if (problem) {
+        showAlert(t("common.error"), problem);
+        return;
+      }
+    }
     try {
       setSending(true);
       const { data: { user } } = await supabase.auth.getUser();
+      let fileUrl = "";
+      if (file) {
+        if (!user?.id) {
+          showAlert(t("common.error"), t("library.colab_modal.file_login"));
+          return;
+        }
+        fileUrl = await uploadColabAttachment(file, user.id);
+      }
+      const adjuntos = [fileUrl, form.adjunto.trim()].filter(Boolean).join("\n");
       const { data: created, error } = await supabase.from("buzon_colaboraciones").insert({
         user_id: user?.id,
         asunto: form.asunto,
         email: form.email,
         mensaje: withOriginMessage(originKindLabel(form.originKind, t), form, form.mensaje),
-        adjuntos: form.adjunto,
+        adjuntos,
         status: "pendiente",
       }).select("id").maybeSingle();
       if (error) throw error;
       if (created?.id) void pingAdminInbox("buzon", created.id);
       showAlert(t("library.colab_modal.success_title"), t("library.colab_modal.success_msg"));
       onClose();
+      setFile(null);
       setForm(EMPTY);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -241,38 +333,8 @@ export default function ContributeColabModal({
         </button>
 
         <div style={{ textAlign: "center", marginBottom: "25px" }}>
-          <div
-            aria-hidden
-            style={{
-              margin: "0 auto 15px",
-              width: "100%",
-              maxWidth: "100%",
-              aspectRatio: "1440 / 810",
-              position: "relative",
-              borderRadius: 20,
-              overflow: "hidden",
-              background: "var(--bg-soft)",
-              boxShadow: "0 8px 24px color-mix(in srgb, var(--color-primary) 12%, transparent)",
-            }}
-          >
-            <video
-              src="/colab-modal-hero.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                pointerEvents: "none",
-                background: "var(--bg-soft)",
-              }}
-            />
+          <div style={{ margin: "0 auto 15px" }}>
+            <ColabContributeStage />
           </div>
           <h2 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "28px", margin: 0 }}>
             {t("library.colab_modal.title")}
@@ -335,6 +397,7 @@ export default function ContributeColabModal({
               style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", color: "var(--text-main)", background: "var(--bg-main)" }}
             />
           </div>
+          <ColabFileField file={file} onFile={setFile} />
           <div style={{ border: "1px dashed var(--color-border)", borderRadius: 14, background: "var(--bg-soft)", padding: "12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <Sparkles size={14} color="var(--color-primary)" />
