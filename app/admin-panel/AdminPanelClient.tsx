@@ -310,6 +310,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
       setSolFiltroUser("");
       setSolFiltroLeido("todos");
       setActiveTab("solicitudes");
+      setOpenSolicitudId(id);
       setPendingJump(`admin-case-solicitud-${id}`);
       return;
     }
@@ -584,6 +585,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [filtroEstadoBuzon, setFiltroEstadoBuzon] = useState("todos");
   const [selectedBuzonIds, setSelectedBuzonIds] = useState<Set<string>>(new Set());
   const [selectedSolicitudIds, setSelectedSolicitudIds] = useState<Set<string>>(new Set());
+  const [openSolicitudId, setOpenSolicitudId] = useState<string | null>(null);
   const [respuestaBuzon, setRespuestaBuzon] = useState("");
   const [respuestaAportacion, setRespuestaAportacion] = useState("");
   const [filtroEstadoAportaciones, setFiltroEstadoAportaciones] = useState("todos");
@@ -3083,21 +3085,34 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                   const adjuntos = (Array.from(new Set(links)) as string[]).filter((l: string) => !l.includes('ui-avatars'));
                   const textoLimpio = rawText.replace(/(https?:\/\/[^\s"']+)/g, '').replace(/URLs del portfolio:/gi, '').trim();
 
+                  const caso = caseOf("solicitud", sol.id);
+                  const expanded = !isMobile || openSolicitudId === sol.id;
                   return (
-                    <div id={`admin-case-solicitud-${sol.id}`} key={sol.id} style={{ border: "1px solid var(--color-border)", padding: "20px", borderRadius: "16px", background: selectedSolicitudIds.has(sol.id) ? "var(--bg-soft)" : "var(--bg-main)", boxShadow: highlightCase === `admin-case-solicitud-${sol.id}` ? "0 0 0 3px var(--color-primary)" : "0 4px 12px var(--shadow-card)" }}>
-                      <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 800, color: "var(--color-primary)", marginBottom: 10 }}>
-                        <input type="checkbox" checked={selectedSolicitudIds.has(sol.id)} onChange={(e) => { const next = new Set(selectedSolicitudIds); e.target.checked ? next.add(sol.id) : next.delete(sol.id); setSelectedSolicitudIds(next); }} style={{ accentColor: "var(--color-primary)" }} />
-                        Seleccionar
-                      </label>
-                      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px" }}>
-                        <div>
-                          <p style={{margin: "0 0 8px 0", fontSize: "15px"}}><strong>Nombre:</strong> {sol.nombre}</p>
-                          <p style={{margin: "0 0 8px 0", fontSize: "14px"}}><strong>Email:</strong> {sol.email}</p>
-                          <p style={{margin: "0 0 8px 0", fontSize: "14px"}}><strong>Redes:</strong> {sol.redes}</p>
-                          <p style={{margin: "15px 0 5px 0", fontSize: "13px", color: "var(--color-primary)", fontWeight: 800}}>MENSAJE DEL ARTISTA:</p>
-                          <p style={{margin: 0, whiteSpace: "pre-wrap", fontSize: "14px", color: "var(--text-main)", lineHeight: "1.5"}}>{textoLimpio || "[Sin mensaje]"}</p>
+                    <div id={`admin-case-solicitud-${sol.id}`} className="sol-card" key={sol.id} style={{ border: "1px solid var(--color-border)", padding: isMobile ? "12px" : "20px", borderRadius: "16px", background: selectedSolicitudIds.has(sol.id) ? "var(--bg-soft)" : "var(--bg-main)", boxShadow: highlightCase === `admin-case-solicitud-${sol.id}` ? "0 0 0 3px var(--color-primary)" : "0 4px 12px var(--shadow-card)" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <input type="checkbox" checked={selectedSolicitudIds.has(sol.id)} onChange={(e) => { const next = new Set(selectedSolicitudIds); e.target.checked ? next.add(sol.id) : next.delete(sol.id); setSelectedSolicitudIds(next); }} style={{ accentColor: "var(--color-primary)", marginTop: 4 }} aria-label="Seleccionar" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                            <strong style={{ color: "var(--text-main)", fontSize: 15, overflowWrap: "anywhere" }}>{sol.nombre || "Solicitud"}</strong>
+                            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 900, textTransform: "uppercase", color: "var(--color-primary)", background: "var(--bg-soft)", borderRadius: 8, padding: "3px 8px" }}>{statusLabel(caso.status)}</span>
+                          </div>
+                          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted)", fontWeight: 700, overflowWrap: "anywhere" }}>{sol.email}</p>
                         </div>
-                        <div>
+                        {isMobile && (
+                          <button type="button" onClick={() => setOpenSolicitudId(expanded ? null : sol.id)} style={{ flexShrink: 0, background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px", fontWeight: 900, fontSize: 12, cursor: "pointer" }}>
+                            {expanded ? "Cerrar" : "Abrir"}
+                          </button>
+                        )}
+                      </div>
+                      {expanded && (
+                      <>
+                      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px", marginTop: 14 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{margin: "0 0 8px 0", fontSize: "14px", overflowWrap: "anywhere"}}><strong>Redes:</strong> {sol.redes}</p>
+                          <p style={{margin: "15px 0 5px 0", fontSize: "13px", color: "var(--color-primary)", fontWeight: 800}}>MENSAJE DEL ARTISTA:</p>
+                          <p style={{margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: "14px", color: "var(--text-main)", lineHeight: "1.5"}}>{textoLimpio || "[Sin mensaje]"}</p>
+                        </div>
+                        <div style={{ minWidth: 0 }}>
                           <p style={{margin: "0 0 10px 0", fontSize: "13px", color: "var(--color-primary)", fontWeight: 800}}>ARCHIVOS ADJUNTOS ({adjuntos.length}):</p>
                           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                             {adjuntos.length > 0 ? (
@@ -3114,12 +3129,12 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       <div style={{ marginTop: "16px" }}>
                         <AdminQueueBar
                           queue="solicitud"
-                          state={caseOf("solicitud", sol.id)}
+                          state={caso}
                           busy={queueBusy === queueKey("solicitud", sol.id)}
                           onPatch={(patch, action, detail) => void saveQueueCase("solicitud", sol.id, patch, action, detail)}
                         />
                       </div>
-                      <div style={{ marginTop: "16px", paddingTop: "15px", borderTop: "1px dashed var(--color-border)", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      <div className="sol-actions" style={{ marginTop: "16px", paddingTop: "15px", borderTop: "1px dashed var(--color-border)", display: "flex", gap: "10px", flexWrap: "wrap" }}>
                         <button onClick={(e) => aprobarArtista(sol.user_id, sol.nombre, false, e, sol.id)} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Aprobar como Artista</button>
                         <button type="button" onClick={() => openPublishFor(sol.user_id, sol.nombre || "")} style={{ background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-primary)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Publicar su obra</button>
                         <button onClick={() => void saveQueueCase("solicitud", sol.id, { status: "denegada", leido: true }, "estado", "Denegada")} style={{ background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Denegar</button>
@@ -3134,6 +3149,8 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                           title: other.nombre || "Solicitud",
                         })))}
                       />
+                      </>
+                      )}
                     </div>
                   );
                 })}
@@ -5227,6 +5244,9 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           .admin-brand h1 { font-size: 22px; margin: 0; }
           .admin-brand p { display: none; }
           .admin-stage { min-width: 0; }
+          .sol-card { min-width: 0; }
+          .sol-actions { flex-direction: column; }
+          .sol-actions > button { width: 100%; }
           .admin-nav {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));

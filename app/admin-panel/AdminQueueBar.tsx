@@ -80,8 +80,14 @@ export function ReadSelectionBar({
 }) {
   const allOn = ids.length > 0 && ids.every((id) => selected.has(id));
   const btn: CSSProperties = { ...chip, cursor: "pointer", background: "var(--bg-card)" };
+  const label = (full: string, short: string) => (
+    <>
+      <span className="aq-long">{full}</span>
+      <span className="aq-short">{short}</span>
+    </>
+  );
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+    <div className="aq-readbar" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
       <label style={{ ...chip, cursor: "pointer" }}>
         <input
           type="checkbox"
@@ -89,12 +95,29 @@ export function ReadSelectionBar({
           onChange={(e) => onChange(e.target.checked ? new Set(ids) : new Set())}
           style={{ accentColor: "var(--color-primary)" }}
         />
-        Seleccionar todas
+        {label("Seleccionar todas", "Todas")}
       </label>
-      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), true)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>Marcar seleccionadas leídas</button>
-      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), false)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>Marcar seleccionadas no leídas</button>
-      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, true)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>Marcar todas leídas</button>
-      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, false)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>Marcar todas no leídas</button>
+      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), true)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>{label("Marcar seleccionadas leídas", "Sel. leídas")}</button>
+      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), false)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>{label("Marcar seleccionadas no leídas", "Sel. no leídas")}</button>
+      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, true)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>{label("Marcar todas leídas", "Lista leída")}</button>
+      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, false)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>{label("Marcar todas no leídas", "Lista no leída")}</button>
+      <style jsx>{`
+        .aq-short { display: none; }
+        @media (max-width: 860px) {
+          .aq-readbar { display: grid; grid-template-columns: 1fr 1fr; }
+          .aq-readbar > :global(label) { grid-column: 1 / -1; }
+          .aq-readbar > :global(label),
+          .aq-readbar > :global(button) {
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: center;
+            border-radius: 12px;
+            text-align: center;
+          }
+          .aq-long { display: none; }
+          .aq-short { display: inline; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -165,8 +188,12 @@ export function AdminQueueFilters({
           .aq-filter-row > :global(label),
           .aq-filter-row > :global(input),
           .aq-filter-row > :global(button) { width: 100%; box-sizing: border-box; justify-content: space-between; }
-          :global(.aq-bar) { flex-direction: column; align-items: stretch; }
-          :global(.aq-bar) > :global(*) { width: 100%; box-sizing: border-box; justify-content: space-between; }
+          :global(.aq-bar) { display: grid !important; grid-template-columns: 1fr 1fr; }
+          :global(.aq-bar) > :global(button),
+          :global(.aq-bar) > :global(span) { grid-column: 1 / -1; }
+          :global(.aq-bar) > :global(button) { justify-content: center; border-radius: 12px; }
+          :global(.aq-bar) > :global(label),
+          :global(.aq-bar) > :global(button) { width: 100%; box-sizing: border-box; justify-content: space-between; }
           :global(.aq-hist) { grid-template-columns: 1fr !important; }
         }
       `}</style>
@@ -199,7 +226,8 @@ export function AdminQueueBar({
         }}
       >
         <span style={{ width: 8, height: 8, borderRadius: 99, background: state.leido ? "var(--text-muted)" : "var(--color-primary)" }} />
-        {state.leido ? "Marcar como no leída" : "Marcar como leída"}
+        <span className="aq-long">{state.leido ? "Marcar como no leída" : "Marcar como leída"}</span>
+        <span className="aq-short">{state.leido ? "No leída" : "Leída"}</span>
       </button>
       <label style={chip}>
         Estado
@@ -235,10 +263,17 @@ export function AdminQueueBar({
         </select>
       </label>
       {state.historial.length > 0 && (
-        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-muted)" }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-muted)", overflowWrap: "anywhere" }}>
           Última: {state.historial[state.historial.length - 1].actor} · {state.historial[state.historial.length - 1].detail}
         </span>
       )}
+      <style jsx>{`
+        .aq-short { display: none; }
+        @media (max-width: 860px) {
+          .aq-long { display: none; }
+          .aq-short { display: inline; }
+        }
+      `}</style>
     </div>
   );
 }
