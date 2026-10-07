@@ -32,7 +32,7 @@ import {
 } from "@/lib/admin-queue";
 import { AdminQueueBar, AdminQueueFilters, ReadSelectionBar, UserCaseHistory, caseMatchesFilters, type UserHistoryRow } from "./AdminQueueBar";
 import AdminManual from "./AdminManual";
-import { startAdminTour, ADMIN_TOUR_IDS, type AdminTourHandlers, type AdminTourId } from "./adminTour";
+import { startAdminTour, adminTourActive, ADMIN_TOUR_IDS, type AdminTourHandlers, type AdminTourId } from "./adminTour";
 
 
 
@@ -123,6 +123,22 @@ function AdminUserActionGroup({ label, children, tour }: { label: string; childr
       <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", alignItems: "center" }}>{children}</div>
     </div>
   );
+}
+
+function aportacionOriginLine(row: { origin_kind?: string | null; origin_title?: string | null; group_name?: string | null; member_name?: string | null }) {
+  const kinds: Record<string, string> = {
+    albums: "Álbum",
+    tours: "Tour",
+    events: "Evento",
+    "seasons-greetings": "Season's Greetings",
+    merch: "Merch",
+    "pop-ups": "Pop-up",
+    memberships: "Membership",
+    collabs: "Colaboración",
+    other: "Otro",
+  };
+  const kind = row.origin_kind ? kinds[row.origin_kind] || row.origin_kind : "";
+  return [kind, row.origin_title, row.group_name, row.member_name].filter(Boolean).join(" · ");
 }
 
 function AdminPanelContent() {
@@ -2615,6 +2631,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
   const openAdminTab = (id: string) => {
     setActiveTab(id);
+    if (adminTourActive()) return;
     const params = new URLSearchParams(searchParams.toString());
     const already =
       params.get("tab") === id &&
@@ -3558,7 +3575,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     filtroEstadoAportaciones,
                     apoFiltroGestor,
                     apoFiltroUser,
-                    `${a.userName || ""} ${a.item_id || ""}`,
+                    `${a.userName || ""} ${a.item_id || ""} ${a.origin_title || ""} ${a.group_name || ""} ${a.member_name || ""} ${a.origin_kind || ""}`,
                     apoFiltroLeido,
                   ));
                   if (filtrados.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>Bandeja limpia.</p>;
@@ -3582,6 +3599,9 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             <ImagePlus size={18} color="var(--color-primary)" />
                             <div>
                               <span style={{ fontWeight: 900, color: "var(--text-main)", fontSize: "16px" }}>Mejora para Photocard #{a.item_id} ({a.face})</span>
+                              <div data-tour={apoIndex === 0 ? "apo-origen" : undefined} style={{ marginTop: 4, fontSize: 12, fontWeight: 800, color: "var(--text-main)" }}>
+                                {aportacionOriginLine(a) || "Origen sin indicar"}
+                              </div>
                               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "5px" }}>
                                 <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "bold" }}>Por: {a.userName || "Usuario Anónimo"}</span>
                                 <span style={{ padding: "4px 10px", borderRadius: "8px", fontSize: "10px", fontWeight: 900, textTransform: "uppercase", background: caso.status === "aprobada" ? "var(--state-success-bg)" : caso.status === "denegada" ? "var(--bg-soft)" : "var(--state-warning-bg)", color: caso.status === "aprobada" ? "var(--state-success-fg)" : "var(--color-primary)" }}>{statusLabel(caso.status)}</span>
@@ -4051,7 +4071,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     </div>
                   </div>
 
-                  <div style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 16, background: "var(--bg-main)" }}>
+                  <div data-tour="cat-lista-grupos" style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 16, background: "var(--bg-main)" }}>
                     <h3 style={{ margin: "0 0 12px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 15 }}>Lista de grupos</h3>
                     <input
                       value={catalogGroupQuery}
@@ -4064,7 +4084,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         const q = catalogGroupQuery.trim().toLowerCase();
                         if (!q) return true;
                         return `${g.name || ""} ${g.slug || ""}`.toLowerCase().includes(q);
-                      }).map((g) => (
+                      }).map((g, groupIndex) => (
                         <div
                           key={g.id}
                           style={{
@@ -4092,6 +4112,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           </div>
                           <button
                             type="button"
+                            data-tour={groupIndex === 0 ? "cat-editar-grupo" : undefined}
                             onClick={() =>
                               setCatalogGroupForm({
                                 id: Number(g.id),
@@ -4115,6 +4136,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           </button>
                           <button
                             type="button"
+                            data-tour={groupIndex === 0 ? "cat-borrar-grupo" : undefined}
                             onClick={() => {
                               setConfirmDialog({
                                 title: "Borrar grupo",
@@ -4167,7 +4189,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     </div>
                   </div>
 
-                  <div style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 16, background: "var(--bg-main)" }}>
+                  <div data-tour="cat-lista-miembros" style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 16, background: "var(--bg-main)" }}>
                     <h3 style={{ margin: "0 0 12px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 15 }}>Miembros</h3>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
                       <input
@@ -4192,7 +4214,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         if (groupQ && !`${gname}`.toLowerCase().includes(groupQ)) return false;
                         if (nameQ && !`${m.name || ""} ${m.slug || ""}`.toLowerCase().includes(nameQ)) return false;
                         return true;
-                      }).map((m) => {
+                      }).map((m, memberIndex) => {
                         const mid = Number(m.member_id ?? m.id);
                         const gid = m.group_id != null ? Number(m.group_id) : NaN;
                         const gname = catalogGroups.find((x) => Number(x.id) === gid)?.name ?? `Grupo ${gid}`;
@@ -4224,6 +4246,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             </div>
                             <button
                               type="button"
+                              data-tour={memberIndex === 0 ? "cat-editar-miembro" : undefined}
                               onClick={() =>
                                 setCatalogMemberForm({
                                   id: mid,
@@ -4248,6 +4271,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             </button>
                             <button
                               type="button"
+                              data-tour={memberIndex === 0 ? "cat-borrar-miembro" : undefined}
                               onClick={() => {
                                 setConfirmDialog({
                                   title: "Borrar miembro",

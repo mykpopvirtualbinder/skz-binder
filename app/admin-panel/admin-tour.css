@@ -78,4 +78,10 @@ select[data-tour-open="1"] {
 select[data-tour-open="1"] option {
   background: var(--bg-card);
   color: var(--text-main);
+  padding: 6px 8px;
+}
+
+select[data-tour-open="1"] option:checked {
+  background: var(--color-primary);
+  color: var(--bg-card);
 }

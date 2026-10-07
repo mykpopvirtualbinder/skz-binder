@@ -1483,6 +1483,11 @@ function ItemModal({
       : null;
   // ===== Upload UI =====
   const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [originKind, setOriginKind] = useState("albums");
+  const [originTitle, setOriginTitle] = useState("");
+  const [originGroup, setOriginGroup] = useState("");
+  const [originMember, setOriginMember] = useState("");
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploadSide, setUploadSide] = useState<"front" | "back">("front");
@@ -1494,6 +1499,10 @@ function ItemModal({
       if (hintTimerRef.current) window.clearTimeout(hintTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    setPendingFile(null);
+  }, [item.id]);
   // ===== Report UI =====
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<string>("wrong_info");
@@ -1559,12 +1568,17 @@ function ItemModal({
         item_id: item.id,
         face: uploadSide,
         image_url: publicUrl,
-        status: 'pendiente'
+        status: 'pendiente',
+        origin_kind: originKind,
+        origin_title: originTitle.trim(),
+        group_name: originGroup.trim(),
+        member_name: originMember.trim(),
       }).select("id").maybeSingle();
 
       if (dbError) throw dbError;
       if (created?.id) void pingAdminInbox("aportacion", created.id);
 
+      setPendingFile(null);
       setUploadMsg("✓ ¡Gracias! Hemos recibido tu imagen. Un admin la revisará pronto.");
     } catch (e: any) {
       setUploadMsg("❌ Error: " + e.message);
@@ -1893,8 +1907,15 @@ function ItemModal({
                             disabled={uploading}
                             onChange={(e) => { 
                               const f = e.target.files?.[0]; 
-                              if (f) handleUploadFile(f); 
-                              e.target.value = ''; // Permite que se pueda volver a subir el mismo archivo si hay un error
+                              if (f) {
+                                setPendingFile(f);
+                                setOriginKind(collectionKind);
+                                setOriginTitle(albumName || "");
+                                setOriginGroup(groupName || "");
+                                setOriginMember(niceMembers || "");
+                                setUploadMsg(null);
+                              }
+                              e.target.value = '';
                             }} 
                           />
                         </label>
@@ -1925,6 +1946,52 @@ function ItemModal({
                 {/* 👆 FIN DEL BLOQUE DE BOTONES 👆 */}
 
               </div>
+
+              {pendingFile && (
+                <div style={{ marginTop: 12, display: "grid", gap: 8, textAlign: "left" }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-main)", lineHeight: 1.35 }}>{t("library.modal.origin_intro")}</div>
+                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "var(--text-muted)" }}>
+                    {t("library.modal.origin_kind")}
+                    <select value={originKind} onChange={(e) => setOriginKind(e.target.value)} style={{ fontWeight: 800, color: "var(--text-main)", WebkitTextFillColor: "var(--text-main)", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }}>
+                      <option value="albums">{t("library.modal.origin_album")}</option>
+                      <option value="tours">{t("library.modal.origin_tour")}</option>
+                      <option value="events">{t("library.modal.origin_event")}</option>
+                      <option value="seasons-greetings">{t("library.modal.origin_seasons")}</option>
+                      <option value="merch">{t("library.modal.origin_merch")}</option>
+                      <option value="pop-ups">{t("library.modal.origin_popup")}</option>
+                      <option value="memberships">{t("library.modal.origin_membership")}</option>
+                      <option value="collabs">{t("library.modal.origin_collab")}</option>
+                      <option value="other">{t("library.modal.origin_other")}</option>
+                    </select>
+                  </label>
+                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "var(--text-muted)" }}>
+                    {t("library.modal.origin_title")}
+                    <input value={originTitle} onChange={(e) => setOriginTitle(e.target.value)} style={{ fontWeight: 800, color: "var(--text-main)", WebkitTextFillColor: "var(--text-main)", caretColor: "var(--text-main)", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "var(--text-muted)" }}>
+                    {t("library.modal.origin_group")}
+                    <input value={originGroup} onChange={(e) => setOriginGroup(e.target.value)} style={{ fontWeight: 800, color: "var(--text-main)", WebkitTextFillColor: "var(--text-main)", caretColor: "var(--text-main)", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }} />
+                  </label>
+                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "var(--text-muted)" }}>
+                    {t("library.modal.origin_member")}
+                    <input value={originMember} onChange={(e) => setOriginMember(e.target.value)} style={{ fontWeight: 800, color: "var(--text-main)", WebkitTextFillColor: "var(--text-main)", caretColor: "var(--text-main)", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px" }} />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => {
+                      if (!originKind || !originTitle.trim() || !originGroup.trim() || !originMember.trim()) {
+                        setUploadMsg("❌ " + t("library.modal.origin_required"));
+                        return;
+                      }
+                      void handleUploadFile(pendingFile);
+                    }}
+                    style={{ justifySelf: "start", border: 0, borderRadius: 12, padding: "10px 14px", fontWeight: 900, cursor: uploading ? "not-allowed" : "pointer", background: "var(--color-primary)", color: "var(--bg-card)" }}
+                  >
+                    {t("library.modal.origin_send")}
+                  </button>
+                </div>
+              )}
               
               {uploadMsg && (
                 <div style={{ marginTop: 10, fontSize: 12, fontWeight: 900, color: uploadMsg.includes("Gracias") ? "var(--color-primary)" : "var(--state-danger-fg)", background: uploadMsg.includes("Gracias") ? "var(--bg-soft)" : "color-mix(in srgb, var(--state-danger-fg) 8%, transparent)", border: `1px solid ${uploadMsg.includes("Gracias") ? "var(--color-border)" : "color-mix(in srgb, var(--state-danger-fg) 18%, transparent)"}`, padding: "10px 12px", borderRadius: 14 }}>
