@@ -208,10 +208,28 @@ function DesktopHeaderNavScroller({
 
   const updateScrollState = useCallback(() => {
     const el = scrollerRef.current;
+    const wrap = wrapRef.current;
     if (!el) return;
+    const track = el.querySelector<HTMLElement>(".desktop-header-nav__track");
+    if (track) track.style.transform = "";
+    el.style.overflowX = "auto";
     const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
-    setCanScrollLeft(el.scrollLeft > 8);
-    setCanScrollRight(maxScroll > 8 && el.scrollLeft < maxScroll - 8);
+    const overflow = maxScroll > 8;
+    setCanScrollLeft(overflow && el.scrollLeft > 8);
+    setCanScrollRight(overflow && el.scrollLeft < maxScroll - 8);
+    if (overflow || !track) return;
+
+    el.style.overflowX = "hidden";
+    const grid = wrap?.closest<HTMLElement>(".site-header__rail-grid");
+    const left = grid?.querySelector<HTMLElement>(".site-header__col-left");
+    const right = grid?.querySelector<HTMLElement>(".site-header__col-right");
+    const links = Array.from(el.querySelectorAll<HTMLElement>("a.header-nav-link"));
+    if (!left || !right || links.length < 2) return;
+    const content = links[links.length - 1].getBoundingClientRect().right - links[0].getBoundingClientRect().left;
+    const slack = Math.max(0, (el.clientWidth - content) / 2 - 4);
+    const delta = (right.offsetWidth - left.offsetWidth) / 2;
+    const shift = Math.max(-slack, Math.min(slack, delta));
+    track.style.transform = Math.abs(shift) > 1 ? `translateX(${shift}px)` : "";
   }, []);
 
   useEffect(() => {

@@ -1760,8 +1760,8 @@ textarea:disabled {
   max-width: none;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  column-gap: 16px;
+  grid-template-columns: auto minmax(8.5rem, 1fr) auto;
+  column-gap: 12px;
   align-items: center;
   box-sizing: border-box;
 }
@@ -1770,13 +1770,13 @@ textarea:disabled {
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
-  width: max-content;
+  width: 100%;
   max-width: 100%;
-  justify-self: center;
+  justify-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .site-header__mobile-nav-row {
@@ -1804,26 +1804,29 @@ textarea:disabled {
   justify-content: center;
   min-width: 0;
   max-width: 100%;
-  width: max-content;
-  flex: 0 1 auto;
-  overflow: visible;
+  width: 100%;
+  flex: 1 1 auto;
+  overflow: hidden;
   position: relative;
   z-index: 1;
 }
 
 .site-header__nav-scroller .site-header__col-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   min-width: 0;
   max-width: 100%;
-  width: max-content;
-  flex: 0 1 auto;
+  width: 100%;
+  flex: 1 1 auto;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
   overscroll-behavior-x: contain;
+  scrollbar-width: none;
   padding: 0;
+}
+
+.site-header__nav-scroller .site-header__col-center::-webkit-scrollbar {
+  display: none;
 }
 
 .desktop-header-nav__track {
@@ -1833,7 +1836,7 @@ textarea:disabled {
   flex-wrap: nowrap;
   gap: clamp(10px, 1.1vw, 18px);
   width: max-content;
-  min-width: max-content;
+  min-width: 100%;
   margin: 0 auto;
 }
 
