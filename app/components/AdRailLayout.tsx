@@ -17,7 +17,7 @@ export default function AdRailLayout({
   showMobileBottom = true,
 }: Props) {
   return (
-    <div className="ad-rail-layout">
+    <div className="ad-rail-layout" data-tour="site-ads">
       <aside className="ad-rail ad-rail-left">
         <AdSlot placement="sidebar_left" device="desktop" section={section} count={2} />
       </aside>

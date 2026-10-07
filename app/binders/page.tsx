@@ -445,6 +445,7 @@ export default function BindersPage() {
             </div>
           )}
           <h1
+            data-tour="binders-title"
             className="tan-font shop-hero-headline"
             style={{ fontWeight: 950, fontSize: isMobile ? 28 : 36, marginBottom: 10, lineHeight: 1.12 }}
           >
@@ -619,7 +620,8 @@ export default function BindersPage() {
 
           {/* BOTÓN CREAR DINÁMICO */}
           {userId && (isAdmin || binders.length < quota.maxBinders) ? (
-              <button 
+              <button
+                data-tour="binders-create"
                 onClick={createBinder}
                 disabled={isCheckingLimit || loading}
                 style={{ 

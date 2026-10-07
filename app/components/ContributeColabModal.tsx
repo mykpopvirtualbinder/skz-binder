@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { useGlobal } from "../context/GlobalContext";
+import { backdropPointerClose, useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 
 export type ColabOrigin = {
   originKind: string;
@@ -225,6 +226,8 @@ export default function ContributeColabModal({
   const [form, setForm] = useState<ColabForm>(EMPTY);
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const close = useCallback(() => onClose(), [onClose]);
+  useOverlayDismiss(open, close);
 
   useEffect(() => {
     if (!open) return;
@@ -289,6 +292,7 @@ export default function ContributeColabModal({
   return (
     <div
       className="library-colab-overlay"
+      onClick={backdropPointerClose(close)}
       style={{
         position: "fixed",
         inset: 0,
@@ -316,20 +320,8 @@ export default function ContributeColabModal({
           overflowY: "auto",
         }}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: "20px",
-            right: "20px",
-            background: "none",
-            border: "none",
-            color: "var(--color-primary)",
-            cursor: "pointer",
-          }}
-        >
-          <X size={24} />
+        <button type="button" className="library-colab-close" onClick={close} aria-label="Cerrar">
+          <X size={18} />
         </button>
 
         <div style={{ textAlign: "center", marginBottom: "25px" }}>

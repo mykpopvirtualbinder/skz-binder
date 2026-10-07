@@ -1144,7 +1144,7 @@ const openPublicProfile = async (userId: string) => {
         }}
       >
           <div style={{ ["--color-primary"]: "var(--nav-market)" } as React.CSSProperties}>
-          <div className="market-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "20px", flexWrap: "wrap", gap: "20px" }}>
+          <div data-tour="market-toolbar" className="market-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "20px", flexWrap: "wrap", gap: "20px" }}>
          <div style={{ maxWidth: "600px" }}>
             <div
               style={{
@@ -1229,6 +1229,7 @@ const openPublicProfile = async (userId: string) => {
           >
             {tab === "wtt" && (
               <select
+                data-tour="market-mode"
                 value={searchMode}
                 onChange={(e) => setSearchMode(e.target.value as any)}
                 style={{
@@ -1290,7 +1291,7 @@ const openPublicProfile = async (userId: string) => {
                 </button>
               </div>
             )}
-            <div style={{ display: !isCompactViewport || showCompactFilters ? "block" : "none" }} className="page-filters-panel">
+            <div data-tour="market-filters" style={{ display: !isCompactViewport || showCompactFilters ? "block" : "none" }} className="page-filters-panel">
             
             {/* --- 1. FILTRO MAESTRO: TIPO DE ÍTEM --- */}
             <div style={{ display: "flex", gap: "10px", marginBottom: fItemType === "all" ? "0" : "16px", flexWrap: "wrap" }}>
@@ -1484,11 +1485,12 @@ const openPublicProfile = async (userId: string) => {
         {/* ========================================= */}
 
        <div
+          data-tour="market-tabs"
           style={{
             display: "flex",
             gap: "25px",
             marginBottom: "30px",
-            borderBottom: "2px solid var(--color-border)", // 👈 Antes var(--color-border)
+            borderBottom: "2px solid var(--color-border)",
             paddingBottom: "12px",
           }}
         >

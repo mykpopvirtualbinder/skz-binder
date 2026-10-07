@@ -928,14 +928,15 @@ export default function FanZonePage() {
 
       <AdRailLayout section="fanzone">
       <main className="fanzone-main" style={{ flex: 1, display: "flex", justifyContent: "center", padding: "40px 20px 36px" }}>
-        <div className="fanzone-column" style={{ width: "100%", maxWidth: "650px", display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div data-tour="fanzone-feed" className="fanzone-column" style={{ width: "100%", maxWidth: "650px", display: "flex", flexDirection: "column", gap: "20px" }}>
           
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <Sparkles size={24} color="var(--color-primary)" />
             <h1 className="tan-font" style={{ fontSize: "32px", color: "var(--color-primary)", margin: 0 }}>{t("fanzone.title")}</h1>
           </div>
 
-          <button 
+          <button
+            data-tour="fanzone-favs"
             onClick={() => setOnlyFollowed(!onlyFollowed)} 
             style={{ 
               width: "fit-content", padding: "8px 20px", borderRadius: "99px", 
@@ -951,7 +952,7 @@ export default function FanZonePage() {
             {onlyFollowed ? t("fanzone.viewing_favorites") : t("fanzone.filter_favorites")}
           </button>
           
-          <div style={{ backgroundColor: "var(--bg-card)", padding: "20px", borderRadius: "24px", border: "1px solid var(--color-border)", boxShadow: "0 10px 20px var(--shadow-card)" }}>
+          <div data-tour="fanzone-composer" style={{ backgroundColor: "var(--bg-card)", padding: "20px", borderRadius: "24px", border: "1px solid var(--color-border)", boxShadow: "0 10px 20px var(--shadow-card)" }}>
             <div style={{ display: "flex", gap: "15px" }}>
               <img src={profile?.avatar_url || "https://ui-avatars.com/api/?name=?"} style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover" }} />
               <div style={{ flex: 1, position: "relative" }}>

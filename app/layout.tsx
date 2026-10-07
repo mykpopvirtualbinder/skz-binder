@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { GlobalProvider } from "./context/GlobalContext";
 import Header from "./components/header";
+import UserTourHost from "./components/UserTourHost";
 import { THEME_BOOT_SCRIPT, THEME_COOKIE, themeIdFromUnknown } from "@/lib/theme-persist";
 
 const geistSans = Geist({
@@ -53,6 +54,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             
             {/* El Header es fijo en la parte superior */}
             <Header />
+            <UserTourHost />
             
             {/* El contenido de las páginas carga aquí */}
             <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, width: "100%" }}>

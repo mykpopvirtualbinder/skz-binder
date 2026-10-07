@@ -27,7 +27,7 @@ import BindersShortcut from "../components/BindersShortcut";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { supabase } from "@/lib/supabase";
 import { marketRefUsdStorageKey } from "@/lib/market-reference-keys";
-import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
+import { backdropPointerClose, useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { getCurrencyOptions } from "./currencyOptions";
 import WtsListingModal from "./WtsListingModal";
 import WttListingModal from "./WttListingModal";
@@ -2428,6 +2428,8 @@ function LibraryContent() {
     const [sendingColab, setSendingColab] = useState(false);
     const [colabFile, setColabFile] = useState<File | null>(null);
     const [showColabModal, setShowColabModal] = useState(false);
+    const closeColab = useCallback(() => setShowColabModal(false), []);
+    useOverlayDismiss(showColabModal, closeColab);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [catalogSort, setCatalogSort] = useState<"default" | "album" | "stock_date" | "price" | "status">("default");
@@ -3831,7 +3833,7 @@ const commitStockForItem = useCallback(
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><ArrowUpDown size={13} /> {t("common.sort_label") || "Ordenar"}</label>
-              <select value={catalogSort} onChange={(e) => setCatalogSort(e.target.value as typeof catalogSort)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
+              <select data-tour="lib-sort" value={catalogSort} onChange={(e) => setCatalogSort(e.target.value as typeof catalogSort)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
                 <option value="default">{t("common.sort_default") || "Por defecto"}</option>
                 <option value="album">{t("common.sort_album") || "Por álbum"}</option>
                 <option value="stock_date">{t("common.sort_stock_date") || "Fecha en tu stock"}</option>
@@ -3841,7 +3843,7 @@ const commitStockForItem = useCallback(
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Layers size={13} /> {t("binders.picker.status") || "Estado"}</label>
-              <select value={fStatus} onChange={(e) => setFStatus(e.target.value as StatusFilter)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
+              <select data-tour="lib-status" value={fStatus} onChange={(e) => setFStatus(e.target.value as StatusFilter)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
                 <option value="all">{allLabel}</option>
                 <option value="have">{t("binders.statuses.have")}</option>
                 <option value="wts">{t("binders.statuses.wts")}</option>
@@ -3853,7 +3855,7 @@ const commitStockForItem = useCallback(
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Users size={13} /> {t("binders.picker.group") || "Grupo"}</label>
-              <select value={fGroup === "all" ? "all" : String(fGroup)} onChange={(e) => setFGroup(e.target.value === "all" ? "all" : Number(e.target.value))} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
+              <select data-tour="lib-group" value={fGroup === "all" ? "all" : String(fGroup)} onChange={(e) => setFGroup(e.target.value === "all" ? "all" : Number(e.target.value))} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
                 <option value="all">{allLabel}</option>
                 {groupOptions.map((gid) => (
                   <option key={gid} value={String(gid)}>{groupNameById[gid] ?? `Grupo ${gid}`}</option>
@@ -3864,6 +3866,7 @@ const commitStockForItem = useCallback(
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Disc3 size={13} /> {t("library.filters.collection_kind") || t("binders.picker.collection") || "Colección"}</label>
               <select
+                data-tour="lib-kind"
                 value={fCollectionKind}
                 onChange={(e) => setFCollectionKind(e.target.value as LibraryCollectionKind)}
                 style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}
@@ -3900,7 +3903,7 @@ const commitStockForItem = useCallback(
             {catalog === "photocards" && (fCollectionKind === "all" || fCollectionKind === "albums" || fCollectionKind === "seasons-greetings") && (
             <div className="library-filter-field" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Gift size={13} /> {t("library.filters.pob_kind")}</label>
-              <select value={fPobKind} onChange={(e) => setFPobKind(e.target.value as "all" | "regular" | "pob")} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
+              <select data-tour="lib-pob" value={fPobKind} onChange={(e) => setFPobKind(e.target.value as "all" | "regular" | "pob")} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
                 <option value="all">{allLabel}</option>
                 <option value="regular">{t("library.filters.regular")}</option>
                 <option value="pob">{t("library.filters.pob")}</option>
@@ -3922,7 +3925,7 @@ const commitStockForItem = useCallback(
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><User size={13} /> {t("binders.picker.member") || "Miembro"}</label>
-              <select value={fMember === "all" ? "all" : String(fMember)} onChange={(e) => setFMember(e.target.value === "all" ? "all" : e.target.value)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
+              <select data-tour="lib-member" value={fMember === "all" ? "all" : String(fMember)} onChange={(e) => setFMember(e.target.value === "all" ? "all" : e.target.value)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
                 <option value="all">{allLabel}</option>
                 {memberOptions.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -3932,7 +3935,7 @@ const commitStockForItem = useCallback(
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={filterLabelStyle}><Layers size={13} /> {t("binders.picker.type") || "Tipo"}</label>
-              <select value={fUnit} onChange={(e) => setFUnit(e.target.value as UnitFilter)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
+              <select data-tour="lib-type" value={fUnit} onChange={(e) => setFUnit(e.target.value as UnitFilter)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
                 <option value="all">{allLabel}</option>
                 <option value="single">{t("binders.picker.type_selfie") || "Selfie"}</option>
                 <option value="unit">{t("binders.picker.type_unit") || "Unit"}</option>
@@ -3955,6 +3958,7 @@ const commitStockForItem = useCallback(
             <div style={{ position: "relative", flex: "1 1 180px", maxWidth: 340, minWidth: 0 }}>
               <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
               <input
+                data-tour="lib-search"
                 type="search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -3987,6 +3991,7 @@ const commitStockForItem = useCallback(
             {catalog === "photocards" && (
             <button
               type="button"
+              data-tour="lib-colab"
               onClick={() => openColabModal(false)}
               style={{
                 display: "inline-flex",
@@ -4061,6 +4066,7 @@ const commitStockForItem = useCallback(
           <div
             key={`lib-grid-${fGroup}-${fAlbum}-${fVersion}-${fMember}-${fUnit}-${fPobKind}-${currentPage}`}
             className="library-cards-grid"
+            data-tour="lib-grid"
             style={{
               marginTop: 14,
               display: loading ? "none" : "grid",
@@ -4470,11 +4476,11 @@ return (
           )}
 
       {showColabModal && (
-        <div className="library-colab-overlay" style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", backdropFilter: "blur(4px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-          <div className="library-colab-shell" style={{ background: "var(--bg-card)", border: "1px solid var(--color-border)", width: "100%", maxWidth: "min(560px, calc(100vw - 40px))", maxHeight: "90vh", overflowY: "auto", borderRadius: "32px", padding: "30px", position: "relative", boxShadow: "0 25px 50px var(--overlay-soft)" }}>
+        <div className="library-colab-overlay" onClick={backdropPointerClose(closeColab)} style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", backdropFilter: "blur(4px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+          <div className="library-colab-shell" onClick={(e) => e.stopPropagation()} style={{ background: "var(--bg-card)", border: "1px solid var(--color-border)", width: "100%", maxWidth: "min(560px, calc(100vw - 40px))", maxHeight: "90vh", overflowY: "auto", borderRadius: "32px", padding: "30px", position: "relative", boxShadow: "0 25px 50px var(--overlay-soft)" }}>
             
-            <button onClick={() => setShowColabModal(false)} style={{ position: "absolute", top: "20px", right: "20px", background: "none", border: "none", color: "var(--color-primary)", cursor: "pointer" }}>
-              <X size={24} />
+            <button type="button" className="library-colab-close" onClick={closeColab} aria-label="Cerrar">
+              <X size={18} />
             </button>
 
             <div style={{ textAlign: "center", marginBottom: "25px" }}>

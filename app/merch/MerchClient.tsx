@@ -1633,7 +1633,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
         </div>
         )}
 
-        <section className="merch-progress-banner" style={{ backgroundColor: "var(--bg-card)", padding: "25px 35px", borderRadius: "24px", border: "1px solid var(--color-border)", marginBottom: "30px", display: loading ? "none" : "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 10px 20px var(--shadow-card)" }}>
+        <section data-tour="merch-banner" className="merch-progress-banner" style={{ backgroundColor: "var(--bg-card)", padding: "25px 35px", borderRadius: "24px", border: "1px solid var(--color-border)", marginBottom: "30px", display: loading ? "none" : "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 10px 20px var(--shadow-card)" }}>
           <div style={{ flex: 1 }}>
             <p style={{ color: "var(--text-subheading)", fontWeight: 800, fontSize: "16px", margin: "0 0 10px 0" }}>
               {(t(progressSnapshot.msgKey) || t("merch.progress_msg")).replace("{percent}", progressSnapshot.pct.toString())}
@@ -1699,7 +1699,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             </div>
           )}
           {variant === "merch" && (
-          <div style={{ display: "flex", gap: "10px", marginBottom: "20px", borderBottom: "2px solid var(--color-border)", paddingBottom: "15px", flexWrap: "wrap" }}>
+          <div data-tour="merch-tabs" style={{ display: "flex", gap: "10px", marginBottom: "20px", borderBottom: "2px solid var(--color-border)", paddingBottom: "15px", flexWrap: "wrap" }}>
              <button onClick={() => { setActiveTab("catalogo_merch"); setActiveStatus("Todos"); }} style={{ background: "none", border: "none", padding: "10px 16px", fontSize: "16px", fontWeight: 900, color: activeTab === "catalogo_merch" ? "var(--accent-vibe-cyan)" : "var(--text-muted)", borderBottom: activeTab === "catalogo_merch" ? "3px solid var(--accent-vibe-cyan)" : "3px solid transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}>
                <LayoutGrid size={18}/> {t("merch.tab_catalog_merch")}
              </button>
@@ -1724,7 +1724,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
               <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "stretch", flex: "1 1 100%" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={MERCH_ALBUM_FILTER_LABEL}><Users size={13} /> {t("merch.album_filter_group")}</label>
-                  <select value={albumFilterGroup} onChange={(e) => setAlbumFilterGroup(e.target.value)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "140px" }}>
+                  <select data-tour="album-group" value={albumFilterGroup} onChange={(e) => setAlbumFilterGroup(e.target.value)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "140px" }}>
                     {albumGroupOptions.map((g) => (
                       <option key={g} value={g}>{g === "Todos" ? t("merch.filter_all_groups") : g}</option>
                     ))}
@@ -1732,7 +1732,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={MERCH_ALBUM_FILTER_LABEL}><MapPin size={13} /> {t("merch.album_filter_region")}</label>
-                  <select value={albumFilterRegion} onChange={(e) => setAlbumFilterRegion(e.target.value)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "140px" }}>
+                  <select data-tour="album-region" value={albumFilterRegion} onChange={(e) => setAlbumFilterRegion(e.target.value)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "140px" }}>
                     {albumRegionOptions.map((r) => (
                       <option key={r} value={r}>
                         {r === "Todos" ? t("merch.album_filter_all_regions") : t(`merch.album_regions_${r}`)}
@@ -1742,7 +1742,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={MERCH_ALBUM_FILTER_LABEL}><Disc3 size={13} /> {t("merch.album_filter_collection")}</label>
-                  <select value={albumFilterAlbum} onChange={(e) => setAlbumFilterAlbum(e.target.value)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "160px" }}>
+                  <select data-tour="album-title" value={albumFilterAlbum} onChange={(e) => setAlbumFilterAlbum(e.target.value)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "160px" }}>
                     {albumTitleOptions.map((g) => (
                       <option key={g} value={g}>{g === "Todos" ? t("merch.filter_all_collections") : formatCollectionOptionLabel(g)}</option>
                     ))}
@@ -1750,7 +1750,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <label style={MERCH_ALBUM_FILTER_LABEL}><Layers size={13} /> {t("merch.album_filter_kind")}</label>
-                  <select value={albumFilterKind} onChange={(e) => setAlbumFilterKind(e.target.value)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "150px" }}>
+                  <select data-tour="album-kind" value={albumFilterKind} onChange={(e) => setAlbumFilterKind(e.target.value)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "150px" }}>
                     {albumKindOptions.map((k) => (
                       <option key={k} value={k}>
                         {merchAlbumKindOptionLabel(k, t)}
@@ -1789,7 +1789,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 160 }}>
               <label style={MERCH_ALBUM_FILTER_LABEL}><ArrowUpDown size={13} /> {t("common.sort_label") || "Ordenar"}</label>
-              <select value={catalogSort} onChange={(e) => setCatalogSort(e.target.value as typeof catalogSort)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "160px" }}>
+              <select data-tour="album-sort" value={catalogSort} onChange={(e) => setCatalogSort(e.target.value as typeof catalogSort)} style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "160px" }}>
                 <option value="default">{t("common.sort_default") || "Por defecto"}</option>
                 <option value="album">{t("common.sort_album") || "Por álbum"}</option>
                 <option value="stock_date">{t("common.sort_stock_date") || "Fecha en tu stock"}</option>
@@ -1800,6 +1800,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             
             {(activeTab === "catalogo_merch" || activeTab === "albumes" || activeTab === "inclusiones" || activeTab === "mi_coleccion") && (
               <div
+                data-tour="merch-stock"
                 role="group"
                 aria-label={t("merch.filter_stock_by")}
                 style={{
@@ -1846,7 +1847,8 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "stretch" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label style={MERCH_ALBUM_FILTER_LABEL}><Users size={13} /> {t("merch.album_filter_group")}</label>
-            <select 
+            <select
+              data-tour="merch-group"
               value={activeGroup} 
               onChange={(e) => setActiveGroup(e.target.value)} 
               style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "140px" }}
@@ -1858,6 +1860,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label style={MERCH_ALBUM_FILTER_LABEL}><Disc3 size={13} /> {t("merch.goods_kind")}</label>
               <select
+                data-tour="merch-kind"
                 value={fMerchKind}
                 onChange={(e) => setFMerchKind(e.target.value as "all" | MerchGoodsKind)}
                 style={{ ...MERCH_ALBUM_FILTER_SELECT, minWidth: "150px" }}

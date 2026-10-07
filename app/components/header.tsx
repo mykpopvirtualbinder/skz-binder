@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { fetchAdminPendingCount } from "@/lib/admin-pending-count";
 import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 import {
   getCursorUnlockCost,
@@ -300,6 +301,7 @@ function DesktopHeaderNavScroller({
       )}
       <nav
         ref={scrollerRef}
+        data-tour="hdr-nav"
         className={`site-header__col-center hide-scrollbar desktop-header-nav${hasOverflow ? " desktop-header-nav--scrollable" : ""}`}
       >
         <div className="desktop-header-nav__track">
@@ -680,6 +682,28 @@ export default function Header() {
   const sessionEmail = (user?.email ?? "").trim();
   const isAdmin = isAdminTeamEmail(sessionEmail || null);
   const showAdminPanelInHeader = isAdminTeamEmail(sessionEmail || null);
+  const [adminPending, setAdminPending] = useState(0);
+
+  useEffect(() => {
+    if (!showAdminPanelInHeader) {
+      setAdminPending(0);
+      return;
+    }
+    let stop = false;
+    const load = () => {
+      void fetchAdminPendingCount().then((count) => {
+        if (!stop) setAdminPending(count);
+      });
+    };
+    load();
+    const timer = window.setInterval(load, 60000);
+    window.addEventListener("focus", load);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", load);
+    };
+  }, [showAdminPanelInHeader]);
   const hasAccountSession = Boolean(user || profile?.id);
 
   const applyVipCursorSelection = useCallback(
@@ -950,7 +974,7 @@ export default function Header() {
                     setUserSearchOpen((prev) => !prev);
                   }}
                   className="action-btn-mini"
-                  title={t("common.search")}
+                  data-tour="hdr-search" title={t("common.search")}
                   style={{ color: "var(--header-btn-profile)" }}
                 >
                   <Search size={16} />
@@ -974,12 +998,12 @@ export default function Header() {
               
               {/* Idioma Móvil */}
               <div style={{ position: "relative" }}>
-                <button onClick={() => { closeAllMenus(); setLangMenuOpen(!langMenuOpen); }} className="action-btn-mini" style={{ flexDirection: "column", gap: "1px", color: "var(--header-btn-lang)" }} title={t('header.dropdown.language')}>
+                <button onClick={() => { closeAllMenus(); setLangMenuOpen(!langMenuOpen); }} className="action-btn-mini" style={{ flexDirection: "column", gap: "1px", color: "var(--header-btn-lang)" }} data-tour="hdr-lang" title={t('header.dropdown.language')}>
                   <Globe size={14} />
                   <span style={{ fontSize: "9px", fontWeight: 900, lineHeight: 1 }}>{currentLocale.toUpperCase()}</span>
                 </button>
                 {langMenuOpen && (
-                  <div className="hide-scrollbar header-dropdown-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "150px", maxHeight: "250px", overflowY: "auto" }}>
+                  <div className="hide-scrollbar header-dropdown-menu" data-tour="hdr-lang-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "150px", maxHeight: "250px", overflowY: "auto" }}>
                     {LANGUAGES.map(lang => (
                       <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{ ...dropdownItemStyle, border: currentLocale === lang.code ? "1px solid var(--color-primary)" : "1px solid transparent", background: currentLocale === lang.code ? "var(--bg-soft)" : "transparent" }} className="dropdown-item-hover">
                         <span style={{ fontWeight: currentLocale === lang.code ? "900" : "600" }}>{lang.label}</span>
@@ -991,11 +1015,11 @@ export default function Header() {
 
               {/* Tema Móvil */}
               <div style={{ position: "relative" }}>
-                <button onClick={() => { const next = !themeMenuOpen; closeAllMenus(); setThemeMenuOpen(next); }} className="action-btn-mini" style={{ color: "var(--header-btn-theme)" }} title={t('header.dropdown.theme')}>
+                <button onClick={() => { const next = !themeMenuOpen; closeAllMenus(); setThemeMenuOpen(next); }} className="action-btn-mini" style={{ color: "var(--header-btn-theme)" }} data-tour="hdr-theme" title={t('header.dropdown.theme')}>
                   <Palette size={16} />
                 </button>
                 {themeMenuOpen && (
-                  <div className="header-dropdown-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "200px", maxHeight: "min(70vh, 360px)", overflowY: "auto" }}>
+                  <div className="header-dropdown-menu" data-tour="hdr-theme-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "200px", maxHeight: "min(70vh, 360px)", overflowY: "auto" }}>
                     {THEME_OPTIONS.map(themeOpt => (
                       <button key={themeOpt.id} onClick={() => changeTheme(themeOpt.id, themeOpt.vip)} style={{ ...dropdownItemStyle, justifyContent: "space-between", border: activeTheme === themeOpt.id ? "1px solid var(--color-primary)" : "1px solid transparent", background: activeTheme === themeOpt.id ? "var(--bg-soft)" : "transparent" }} className="dropdown-item-hover">
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1012,9 +1036,10 @@ export default function Header() {
               </div>
 
               {showAdminPanelInHeader && (
-                <Link href="/admin-panel" onPointerDown={closeAllMenus} className="action-btn-mini header-admin-link" title={t("header.dropdown.admin_panel")} style={{ color: "var(--header-btn-profile)" }}>
+                <Link href="/admin-panel" onPointerDown={closeAllMenus} className="action-btn-mini header-admin-link" title={t("header.dropdown.admin_panel")} style={{ position: "relative", color: "var(--header-btn-profile)" }}>
                   <ShieldAlert size={14} />
                   Admin
+                  {adminPending > 0 && <span className="notification-badge-mini">{adminPending > 99 ? "99+" : adminPending}</span>}
                 </Link>
               )}
               {user && (
@@ -1154,7 +1179,7 @@ export default function Header() {
                   setUserSearchOpen((prev) => !prev);
                 }}
                 className="action-btn-mini"
-                title={t("common.search")}
+                data-tour="hdr-search" title={t("common.search")}
                 style={{ color: "var(--header-btn-profile)" }}
               >
                 <Search size={16} />
@@ -1181,7 +1206,7 @@ export default function Header() {
               <button 
                 onClick={() => { closeAllMenus(); setLangMenuOpen(!langMenuOpen); }} 
                 className="action-btn-mini" 
-                title={t('header.dropdown.language')}
+                data-tour="hdr-lang" title={t('header.dropdown.language')}
                 style={{ 
                   color: "var(--header-btn-lang)",
                   flexDirection: "column", 
@@ -1194,7 +1219,7 @@ export default function Header() {
                 </span>
               </button>
               {langMenuOpen && (
-                <div className="hide-scrollbar header-dropdown-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "150px", maxHeight: "300px", overflowY: "auto" }}>
+                <div className="hide-scrollbar header-dropdown-menu" data-tour="hdr-lang-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "150px", maxHeight: "300px", overflowY: "auto" }}>
                   {LANGUAGES.map(lang => (
                     <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{ ...dropdownItemStyle, border: currentLocale === lang.code ? "1px solid var(--color-primary)" : "1px solid transparent", background: currentLocale === lang.code ? "var(--bg-soft)" : "transparent" }} className="dropdown-item-hover">
                       <span style={{ fontWeight: currentLocale === lang.code ? "900" : "600" }}>{lang.label}</span>
@@ -1209,13 +1234,13 @@ export default function Header() {
               <button 
                 onClick={() => { closeAllMenus(); setThemeMenuOpen(!themeMenuOpen); }} 
                 className="action-btn-mini" 
-                title={t('header.dropdown.theme')}
+                data-tour="hdr-theme" title={t('header.dropdown.theme')}
                 style={{ color: "var(--header-btn-theme)" }}
               >
                 <Palette size={16} />
               </button>
               {themeMenuOpen && (
-                <div className="header-dropdown-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "200px" }}>
+                <div className="header-dropdown-menu" data-tour="hdr-theme-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "200px" }}>
                   {THEME_OPTIONS.map(themeOpt => (
                     <button key={themeOpt.id} onClick={() => changeTheme(themeOpt.id, themeOpt.vip)} style={{ ...dropdownItemStyle, justifyContent: "space-between", border: activeTheme === themeOpt.id ? "1px solid var(--color-primary)" : "1px solid transparent", background: activeTheme === themeOpt.id ? "var(--bg-soft)" : "transparent" }} className="dropdown-item-hover">
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1238,9 +1263,10 @@ export default function Header() {
 
                 <div className="site-header__action-cluster">
                 {showAdminPanelInHeader && (
-                  <Link href="/admin-panel" className="action-btn-mini header-admin-link" title={t("header.dropdown.admin_panel")} style={{ color: "var(--header-btn-profile)" }}>
+                  <Link href="/admin-panel" className="action-btn-mini header-admin-link" title={t("header.dropdown.admin_panel")} style={{ position: "relative", color: "var(--header-btn-profile)" }}>
                     <ShieldAlert size={15} />
                     Admin
+                    {adminPending > 0 && <span className="notification-badge-mini">{adminPending > 99 ? "99+" : adminPending}</span>}
                   </Link>
                 )}
                 <Link href="/binders" className="action-btn-mini" style={{ color: "var(--nav-binders, var(--header-btn-profile))" }} title={t('header.dropdown.my_binders')}>
@@ -1523,7 +1549,7 @@ export default function Header() {
           </div>
         </>
       )}
-      <nav className="mobile-tabbar" aria-label={t("menu.home")}>
+      <nav className="mobile-tabbar" data-tour="hdr-tabbar" aria-label={t("menu.home")}>
         {[
           { name: t("menu.home"), path: "/", icon: Home },
           { name: t("menu.library"), path: "/library", icon: LayoutGrid },

@@ -539,7 +539,7 @@ export default function ShopClient() {
       <main className="shop-main" style={{ flex: 1, width: "100%", maxWidth: 1120, margin: "0 auto", padding: isMobile ? "20px 15px" : "40px 20px" }}>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
-          <div className="shop-koins-glow" style={{ padding: "12px 26px", display: "flex", alignItems: "center", gap: "12px", boxShadow: "0 8px 28px var(--shadow-card)" }}>
+          <div data-tour="shop-koins" className="shop-koins-glow" style={{ padding: "12px 26px", display: "flex", alignItems: "center", gap: "12px", boxShadow: "0 8px 28px var(--shadow-card)" }}>
             <Sparkles size={20} color="var(--color-primary)" fill="var(--color-primary)" />
             <span style={{ fontWeight: 900, color: "var(--text-main)", fontSize: "16px" }}>
               {t("shop.your_koins")}{" "}
@@ -576,8 +576,8 @@ export default function ShopClient() {
           </p>
         </div>
 
-        <div style={{ marginBottom: 60 }}>
-          <div style={{ display: "flex", justifyContent: "center", gap: 15, marginBottom: 40, flexWrap: "wrap" }}>
+        <div data-tour="shop-catalog" style={{ marginBottom: 60 }}>
+          <div data-tour="shop-tabs" style={{ display: "flex", justifyContent: "center", gap: 15, marginBottom: 40, flexWrap: "wrap" }}>
             {TABS.map((tab) => {
               const ac = tabAccent(tab.key);
               const on = activeTab === tab.key;

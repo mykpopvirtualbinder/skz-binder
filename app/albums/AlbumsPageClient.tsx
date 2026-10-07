@@ -42,6 +42,7 @@ export default function AlbumsPageClient() {
           <BindersShortcut />
         </div>
         <div
+          data-tour="albums-tabs"
           style={{
             display: "flex",
             gap: 10,

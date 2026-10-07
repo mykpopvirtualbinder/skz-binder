@@ -69,6 +69,7 @@ export default function Footer() {
 
         <div style={{ display: "flex", flexDirection: "column" }}>
           <span className="site-footer-title" data-nav="shop" style={footerColumnTitle}>{t('footer.support_title')}</span>
+          <a href="/guia" className="site-footer-link" data-nav="shop" style={footerLinkStyle}>{t('footer.guide')}</a>
           <a href="/faq" className="site-footer-link" data-nav="binders" style={footerLinkStyle}>{t('footer.faq')}</a>
           <a href="/report" className="site-footer-link site-footer-link--strong" data-nav="home" style={{ ...footerLinkStyle, fontWeight: 900, textDecoration: "underline" }}>
             {t('footer.report_abuse')}

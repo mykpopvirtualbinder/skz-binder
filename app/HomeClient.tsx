@@ -207,6 +207,7 @@ function HomeContent() {
           
           {/* Banner Market */}
           <div
+            data-tour="home-market"
             style={{
               background: "linear-gradient(135deg, var(--color-secondary) 0%, var(--color-primary) 100%)",
               borderRadius: "24px",
@@ -242,6 +243,7 @@ function HomeContent() {
 
           {/* Banner VIP */}
           <div
+            data-tour="home-vip"
             style={{
               background: "linear-gradient(135deg, var(--color-accent-orange) 0%, var(--color-primary) 100%)",
               borderRadius: "24px",
@@ -271,10 +273,13 @@ function HomeContent() {
               {t('home.banners.btn_view_advantages')}
             </button>
           </div>
+          <a href="/guia" data-tour="home-guide" style={{ alignSelf: "center", color: "var(--color-primary)", fontWeight: 900, fontSize: 14, textDecoration: "none" }}>
+            {t("footer.guide")}
+          </a>
         </div>
 
        {/* === ESTADÍSTICAS EN VIVO === */}
-        <div style={{ marginBottom: "50px" }}>
+        <div data-tour="home-stats" style={{ marginBottom: "50px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
             <h3 className="tan-font" style={{ color: "var(--text-heading)", margin: 0, fontSize: "24px" }}>
               {t('home.stats.title')}
@@ -294,7 +299,7 @@ function HomeContent() {
         </div>
 
         {/* === ARTISTA DEL MES (EDITORIAL) === */}
-        <div style={{ marginBottom: "50px" }}>
+        <div data-tour="home-artist" style={{ marginBottom: "50px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
             <Star size={24} color="var(--color-accent-orange)" fill="var(--color-accent-orange)" />
             <h3 className="tan-font" style={{ color: "var(--text-subheading)", margin: 0, fontSize: "24px" }}>

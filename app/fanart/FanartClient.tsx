@@ -883,7 +883,7 @@ function FanArtContent() {
       }}
     >
       <AdRailLayout section="fanart">
-      <main className="fanart-main" style={{ flex: 1, width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "40px 20px 36px" }}>
+      <main data-tour="fanart-main" className="fanart-main" style={{ flex: 1, width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "40px 20px 36px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "40px", borderBottom: `1px solid color-mix(in srgb, ${ACC.violet} 22%, var(--color-border))`, paddingBottom: "20px", flexWrap: "wrap", gap: "20px" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
@@ -896,7 +896,8 @@ function FanArtContent() {
               {t('fanart.subtitle')}
             </p>
           </div>
-          <button 
+          <button
+            data-tour="fanart-upload"
             type="button"
             onClick={handleUploadArtClick}
             style={{
@@ -950,7 +951,7 @@ function FanArtContent() {
             <SlidersHorizontal size={16} />
           </button>
         )}
-        <div className={`h-scroll-pills page-filters-panel${showCompactFilters ? " page-filters-panel--open" : ""}`} style={{ display: isCompactViewport ? undefined : "flex", gap: "10px", marginBottom: "40px", flexWrap: "wrap" }}>
+        <div data-tour="fanart-filters" className={`h-scroll-pills page-filters-panel${showCompactFilters ? " page-filters-panel--open" : ""}`} style={{ display: isCompactViewport ? undefined : "flex", gap: "10px", marginBottom: "40px", flexWrap: "wrap" }}>
           {isCompactViewport && (
             <div className="mobile-filter-sheet-head" style={{ width: "100%" }}>
               <strong>{t("common.filters") || "Filtros"}</strong>
