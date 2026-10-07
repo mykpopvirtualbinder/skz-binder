@@ -1484,6 +1484,7 @@ function ItemModal({
   // ===== Upload UI =====
   const [uploading, setUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const originFormRef = useRef<HTMLDivElement | null>(null);
   const [originKind, setOriginKind] = useState("albums");
   const [originTitle, setOriginTitle] = useState("");
   const [originGroup, setOriginGroup] = useState("");
@@ -1503,6 +1504,15 @@ function ItemModal({
   useEffect(() => {
     setPendingFile(null);
   }, [item.id]);
+
+  useEffect(() => {
+    if (!pendingFile) return;
+    const node = originFormRef.current;
+    if (!node) return;
+    window.requestAnimationFrame(() => {
+      node.scrollIntoView({ block: "end", inline: "nearest" });
+    });
+  }, [pendingFile]);
   // ===== Report UI =====
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<string>("wrong_info");
@@ -1692,7 +1702,7 @@ function ItemModal({
           borderRadius: 18,
           border: "1px solid var(--color-border)",
           boxShadow: "0 30px 80px color-mix(in srgb, var(--text-main) 22%, transparent)",
-          overflow: "hidden",
+          overflow: "auto",
           display: "grid",
           gridTemplateRows: "auto auto",
         }}
@@ -1762,10 +1772,10 @@ function ItemModal({
         </div>
 
         {/* BODY */}
-        <div className="library-item-modal-grid" style={{ display: "grid", gridTemplateColumns: "420px 520px", columnGap: 18, justifyContent: "start", height: "100%", minHeight: 0 }}>
+        <div className="library-item-modal-grid" style={{ display: pendingFile ? "flex" : "grid", flexDirection: pendingFile ? "column" : undefined, gridTemplateColumns: pendingFile ? undefined : "420px 520px", columnGap: 18, rowGap: pendingFile ? 14 : undefined, justifyContent: "start", height: pendingFile ? "auto" : "100%", minHeight: 0 }}>
           
           {/* IZQ: PREVIEW FOTO */}
-          <div className="library-item-modal-photo-col" style={{ position: "relative", background: "var(--bg-main)", padding: 10, borderRight: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", minHeight: 0, overflow: "hidden" }}>
+          <div className={`library-item-modal-photo-col${pendingFile ? " library-item-modal-photo-col--form" : ""}`} style={{ position: "relative", background: "var(--bg-main)", padding: 10, borderRight: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", minHeight: pendingFile ? "min-content" : 0, overflow: "visible" }}>
             <div
               role="button"
               tabIndex={0}
@@ -1780,8 +1790,8 @@ function ItemModal({
                 }
               }}
               title={t("library.modal.inspect_hint") || t("binders.zoom")}
-              className="library-pc-preview library-item-pc-preview"
-              style={{ width: "100%", maxWidth: 380, height: "min(62vh, 560px)", minHeight: "min(52vh, 420px)", aspectRatio: "2 / 3", position: "relative", overflow: "hidden", borderRadius: 14, isolation: "isolate", background: "transparent", margin: "12px auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
+              className={`library-pc-preview library-item-pc-preview${pendingFile ? " library-pc-preview--compact" : ""}`}
+              style={{ width: pendingFile ? 90 : "100%", maxWidth: 380, height: pendingFile ? 130 : "min(62vh, 560px)", minHeight: pendingFile ? 0 : "min(52vh, 420px)", maxHeight: pendingFile ? 130 : undefined, aspectRatio: "2 / 3", position: "relative", overflow: "hidden", borderRadius: 14, isolation: "isolate", background: "transparent", margin: pendingFile ? "4px auto 0" : "12px auto 0", cursor: inspectSrc ? "zoom-in" : "default" }}
             >
               <div style={{ position: "absolute", inset: 0, perspective: 1100 }}>
               <div
@@ -1948,7 +1958,7 @@ function ItemModal({
               </div>
 
               {pendingFile && (
-                <div style={{ marginTop: 12, display: "grid", gap: 8, textAlign: "left" }}>
+                <div ref={originFormRef} style={{ marginTop: 12, display: "grid", gap: 8, textAlign: "left" }}>
                   <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-main)", lineHeight: 1.35 }}>{t("library.modal.origin_intro")}</div>
                   <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 900, color: "var(--text-muted)" }}>
                     {t("library.modal.origin_kind")}

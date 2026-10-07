@@ -223,7 +223,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='ad-hueco']",
       title: "Dónde aparece",
-      text: "El anuncio puede ser el mismo, pero el hueco de la página no: en el ordenador hay barras laterales y en el móvil el anuncio va entre el contenido. Por eso eliges dispositivo y hueco.",
+      text: "Es la misma campaña. Este campo dice en qué hueco de esa pantalla va el archivo: barras laterales en el ordenador, un hueco en tablet, arriba o abajo en el móvil.",
       side: "bottom",
       tab: "publicidad",
       expand: true,
@@ -231,7 +231,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='ad-dispositivo']",
       title: "Dispositivo",
-      text: "Ordenador, tablet o móvil. No cambia el anuncio: cambia en qué pantalla se enseña, porque el diseño no es el mismo.",
+      text: "Subes los tres formatos de la misma campaña. La web mira la pantalla de quien entra y enseña el de ordenador, el de tablet o el de móvil.",
       side: "bottom",
       tab: "publicidad",
       expand: true,
