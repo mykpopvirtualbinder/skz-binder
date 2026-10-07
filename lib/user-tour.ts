@@ -373,9 +373,15 @@ const stepsFor = (id: string): TourStep[] => {
         closeAfter: "[data-tour='pc-modal-close']",
       },
       {
-        selector: "[data-tour='lib-colab-modal']",
+        selector: "[data-tour='lib-colab']",
         title: "¡Aporta un grupo!",
-        text: "Para una photocard que no está, o un lote. Pedimos tipo, nombre, grupo y miembro, más un archivo de hasta 8 MB (PNG, JPG o WEBP) o un enlace. Escape o un clic fuera cierra la ventana.",
+        text: "Este botón es para una photocard que no está en el catálogo, o para un lote. El siguiente paso abre la ventana.",
+        side: "left",
+      },
+      {
+        selector: "[data-tour='lib-colab-modal']",
+        title: "Qué hay que rellenar",
+        text: "Tipo, nombre, grupo y miembro, más un archivo de hasta 8 MB (PNG, JPG o WEBP) o un enlace. Escape o un clic fuera cierra la ventana.",
         side: "left",
         clickBefore: "[data-tour='lib-colab']",
         wait: 400,
@@ -640,13 +646,13 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='fanart-upload']",
         title: "Sube o pide ser artista",
-        text: "Si ya eres artista, este botón te lleva al estudio para subir la obra: dibujo, vídeo o fanfic. Si todavía no, se abre la solicitud.",
+        text: "Si todavía no eres artista, el siguiente paso es la solicitud: datos, redes y muestras. Cuando te aprueban, este mismo botón publica la obra en el estudio.",
         side: "left",
       },
       {
         selector: "[data-tour='fanart-upload-step']",
-        title: "Sube tu arte",
-        text: "Si ya eres artista, esto es el estudio: título, categoría, el archivo y la portada. Publicar lo deja en el muro. Si todavía no, la misma ventana pide tus datos y unas muestras para darte el pincel. Desde el tour no se envía nada.",
+        title: "Así se ve si aún no eres artista",
+        text: "Nombre, apellidos, nombre artístico y correo. Abajo, las redes y unas muestras de tu arte. Enviar lo manda al equipo. Desde el tour no se envía nada.",
         side: "left",
         clickBefore: "[data-tour='fanart-open-apply']",
         wait: 300,
@@ -862,16 +868,16 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='binder-pages']",
         title: "El carrusel",
-        text: "Ver todas abre las páginas en pequeño. Ahí se ve lo que has ido montando y se reordenan.",
+        text: "Ver todas abre el carrusel: las páginas en pequeño, en el orden del binder.",
         side: "bottom",
       },
       {
-        selector: "[data-tour='binder-carousel']",
-        title: "Ordenar y previsualizar",
-        text: "Arrastra una miniatura encima de otra para cambiar el orden del binder. Cada una es la preview de esa página. Ahora ves el intercambio, y al soltar vuelven a su sitio para no reordenar el tuyo.",
-        side: "left",
+        selector: "[data-tour='binder-reorder']",
+        title: "Mover las páginas",
+        text: "Dentro del carrusel, arrastra una página encima de otra para cambiar el orden. La primera miniatura es la primera página, y así el resto. El movimiento que ves no guarda nada: al soltar vuelven a su sitio.",
+        side: "bottom",
         clickBefore: "[data-tour='binder-pages']",
-        wait: 500,
+        wait: 600,
         demo: "page-order",
         closeAfter: "[data-tour='binder-carousel-close']",
       },
@@ -1116,7 +1122,8 @@ export function startUserTour(id: string) {
   const waitFor = (step: TourStep) => {
     const openerMissing = !!step.clickBefore && !document.querySelector(step.clickBefore);
     const targetMissing = !document.querySelector(step.selector);
-    if (openerMissing && targetMissing) return 0;
+    const binderInterior = canEnterBinder && step.selector.includes("binder-") && !!step.clickBefore;
+    if (openerMissing && targetMissing && !binderInterior) return 0;
     if (step.selector.includes("binder-covers") && canEnterBinder) return 8000;
     if (step.clickBefore?.includes("albums-inclusions")) return 8000;
     if (step.clickBefore) return 2500;

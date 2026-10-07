@@ -417,7 +417,6 @@ function FanArtContent() {
   }, [artworks]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [studioTourOpen, setStudioTourOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -923,10 +922,7 @@ function FanArtContent() {
             data-tour="fanart-open-apply"
             tabIndex={-1}
             aria-hidden
-            onClick={() => {
-              if (activeUser?.is_artist) setStudioTourOpen(true);
-              else setIsModalOpen(true);
-            }}
+            onClick={() => setIsModalOpen(true)}
             style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
           />
         </div>
@@ -1446,41 +1442,6 @@ function FanArtContent() {
                 {isSubmitting ? <><Loader2 size={20} className="spinner" /> {t("fanart.upload_form.btn_sending")}</> : t("fanart.upload_form.btn_submit")}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-      {studioTourOpen && (
-        <div onClick={() => setStudioTourOpen(false)} style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-medium)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-          <div data-tour="fanart-upload-step" onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "var(--bg-card)", width: "100%", maxWidth: "560px", borderRadius: "24px", border: `1px solid color-mix(in srgb, ${ACC.cyan} 28%, var(--color-border))`, maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column", boxShadow: "0 20px 40px var(--shadow-card)" }}>
-            <div style={{ padding: "20px 25px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <h2 className="tan-font" style={{ margin: 0, color: ACC.violet, fontSize: "24px" }}>{t("creator.title")}</h2>
-                <p style={{ margin: "5px 0 0 0", fontSize: "12px", color: "var(--text-muted)", fontWeight: 700 }}>{t("fanart.btn_upload")}</p>
-              </div>
-              <button type="button" data-tour="fanart-upload-close" onClick={() => setStudioTourOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: ACC.pink }}><X size={28} /></button>
-            </div>
-            <div style={{ padding: "25px", display: "flex", flexDirection: "column", gap: "16px" }}>
-              <label style={labelStyle}>{t("creator.label_title")}
-                <input placeholder={t("creator.title_placeholder")} style={{ ...inputStyle, marginTop: 8 }} />
-              </label>
-              <label style={labelStyle}>{t("creator.label_category")}
-                <select style={{ ...inputStyle, marginTop: 8 }} defaultValue={t("creator.cat_2d")}>
-                  <option>{t("creator.cat_2d")}</option>
-                  <option>{t("creator.cat_3d")}</option>
-                  <option>{t("creator.cat_crafts")}</option>
-                  <option>{t("creator.cat_fanfics")}</option>
-                  <option>{t("creator.cat_media")}</option>
-                </select>
-              </label>
-              <div style={{ border: `2px dashed color-mix(in srgb, ${ACC.violet} 55%, var(--color-border))`, borderRadius: "14px", padding: "24px", textAlign: "center" }}>
-                <UploadCloud size={32} color={ACC.cyan} style={{ margin: "0 auto 10px auto" }} />
-                <p style={{ margin: 0, fontWeight: 800, color: ACC.violet }}>{t("creator.upload_content")}</p>
-              </div>
-              <div style={{ border: `2px dashed color-mix(in srgb, ${ACC.cyan} 45%, var(--color-border))`, borderRadius: "14px", padding: "18px", textAlign: "center" }}>
-                <p style={{ margin: 0, fontWeight: 800, color: ACC.violet }}>{t("creator.upload_cover")}</p>
-              </div>
-              <button type="button" style={{ width: "100%", background: FANART_CTA_GRAD, color: "var(--modal-cta-fg)", border: "none", padding: "16px", borderRadius: "14px", fontWeight: 900, fontSize: "16px", cursor: "default", boxShadow: FANART_CTA_SHADOW }}>{t("creator.btn_publish")}</button>
-            </div>
           </div>
         </div>
       )}

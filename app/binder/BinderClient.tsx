@@ -6707,7 +6707,7 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
                 > 
                   {t('binders.tip')} 
                 </span> 
-                <span style={{ whiteSpace: "nowrap" }}>{t('binders.drag_to_reorder')}</span> 
+                <span data-tour="binder-reorder" style={{ whiteSpace: "nowrap" }}>{t('binders.drag_to_reorder')}</span> 
               </div>
             </div> 
           </div> 
