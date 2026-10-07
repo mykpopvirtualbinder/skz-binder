@@ -851,13 +851,13 @@ function FanArtContent() {
     letterSpacing: "0.04em",
   };
 
-  const isVerifiedArtist = Boolean(
-    localProfile?.is_artist || (activeUser as { is_artist?: boolean } | null)?.is_artist
-  );
-
-  const handleUploadArtClick = () => {
+  const handleUploadArtClick = async () => {
     if (!requireLoggedIn(activeUser?.id, showAlert, t)) return;
-    if (isVerifiedArtist) {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) return;
+    const { data: row } = await supabase.from("profiles").select("is_artist").eq("user_id", userId).single();
+    if (row?.is_artist) {
       router.push("/studio");
       return;
     }

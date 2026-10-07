@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
@@ -143,6 +143,11 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   
   // ESTADO DEL MODAL PRECIOSO
   const [confirmDialog, setConfirmDialog] = useState<{ title: string, message: string, onConfirm: () => void | Promise<void> } | null>(null);
+  const [artistWorksModal, setArtistWorksModal] = useState<{
+    userName: string;
+    works: { id: string; title: string; category: string; thumb: string | null }[];
+    picked: Record<string, boolean>;
+  } | null>(null);
 
   type StrikeModalDuration = "no_restrict" | "indefinite" | "7d" | "30d" | "90d" | "180d" | "365d";
   const [strikeModal, setStrikeModal] = useState<{
@@ -714,6 +719,8 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
   const [searchTerm, setSearchTerm] = useState("");
   const [profiles, setProfiles] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const pendingPublishRef = useRef<{ userId: string; name: string } | null>(null);
+  const holdUserSearchRef = useRef(false);
   const [usersOverviewLoading, setUsersOverviewLoading] = useState(false);
   const [usersOverviewError, setUsersOverviewError] = useState<string | null>(null);
   const [usersOverview, setUsersOverview] = useState<AdminOverviewUser[]>([]);
@@ -791,9 +798,18 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
   queueSink.current = { setDenuncias, setSelectedDenuncia };
 
   useEffect(() => {
-    setSearchTerm("");
-    setProfiles([]);
-    setSelectedUserId(null);
+    const pending = pendingPublishRef.current;
+    pendingPublishRef.current = null;
+    if (pending && activeTab === "publicar") {
+      holdUserSearchRef.current = true;
+      setSelectedUserId(pending.userId);
+      setSearchTerm(pending.name);
+      setProfiles([]);
+    } else {
+      setSearchTerm("");
+      setProfiles([]);
+      setSelectedUserId(null);
+    }
     if (activeTab !== "usuarios") {
       setUsersListOpen(false);
       setUsersOverviewSearch("");
@@ -957,6 +973,11 @@ const levantarSancion = async (userId: string, ticketId: string) => {
 
   useEffect(() => {
     const searchUsers = async () => {
+      if (holdUserSearchRef.current) {
+        holdUserSearchRef.current = false;
+        setProfiles([]);
+        return;
+      }
       if (searchTerm.length < 2) {
         setProfiles([]);
         return;
@@ -1108,10 +1129,13 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     e.stopPropagation();
     const action = currentValue ? "quitar" : "dar";
     let fieldNameEs = field === 'is_premium' ? 'Premium' : field === 'is_artist' ? 'Artista' : 'Restricción';
+    const removingArtist = field === "is_artist" && currentValue;
 
     setConfirmDialog({
       title: "Confirmar Acción",
-      message: `¿Seguro que quieres ${action} el estado de ${fieldNameEs} a ${userName}?`,
+      message: removingArtist
+        ? `¿Seguro que quieres quitar el estado de Artista a ${userName}?\n\nDespués puedes dejar sus obras, borrarlas todas o elegir cuáles salen de la web.`
+        : `¿Seguro que quieres ${action} el estado de ${fieldNameEs} a ${userName}?`,
       onConfirm: async () => {
         setLoading(true);
         try {
@@ -1125,8 +1149,12 @@ const levantarSancion = async (userId: string, ticketId: string) => {
           const { data: authData } = await supabase.auth.getUser();
           await supabase.from('notifications').insert({ user_id: userId, sender_id: authData.user?.id, type: 'admin_message', content: `ACTUALIZACIÓN: ${mensajeNoti}`, read: false });
 
-          showAlert("Éxito", `¡Estado de ${fieldNameEs} actualizado!`);
           sincronizarCambioUsuario(userId, { [field]: !currentValue });
+          if (removingArtist) {
+            await openArtistWorksCleanup(userName, userId);
+          } else {
+            showAlert("Éxito", `¡Estado de ${fieldNameEs} actualizado!`);
+          }
         } catch (err: any) {
           showAlert("Error", err.message);
         } finally {
@@ -1134,6 +1162,60 @@ const levantarSancion = async (userId: string, ticketId: string) => {
         }
       }
     });
+  };
+
+  const openArtistWorksCleanup = async (userName: string, userId: string) => {
+    const { data, error } = await supabase
+      .from("fanarts")
+      .select("id, title, category, thumbnail_url, image_url")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      showAlert("Artista quitado", `${userName} ya no es artista. No pude cargar sus obras: ${error.message}`);
+      return;
+    }
+    const works = (data || []).map((row) => ({
+      id: String(row.id),
+      title: String(row.title || "Sin título"),
+      category: String(row.category || "Obra"),
+      thumb: (row.thumbnail_url || row.image_url || null) as string | null,
+    }));
+    if (works.length === 0) {
+      showAlert("Artista quitado", `${userName} ya no es artista. No tiene obras en la web.`);
+      return;
+    }
+    const picked: Record<string, boolean> = {};
+    works.forEach((work) => {
+      picked[work.id] = false;
+    });
+    setArtistWorksModal({ userName, works, picked });
+  };
+
+  const deleteArtistWorks = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const { data: comments } = await supabase.from("fanart_comments").select("id, parent_id").in("fanart_id", ids);
+    const commentRows = (comments || []) as { id: string; parent_id?: string | null }[];
+    const replyIds = commentRows.filter((row) => row.parent_id).map((row) => row.id);
+    const rootIds = commentRows.filter((row) => !row.parent_id).map((row) => row.id);
+    const commentIds = [...replyIds, ...rootIds];
+    if (commentIds.length > 0) {
+      await supabase.from("fanart_comment_likes").delete().in("comment_id", commentIds);
+      if (replyIds.length > 0) await supabase.from("fanart_comments").delete().in("id", replyIds);
+      if (rootIds.length > 0) await supabase.from("fanart_comments").delete().in("id", rootIds);
+    }
+    await supabase.from("fanart_likes").delete().in("fanart_id", ids);
+    await supabase.from("fanzone_notifications").delete().in("fanart_id", ids);
+
+    const { data: chapters } = await supabase.from("capitulos").select("id").in("obra_id", ids);
+    const chapterIds = (chapters || []).map((row) => String(row.id));
+    if (chapterIds.length > 0) {
+      await supabase.from("traducciones").delete().in("capitulo_id", chapterIds);
+      await supabase.from("capitulos").delete().in("id", chapterIds);
+    }
+    await supabase.from("obras").delete().in("id", ids);
+
+    const { error } = await supabase.from("fanarts").delete().in("id", ids);
+    if (error) throw error;
   };
   // --- FUNCIÓN PARA AÑADIR STRIKE ---
   const addStrike = async (p: any, e: React.MouseEvent) => {
@@ -2463,6 +2545,24 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     router.replace(`/admin-panel?${params.toString()}`, { scroll: false });
   };
 
+  const openPublishFor = (userId: string | null | undefined, name: string) => {
+    const label = name.trim() || "esta persona";
+    if (!userId) {
+      showAlert("Sin usuario", `La solicitud de ${label} no tiene cuenta vinculada. Búscala a mano en Publicar.`);
+      openAdminTab("publicar");
+      return;
+    }
+    if (activeTab === "publicar") {
+      holdUserSearchRef.current = true;
+      setSelectedUserId(userId);
+      setSearchTerm(label);
+      setProfiles([]);
+      return;
+    }
+    pendingPublishRef.current = { userId, name: label };
+    openAdminTab("publicar");
+  };
+
   if (authLoading) {
     return <CatalogLoadingFun fullPage />;
   }
@@ -2613,6 +2713,11 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 <div style={{ position: 'relative', gridColumn: "1 / -1" }}>
                   <label style={labelStyle}>Buscar Usuario (Para asignarle la obra) *</label>
                   <input style={inputStyle} placeholder="Busca por nombre de usuario..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                  {selectedUserId && (
+                    <p style={{ margin: "8px 0 0", fontSize: "13px", fontWeight: 800, color: "var(--color-primary)" }}>
+                      La obra se publicará a nombre de {searchTerm || "este usuario"}.
+                    </p>
+                  )}
                   
                   {profiles.length > 0 && (
                     <div style={{ position: 'absolute', zIndex: 100, background: 'var(--bg-card)', width: '100%', border: '1px solid var(--color-border)', borderRadius: '12px', marginTop: '4px', overflow: 'hidden', boxShadow: '0 4px 12px var(--overlay-faint)' }}>
@@ -2918,6 +3023,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       </div>
                       <div style={{ marginTop: "16px", paddingTop: "15px", borderTop: "1px dashed var(--color-border)", display: "flex", gap: "10px", flexWrap: "wrap" }}>
                         <button onClick={(e) => aprobarArtista(sol.user_id, sol.nombre, false, e, sol.id)} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Aprobar como Artista</button>
+                        <button type="button" onClick={() => openPublishFor(sol.user_id, sol.nombre || "")} style={{ background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-primary)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Publicar su obra</button>
                         <button onClick={() => void saveQueueCase("solicitud", sol.id, { status: "denegada", leido: true }, "estado", "Denegada")} style={{ background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Denegar</button>
                       </div>
                     </div>
@@ -4634,6 +4740,95 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
         </div>
       )}
       {/* 🌟 PRECIOSO MODAL DE CONFIRMACIÓN (REEMPLAZA AL DE NAVEGADOR) 🌟 */}
+      {artistWorksModal && (
+        <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-strong)", zIndex: 19000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={() => setArtistWorksModal(null)}>
+          <div style={{ background: "var(--bg-main)", padding: "28px", borderRadius: "24px", maxWidth: "560px", width: "100%", border: "2px solid var(--color-border)", boxShadow: "0 20px 40px var(--overlay-soft)", maxHeight: "90vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: "0 0 8px 0", fontSize: "24px" }}>Obras de {artistWorksModal.userName}</h3>
+            <p style={{ color: "var(--text-main)", fontSize: "14px", fontWeight: 600, margin: "0 0 16px 0", lineHeight: 1.5 }}>
+              Ya no es artista. Sus obras siguen en la web. Puedes dejarlas, borrarlas todas o marcar solo las que quieres quitar.
+            </p>
+            <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+              {artistWorksModal.works.map((work) => (
+                <label key={work.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 10px", borderRadius: "12px", border: "1px solid var(--color-border)", background: "var(--bg-card)", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!artistWorksModal.picked[work.id]}
+                    onChange={() => setArtistWorksModal((prev) => prev ? { ...prev, picked: { ...prev.picked, [work.id]: !prev.picked[work.id] } } : prev)}
+                  />
+                  {work.thumb && <img src={work.thumb} alt="" style={{ width: 36, height: 48, objectFit: "cover", borderRadius: 6 }} />}
+                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <strong style={{ fontSize: "14px", color: "var(--text-main)" }}>{work.title}</strong>
+                    <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700 }}>{work.category}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setArtistWorksModal(null)} style={{ flex: "1 1 140px", background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}>
+                Dejarlas
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const ids = Object.entries(artistWorksModal.picked).filter(([, on]) => on).map(([id]) => id);
+                  if (ids.length === 0) {
+                    showAlert("Elige obras", "Marca al menos una obra, o usa Eliminar todas.");
+                    return;
+                  }
+                  const modal = artistWorksModal;
+                  setConfirmDialog({
+                    title: "Quitar obras",
+                    message: `¿Eliminar ${ids.length} obra${ids.length === 1 ? "" : "s"} de ${modal.userName}? No se puede deshacer.`,
+                    onConfirm: async () => {
+                      setLoading(true);
+                      try {
+                        await deleteArtistWorks(ids);
+                        const left = modal.works.filter((work) => !ids.includes(work.id));
+                        if (left.length === 0) setArtistWorksModal(null);
+                        else setArtistWorksModal({ ...modal, works: left, picked: Object.fromEntries(left.map((work) => [work.id, false])) });
+                        showAlert("Obras eliminadas", `Se han quitado ${ids.length} de la web.`);
+                      } catch (err: unknown) {
+                        showAlert("Error", err instanceof Error ? err.message : String(err));
+                      } finally {
+                        setLoading(false);
+                      }
+                    },
+                  });
+                }}
+                style={{ flex: "1 1 160px", background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}
+              >
+                Eliminar seleccionadas
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const modal = artistWorksModal;
+                  const ids = modal.works.map((work) => work.id);
+                  setConfirmDialog({
+                    title: "Eliminar todo su arte",
+                    message: `¿Eliminar las ${ids.length} obras de ${modal.userName}? No se puede deshacer.`,
+                    onConfirm: async () => {
+                      setLoading(true);
+                      try {
+                        await deleteArtistWorks(ids);
+                        setArtistWorksModal(null);
+                        showAlert("Arte eliminado", `Se ha quitado todo el arte de ${modal.userName}.`);
+                      } catch (err: unknown) {
+                        showAlert("Error", err instanceof Error ? err.message : String(err));
+                      } finally {
+                        setLoading(false);
+                      }
+                    },
+                  });
+                }}
+                style={{ flex: "1 1 160px", background: "var(--state-danger-fg, #b42318)", color: "white", border: "none", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}
+              >
+                Eliminar todas
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {confirmDialog && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-strong)", zIndex: 20000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={() => setConfirmDialog(null)}>
           <div style={{ background: "var(--bg-main)", padding: "30px", borderRadius: "24px", maxWidth: "420px", width: "100%", textAlign: "center", border: "2px solid var(--color-border)", boxShadow: "0 20px 40px var(--overlay-soft)" }} onClick={e => e.stopPropagation()}>
