@@ -2664,6 +2664,12 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
       const first = solicitudes[0];
       if (first) setOpenSolicitudId(first.id);
     },
+    openFirstBuzon: () => {
+      if (selectedBuzon) return;
+      const first = buzon.find((item) => item.asunto !== ADMIN_QUEUE_SUBJECT);
+      if (!first) return;
+      setSelectedBuzon(first);
+    },
     showArtworkFields: () => {
       setFormData((prev) => (prev.category === "Fanfics" ? { ...prev, category: "Arte 2D" } : prev));
     },
@@ -2769,7 +2775,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 </div>
                 <div>
                   <label style={labelStyle}>Categoría *</label>
-                  <select style={inputStyle} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                  <select data-tour="pub-categoria" style={inputStyle} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                     <option>Arte 2D</option>
                     <option>Arte 3D</option>
                     <option>Artesanía</option>
@@ -2908,7 +2914,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 </>
               )}
 
-              <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", padding: "15px", backgroundColor: formData.is_nsfw ? "var(--bg-soft)" : "transparent", borderRadius: "12px", border: formData.is_nsfw ? "1px solid var(--color-border)" : "1px solid transparent", transition: "0.2s" }}>
+              <label data-tour="pub-nsfw" style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", padding: "15px", backgroundColor: formData.is_nsfw ? "var(--bg-soft)" : "transparent", borderRadius: "12px", border: formData.is_nsfw ? "1px solid var(--color-border)" : "1px solid transparent", transition: "0.2s" }}>
                 <input type="checkbox" checked={formData.is_nsfw} onChange={e => setFormData({...formData, is_nsfw: e.target.checked})} style={{ width: "20px", height: "20px", accentColor: "var(--color-primary)" }} />
                 <span style={{ fontSize: "14px", color: "var(--color-primary)", fontWeight: 800 }}>🔞 Marcar como Contenido +18</span>
               </label>
@@ -3160,17 +3166,19 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       <div style={{ marginTop: "16px" }}>
                         <AdminQueueBar
                           queue="solicitud"
+                          mark={solIndex === 0 ? "sol-caso" : undefined}
                           state={caso}
                           busy={queueBusy === queueKey("solicitud", sol.id)}
                           onPatch={(patch, action, detail) => void saveQueueCase("solicitud", sol.id, patch, action, detail)}
                         />
                       </div>
-                      <div className="sol-actions" style={{ marginTop: "16px", paddingTop: "15px", borderTop: "1px dashed var(--color-border)", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      <div data-tour={solIndex === 0 ? "sol-acciones" : undefined} className="sol-actions" style={{ marginTop: "16px", paddingTop: "15px", borderTop: "1px dashed var(--color-border)", display: "flex", gap: "10px", flexWrap: "wrap" }}>
                         <button onClick={(e) => aprobarArtista(sol.user_id, sol.nombre, false, e, sol.id)} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Aprobar como Artista</button>
                         <button type="button" onClick={() => openPublishFor(sol.user_id, sol.nombre || "")} style={{ background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-primary)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Publicar su obra</button>
                         <button onClick={() => void saveQueueCase("solicitud", sol.id, { status: "denegada", leido: true }, "estado", "Denegada")} style={{ background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Denegar</button>
                       </div>
                       <UserCaseHistory
+                        tour={solIndex === 0 ? "sol-historial" : undefined}
                         noun="solicitudes"
                         name={sol.nombre || "este usuario"}
                         onOpen={(id) => revealCase("solicitud", id)}
@@ -3209,6 +3217,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     }}>
       <ListFilter size={18} color="var(--color-primary)" />
       <select 
+        data-tour="den-categoria"
         value={filtroDenuncia} 
         onChange={(e) => setFiltroDenuncia(e.target.value)} 
         style={{ border: "none", background: "transparent", outline: "none", color: "var(--color-primary)", fontWeight: 800, fontSize: "13px", cursor: "pointer" }}
@@ -3222,6 +3231,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
   </div>
 
   <AdminQueueFilters
+    tour="den-filtros"
     queue="denuncia"
     status={filtroEstado}
     gestor={denFiltroGestor}
@@ -3285,7 +3295,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                         onMark={(ids, leido) => void markQueueRead("denuncia", ids, leido)}
                       />
 
-                      {filtradas.map((d) => {
+                      {filtradas.map((d, denIndex) => {
                         const caso = caseOf("denuncia", d.id, d.estado);
                         return (
                         <div key={d.id} style={{ display: "flex", flexDirection: "column", gap: "12px", border: "1px solid var(--color-border)", padding: "15px 20px", borderRadius: "16px", background: selectedDenuncias.has(d.id) ? "var(--bg-soft)" : "var(--bg-card)", transition: "0.2s" }}>
@@ -3334,6 +3344,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           </div>
                           <AdminQueueBar
                             queue="denuncia"
+                            mark={denIndex === 0 ? "den-caso" : undefined}
                             state={caso}
                             busy={queueBusy === queueKey("denuncia", d.id)}
                             onPatch={(patch, action, detail) => void saveQueueCase("denuncia", d.id, patch, action, detail, d.estado)}
@@ -3463,7 +3474,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         Email de Contacto: {selectedBuzon.email}
                       </p>
                     </div>
-                    <select value={selectedBuzon.status || 'pendiente'} onChange={async (e) => {
+                    <select data-tour="buz-estado" value={selectedBuzon.status || 'pendiente'} onChange={async (e) => {
                       const st = e.target.value;
                       setSelectedBuzon({...selectedBuzon, status: st});
                       setBuzon(prev => prev.map(x => x.id === selectedBuzon.id ? {...x, status: st} : x));
@@ -3504,7 +3515,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   </div>
 
                   <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "15px" }}>
-                    <textarea rows={3} placeholder="Añade una respuesta o nota interna al hilo..." value={respuestaBuzon} onChange={(e) => setRespuestaBuzon(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", marginBottom: "10px" }} />
+                    <textarea data-tour="buz-nota" rows={3} placeholder="Añade una respuesta o nota interna al hilo..." value={respuestaBuzon} onChange={(e) => setRespuestaBuzon(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", marginBottom: "10px" }} />
                     <button onClick={enviarRespuestaWeb} style={{ background: "var(--color-primary)", color: "var(--bg-card)", padding: "10px 20px", borderRadius: "10px", fontWeight: 900, cursor: "pointer", border: "none" }}>Guardar Respuesta en Hilo</button>
                   </div>
                 </div>
@@ -3561,7 +3572,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         onMark={(ids, leido) => void markQueueRead("aportacion", ids, leido)}
                       />
 
-                      {filtrados.map((a) => {
+                      {filtrados.map((a, apoIndex) => {
                         const caso = caseOf("aportacion", a.id, a.status);
                         return (
                         <div key={a.id} style={{ display: "flex", flexDirection: "column", gap: "12px", border: "1px solid var(--color-border)", padding: "15px 20px", borderRadius: "16px", background: selectedAportacionIds.has(a.id) ? "var(--bg-soft)" : "var(--bg-card)" }}>
@@ -3584,6 +3595,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           </div>
                           <AdminQueueBar
                             queue="aportacion"
+                            mark={apoIndex === 0 ? "apo-caso" : undefined}
                             state={caso}
                             busy={queueBusy === queueKey("aportacion", a.id)}
                             onPatch={(patch, action, detail) => void saveQueueCase("aportacion", a.id, patch, action, detail, a.status)}
@@ -3691,19 +3703,19 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Campañas de Publicidad</h2>
               </div>
 
-              <div data-tour="ad-form" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "14px" }}>
+              <div data-tour="ad-copy" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "14px" }}>
                 <input style={inputStyle} placeholder="Titulo del anuncio*" value={adForm.title} onChange={(e) => setAdForm((p) => ({ ...p, title: e.target.value }))} />
                 <input style={inputStyle} placeholder="Subtitulo" value={adForm.subtitle} onChange={(e) => setAdForm((p) => ({ ...p, subtitle: e.target.value }))} />
                 <input style={inputStyle} placeholder="URL destino*" value={adForm.target_url} onChange={(e) => setAdForm((p) => ({ ...p, target_url: e.target.value }))} />
                 <input style={inputStyle} placeholder="URL imagen (opcional)" value={adForm.image_url} onChange={(e) => setAdForm((p) => ({ ...p, image_url: e.target.value }))} />
-                <select style={inputStyle} value={adForm.placement} onChange={(e) => setAdForm((p) => ({ ...p, placement: e.target.value as AdPlacement }))}>
+                <select data-tour="ad-hueco" style={inputStyle} value={adForm.placement} onChange={(e) => setAdForm((p) => ({ ...p, placement: e.target.value as AdPlacement }))}>
                   <option value="sidebar_left">Sidebar izquierda</option>
                   <option value="sidebar_right">Sidebar derecha</option>
                   <option value="tablet_sidebar">Tablet inline</option>
                   <option value="mobile_inline_top">Movil inline superior</option>
                   <option value="mobile_inline_bottom">Movil inline inferior</option>
                 </select>
-                <select style={inputStyle} value={adForm.device} onChange={(e) => setAdForm((p) => ({ ...p, device: e.target.value as AdDevice }))}>
+                <select data-tour="ad-dispositivo" style={inputStyle} value={adForm.device} onChange={(e) => setAdForm((p) => ({ ...p, device: e.target.value as AdDevice }))}>
                   <option value="desktop">Desktop</option>
                   <option value="tablet">Tablet</option>
                   <option value="mobile">Movil</option>
@@ -3714,7 +3726,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 <input style={inputStyle} type="datetime-local" value={adForm.end_at} onChange={(e) => setAdForm((p) => ({ ...p, end_at: e.target.value }))} />
               </div>
 
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, color: "var(--color-primary)" }}>
+              <label data-tour="ad-activar" style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, color: "var(--color-primary)" }}>
                 <input type="checkbox" checked={adForm.active} onChange={(e) => setAdForm((p) => ({ ...p, active: e.target.checked }))} />
                 Campaña activa
               </label>
@@ -3910,6 +3922,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       <h3 style={{ margin: "0 0 14px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>Miembro</h3>
                       <label style={labelStyle}>Grupo</label>
                       <select
+                        data-tour="cat-grupo-select"
                         style={inputStyle}
                         value={catalogMemberForm.group_id ?? ""}
                         onChange={(e) =>

@@ -37,15 +37,15 @@ export type UserHistoryRow = {
   actions: string;
 };
 
-export function UserCaseHistory({ noun, name, rows, onOpen }: { noun: string; name: string; rows: UserHistoryRow[]; onOpen?: (id: string) => void }) {
+export function UserCaseHistory({ noun, name, rows, onOpen, tour }: { noun: string; name: string; rows: UserHistoryRow[]; onOpen?: (id: string) => void; tour?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ marginTop: 12 }}>
-      <button type="button" onClick={() => setOpen((v) => !v)} style={{ ...chip, cursor: "pointer" }}>
+      <button data-tour={tour} type="button" onClick={() => setOpen((v) => !v)} style={{ ...chip, cursor: "pointer" }}>
         {open ? "Ocultar historial" : `Historial de ${noun} de ${name}`}
       </button>
       {open && (
-        <div style={{ marginTop: 8, background: "var(--bg-main)", border: "1px dashed var(--color-border)", borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div data-tour={tour ? `${tour}-lista` : undefined} style={{ marginTop: 8, background: "var(--bg-main)", border: "1px dashed var(--color-border)", borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
           {rows.map((row) => (
             <button
               key={row.id}
@@ -152,7 +152,7 @@ export function AdminQueueFilters({
   return (
     <div className="aq-filters" data-tour={tour} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div className="aq-filter-row" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        <label style={chip}>
+        <label data-tour={tour ? `${tour}-estado` : undefined} style={chip}>
           Estado
           <select value={status} onChange={(e) => onStatus(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
             <option value="todos">Todos</option>
@@ -161,7 +161,7 @@ export function AdminQueueFilters({
             ))}
           </select>
         </label>
-        <label style={chip}>
+        <label data-tour={tour ? `${tour}-gestor` : undefined} style={chip}>
           Quién gestiona
           <select value={gestor} onChange={(e) => onGestor(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
             <option value="todos">Todas</option>
@@ -177,7 +177,7 @@ export function AdminQueueFilters({
           placeholder="Filtrar por usuario"
           style={{ ...chip, minWidth: 180, color: "var(--text-main)", outline: "none" }}
         />
-        <label style={chip}>
+        <label data-tour={tour ? `${tour}-lectura` : undefined} style={chip}>
           Lectura
           <select value={read} onChange={(e) => onRead(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
             <option value="todos">Todas</option>
@@ -210,11 +210,13 @@ export function AdminQueueBar({
   state,
   busy,
   onPatch,
+  mark,
 }: {
   queue: QueueKind;
   state: QueueCase;
   busy?: boolean;
   onPatch: (patch: Partial<Pick<QueueCase, "leido" | "status" | "gestor">>, action: string, detail: string) => void;
+  mark?: string;
 }) {
   const statuses = statusesOf(queue);
   return (
@@ -233,7 +235,7 @@ export function AdminQueueBar({
         <span className="aq-long">{state.leido ? "Marcar como no leída" : "Marcar como leída"}</span>
         <span className="aq-short">{state.leido ? "No leída" : "Leída"}</span>
       </button>
-      <label style={chip}>
+      <label data-tour={mark ? `${mark}-estado` : undefined} style={chip}>
         Estado
         <select
           disabled={busy}
@@ -249,7 +251,7 @@ export function AdminQueueBar({
           ))}
         </select>
       </label>
-      <label style={chip}>
+      <label data-tour={mark ? `${mark}-gestor` : undefined} style={chip}>
         Gestiona
         <select
           disabled={busy}
