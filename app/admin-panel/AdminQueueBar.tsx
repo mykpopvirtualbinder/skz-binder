@@ -72,11 +72,13 @@ export function ReadSelectionBar({
   selected,
   onChange,
   onMark,
+  tour,
 }: {
   ids: string[];
   selected: Set<string>;
   onChange: (next: Set<string>) => void;
   onMark: (ids: string[], leido: boolean) => void;
+  tour?: string;
 }) {
   const allOn = ids.length > 0 && ids.every((id) => selected.has(id));
   const btn: CSSProperties = { ...chip, cursor: "pointer", background: "var(--bg-card)" };
@@ -87,7 +89,7 @@ export function ReadSelectionBar({
     </>
   );
   return (
-    <div className="aq-readbar" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+    <div className="aq-readbar" data-tour={tour} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
       <label style={{ ...chip, cursor: "pointer" }}>
         <input
           type="checkbox"
@@ -132,6 +134,7 @@ export function AdminQueueFilters({
   onGestor,
   onUserQuery,
   onRead,
+  tour,
 }: {
   queue: QueueKind;
   status: string;
@@ -142,11 +145,12 @@ export function AdminQueueFilters({
   onGestor: (value: string) => void;
   onUserQuery: (value: string) => void;
   onRead: (value: string) => void;
+  tour?: string;
 }) {
   const statuses = queue === "denuncia" ? DENUNCIA_STATUSES : CORE_STATUSES;
 
   return (
-    <div className="aq-filters" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div className="aq-filters" data-tour={tour} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div className="aq-filter-row" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <label style={chip}>
           Estado

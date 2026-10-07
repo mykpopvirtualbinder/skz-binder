@@ -32,6 +32,7 @@ import {
 } from "@/lib/admin-queue";
 import { AdminQueueBar, AdminQueueFilters, ReadSelectionBar, UserCaseHistory, caseMatchesFilters, type UserHistoryRow } from "./AdminQueueBar";
 import AdminManual from "./AdminManual";
+import { startAdminTour } from "./adminTour";
 
 
 
@@ -115,9 +116,9 @@ function compactActionStyle(kind: "default" | "danger" | "success" | "warning" |
   };
 }
 
-function AdminUserActionGroup({ label, children }: { label: string; children: React.ReactNode }) {
+function AdminUserActionGroup({ label, children, tour }: { label: string; children: React.ReactNode; tour?: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 }}>
+    <div data-tour={tour} style={{ display: "flex", flexDirection: "column", gap: "5px", minWidth: 0 }}>
       <div style={{ fontSize: "9px", fontWeight: 900, letterSpacing: "0.08em", color: "var(--text-muted)" }}>{label}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", alignItems: "center" }}>{children}</div>
     </div>
@@ -2390,7 +2391,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 : "BAJA";
     const actionsOpen = openUserActionsId === p.user_id;
     return (
-      <div key={p.user_id} style={{ padding: "10px 14px", borderBottom: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", gap: actionsOpen ? "10px" : "0", background: actionsOpen ? "var(--bg-soft)" : "transparent" }}>
+      <div data-tour={actionsOpen ? "usr-ficha" : undefined} key={p.user_id} style={{ padding: "10px 14px", borderBottom: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", gap: actionsOpen ? "10px" : "0", background: actionsOpen ? "var(--bg-soft)" : "transparent" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
@@ -2417,7 +2418,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
         {actionsOpen && (
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {!p.is_deleted && (
-            <AdminUserActionGroup label="ACCESO">
+            <AdminUserActionGroup label="ACCESO" tour="usr-acceso">
               <button
                 type="button"
                 onClick={(e) =>
@@ -2501,7 +2502,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             </AdminUserActionGroup>
           )}
 
-          <AdminUserActionGroup label="CUENTA">
+          <AdminUserActionGroup label="CUENTA" tour="usr-cuenta">
             <button type="button" onClick={() => router.push(`/user/${p.user_id}`)} style={compactActionStyle()}>
               <ExternalLink size={12} /> Perfil
             </button>
@@ -2547,7 +2548,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             </div>
           </AdminUserActionGroup>
 
-          <AdminUserActionGroup label="MODERACIÓN">
+          <AdminUserActionGroup label="MODERACIÓN" tour="usr-mod">
             <button onClick={(e) => openStrikeModal(p, e)} disabled={p.strikes >= 3} style={{ ...compactActionStyle(p.strikes >= 3 ? "default" : "danger"), opacity: p.strikes >= 3 ? 0.55 : 1, cursor: p.strikes >= 3 ? "not-allowed" : "pointer" }}>
               <ShieldAlert size={12} /> Strike {p.strikes || 0}/3
             </button>
@@ -2675,7 +2676,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             <h1 className="tan-font">Admin</h1>
             <p>Gestión de la plataforma</p>
           </div>
-          <nav className="admin-nav" aria-label="Secciones del panel">
+          <nav className="admin-nav" data-tour="admin-nav" aria-label="Secciones del panel">
             {adminNav.map((group) => (
               <div key={group.label} className="admin-nav-group">
                 <span className="admin-nav-label">{group.label}</span>
@@ -2687,6 +2688,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       key={item.id}
                       type="button"
                       className={active ? "admin-nav-btn is-active" : "admin-nav-btn"}
+                      data-tour={`nav-${item.id}`}
                       aria-current={active ? "page" : undefined}
                       onClick={() => openAdminTab(item.id)}
                     >
@@ -2715,6 +2717,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 <div>
                   <label style={labelStyle}>Título de la obra *</label>
                   <input
+                    data-tour="pub-titulo"
                     required
                     disabled={formData.category === "Fanfics" && !isNewStory}
                     style={{
@@ -2796,7 +2799,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                   </div>
                 )}
 
-                <div style={{ position: 'relative', gridColumn: "1 / -1" }}>
+                <div data-tour="pub-usuario" style={{ position: 'relative', gridColumn: "1 / -1" }}>
                   <label style={labelStyle}>Buscar Usuario (Para asignarle la obra) *</label>
                   <input style={inputStyle} placeholder="Busca por nombre de usuario..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                   {selectedUserId && (
@@ -2855,7 +2858,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 </div>
               ) : (
                 <>
-                  <div>
+                  <div data-tour="pub-archivo">
                     <label style={labelStyle}>1. Archivo Principal (PDF, Vídeo o Imagen) *</label>
                     <div style={dropzoneStyle(!!file)}>
                       <input type="file" accept="image/*,video/*,application/pdf" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} id="main-file" />
@@ -2884,7 +2887,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 <span style={{ fontSize: "14px", color: "var(--color-primary)", fontWeight: 800 }}>🔞 Marcar como Contenido +18</span>
               </label>
 
-              <button type="submit" disabled={loading} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "20px", borderRadius: "15px", fontWeight: 900, fontSize: "16px", cursor: loading ? "not-allowed" : "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginTop: "10px", boxShadow: "0 10px 20px var(--shadow-card)" }}>
+              <button data-tour="pub-publicar" type="submit" disabled={loading} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "20px", borderRadius: "15px", fontWeight: 900, fontSize: "16px", cursor: loading ? "not-allowed" : "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginTop: "10px", boxShadow: "0 10px 20px var(--shadow-card)" }}>
                 {loading ? <Loader2 className="spinner" /> : "PUBLICAR EN LA GALERÍA"}
               </button>
             </form>
@@ -2945,7 +2948,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                     })()}
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+                  <div data-tour="usr-resumen" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
                     {[
                       { id: "todos" as AdminUsersFilter, label: "Total", count: usersSummary.total, hint: "Todas las cuentas" },
                       { id: "alta" as AdminUsersFilter, label: "Dados de alta", count: usersSummary.alta, hint: "Email confirmado y activos" },
@@ -3057,6 +3060,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Bandeja de Solicitudes</h2>
               <AdminQueueFilters
+                tour="sol-filtros"
                 queue="solicitud"
                 status={solFiltroStatus}
                 gestor={solFiltroGestor}
@@ -3074,12 +3078,13 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 return (
                   <>
                     <ReadSelectionBar
+                      tour="sol-leido"
                       ids={visible.map((sol) => sol.id)}
                       selected={selectedSolicitudIds}
                       onChange={setSelectedSolicitudIds}
                       onMark={(ids, leido) => void markQueueRead("solicitud", ids, leido)}
                     />
-                    {visible.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>Nada con estos filtros.</p> : visible.map(sol => {
+                    {visible.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>Nada con estos filtros.</p> : visible.map((sol, solIndex) => {
                   const rawText = sol.comentarios || "";
                   const links = rawText.match(/(https?:\/\/[^\s"]+)/g) || [];
                   const adjuntos = (Array.from(new Set(links)) as string[]).filter((l: string) => !l.includes('ui-avatars'));
@@ -3088,7 +3093,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                   const caso = caseOf("solicitud", sol.id);
                   const expanded = !isMobile || openSolicitudId === sol.id;
                   return (
-                    <div id={`admin-case-solicitud-${sol.id}`} className="sol-card" key={sol.id} style={{ border: "1px solid var(--color-border)", padding: isMobile ? "12px" : "20px", borderRadius: "16px", background: selectedSolicitudIds.has(sol.id) ? "var(--bg-soft)" : "var(--bg-main)", boxShadow: highlightCase === `admin-case-solicitud-${sol.id}` ? "0 0 0 3px var(--color-primary)" : "0 4px 12px var(--shadow-card)" }}>
+                    <div id={`admin-case-solicitud-${sol.id}`} data-tour={solIndex === 0 ? "sol-card" : undefined} className="sol-card" key={sol.id} style={{ border: "1px solid var(--color-border)", padding: isMobile ? "12px" : "20px", borderRadius: "16px", background: selectedSolicitudIds.has(sol.id) ? "var(--bg-soft)" : "var(--bg-main)", boxShadow: highlightCase === `admin-case-solicitud-${sol.id}` ? "0 0 0 3px var(--color-primary)" : "0 4px 12px var(--shadow-card)" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                         <input type="checkbox" checked={selectedSolicitudIds.has(sol.id)} onChange={(e) => { const next = new Set(selectedSolicitudIds); e.target.checked ? next.add(sol.id) : next.delete(sol.id); setSelectedSolicitudIds(next); }} style={{ accentColor: "var(--color-primary)", marginTop: 4 }} aria-label="Seleccionar" />
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -3167,7 +3172,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               <h2 style={{ color: "var(--color-primary)", margin: "0 0 20px 0", fontSize: "20px", fontWeight: 900 }}>Bandeja de Moderación</h2>
 
 {/* CONTENEDOR DE FILTROS ALINEADOS A LA IZQUIERDA */}
-<div style={{ display: "flex", flexDirection: "row", gap: "15px", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "25px" }}>
+<div data-tour="den-filtros" style={{ display: "flex", flexDirection: "row", gap: "15px", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "25px" }}>
   
   {/* FILTRO DE CATEGORÍA (ESTILO PÍLDORA MORADA) */}
   <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
@@ -3333,7 +3338,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
                 <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Buzón de Colaboraciones</h2>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                <div className="buz-filters" data-tour="buz-filtros" style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                   <span style={{ fontWeight: 900, fontSize: "12px", color: "var(--color-primary)" }}>ESTADO:</span>
                   {["todos", "pendiente", "gestionando", "cerrado"].map(est => (
                     <button key={est} onClick={() => setFiltroEstadoBuzon(est)} style={{ padding: "6px 12px", borderRadius: "99px", border: "1px solid var(--color-border)", fontSize: "11px", fontWeight: 800, cursor: "pointer", background: filtroEstadoBuzon === est ? "var(--color-primary)" : "var(--bg-card)", color: filtroEstadoBuzon === est ? "var(--bg-card)" : "var(--color-primary)", textTransform: "uppercase", transition: "0.2s" }}>
@@ -3376,33 +3381,38 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         onChange={setSelectedBuzonIds}
                         onMark={(ids, leido) => void markQueueRead("buzon", ids, leido)}
                       />
-                      
+
+                      <div className="buz-list" data-tour="buz-list">
                       {filtrados.map((b) => {
+                        const leido = caseOf("buzon", b.id).leido;
+                        const status = b.status || "pendiente";
                         return (
-                          <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--color-border)", padding: "15px 20px", borderRadius: "16px", background: selectedBuzonIds.has(b.id) ? "var(--bg-soft)" : "var(--bg-card)" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                              <input type="checkbox" checked={selectedBuzonIds.has(b.id)} onChange={(e) => { const next = new Set(selectedBuzonIds); e.target.checked ? next.add(b.id) : next.delete(b.id); setSelectedBuzonIds(next); }} style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} />
-                              <MailOpen size={18} color="var(--color-primary)" />
-                              <div>
-                                <span style={{ fontWeight: 900, color: "var(--text-main)", fontSize: "16px" }}>{b.asunto}</span>
-                                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "5px" }}>
-                                  <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "bold" }}>De: {b.userName || "Usuario Anónimo"}</span>
-                                  <span style={{ padding: "4px 10px", borderRadius: "8px", fontSize: "10px", fontWeight: 900, textTransform: "uppercase", background: b.status === 'cerrado' ? "var(--state-success-bg)" : b.status === 'gestionando' ? "var(--state-warning-bg)" : "var(--bg-soft)", color: b.status === 'cerrado' ? "var(--state-success-fg)" : b.status === 'gestionando' ? "var(--state-warning-fg)" : "var(--color-primary)" }}>{b.status || 'pendiente'}</span>
-                                </div>
+                          <div key={b.id} className={selectedBuzonIds.has(b.id) ? "buz-row is-on" : "buz-row"}>
+                            <input type="checkbox" checked={selectedBuzonIds.has(b.id)} onChange={(e) => { const next = new Set(selectedBuzonIds); e.target.checked ? next.add(b.id) : next.delete(b.id); setSelectedBuzonIds(next); }} style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} aria-label="Seleccionar" />
+                            <div className="buz-main">
+                              <div className="buz-top">
+                                <strong>{b.asunto || "Sin asunto"}</strong>
+                                <span className="buz-status" style={{ background: status === "cerrado" ? "var(--state-success-bg)" : status === "gestionando" ? "var(--state-warning-bg)" : "var(--bg-soft)", color: status === "cerrado" ? "var(--state-success-fg)" : status === "gestionando" ? "var(--state-warning-fg)" : "var(--color-primary)" }}>{status}</span>
                               </div>
+                              <p className="buz-from">De: {b.userName || "Usuario anónimo"}</p>
                             </div>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                            <button type="button" onClick={() => void saveQueueCase("buzon", b.id, { leido: !caseOf("buzon", b.id).leido }, "lectura", caseOf("buzon", b.id).leido ? "Marcada como no leída" : "Marcada como leída")} style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>
-                              {caseOf("buzon", b.id).leido ? "Marcar como no leída" : "Marcar como leída"}
-                            </button>
-                            <button onClick={() => {
-  setSelectedBuzon(b);
-  router.push(`/admin-panel?tab=buzon&buzonId=${b.id}`);
-}} style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>Abrir Hilo</button>
+                            <div className="buz-actions">
+                              <button type="button" onClick={() => void saveQueueCase("buzon", b.id, { leido: !leido }, "lectura", leido ? "Marcada como no leída" : "Marcada como leída")}>
+                                <span className="buz-long">{leido ? "Marcar no leída" : "Marcar leída"}</span>
+                                <span className="buz-short">{leido ? "No leída" : "Leída"}</span>
+                              </button>
+                              <button type="button" onClick={() => {
+                                setSelectedBuzon(b);
+                                router.push(`/admin-panel?tab=buzon&buzonId=${b.id}`);
+                              }}>
+                                <span className="buz-long">Abrir hilo</span>
+                                <span className="buz-short">Abrir</span>
+                              </button>
                             </div>
                           </div>
                         );
                       })}
+                      </div>
                     </>
                   );
                 })()
@@ -3483,6 +3493,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Mejoras de Photocards</h2>
               </div>
               <AdminQueueFilters
+                tour="apo-filtros"
                 queue="aportacion"
                 status={filtroEstadoAportaciones}
                 gestor={apoFiltroGestor}
@@ -3654,7 +3665,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Campañas de Publicidad</h2>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "14px" }}>
+              <div data-tour="ad-form" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "14px" }}>
                 <input style={inputStyle} placeholder="Titulo del anuncio*" value={adForm.title} onChange={(e) => setAdForm((p) => ({ ...p, title: e.target.value }))} />
                 <input style={inputStyle} placeholder="Subtitulo" value={adForm.subtitle} onChange={(e) => setAdForm((p) => ({ ...p, subtitle: e.target.value }))} />
                 <input style={inputStyle} placeholder="URL destino*" value={adForm.target_url} onChange={(e) => setAdForm((p) => ({ ...p, target_url: e.target.value }))} />
@@ -3764,7 +3775,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
               ) : (
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px", alignItems: "start" }}>
-                    <div style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)" }}>
+                    <div data-tour="cat-grupo" style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)" }}>
                       <h3 style={{ margin: "0 0 14px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>Grupo</h3>
                       <label style={labelStyle}>Nombre (visible)</label>
                       <input
@@ -3869,7 +3880,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       </p>
                     </div>
 
-                    <div style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)" }}>
+                    <div data-tour="cat-miembro" style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)" }}>
                       <h3 style={{ margin: "0 0 14px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>Miembro</h3>
                       <label style={labelStyle}>Grupo</label>
                       <select
@@ -4271,7 +4282,26 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
 
           {/* PESTAÑA 5: MANUAL INTERACTIVO */}
           {activeTab === "manual" && (
-            <AdminManual />
+            <AdminManual
+              onStartTour={() => startAdminTour({
+                openTab: openAdminTab,
+                hideUserCard: () => { setUsersListOpen(false); setOpenUserActionsId(null); },
+                showUserCard: () => {
+                  setUsersOverviewFilter("todos");
+                  setUsersOverviewSearch("");
+                  setUsersListOpen(true);
+                  const first = usersOverview[0];
+                  if (first) setOpenUserActionsId(first.user_id);
+                },
+                openFirstSolicitud: () => {
+                  const first = solicitudes[0];
+                  if (first) setOpenSolicitudId(first.id);
+                },
+                showArtworkFields: () => {
+                  setFormData((prev) => (prev.category === "Fanfics" ? { ...prev, category: "Arte 2D" } : prev));
+                },
+              })}
+            />
           )}
 
 
@@ -5220,6 +5250,66 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
         .admin-nav-btn.is-active:hover {
           background: color-mix(in srgb, var(--color-primary) 16%, var(--bg-card));
         }
+        .buz-list {
+          display: flex;
+          flex-direction: column;
+          border: 1px solid var(--color-border);
+          border-radius: 16px;
+          overflow: hidden;
+          background: var(--bg-card);
+        }
+        .buz-row {
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto;
+          gap: 10px 12px;
+          align-items: center;
+          padding: 12px 14px;
+          border-bottom: 1px solid var(--color-border);
+          background: var(--bg-card);
+          min-width: 0;
+        }
+        .buz-row:last-child { border-bottom: none; }
+        .buz-row.is-on { background: var(--bg-soft); }
+        .buz-main { min-width: 0; }
+        .buz-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .buz-top strong {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: var(--text-main);
+          font-size: 14px;
+        }
+        .buz-from {
+          margin: 2px 0 0;
+          font-size: 12px;
+          color: var(--text-muted);
+          font-weight: 700;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .buz-status {
+          flex-shrink: 0;
+          padding: 3px 8px;
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 900;
+          text-transform: uppercase;
+        }
+        .buz-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .buz-actions button {
+          background: var(--bg-soft);
+          color: var(--color-primary);
+          border: 1px solid var(--color-border);
+          border-radius: 10px;
+          padding: 8px 12px;
+          font-weight: 900;
+          font-size: 12px;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .buz-short { display: none; }
         @media (max-width: 999px) {
           .admin-side { top: 132px; }
         }
@@ -5247,6 +5337,12 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           .sol-card { min-width: 0; }
           .sol-actions { flex-direction: column; }
           .sol-actions > button { width: 100%; }
+          .buz-filters { width: 100%; }
+          .buz-row { grid-template-columns: auto minmax(0, 1fr); }
+          .buz-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+          .buz-actions button { width: 100%; }
+          .buz-long { display: none; }
+          .buz-short { display: inline; }
           .admin-nav {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -282,7 +282,7 @@ function ManualScreen({ lessonId, hot }: { lessonId: string; hot: string }) {
   );
 }
 
-export default function AdminManual() {
+export default function AdminManual({ onStartTour }: { onStartTour?: () => void }) {
   const [lessonId, setLessonId] = useState(LESSONS[0].id);
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -324,7 +324,17 @@ export default function AdminManual() {
         ))}
       </div>
 
-      <div className="adm-manual-stage">
+        <div className="adm-manual-stage">
+        <div className="adm-tour-banner">
+          <div>
+            <p className="adm-kicker">Tour en la pantalla real</p>
+            <h2>Recorre el panel</h2>
+            <p>Se abre cada apartado y un bocadillo señala el botón. Siguiente y Anterior lo mueven. La X lo cierra.</p>
+          </div>
+          <button type="button" className="adm-tour-go" onClick={onStartTour}>
+            <Play size={16} /> Empezar tour
+          </button>
+        </div>
         <div className="adm-manual-top">
           <div>
             <p className="adm-kicker">{lesson.group}</p>
@@ -375,6 +385,18 @@ export default function AdminManual() {
         .adm-manual-stage {
           background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 24px;
           box-shadow: 0 10px 30px var(--shadow-card); padding: 22px;
+        }
+        .adm-tour-banner {
+          display: flex; justify-content: space-between; gap: 14px; align-items: center;
+          padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px dashed var(--color-border);
+        }
+        .adm-tour-banner h2 { margin: 2px 0 6px; color: var(--color-primary); font-size: 22px; }
+        .adm-tour-banner p:last-child { margin: 0; color: var(--text-main); font-weight: 650; line-height: 1.45; font-size: 14px; }
+        .adm-tour-go {
+          display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+          background: var(--color-primary) !important; color: var(--bg-card) !important;
+          border: none !important; border-radius: 12px; padding: 12px 16px !important;
+          font-weight: 900; cursor: pointer; white-space: nowrap;
         }
         .adm-manual-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
         .adm-kicker { margin: 0; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
@@ -433,6 +455,8 @@ export default function AdminManual() {
         @keyframes adm-pulse { 50% { transform: scale(1.45); } }
         @media (max-width: 800px) {
           .adm-manual { grid-template-columns: 1fr; }
+          .adm-tour-banner { flex-direction: column; align-items: stretch; }
+          .adm-tour-go { justify-content: center; }
           .adm-manual-nav { flex-direction: row; overflow-x: auto; gap: 8px; }
           .adm-manual-group { flex-direction: row; align-items: center; }
           .adm-manual-group span { display: none; }
