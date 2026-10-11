@@ -25,7 +25,12 @@ import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback
 import { BINDER_ACCENT_SWATCHES } from "@/lib/binder-color-swatches";
 import { marketRefUsdStorageKey } from "@/lib/market-reference-keys";
 import { getLayoutUnlockCost, unlockKeyForLayout } from "@/lib/theme-unlocks";
-import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
+import {
+  extractCollectionYear,
+  formatCollectionOptionLabel,
+  isSeasonsGreetings,
+  strayKidsAlbumOrderIndex,
+} from "@/lib/collection-filters";
 import { PC_IMAGE_FILENAME_EXT_RE } from "@/lib/pc-image-extensions";
 import { resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { formatQuota, packSeparatorColors, resolveBinderQuota, unpackSeparatorColors } from "@/lib/binder-quotas";
@@ -833,10 +838,38 @@ const albumOptions = useMemo(() => {
       name,
       release_date: albums.find((a) => a.id === id)?.release_date ?? null,
     }));
-    const selectedGroupName =
-      group === "" ? null : groups.find((g) => g.id === group)?.name ?? null;
-    return sortCollectionEntries(entries, { groupName: selectedGroupName });
-  }, [items, group, albums, groups]);
+    entries.sort((a, b) => {
+      const aName = a.name;
+      const bName = b.name;
+      const aRelease = a.release_date;
+      const bRelease = b.release_date;
+      const aSG = isSeasonsGreetings(aName);
+      const bSG = isSeasonsGreetings(bName);
+      if (aSG !== bSG) return aSG ? 1 : -1;
+
+      if (!aSG && !bSG) {
+        const ai = strayKidsAlbumOrderIndex(aName);
+        const bi = strayKidsAlbumOrderIndex(bName);
+        if (ai != null && bi != null && ai !== bi) return ai - bi;
+        if (ai != null && bi == null) return -1;
+        if (ai == null && bi != null) return 1;
+      }
+
+      if (aSG && bSG) {
+        const ay = extractCollectionYear(aName, aRelease);
+        const by = extractCollectionYear(bName, bRelease);
+        if (ay != null && by != null && ay !== by) return ay - by;
+        if (ay != null && by == null) return -1;
+        if (ay == null && by != null) return 1;
+      }
+
+      const ad = aRelease ? new Date(aRelease).getTime() : Number.POSITIVE_INFINITY;
+      const bd = bRelease ? new Date(bRelease).getTime() : Number.POSITIVE_INFINITY;
+      if (ad !== bd) return ad - bd;
+      return aName.localeCompare(bName, "es", { sensitivity: "base", numeric: true });
+    });
+    return entries;
+  }, [items, group, albums]);
 
   const versionOptions = useMemo(() => {
     const set = new Set<string>();
