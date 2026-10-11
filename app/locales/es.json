@@ -503,6 +503,8 @@
       "whole_binder": "Todo el binder",
       "status": "Estado",
       "available": "Disponible",
+      "filters_button": "Filtros",
+      "apply_filters": "Aplicar",
       "error_msg": "Error al cargar el selector"
     },
     "item_info": {

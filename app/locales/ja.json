@@ -439,6 +439,8 @@
       "whole_binder": "バインダー全体",
       "status": "ステータス",
       "available": "利用可能",
+      "filters_button": "フィルター",
+      "apply_filters": "適用",
       "error_msg": "ピッカーの読み込みエラー"
     },
     "item_info": {

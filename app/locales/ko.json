@@ -298,6 +298,8 @@
       "whole_binder": "바인더 전체",
       "status": "상태",
       "available": "선택 가능",
+      "filters_button": "필터",
+      "apply_filters": "적용",
       "error_msg": "목록을 불러오는 중 오류 발생"
     },
     "item_info": {

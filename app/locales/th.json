@@ -298,6 +298,8 @@
       "whole_binder": "ทั้งแฟ้ม",
       "status": "สถานะ",
       "available": "มีอยู่",
+      "filters_button": "ตัวกรอง",
+      "apply_filters": "ใช้",
       "error_msg": "เกิดข้อผิดพลาดในการโหลด"
     },
     "item_info": {

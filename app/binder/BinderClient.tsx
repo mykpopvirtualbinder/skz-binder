@@ -609,8 +609,50 @@ const [items, setItems] = useState<PickerItem[]>([]);
   const [member, setMemberId] = useState("");
 const [unitFilter, setUnitFilter] = useState<UnitFilter>("all");
   const [onlyBiases, setOnlyBiases] = useState(false); // <--- NUEVO ESTADO PARA EL BOTÓN
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
  const [groups, setGroups] = useState<FilterOption[]>([]);
 const [albums, setAlbums] = useState<AlbumOption[]>([]);
+
+useEffect(() => {
+  const body = document.body;
+  const html = document.documentElement;
+  const scrollY = window.scrollY;
+  const prev = {
+    bodyOverflow: body.style.overflow,
+    bodyPosition: body.style.position,
+    bodyTop: body.style.top,
+    bodyLeft: body.style.left,
+    bodyRight: body.style.right,
+    bodyWidth: body.style.width,
+    htmlOverflow: html.style.overflow,
+  };
+  body.style.overflow = "hidden";
+  body.style.position = "fixed";
+  body.style.top = `-${scrollY}px`;
+  body.style.left = "0";
+  body.style.right = "0";
+  body.style.width = "100%";
+  html.style.overflow = "hidden";
+  const blockBackgroundScroll = (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest(".binder-picker-scroll, .binder-picker-filters, .binder-picker-filters-btn")) return;
+    event.preventDefault();
+  };
+  document.addEventListener("touchmove", blockBackgroundScroll, { passive: false });
+  document.addEventListener("wheel", blockBackgroundScroll, { passive: false });
+  return () => {
+    document.removeEventListener("touchmove", blockBackgroundScroll);
+    document.removeEventListener("wheel", blockBackgroundScroll);
+    body.style.overflow = prev.bodyOverflow;
+    body.style.position = prev.bodyPosition;
+    body.style.top = prev.bodyTop;
+    body.style.left = prev.bodyLeft;
+    body.style.right = prev.bodyRight;
+    body.style.width = prev.bodyWidth;
+    html.style.overflow = prev.htmlOverflow;
+    window.scrollTo(0, scrollY);
+  };
+}, []);
 
 useEffect(() => {
  let cancelled = false;
@@ -1046,10 +1088,24 @@ const pickerFiltersWrapStyle: CSSProperties = {
 const pickerGridScrollStyle: CSSProperties = {
   flex: 1,
   minHeight: 0,
-  overflowY: "auto", // Habilita el scroll
-  WebkitOverflowScrolling: "touch", // Suavidad en iPhone
+  overflowY: "auto",
+  WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
+  touchAction: "pan-y",
   paddingRight: 6,
 };
+
+const activeFilterCount = [
+  statusFilter,
+  group,
+  album,
+  version,
+  member,
+  unitFilter !== "all" ? unitFilter : "",
+  onlyBiases ? "bias" : "",
+  q.trim(),
+].filter(Boolean).length;
+const showFilterFields = !isMobile || mobileFiltersOpen;
 
 return (
   <div style={pickerShellStyle}>
@@ -1089,8 +1145,52 @@ return (
 </div>
 
     <div style={pickerSectionStyle}>
-  <div style={pickerFiltersWrapStyle}>
-    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}>
+  {isMobile && !mobileFiltersOpen && (
+    <button
+      type="button"
+      className="binder-picker-filters-btn"
+      onClick={() => setMobileFiltersOpen(true)}
+      style={{
+        flex: "0 0 auto",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        width: "100%",
+        minHeight: 42,
+        padding: "10px 14px",
+        borderRadius: 12,
+        border: "1px solid var(--color-border)",
+        background: "var(--bg-card)",
+        color: "var(--color-primary)",
+        fontWeight: 900,
+        cursor: "pointer",
+      }}
+    >
+      <SlidersHorizontal size={16} strokeWidth={2.4} />
+      {t("binders.picker.filters_button")}
+      {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+    </button>
+  )}
+  <div
+    className="binder-picker-filters"
+    style={{
+      ...pickerFiltersWrapStyle,
+      display: showFilterFields ? "flex" : "none",
+      flexDirection: "column",
+      gap: 12,
+      flex: isMobile && mobileFiltersOpen ? 1 : "0 0 auto",
+      minHeight: 0,
+      overflowY: isMobile ? "auto" : "visible",
+      overscrollBehavior: "contain",
+      touchAction: "pan-y",
+      WebkitOverflowScrolling: "touch",
+    }}
+  >
+    <div
+      className={isMobile ? "binder-picker-filters-fields" : undefined}
+      style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: isMobile ? "stretch" : "end", flexDirection: isMobile ? "column" : "row" }}
+    >
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={pickerLabelStyle}>
             <SlidersHorizontal size={14} strokeWidth={2.4} /> {t('binders.picker.status')}
@@ -1256,9 +1356,32 @@ return (
 />
                </div>
       </div>
+      {isMobile && (
+        <button
+          type="button"
+          onClick={() => setMobileFiltersOpen(false)}
+          style={{
+            position: "sticky",
+            bottom: 0,
+            marginTop: 4,
+            width: "100%",
+            minHeight: 44,
+            padding: "12px 14px",
+            borderRadius: 12,
+            border: "1px solid var(--color-primary)",
+            background: "var(--color-primary)",
+            color: "var(--modal-cta-fg)",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          {t("binders.picker.apply_filters")}
+        </button>
+      )}
       </div>
 
-    <div style={pickerGridScrollStyle}>
+    {(!isMobile || !mobileFiltersOpen) && (
+    <div className="binder-picker-scroll" style={pickerGridScrollStyle}>
 {loading && <div style={{ color: "var(--text-muted)" }}>{t('common.loading')}</div>}      {err && <div style={{ color: "crimson" }}>Error: {err}</div>}
 
 <div
@@ -1519,6 +1642,7 @@ return (
         </div>
       )}
     </div>
+    )}
   </div>
 </div>
 );
@@ -14291,6 +14415,7 @@ Stock al cerrar/guardar */}
      {pickingSlot != null && pickerUserId != null &&
 pickerBinderId != null && (
 <div
+  className="binder-picker-overlay"
   style={{
     position: "fixed",
     inset: 0,
@@ -14300,18 +14425,23 @@ pickerBinderId != null && (
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: 20
+    padding: isMobile ? 8 : 20,
+    overflow: "hidden",
+    overscrollBehavior: "none",
+    touchAction: "none",
   }}
 >
   <div
     style={{
-      width: "min(1180px, 96vw)",
-      height: isMobile ? "85vh" : "90vh",
+      width: isMobile ? "100%" : "min(1180px, 96vw)",
+      height: isMobile ? "100%" : "90vh",
+      maxHeight: "100%",
       borderRadius: 24,
       background: "var(--bg-card)",
       overflow: "hidden",
       display: "flex",
-      flexDirection: "column"
+      flexDirection: "column",
+      minHeight: 0,
     }}
   >
     <ItemPicker

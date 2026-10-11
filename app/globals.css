@@ -2628,6 +2628,25 @@ textarea:disabled {
   }
 
   /* Menús de idioma y tema: centrados en la pantalla, no anclados al botón. */
+  .binder-picker-scroll,
+  .binder-picker-filters {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .binder-picker-filters-fields > div {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .binder-picker-filters-fields select,
+  .binder-picker-filters-fields input {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
   .header-dropdown-menu.header-dropdown-menu--screen {
     position: fixed !important;
     left: 50% !important;

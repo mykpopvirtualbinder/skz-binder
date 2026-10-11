@@ -298,6 +298,8 @@
       "whole_binder": "整个卡册",
       "status": "状态",
       "available": "可用",
+      "filters_button": "筛选",
+      "apply_filters": "应用",
       "error_msg": "加载选择器出错"
     },
     "item_info": {

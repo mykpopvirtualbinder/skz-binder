@@ -439,6 +439,8 @@
       "whole_binder": "Seluruh binder",
       "status": "Status",
       "available": "Tersedia",
+      "filters_button": "Filter",
+      "apply_filters": "Terapkan",
       "error_msg": "Kesalahan memuat pemilih"
     },
     "item_info": {

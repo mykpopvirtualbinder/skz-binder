@@ -439,6 +439,8 @@
       "whole_binder": "Der gesamte Binder",
       "status": "Status",
       "available": "Verfügbar",
+      "filters_button": "Filter",
+      "apply_filters": "Anwenden",
       "error_msg": "Fehler beim Laden der Auswahl"
     },
     "item_info": {

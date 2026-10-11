@@ -502,6 +502,8 @@
       "whole_binder": "Whole binder",
       "status": "Status",
       "available": "Available",
+      "filters_button": "Filters",
+      "apply_filters": "Apply",
       "error_msg": "Error loading picker"
     },
     "item_info": {
