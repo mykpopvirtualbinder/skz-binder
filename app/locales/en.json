@@ -460,6 +460,19 @@
       "choose": "📷 Choose image",
       "artist": "Artist"
     },
+    "info": {
+      "title": "Binder info",
+      "name": "Name",
+      "created": "Created",
+      "updated": "Last change",
+      "pcs": "Photocards",
+      "separators": "Dividers",
+      "no_separators": "No dividers yet",
+      "untitled_separator": "Divider",
+      "page": "Page {n}",
+      "loading": "Loading…",
+      "unknown_date": "—"
+    },
     "loading_page": "Loading page...",
     "my_binders": "My Binders",
     "page": "Page",

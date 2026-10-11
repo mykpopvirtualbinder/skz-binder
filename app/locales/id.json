@@ -399,6 +399,19 @@
       "choose": "📷 Pilih gambar",
       "artist": "Artis"
     },
+    "info": {
+      "title": "Info binder",
+      "name": "Nama",
+      "created": "Tanggal dibuat",
+      "updated": "Perubahan terakhir",
+      "pcs": "Photocard",
+      "separators": "Pembatas",
+      "no_separators": "Belum ada pembatas",
+      "untitled_separator": "Pembatas",
+      "page": "Halaman {n}",
+      "loading": "Memuat…",
+      "unknown_date": "—"
+    },
     "loading_page": "Memuat halaman…",
     "my_binders": "Binder Milikku",
     "page": "Halaman",

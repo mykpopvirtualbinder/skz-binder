@@ -204,6 +204,19 @@
       "choose": "📷 เลือกรูป",
       "artist": "ศิลปิน"
     },
+    "info": {
+      "title": "ข้อมูลไบน์เดอร์",
+      "name": "ชื่อ",
+      "created": "วันที่สร้าง",
+      "updated": "แก้ไขล่าสุด",
+      "pcs": "โฟโตการ์ด",
+      "separators": "ตัวคั่น",
+      "no_separators": "ยังไม่มีตัวคั่น",
+      "untitled_separator": "ตัวคั่น",
+      "page": "หน้า {n}",
+      "loading": "กำลังโหลด…",
+      "unknown_date": "—"
+    },
     "loading_page": "กำลังโหลดหน้า...",
     "my_binders": "แฟ้มการ์ดของฉัน",
     "page": "หน้า",

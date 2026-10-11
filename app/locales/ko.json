@@ -204,6 +204,19 @@
       "choose": "📷 이미지 선택",
       "artist": "아티스트"
     },
+    "info": {
+      "title": "바인더 정보",
+      "name": "이름",
+      "created": "만든 날짜",
+      "updated": "마지막 수정",
+      "pcs": "포토카드",
+      "separators": "구분 페이지",
+      "no_separators": "아직 구분 페이지가 없어요",
+      "untitled_separator": "구분 페이지",
+      "page": "{n}페이지",
+      "loading": "불러오는 중…",
+      "unknown_date": "—"
+    },
     "loading_page": "페이지 로딩 중...",
     "my_binders": "내 바인더",
     "page": "페이지",

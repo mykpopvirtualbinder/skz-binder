@@ -399,6 +399,19 @@
       "choose": "📷 Choisir une image",
       "artist": "Artiste"
     },
+    "info": {
+      "title": "Infos du binder",
+      "name": "Nom",
+      "created": "Date de création",
+      "updated": "Dernière modification",
+      "pcs": "Photocards",
+      "separators": "Intercalaires",
+      "no_separators": "Pas encore d'intercalaires",
+      "untitled_separator": "Intercalaire",
+      "page": "Page {n}",
+      "loading": "Chargement…",
+      "unknown_date": "—"
+    },
     "loading_page": "Chargement de la page…",
     "my_binders": "Mes Binders",
     "page": "Page",

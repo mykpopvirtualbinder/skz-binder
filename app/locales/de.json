@@ -399,6 +399,19 @@
       "choose": "📷 Bild wählen",
       "artist": "Künstler"
     },
+    "info": {
+      "title": "Binder-Info",
+      "name": "Name",
+      "created": "Erstellt am",
+      "updated": "Letzte Änderung",
+      "pcs": "Photocards",
+      "separators": "Trennblätter",
+      "no_separators": "Noch keine Trennblätter",
+      "untitled_separator": "Trennblatt",
+      "page": "Seite {n}",
+      "loading": "Wird geladen…",
+      "unknown_date": "—"
+    },
     "loading_page": "Seite wird geladen…",
     "my_binders": "Meine Binder",
     "page": "Seite",

@@ -11,7 +11,7 @@ import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { 
   Trash2, ChevronLeft, ChevronRight, ChevronDown, Users, Disc3, PenLine, Mic2, User, Layers, 
-    SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart, Plus, ZoomIn 
+    SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart, Plus, ZoomIn, Info 
 } from "lucide-react";
 import WtsListingModal from "../library/WtsListingModal"
 import WttListingModal from "../library/WttListingModal"
@@ -37,6 +37,7 @@ import { formatQuota, packSeparatorColors, resolveBinderQuota, unpackSeparatorCo
 import { mergeBinderFaces, writeBinderFacesLocal, emptyCoverStyles, urlColumnForCoverFace, type CoverFaceKey, type CoverFaceStyle } from "@/lib/binder-faces";
 import BinderCoverFaceEditor from "./BinderCoverFaceEditor";
 import CoverImageSourceModal from "./CoverImageSourceModal";
+import BinderInfoModal from "../binders/BinderInfoModal";
 
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
@@ -1965,10 +1966,15 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const [binderId, setBinderId] = useState<number | null>(null);
   const [pageId, setPageId] = useState<number | null>(null);
   const [pagesCount, setPagesCount] = useState<number>(0);
-  const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
+  const pageFromUrl = Number(searchParams.get("page"));
+  const [currentPageIndex, setCurrentPageIndex] = useState<number>(
+    Number.isFinite(pageFromUrl) && pageFromUrl > 0 ? Math.floor(pageFromUrl) : 0,
+  );
   const [binderPages, setBinderPages] = useState<
     Array<{ id: number; page_index: number; layout_type: LayoutType }>
   >([]);
+  const binderPagesFetchGen = useRef(0);
+  const [binderInfoOpen, setBinderInfoOpen] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [buyPagesOpen, setBuyPagesOpen] = useState(false);
@@ -6040,7 +6046,25 @@ if (bInfo) {
 
       // ... resto del código de carga de slots y páginas (línea 2277 en adelante)
 
-if (!pagesCheck.data || pagesCheck.data.length === 0) {
+const publishBinderPages = (
+  rows: Array<{ id: number; page_index: number | null; layout_type: unknown }>,
+) => {
+  const list = rows
+    .map((row) => ({
+      id: Number(row.id),
+      page_index: typeof row.page_index === "number" ? row.page_index : 0,
+      layout_type: isLayoutType(row.layout_type) ? row.layout_type : ("3x3" as LayoutType),
+    }))
+    .sort((a, b) => a.page_index - b.page_index);
+  binderPagesFetchGen.current += 1;
+  if (!cancelled) {
+    setBinderPages(list);
+    setPagesCount(list.length);
+  }
+};
+
+let knownPages = pagesCheck.data ?? [];
+if (knownPages.length === 0) {
  const createdFirstPage = await supabase
   .from("binder_pages")
   .insert({
@@ -6058,7 +6082,9 @@ if (!pagesCheck.data || pagesCheck.data.length === 0) {
   }
   return;
  }
+ knownPages = [createdFirstPage.data];
 }
+publishBinderPages(knownPages);
 
 const { data: pageData, error: pageError } = await supabase
  .from("binder_pages")
@@ -6092,6 +6118,7 @@ if (pageError || !pageData) {
 
   useEffect(() => {
     let cancelled = false;
+    const gen = ++binderPagesFetchGen.current;
 
     const run = async () => {
       if (!binderId) return;
@@ -6102,7 +6129,7 @@ if (pageError || !pageData) {
         .eq("binder_id", binderId)
         .order("page_index", { ascending: true });
 
-      if (res.error) return;
+      if (res.error || cancelled || gen !== binderPagesFetchGen.current) return;
 
       const list = (res.data ?? [])
         .map((r: { id: number; page_index: number | null; layout_type: unknown }) => ({
@@ -6112,10 +6139,8 @@ if (pageError || !pageData) {
         }))
         .sort((a, b) => a.page_index - b.page_index);
 
-      if (!cancelled) {
-        setBinderPages(list);
-        setPagesCount(list.length);
-      }
+      setBinderPages(list);
+      setPagesCount(list.length);
     };
 
     run();
@@ -12976,11 +13001,32 @@ bottom: 8px;
       alignItems: "center",
       justifyContent: "space-between"
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 4, height: 24, background: binderColor || "var(--color-primary)", borderRadius: 2 }} />
-        <h2 style={{ margin: 0, fontSize: isMobile ? 22 : 32, fontWeight: 950, color: "var(--text-main)", letterSpacing: "-0.5px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <div style={{ width: 4, height: 24, background: binderColor || "var(--color-primary)", borderRadius: 2, flex: "0 0 auto" }} />
+        <h2 style={{ margin: 0, fontSize: isMobile ? 22 : 32, fontWeight: 950, color: "var(--text-main)", letterSpacing: "-0.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {binderTitle}
         </h2>
+        <button
+          type="button"
+          title={t("binders.info.title")}
+          aria-label={t("binders.info.title")}
+          onClick={() => setBinderInfoOpen(true)}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 999,
+            border: "1px solid var(--color-border)",
+            background: "var(--bg-card)",
+            color: "var(--color-primary)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            flex: "0 0 auto",
+          }}
+        >
+          <Info size={16} />
+        </button>
       </div>
 
       <button 
@@ -14493,6 +14539,17 @@ Stock al cerrar/guardar */}
           />
         );
       })()}
+
+      <BinderInfoModal
+        open={binderInfoOpen}
+        binderId={binderId}
+        onClose={() => setBinderInfoOpen(false)}
+        onOpenPage={(pageIndex) => {
+          setSelectedCoverFace(null);
+          setCurrentPageIndex(pageIndex);
+          setBinderInfoOpen(false);
+        }}
+      />
 
       {/* 👑 EL PICKER (Al final de todo para Z-INDEX máximo y efecto Boomerang) */} 
      {pickingSlot != null && pickerUserId != null &&

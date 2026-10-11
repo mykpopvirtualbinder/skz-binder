@@ -204,6 +204,19 @@
       "choose": "📷 选择图片",
       "artist": "画师"
     },
+    "info": {
+      "title": "卡册信息",
+      "name": "名称",
+      "created": "创建日期",
+      "updated": "最后修改",
+      "pcs": "小卡",
+      "separators": "分隔页",
+      "no_separators": "还没有分隔页",
+      "untitled_separator": "分隔页",
+      "page": "第 {n} 页",
+      "loading": "加载中…",
+      "unknown_date": "—"
+    },
     "loading_page": "页面加载中...",
     "my_binders": "我的卡册",
     "page": "页码",

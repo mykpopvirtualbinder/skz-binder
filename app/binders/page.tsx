@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 
 import Footer from "../components/footer";
-import { Plus, ShoppingBag, Loader2, BookText, Camera, ChevronLeft, Layers, BookOpen } from "lucide-react";
+import { Plus, ShoppingBag, Loader2, BookText, Camera, ChevronLeft, Layers, BookOpen, Info } from "lucide-react";
 import VirtualBinder from "../components/VirtualBinder";
 import BinderShelfThumb3D from "./BinderShelfThumb3D";
 import { useGlobal } from "../context/GlobalContext";
@@ -16,6 +16,9 @@ import { formatQuota, resolveBinderQuota } from "@/lib/binder-quotas";
 import { requireLoggedIn } from "@/lib/auth-gate";
 import { mergeBinderFaces, writeBinderFacesLocal } from "@/lib/binder-faces";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
+import BinderInfoModal from "./BinderInfoModal";
+
+const SHELF_SCROLL_KEY = "mkb_binders_scroll";
 
 type BinderRow = {
   id: number;
@@ -63,6 +66,10 @@ export default function BindersPage() {
   const [previewItems, setPreviewItems] = useState<any[]>([]);
   const [previewingId, setPreviewingId] = useState<number | null>(null);
   const [bindersReturnHref, setBindersReturnHref] = useState<string | null>(null);
+  const [infoBinderId, setInfoBinderId] = useState<number | null>(null);
+  const pendingScrollY = useRef<number | null>(null);
+  const focusBinderId = useRef<number | null>(null);
+  const restoredShelfScroll = useRef(false);
 
   useEffect(() => {
     setBindersReturnHref(readBindersReturn());
@@ -75,8 +82,9 @@ export default function BindersPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const loadBinders = useCallback(async () => {
-    setLoading(true);
+  const loadBinders = useCallback(async (opts?: { keepPlace?: boolean }) => {
+    if (opts?.keepPlace) pendingScrollY.current = window.scrollY;
+    if (!opts?.keepPlace) setLoading(true);
     setError(null);
 
     const { data: userData, error: userErr } = await supabase.auth.getUser();
@@ -146,6 +154,41 @@ export default function BindersPage() {
   useEffect(() => {
     loadBinders();
   }, [loadBinders]);
+
+  useEffect(() => {
+    if (loading) return;
+    const onScroll = () => {
+      sessionStorage.setItem(SHELF_SCROLL_KEY, String(window.scrollY));
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [loading]);
+
+  useLayoutEffect(() => {
+    if (loading) return;
+    const focusId = focusBinderId.current;
+    if (focusId != null) {
+      const card = document.getElementById(`binder-card-${focusId}`);
+      if (!card) return;
+      focusBinderId.current = null;
+      pendingScrollY.current = null;
+      restoredShelfScroll.current = true;
+      card.scrollIntoView({ block: "center", behavior: "auto" });
+      sessionStorage.setItem(SHELF_SCROLL_KEY, String(window.scrollY));
+      return;
+    }
+    if (pendingScrollY.current != null) {
+      const y = pendingScrollY.current;
+      pendingScrollY.current = null;
+      restoredShelfScroll.current = true;
+      window.scrollTo(0, y);
+      return;
+    }
+    if (restoredShelfScroll.current) return;
+    restoredShelfScroll.current = true;
+    const saved = Number(sessionStorage.getItem(SHELF_SCROLL_KEY) || "0");
+    if (Number.isFinite(saved) && saved > 0) window.scrollTo(0, saved);
+  }, [loading, binders]);
 
   const updateBinder = async (id: number, updates: { title?: string; color?: string; cover_url?: string; back_cover_url?: string; inside_front_url?: string; inside_back_url?: string }) => {
     const { error } = await supabase
@@ -225,7 +268,7 @@ export default function BindersPage() {
     } else {
       setStatus("Binder eliminado");
       setTimeout(() => setStatus(""), 3000);
-      loadBinders();
+      loadBinders({ keepPlace: true });
     }
   };
 
@@ -269,7 +312,8 @@ export default function BindersPage() {
         setError(insErr.message);
       } else {
         setStatus("¡Binder creado!");
-        await loadBinders();
+        focusBinderId.current = data?.id ?? null;
+        await loadBinders({ keepPlace: true });
       }
     } catch (err: any) {
       setError(err.message);
@@ -486,7 +530,8 @@ export default function BindersPage() {
         }}>
           {binders.map((b, binderIndex) => (
             <div 
-              key={b.id} 
+              key={b.id}
+              id={`binder-card-${b.id}`}
               style={{
                 ...cardStyle,
                 borderColor: b.color || "var(--color-primary)",
@@ -498,13 +543,40 @@ export default function BindersPage() {
                 onClick={(e) => { e.stopPropagation(); deleteBinder(b.id); }} 
                 style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18, fontWeight: 900, zIndex: 10 }}
               >✕</button>
+              <button
+                type="button"
+                title={t("binders.info.title")}
+                aria-label={t("binders.info.title")}
+                onClick={(e) => { e.stopPropagation(); setInfoBinderId(b.id); }}
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  left: 10,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--bg-card)",
+                  color: "var(--color-primary)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  zIndex: 10,
+                }}
+              >
+                <Info size={14} />
+              </button>
 
               <BinderShelfThumb3D
                 title={b.title || ""}
                 color={b.color || ""}
                 coverUrl={b.cover_url}
                 backCoverUrl={b.back_cover_url}
-                onOpenBinder={() => router.push(`/binder?binderId=${b.id}`)}
+                onOpenBinder={() => {
+                  sessionStorage.setItem(SHELF_SCROLL_KEY, String(window.scrollY));
+                  router.push(`/binder?binderId=${b.id}`);
+                }}
                 tourId={binderIndex === 0 ? "binders-enter" : undefined}
                 t={t}
               />
@@ -727,6 +799,19 @@ export default function BindersPage() {
           onClose={() => setPreviewBinderOpen(false)} 
         />
       )}
+
+      <BinderInfoModal
+        open={infoBinderId != null}
+        binderId={infoBinderId}
+        onClose={() => setInfoBinderId(null)}
+        onOpenPage={(pageIndex) => {
+          const id = infoBinderId;
+          if (id == null) return;
+          sessionStorage.setItem(SHELF_SCROLL_KEY, String(window.scrollY));
+          setInfoBinderId(null);
+          router.push(`/binder?binderId=${id}&page=${pageIndex}`);
+        }}
+      />
 
       <Footer />
     </div>
