@@ -11,7 +11,7 @@ import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { 
   Trash2, ChevronLeft, ChevronRight, ChevronDown, Users, Disc3, PenLine, Mic2, User, Layers, 
-    SlidersHorizontal, RotateCw, Undo2, Redo2, BookText, Bookmark, Heart, Plus, ZoomIn, Info 
+    SlidersHorizontal, RotateCw, Undo2, Redo2, BookText, Bookmark, Heart, Plus, ZoomIn, Info, Eye 
 } from "lucide-react";
 import WtsListingModal from "../library/WtsListingModal"
 import WttListingModal from "../library/WttListingModal"
@@ -2027,6 +2027,10 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   // 3. ESTADOS DEL BINDER Y PÁGINAS
   const [binderId, setBinderId] = useState<number | null>(null);
   const [pageId, setPageId] = useState<number | null>(null);
+  const [slotToolsIndex, setSlotToolsIndex] = useState<number | null>(null);
+  useEffect(() => {
+    setSlotToolsIndex(null);
+  }, [pageId]);
   const [pagesCount, setPagesCount] = useState<number>(0);
   const pageFromUrl = Number(searchParams.get("page"));
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(
@@ -8918,7 +8922,7 @@ const base = `scaleX(${flip ? -1 : 1})`;
   <div
       data-binder-pocket=""
       data-filled={assigned ? "1" : "0"}
-      className="pcSlotWrap" // <--- ASEGÚRATE DE QUE TIENE ESTA CLASE
+      className={`pcSlotWrap${assigned && slotToolsIndex === slotIndex ? " is-tools-open" : ""}`}
      onMouseEnter={() => {
  if (!isBiasPC) return;
  burstHearts();
@@ -9118,7 +9122,10 @@ onMouseEnter={() => {
   burstHearts();
 }}
 data-tour={assigned ? "binder-slot" : undefined}
-onClick={() => openItemModal(slotIndex, assigned)}
+onClick={(e) => {
+  e.stopPropagation();
+  setSlotToolsIndex((cur) => (cur === slotIndex ? null : slotIndex));
+}}
 >
   <div style={{ width: "100%", height: "100%", perspective: 900 }}>
     <div
@@ -9285,9 +9292,21 @@ onClick={() => openItemModal(slotIndex, assigned)}
     </div>
   )}
 <div className="pcControls" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 1000 }}>
- <button type="button" onClick={onRotateMinus90} style={iconBtnStyle}>⟲</button>
- <button type="button" onClick={onRotatePlus90} style={iconBtnStyle}>⟳</button>
- <button type="button" onClick={onToggleFaceAnimated} style={iconBtnStyle}>⇄</button>
+ <button type="button" onClick={onRotateMinus90} title={t("binders.actions.flip")} style={iconBtnStyle}>⟲</button>
+ <button type="button" onClick={onRotatePlus90} title={t("binders.actions.flip")} style={iconBtnStyle}>⟳</button>
+ <button type="button" onClick={onToggleFaceAnimated} title={t("binders.actions.back_side")} style={iconBtnStyle}>⇄</button>
+ <button
+   type="button"
+   title={t("binders.actions.view_detail")}
+   onClick={(e) => {
+     e.stopPropagation();
+     setSlotToolsIndex(null);
+     openItemModal(slotIndex, assigned);
+   }}
+   style={iconBtnStyle}
+ >
+   <Eye size={13} strokeWidth={2.4} />
+ </button>
 </div>
 
     <div className="pcDeleteCorner" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 950 }}>
@@ -13060,12 +13079,10 @@ bottom: 8px;
   }
 }
   
-         @media (hover: hover) {
-  .pcSlotWrap:hover .pcControls {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateX(-50%) translateY(0);
-  }
+         .pcSlotWrap.is-tools-open .pcControls {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
 }
   
 .modalPcWrap { position: relative; }
@@ -13222,10 +13239,10 @@ bottom: 8px;
     transform: translateY(5px) !important;
   }
 
-  /* Estado Hover: Cuando el ratón entra en el Slot, aparecen */
-  .pcSlotWrap:hover .pcControls,
-  .pcSlotWrap:hover .pcDeleteCorner,
-  .pcSlotWrap:hover .pcQtyBadgeCentered {
+  /* Aparecen al pulsar la photocard, no al pasar el ratón */
+  .pcSlotWrap.is-tools-open .pcControls,
+  .pcSlotWrap.is-tools-open .pcDeleteCorner,
+  .pcSlotWrap.is-tools-open .pcQtyBadgeCentered {
     opacity: 1 !important;
     pointer-events: auto !important;
     transform: translateY(0) !important;
@@ -13241,7 +13258,7 @@ bottom: 8px;
     gap: 6px;
   }
   
-  .pcSlotWrap:hover .pcControls {
+  .pcSlotWrap.is-tools-open .pcControls {
     transform: translateX(-50%) translateY(0) !important;
   }
 
@@ -13266,7 +13283,7 @@ bottom: 8px;
     box-shadow: 0 4px 10px var(--overlay-faint);
   }
 
-  .pcSlotWrap:hover .pcQtyBadgeCentered {
+  .pcSlotWrap.is-tools-open .pcQtyBadgeCentered {
     transform: translateX(-50%) translateY(0) !important;
   }
 
@@ -14104,29 +14121,55 @@ const isDraggingMe = pageDragFromId === p.id;
       alignItems: "center" 
     }}>
       {/* Subgrupo Acciones en horizontal */}
-   <div data-tour="binder-tools" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-      <button type="button" onClick={() => createNewPage('3x3')} style={{ ...topBtnStyle, width: "auto", minWidth: 38, height: 38, padding: "0 10px", justifyContent: "center", fontSize: 14, gap: 6 }} title={t("binders.quota.pages")}>
-    + <span style={{ fontSize: 10, fontWeight: 900 }}>{formatQuota(realPagesCount, quota.maxPages)}</span>
-  </button>
-  <button 
-    type="button" 
-    onClick={() => createNewPage('separator')}
-    style={{
-      ...topBtnStyle,
-      width: "auto",
-      padding: "0 12px",
-      height: 38,
-      justifyContent: "center",
-      fontSize: 12,
-      background: "var(--binder-btn-separator-bg)",
-      color: "var(--binder-btn-separator-fg)",
-      border: "none",
-      boxShadow: "0 4px 14px color-mix(in srgb, var(--color-primary) 22%, transparent)",
-    }} 
-    title={t("binders.quota.separators")}
-  > 
-    <Bookmark size={14} style={{ marginRight: 6 }} /> {t("binders.actions.add_separator")} {formatQuota(separatorsCount, quota.maxSeparators)}
-  </button>
+   <div data-tour="binder-tools" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+      <button
+        type="button"
+        onClick={() => createNewPage("3x3")}
+        title={t("binders.actions.add_page")}
+        style={{
+          ...topBtnStyle,
+          height: 38,
+          width: "auto",
+          padding: isMobile ? "0 10px" : "0 12px",
+          gap: 6,
+          fontSize: 12,
+          lineHeight: 1,
+          whiteSpace: "nowrap",
+          flex: "0 0 auto",
+        }}
+      >
+        <Plus size={15} strokeWidth={2.6} />
+        <span>{isMobile ? formatQuota(realPagesCount, quota.maxPages) : t("binders.actions.add_page")}</span>
+        {!isMobile && (
+          <span style={{ fontSize: 10, fontWeight: 900, opacity: 0.72 }}>{formatQuota(realPagesCount, quota.maxPages)}</span>
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() => createNewPage("separator")}
+        title={t("binders.actions.add_separator")}
+        style={{
+          ...topBtnStyle,
+          height: 38,
+          width: "auto",
+          padding: isMobile ? "0 10px" : "0 12px",
+          gap: 6,
+          fontSize: 12,
+          lineHeight: 1,
+          whiteSpace: "nowrap",
+          flex: "0 0 auto",
+          background: "var(--binder-btn-separator-bg)",
+          color: "var(--binder-btn-separator-fg)",
+          border: "1px solid transparent",
+          boxShadow: "0 4px 14px color-mix(in srgb, var(--color-primary) 22%, transparent)",
+        }}
+      >
+        <Bookmark size={14} />
+        <span>{isMobile ? formatQuota(separatorsCount, quota.maxSeparators) : t("binders.actions.add_separator")}</span>
+        {!isMobile && (
+          <span style={{ fontSize: 10, fontWeight: 900, opacity: 0.85 }}>{formatQuota(separatorsCount, quota.maxSeparators)}</span>
+        )}
+      </button>
         {/* NUEVO BOTÓN DE BORRAR MÚLTIPLE EN EL CARRUSEL */}
   {deleteMode ? (
     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -14516,6 +14559,7 @@ const isDraggingMe = pageDragFromId === p.id;
   ) : (
   /* Aquí sigue tu código normal del grid de slots... */
   <div
+    onClick={() => setSlotToolsIndex(null)}
     style={{
       width: gridNeedsFit ? gridNaturalW * gridFit : undefined,
       height: gridNeedsFit ? gridNaturalH * gridFit : undefined,
