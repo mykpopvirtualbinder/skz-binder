@@ -190,6 +190,19 @@
   },
   "binders": {
     "loading": "A carregar Binder...",
+    "cover_source": {
+      "title": "De onde vem a imagem?",
+      "album": "Capa de álbum",
+      "pc": "Photocard",
+      "merch": "Merch",
+      "fanart": "Fanart",
+      "file": "Imagem dos meus arquivos",
+      "search": "Buscar…",
+      "back": "Voltar",
+      "empty": "Nenhuma imagem com essa busca",
+      "loading": "Carregando…",
+      "choose": "📷 Escolher imagem"
+    },
     "loading_page": "A carregar página...",
     "my_binders": "Meus Binders",
     "page": "Página",

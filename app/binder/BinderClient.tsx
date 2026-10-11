@@ -36,6 +36,7 @@ import { resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { formatQuota, packSeparatorColors, resolveBinderQuota, unpackSeparatorColors } from "@/lib/binder-quotas";
 import { mergeBinderFaces, writeBinderFacesLocal, emptyCoverStyles, urlColumnForCoverFace, type CoverFaceKey, type CoverFaceStyle } from "@/lib/binder-faces";
 import BinderCoverFaceEditor from "./BinderCoverFaceEditor";
+import CoverImageSourceModal from "./CoverImageSourceModal";
 
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
@@ -1948,6 +1949,7 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const isAdmin = isAdminTeamEmail((profile as { email?: string | null } | null)?.email);
   const [isMobile, setIsMobile] = useState(false); // ✅ Única declaración
   const [viewportW, setViewportW] = useState(0);
+  const [separatorSourceOpen, setSeparatorSourceOpen] = useState(false);
   const [status, setStatus] = useState("");         // ✅ Única declaración
   const [error, setError] = useState<string | null>(null);
   const [needsAuth, setNeedsAuth] = useState(false);
@@ -13912,6 +13914,7 @@ const isDraggingMe = pageDragFromId === p.id;
       t={t}
       onPatch={(patch) => { void applyCoverPatch(selectedCoverFace, patch); }}
       onPickImage={(file) => { void uploadCoverFaceImage(file, selectedCoverFace); }}
+      onPickUrl={(url) => { void applyCoverPatch(selectedCoverFace, { imageUrl: url }); setStatus("Imagen actualizada ✨"); }}
       showVipAlert={() => showAlert(t("binder_shelf.vip_cover_alert_title"), t("binder_shelf.vip_cover_alert_msg"))}
     />
   ) : layout === 'separator' ? (
@@ -14034,47 +14037,59 @@ const isDraggingMe = pageDragFromId === p.id;
         {/* SECCIÓN 3: IMAGEN PERSONALIZADA (¡AHORA SÍ FUNCIONA!) */}
         <div style={{ width: "100%" }}>
           <p style={{ fontSize: "11px", color: "var(--color-primary)", fontWeight: 900, marginBottom: "8px", textTransform: "uppercase" }}>
-            Fondo especial
+            {t("binders.cover_faces.background")}
           </p>
-          <label style={{ 
-            display: "inline-flex", alignItems: "center", justifyContent: "center", 
-            background: "var(--bg-soft)", border: "1px solid var(--color-primary)", color: "var(--color-primary)", 
-            padding: "10px", borderRadius: "10px", fontWeight: 900, cursor: "pointer", 
-            width: "100%", fontSize: "11px", boxSizing: "border-box"
-          }}>
-            {slotItems[1]?.custom_image_url ? "📷 Cambiar Imagen" : "📷 Subir Imagen"}
-           <input 
-    type="file" 
-    accept="image/*" 
-    style={{ display: "none" }} 
-    onClick={(e) => {
-      if (!profile?.is_premium && !isAdmin) {
-        e.preventDefault(); // Bloquea la ventana
-        showAlert("Ventaja VIP 👑", "Poner fondos personalizados en los separadores es exclusivo para Premium.");
-      }
-    }}
-    onChange={async (e) => { 
-      // Como ya bloqueamos arriba, aquí solo procesamos si hay archivo
-      const file = e.target.files?.[0]; 
-      if (file) { 
-        setStatus("Subiendo imagen..."); 
-        const up = await uploadCustomImage(file, 1); 
-        if (up.ok && up.publicUrl) { 
-          setSlotItems(prev => ({ 
-            ...prev, 
-            1: { ...(prev[1] || {}), id: 999999, is_custom: true, custom_image_url: up.publicUrl } as any 
-          })); 
-          await persistSlotState(1, { kind: 'custom', custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "", custom_image_url: up.publicUrl, custom_color: slotItems[1]?.custom_color } as any, 0, false); 
-          setStatus("Imagen actualizada ✨"); 
-        } else { 
-          setError(up.error || "Error al subir"); 
-          setStatus("Error subiendo imagen"); 
-        } 
-      } 
-      e.target.value = ""; 
-    }} 
-  />
-          </label>
+          <button
+            type="button"
+            onClick={() => {
+              if (!profile?.is_premium && !isAdmin) {
+                showAlert("Ventaja VIP 👑", "Poner fondos personalizados en los separadores es exclusivo para Premium.");
+                return;
+              }
+              setSeparatorSourceOpen(true);
+            }}
+            style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              background: "var(--bg-soft)", border: "1px solid var(--color-primary)", color: "var(--color-primary)",
+              padding: "10px", borderRadius: "10px", fontWeight: 900, cursor: "pointer",
+              width: "100%", fontSize: "11px", boxSizing: "border-box"
+            }}
+          >
+            {slotItems[1]?.custom_image_url ? t("binders.cover_faces.change_image") : t("binders.cover_source.choose")}
+          </button>
+          <CoverImageSourceModal
+            open={separatorSourceOpen}
+            onClose={() => setSeparatorSourceOpen(false)}
+            t={t}
+            onPickUrl={async (url) => {
+              setSlotItems(prev => ({
+                ...prev,
+                1: { ...(prev[1] || {}), id: 999999, is_custom: true, custom_image_url: url } as any
+              }));
+              await persistSlotState(1, {
+                kind: "custom",
+                custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "",
+                custom_image_url: url,
+                custom_color: slotItems[1]?.custom_color,
+              } as any, 0, false);
+              setStatus("Imagen actualizada ✨");
+            }}
+            onPickFile={async (file) => {
+              setStatus("Subiendo imagen...");
+              const up = await uploadCustomImage(file, 1);
+              if (up.ok && up.publicUrl) {
+                setSlotItems(prev => ({
+                  ...prev,
+                  1: { ...(prev[1] || {}), id: 999999, is_custom: true, custom_image_url: up.publicUrl } as any
+                }));
+                await persistSlotState(1, { kind: "custom", custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "", custom_image_url: up.publicUrl, custom_color: slotItems[1]?.custom_color } as any, 0, false);
+                setStatus("Imagen actualizada ✨");
+              } else {
+                setError(up.error || "Error al subir");
+                setStatus("Error subiendo imagen");
+              }
+            }}
+          />
         </div>
       </div>
     </div>

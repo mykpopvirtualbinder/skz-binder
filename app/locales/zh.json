@@ -190,6 +190,19 @@
   },
   "binders": {
     "loading": "卡册加载中...",
+    "cover_source": {
+      "title": "图片从哪里来？",
+      "album": "专辑封面",
+      "pc": "小卡",
+      "merch": "周边",
+      "fanart": "同人图",
+      "file": "我的文件",
+      "search": "搜索…",
+      "back": "返回",
+      "empty": "没有符合搜索的图片",
+      "loading": "加载中…",
+      "choose": "📷 选择图片"
+    },
     "loading_page": "页面加载中...",
     "my_binders": "我的卡册",
     "page": "页码",

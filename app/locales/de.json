@@ -385,6 +385,19 @@
   },
   "binders": {
     "loading": "Binder wird geladen...",
+    "cover_source": {
+      "title": "Woher soll das Bild kommen?",
+      "album": "Albumcover",
+      "pc": "Photocard",
+      "merch": "Merch",
+      "fanart": "Fanart",
+      "file": "Bild aus meinen Dateien",
+      "search": "Suchen…",
+      "back": "Zurück",
+      "empty": "Keine Bilder zu dieser Suche",
+      "loading": "Lädt…",
+      "choose": "📷 Bild wählen"
+    },
     "loading_page": "Seite wird geladen…",
     "my_binders": "Meine Binder",
     "page": "Seite",

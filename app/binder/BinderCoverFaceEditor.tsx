@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Bookmark } from "lucide-react";
 import { BINDER_ACCENT_SWATCHES } from "@/lib/binder-color-swatches";
 import type { CoverFaceKey, CoverFaceStyle } from "@/lib/binder-faces";
+import CoverImageSourceModal from "./CoverImageSourceModal";
 
 type Props = {
   faceKey: CoverFaceKey;
@@ -13,6 +15,7 @@ type Props = {
   t: (key: string) => string;
   onPatch: (patch: CoverFaceStyle) => void;
   onPickImage: (file: File) => void;
+  onPickUrl: (url: string) => void;
   showVipAlert: () => void;
 };
 
@@ -24,8 +27,10 @@ export default function BinderCoverFaceEditor({
   t,
   onPatch,
   onPickImage,
+  onPickUrl,
   showVipAlert,
 }: Props) {
+  const [sourceOpen, setSourceOpen] = useState(false);
   const fill = style.fill || null;
   const border = style.border || null;
   const imageUrl = style.imageUrl || null;
@@ -139,7 +144,15 @@ export default function BinderCoverFaceEditor({
           <p style={{ fontSize: 11, color: "var(--color-primary)", fontWeight: 900, marginBottom: 8, textTransform: "uppercase" }}>
             {t("binders.cover_faces.background")}
           </p>
-          <label
+          <button
+            type="button"
+            onClick={() => {
+              if (!isVip) {
+                showVipAlert();
+                return;
+              }
+              setSourceOpen(true);
+            }}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -156,24 +169,15 @@ export default function BinderCoverFaceEditor({
               boxSizing: "border-box",
             }}
           >
-            {imageUrl ? t("binders.cover_faces.change_image") : t("binders.cover_faces.upload_image")}
-            <input
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onClick={(e) => {
-                if (!isVip) {
-                  e.preventDefault();
-                  showVipAlert();
-                }
-              }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) onPickImage(file);
-                e.target.value = "";
-              }}
-            />
-          </label>
+            {imageUrl ? t("binders.cover_faces.change_image") : t("binders.cover_source.choose")}
+          </button>
+          <CoverImageSourceModal
+            open={sourceOpen}
+            onClose={() => setSourceOpen(false)}
+            onPickFile={onPickImage}
+            onPickUrl={onPickUrl}
+            t={t}
+          />
         </div>
       </div>
     </div>

@@ -385,6 +385,19 @@
   },
   "binders": {
     "loading": "Memuat Binder...",
+    "cover_source": {
+      "title": "Gambarnya dari mana?",
+      "album": "Sampul album",
+      "pc": "Photocard",
+      "merch": "Merch",
+      "fanart": "Fanart",
+      "file": "Gambar dari file saya",
+      "search": "Cari…",
+      "back": "Kembali",
+      "empty": "Tidak ada gambar untuk pencarian ini",
+      "loading": "Memuat…",
+      "choose": "📷 Pilih gambar"
+    },
     "loading_page": "Memuat halaman…",
     "my_binders": "Binder Milikku",
     "page": "Halaman",
