@@ -489,6 +489,7 @@
       "delete": "Delete",
       "cancel": "Cancel",
       "undo": "Undo",
+      "redo": "Redo",
       "flip": "Flip",
       "back_side": "Back side",
       "preview": "Preview",

@@ -427,6 +427,7 @@
       "delete": "削除",
       "cancel": "キャンセル",
       "undo": "元に戻す",
+      "redo": "やり直す",
       "flip": "裏返す",
       "back_side": "裏面",
       "preview": "プレビュー",

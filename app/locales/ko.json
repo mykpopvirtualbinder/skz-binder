@@ -286,6 +286,7 @@
       "delete": "삭제",
       "cancel": "취소",
       "undo": "실행 취소",
+      "redo": "다시 실행",
       "flip": "뒤집기",
       "back_side": "뒷면",
       "preview": "미리보기",

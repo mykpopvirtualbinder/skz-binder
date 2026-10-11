@@ -427,6 +427,7 @@
       "delete": "Supprimer",
       "cancel": "Annuler",
       "undo": "Annuler l'action",
+      "redo": "Rétablir",
       "flip": "Retourner",
       "back_side": "Verso",
       "preview": "Prévisualiser",

@@ -286,6 +286,7 @@
       "delete": "删除",
       "cancel": "取消",
       "undo": "撤销",
+      "redo": "重做",
       "flip": "翻转",
       "back_side": "背面",
       "preview": "预览",

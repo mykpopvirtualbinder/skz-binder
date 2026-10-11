@@ -488,6 +488,7 @@
       "delete": "Borrar",
       "cancel": "Cancelar",
       "undo": "Deshacer",
+      "redo": "Rehacer",
       "flip": "Voltear",
       "back_side": "Reverso",
       "preview": "Previsualizar",

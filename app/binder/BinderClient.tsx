@@ -11,7 +11,7 @@ import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { 
   Trash2, ChevronLeft, ChevronRight, ChevronDown, Users, Disc3, PenLine, Mic2, User, Layers, 
-    SlidersHorizontal, RotateCw, Undo2, BookText, Bookmark, Heart, Plus, ZoomIn, Info 
+    SlidersHorizontal, RotateCw, Undo2, Redo2, BookText, Bookmark, Heart, Plus, ZoomIn, Info 
 } from "lucide-react";
 import WtsListingModal from "../library/WtsListingModal"
 import WttListingModal from "../library/WttListingModal"
@@ -2278,6 +2278,7 @@ const skzooFollowerRef = useRef<HTMLDivElement | null>(null);
 
 // ✅ Undo 1: binder principal
 const undoStackRef = useRef<UndoSnapshot[]>([]);
+const redoStackRef = useRef<UndoSnapshot[]>([]);
 
 // ✅ Undo 2: modal “Ver todas”
 const pagesModalUndoStackRef = useRef<PagesModalUndoSnapshot[]>([]);
@@ -5736,39 +5737,40 @@ const readAllPageSlotsSnapshot = useCallback(async () => {
   .select("id") 
   .eq("binder_id", binderId); 
   
-  if (pagesRes.error) return grouped; 
+  if (pagesRes.error) return null; 
 
   const allPageIds = (pagesRes.data ?? []) 
   .map((p: any) => Number(p.id)) 
   .filter((n: number) => Number.isFinite(n)); 
 
-  if (allPageIds.length > 0) { 
-  const slotsRes = await supabase
-  .from("page_slots")
-  // AÑADIDO is_wanted al select
-.select("slot_index, item_id, rot, flip_h, is_custom, custom_text, custom_image_url, custom_back_image_url, member_id, is_wanted, custom_color")  .eq("page_id", pageId);
+  if (allPageIds.length > 0) {
+    for (const id of allPageIds) grouped[id] = [];
+    const slotsRes = await supabase
+      .from("page_slots")
+      .select("page_id, slot_index, item_id, rot, flip_h, is_custom, custom_text, custom_image_url, custom_back_image_url, member_id, is_wanted, custom_color, face")
+      .in("page_id", allPageIds);
 
-  if (slotsRes.error) return grouped; 
-  
-  for (const row of slotsRes.data ?? []) { 
-  const pid = Number((row as any).page_id); 
-  if (!Number.isFinite(pid)) continue; 
-  if (!grouped[pid]) grouped[pid] = []; 
-  grouped[pid].push({ 
-  slot_index: Number((row as any).slot_index), 
-  item_id: (row as any).item_id ?? null, 
-  face: (row as any).face === "back" ? "back" : "front", 
-  rot: Number((row as any).rot ?? 0), 
-  flip_h: Boolean((row as any).flip_h), 
-  is_custom: Boolean((row as any).is_custom), 
-  custom_color: (row as any).custom_color ?? null,
-  custom_text: (row as any).custom_text ?? null, 
-  custom_image_url: (row as any).custom_image_url ?? null, 
-  custom_back_image_url: (row as any).custom_back_image_url ?? null,
-  member_id: (row as any).member_id ?? null, // 👈 AÑADIDO
-  is_wanted: Boolean((row as any).is_wanted) // 👈 AÑADIDO
-  }); 
-  } 
+    if (slotsRes.error) return null;
+
+    for (const row of slotsRes.data ?? []) {
+      const pid = Number((row as { page_id?: number }).page_id);
+      if (!Number.isFinite(pid)) continue;
+      if (!grouped[pid]) grouped[pid] = [];
+      grouped[pid].push({
+        slot_index: Number((row as { slot_index?: number }).slot_index),
+        item_id: (row as { item_id?: number | null }).item_id ?? null,
+        face: (row as { face?: string }).face === "back" ? "back" : "front",
+        rot: Number((row as { rot?: number }).rot ?? 0),
+        flip_h: Boolean((row as { flip_h?: boolean }).flip_h),
+        is_custom: Boolean((row as { is_custom?: boolean }).is_custom),
+        custom_color: (row as { custom_color?: string | null }).custom_color ?? null,
+        custom_text: (row as { custom_text?: string | null }).custom_text ?? null,
+        custom_image_url: (row as { custom_image_url?: string | null }).custom_image_url ?? null,
+        custom_back_image_url: (row as { custom_back_image_url?: string | null }).custom_back_image_url ?? null,
+        member_id: (row as { member_id?: number | null }).member_id ?? null,
+        is_wanted: Boolean((row as { is_wanted?: boolean }).is_wanted),
+      });
+    }
   } 
 
   if (pageId) { 
@@ -5787,8 +5789,9 @@ const readAllPageSlotsSnapshot = useCallback(async () => {
   custom_text: isCustom ? ((item as any).custom_text ?? null) : null, 
   custom_image_url: isCustom ? ((item as any).custom_image_url ?? null) : null, 
   custom_back_image_url: isCustom ? ((item as any).custom_back_image_url ?? null) : null,
-  member_id: (item as any).member_id ?? null, // 👈 AÑADIDO
-  is_wanted: Boolean((item as any).is_wanted) // 👈 AÑADIDO
+  member_id: (item as any).member_id ?? null,
+  is_wanted: Boolean((item as any).is_wanted),
+  custom_color: (item as any).custom_color ?? null,
   }); 
   } 
   grouped[pageId] = activePageSlots; 
@@ -5796,8 +5799,10 @@ const readAllPageSlotsSnapshot = useCallback(async () => {
   return grouped; 
  }, [binderId, pageId, slotItems, slotFace, slotRot, slotFlipH]);
 
-  async function pushUndoSnapshot(): Promise<void> {
-    const snapshot: any = {
+  async function captureHistorySnapshot(): Promise<UndoSnapshot | null> {
+    const allPageSlots = await readAllPageSlotsSnapshot();
+    if (!allPageSlots) return null;
+    return {
       binderPages: binderPages.map((p) => ({ ...p })),
       pagesCount,
       currentPageIndex,
@@ -5809,7 +5814,7 @@ const readAllPageSlotsSnapshot = useCallback(async () => {
       slotFace: { ...slotFace },
       slotCustom: { ...slotCustom },
       placedByItem: { ...placedByItem },
-      allPageSlots: await readAllPageSlotsSnapshot(),
+      allPageSlots: allPageSlots as unknown as UndoSnapshot["allPageSlots"],
       invByItem: { ...invByItem },
       priceByItem: { ...priceByItem },
       currencyByItem: { ...currencyByItem },
@@ -5820,101 +5825,176 @@ const readAllPageSlotsSnapshot = useCallback(async () => {
       wttOfferByItem: { ...wttOfferByItem },
       wttOfferQtyByItem: { ...wttOfferQtyByItem },
     };
-
-    undoStackRef.current.push(snapshot);
-
-    if (undoStackRef.current.length > 50) {
-      undoStackRef.current.shift();
-    }
   }
 
-async function doUndo(): Promise<void> { 
-  const prev = undoStackRef.current.pop(); 
-  if (!prev) return; 
-  setError(null); 
-  setStatus("Deshaciendo cambio..."); 
+  function trimHistory(stack: UndoSnapshot[]) {
+    if (stack.length > 50) stack.shift();
+  }
 
-  if (binderId) { 
-  const targetPages = prev.binderPages 
-  .slice() 
-  .sort((a, b) => a.page_index - b.page_index); 
-  const currentPageIds = new Set(binderPages.map((p) => p.id)); 
-  const targetPageIds = new Set(targetPages.map((p) => p.id)); 
+  async function pushUndoSnapshot(): Promise<void> {
+    const snapshot = await captureHistorySnapshot();
+    if (!snapshot) return;
+    undoStackRef.current.push(snapshot);
+    trimHistory(undoStackRef.current);
+    redoStackRef.current = [];
+  }
 
-  for (const p of binderPages) { 
-  if (!targetPageIds.has(p.id)) { 
-  await supabase.from("binder_pages").delete().eq("id", p.id); 
-  } 
-  } 
-  for (const p of targetPages) { 
-  if (!currentPageIds.has(p.id)) { 
-  await supabase.from("binder_pages").upsert({ 
-  id: p.id, 
-  binder_id: binderId, 
-  page_index: p.page_index, 
-  layout_type: p.layout_type, 
-  } as any); 
-  } 
-  } 
-  await persistPageOrder(targetPages); 
+  async function applyHistorySnapshot(prev: UndoSnapshot): Promise<boolean> {
+    const slotsByPage = prev.allPageSlots;
+    if (!slotsByPage || typeof slotsByPage !== "object") {
+      setError("No se pudo restaurar el binder");
+      return false;
+    }
 
-  const targetPageldsList = targetPages.map((p) => p.id); 
-  if (targetPageldsList.length > 0) { 
-  // 1. PREPARAMOS LOS DATOS ANTES DE BORRAR
-  const rowsToInsert: any[] = []; 
-  for (const pid of targetPageldsList) { 
-  const rows = prev.allPageSlots[pid] || []; 
-  for (const row of rows) { 
-  rowsToInsert.push({ 
-  page_id: pid, 
-  slot_index: row.slot_index, 
-  item_id: row.item_id ?? null, 
-  face: row.face ?? "front", 
-  rot: row.rot ?? 0, 
-  flip_h: row.flip_h ?? false, 
-  is_custom: Boolean(row.is_custom), 
-  custom_text: row.custom_text ?? null, 
-  custom_image_url: row.custom_image_url ?? null, 
-  custom_back_image_url: row.custom_back_image_url ?? null,
-  member_id: row.member_id ?? null, // 👈 AÑADIDO
-  is_wanted: Boolean(row.is_wanted) // 👈 AÑADIDO
-  }); 
-  } 
-  } 
-  // 2. AHORA SÍ, BORRAMOS Y VOLVEMOS A INSERTAR CON SEGURIDAD
-  await supabase.from("page_slots").delete().in("page_id", targetPageldsList); 
+    if (binderId) {
+      const targetPages = prev.binderPages
+        .slice()
+        .sort((a, b) => a.page_index - b.page_index);
+      const currentPageIds = new Set(binderPages.map((p) => p.id));
+      const targetPageIds = new Set(targetPages.map((p) => p.id));
 
-  if (rowsToInsert.length > 0) { 
-  const { error } = await supabase.from("page_slots").insert(rowsToInsert); 
-  if (error) console.error("Error restaurando BD al deshacer:", error.message); 
-  } 
-  } 
-  } 
-  
-  setBinderPages(prev.binderPages); 
-  setPagesCount(prev.pagesCount); 
-  setCurrentPageIndex(prev.currentPageIndex); 
-  setPageId(prev.pageId); 
-  setLayout(prev.layout); 
-  setSlotItems(prev.slotItems); 
-  setSlotRot(prev.slotRot); 
-  setSlotFlipH(prev.slotFlipH); 
-  setSlotFace(prev.slotFace); 
-  setSlotCustom(prev.slotCustom); 
-  setPlacedByItem(prev.placedByItem);
-  setInvByItem(prev.invByItem); 
-  setPriceByItem(prev.priceByItem); 
-  setCurrencyByItem(prev.currencyByItem); 
-  setMarketByItem(prev.marketByItem); 
-  setWtsCurrencyByItem(prev.wtsCurrencyByItem); 
-  setNotesByItem(prev.notesByItem); 
-  setWttWantedByItem(prev.wttWantedByItem); 
-  setWttOfferByItem(prev.wttOfferByItem); 
-  setWttOfferQtyByItem(prev.wttOfferQtyByItem); 
+      for (const p of binderPages) {
+        if (!targetPageIds.has(p.id)) {
+          const delPage = await supabase.from("binder_pages").delete().eq("id", p.id);
+          if (delPage.error) {
+            setError(delPage.error.message);
+            return false;
+          }
+        }
+      }
+      for (const p of targetPages) {
+        if (!currentPageIds.has(p.id)) {
+          const upPage = await supabase.from("binder_pages").upsert({
+            id: p.id,
+            binder_id: binderId,
+            page_index: p.page_index,
+            layout_type: p.layout_type,
+          } as any);
+          if (upPage.error) {
+            setError(upPage.error.message);
+            return false;
+          }
+        }
+      }
+      await persistPageOrder(targetPages);
 
-  setStatus("Cambio deshecho ✅"); 
-  setRefreshTick((t) => t + 1); 
- }
+      for (const pid of targetPages.map((p) => p.id)) {
+        if (!Object.prototype.hasOwnProperty.call(slotsByPage, pid)) continue;
+        const rows = Array.isArray(slotsByPage[pid]) ? slotsByPage[pid] : [];
+        const payload = rows.map((row) => ({
+          page_id: pid,
+          slot_index: row.slot_index,
+          item_id: row.item_id ?? null,
+          face: row.face ?? "front",
+          rot: row.rot ?? 0,
+          flip_h: row.flip_h ?? false,
+          is_custom: Boolean(row.is_custom),
+          custom_text: row.custom_text ?? null,
+          custom_image_url: row.custom_image_url ?? null,
+          custom_back_image_url: row.custom_back_image_url ?? null,
+          member_id: row.member_id ?? null,
+          is_wanted: Boolean(row.is_wanted),
+          custom_color: (row as { custom_color?: string | null }).custom_color ?? null,
+        }));
+
+        if (payload.length > 0) {
+          const up = await supabase.from("page_slots").upsert(payload, { onConflict: "page_id,slot_index" });
+          if (up.error) {
+            setError(up.error.message);
+            return false;
+          }
+          const keep = payload.map((row) => row.slot_index).join(",");
+          const del = await supabase.from("page_slots").delete().eq("page_id", pid).not("slot_index", "in", `(${keep})`);
+          if (del.error) {
+            setError(del.error.message);
+            return false;
+          }
+        } else {
+          const del = await supabase.from("page_slots").delete().eq("page_id", pid);
+          if (del.error) {
+            setError(del.error.message);
+            return false;
+          }
+        }
+      }
+    }
+
+    setBinderPages(prev.binderPages);
+    setPagesCount(prev.pagesCount);
+    setCurrentPageIndex(prev.currentPageIndex);
+    setPageId(prev.pageId);
+    setLayout(prev.layout);
+    setSlotItems(prev.slotItems);
+    setSlotRot(prev.slotRot);
+    setSlotFlipH(prev.slotFlipH);
+    setSlotFace(prev.slotFace);
+    setSlotCustom(prev.slotCustom);
+    setPlacedByItem(prev.placedByItem);
+    setInvByItem(prev.invByItem);
+    setPriceByItem(prev.priceByItem);
+    setCurrencyByItem(prev.currencyByItem);
+    setMarketByItem(prev.marketByItem);
+    setWtsCurrencyByItem(prev.wtsCurrencyByItem);
+    setNotesByItem(prev.notesByItem);
+    setWttWantedByItem(prev.wttWantedByItem);
+    setWttOfferByItem(prev.wttOfferByItem);
+    setWttOfferQtyByItem(prev.wttOfferQtyByItem);
+    return true;
+  }
+
+async function doUndo(): Promise<void> {
+  const prev = undoStackRef.current.pop();
+  if (!prev) {
+    setStatus("Nada que deshacer");
+    return;
+  }
+  setError(null);
+  setStatus("Deshaciendo cambio...");
+  const current = await captureHistorySnapshot();
+  if (!current) {
+    undoStackRef.current.push(prev);
+    setStatus("No se pudo deshacer");
+    return;
+  }
+  redoStackRef.current.push(current);
+  trimHistory(redoStackRef.current);
+  const ok = await applyHistorySnapshot(prev);
+  if (!ok) {
+    redoStackRef.current.pop();
+    undoStackRef.current.push(prev);
+    setStatus("No se pudo deshacer");
+    return;
+  }
+  setStatus("Cambio deshecho ✅");
+  setRefreshTick((t) => t + 1);
+}
+
+async function doRedo(): Promise<void> {
+  const next = redoStackRef.current.pop();
+  if (!next) {
+    setStatus("Nada que rehacer");
+    return;
+  }
+  setError(null);
+  setStatus("Rehaciendo cambio...");
+  const current = await captureHistorySnapshot();
+  if (!current) {
+    redoStackRef.current.push(next);
+    setStatus("No se pudo rehacer");
+    return;
+  }
+  undoStackRef.current.push(current);
+  trimHistory(undoStackRef.current);
+  const ok = await applyHistorySnapshot(next);
+  if (!ok) {
+    undoStackRef.current.pop();
+    redoStackRef.current.push(next);
+    setStatus("No se pudo rehacer");
+    return;
+  }
+  setStatus("Cambio rehecho ✅");
+  setRefreshTick((t) => t + 1);
+}
  const reorderPagesInState = useCallback(
  async (dragPageId: number, dropPageId: number) => {
   if (dragPageId === dropPageId) return;
@@ -12331,23 +12411,23 @@ color: "var(--text-main)",
 useEffect(() => {
   const handleGlobalUndo = (e: KeyboardEvent) => {
     // Detecta Ctrl + Z (Windows/Linux) o Cmd + Z (Mac)
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
-      // Ignora si está pulsando Shift (eso sería Rehacer, que de momento no tenemos)
-      if (e.shiftKey) return;
-
-      // Si el usuario está escribiendo en un input, textarea o buscador,
-      // dejamos que el navegador haga el "Deshacer texto" nativo y no intervenimos.
+    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       const isTyping = tag === "input" || tag === "textarea" || target?.isContentEditable;
-      
       if (isTyping) return;
 
-      // Prevenimos cualquier otra acción por defecto del navegador
+      const wantsRedo = e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey);
       e.preventDefault();
       e.stopPropagation();
 
-      // Averiguamos qué modal está abierto para disparar el "Deshacer" correcto
+      if (wantsRedo) {
+        if (modalItemId != null && modalSlotIndex != null) return;
+        if (pagesOpen) return;
+        void doRedo();
+        return;
+      }
+
       const isItemModalOpen = modalItemId != null && modalSlotIndex != null;
 
       if (isItemModalOpen) {
@@ -12355,14 +12435,14 @@ useEffect(() => {
       } else if (pagesOpen) {
         void doPagesModalUndo();
       } else {
-        void doUndo(); // Deshacer principal del binder
+        void doUndo();
       }
     }
   };
 
   window.addEventListener("keydown", handleGlobalUndo);
   return () => window.removeEventListener("keydown", handleGlobalUndo);
-}, [pagesOpen, modalItemId, modalSlotIndex, doUndo, doPagesModalUndo, doModalUndo]);
+}, [pagesOpen, modalItemId, modalSlotIndex, doUndo, doRedo, doPagesModalUndo, doModalUndo]);
 
   
 
@@ -14106,6 +14186,7 @@ const isDraggingMe = pageDragFromId === p.id;
         <button 
           type="button" 
           onClick={doUndo} 
+          title={t("binders.actions.undo")}
           style={{
             ...topBtnStyle,
             width: 38,
@@ -14118,6 +14199,23 @@ const isDraggingMe = pageDragFromId === p.id;
           }}
         >
           <Undo2 size={18} strokeWidth={2.5} />
+        </button>
+        <button
+          type="button"
+          onClick={() => { void doRedo(); }}
+          title={t("binders.actions.redo")}
+          style={{
+            ...topBtnStyle,
+            width: 38,
+            height: 38,
+            padding: 0,
+            justifyContent: "center",
+            border: `1px solid var(--binder-btn-undo-border)`,
+            background: "var(--binder-btn-undo-bg)",
+            color: "var(--binder-btn-undo-fg)",
+          }}
+        >
+          <Redo2 size={18} strokeWidth={2.5} />
         </button>
       </div>
 

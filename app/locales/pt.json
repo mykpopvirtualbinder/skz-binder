@@ -286,6 +286,7 @@
       "delete": "Excluir",
       "cancel": "Cancelar",
       "undo": "Desfazer",
+      "redo": "Refazer",
       "flip": "Virar",
       "back_side": "Verso",
       "preview": "Pré-visualizar",
