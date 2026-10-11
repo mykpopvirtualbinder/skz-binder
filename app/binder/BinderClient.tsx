@@ -16,7 +16,7 @@ import {
 import WtsListingModal from "../library/WtsListingModal"
 import WttListingModal from "../library/WttListingModal"
 import { getCurrencyOptions } from "../library/currencyOptions"
-import React, { useCallback, useEffect, useMemo, useRef} from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef} from "react";
 import type { CSSProperties } from "react";
 import { OnboardingForm } from "../me/ui/OnboardingForm";
 import { useGlobal } from "../context/GlobalContext"
@@ -1947,6 +1947,7 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
 
   const isAdmin = isAdminTeamEmail((profile as { email?: string | null } | null)?.email);
   const [isMobile, setIsMobile] = useState(false); // ✅ Única declaración
+  const [viewportW, setViewportW] = useState(0);
   const [status, setStatus] = useState("");         // ✅ Única declaración
   const [error, setError] = useState<string | null>(null);
   const [needsAuth, setNeedsAuth] = useState(false);
@@ -1975,8 +1976,11 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   // 4. EFECTOS (Separados y en orden correcto)
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+  useLayoutEffect(() => {
+    const check = () => {
+      setIsMobile(window.innerWidth < 768);
+      setViewportW(window.innerWidth);
+    };
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -8926,15 +8930,6 @@ onClick={() => openItemModal(slotIndex, assigned)}
 </div>
 );
 };
-const anyQuarterTurn = useMemo(() => {
-  if (pageRotateAll) return true;
-  for (const v of Object.values(slotRot)) {
-    const rotNorm = ((Number(v ?? 0) % 360) + 360) % 360;
-    if (rotNorm % 180 !== 0) return true;
-  }
-  return false;
-}, [pageRotateAll, slotRot]);
-
 const { slotW: gridSlotW, slotH: gridSlotH, gap: baseGap, rowGap: baseRowGap } = useMemo(
   () => getSlotDimsForLayout(layoutDef),
   [layoutDef]
@@ -8942,7 +8937,30 @@ const { slotW: gridSlotW, slotH: gridSlotH, gap: baseGap, rowGap: baseRowGap } =
 
 const isSpecial = (layoutDef.size ?? "pc") === "special";
 const gridSlotFrame = Math.max(gridSlotW, gridSlotH);
-const gridFrameW = anyQuarterTurn ? gridSlotFrame : gridSlotW;
+const gridCols = Math.max(1, layoutDef.cols);
+const slotIsQuarterTurn = (slotIndex: number) => {
+  const rotNorm = ((Number(slotRot[slotIndex] ?? 0) % 360) + 360) % 360;
+  const sleeveRot = (((pageRotateAll ? 90 : 0) + rotNorm) % 360 + 360) % 360;
+  return sleeveRot % 180 !== 0;
+};
+// Solo la columna de la PC girada pasa al marco cuadrado. El resto se queda en vertical.
+const gridColumnWidths = Array.from({ length: gridCols }, (_, col) => {
+  for (let n = col + 1; n <= layoutDef.slots; n += gridCols) {
+    if (slotIsQuarterTurn(n)) return gridSlotFrame;
+  }
+  return gridSlotW;
+});
+const gridNaturalW =
+  gridColumnWidths.reduce((sum, w) => sum + w, 0) + Math.max(0, gridCols - 1) * baseGap;
+const gridRows = Math.max(1, Math.ceil(layoutDef.slots / gridCols));
+const gridRowH = isSpecial ? gridSlotH : pageSlotH;
+const gridNaturalH = gridRows * gridRowH + Math.max(0, gridRows - 1) * baseRowGap;
+// El shell recorta el overflow horizontal. Si la página no cabe, se reduce hasta verse entera.
+const gridFit =
+  viewportW > 0
+    ? Math.min(1, (viewportW - 12) / Math.max(1, gridNaturalW))
+    : 1;
+const gridNeedsFit = gridFit < 0.995;
 
 
 // ✅ Más aire en special para que no se pisen
@@ -14066,11 +14084,26 @@ const isDraggingMe = pageDragFromId === p.id;
   /* Aquí sigue tu código normal del grid de slots... */
   <div
     style={{
+      width: gridNeedsFit ? gridNaturalW * gridFit : undefined,
+      height: gridNeedsFit ? gridNaturalH * gridFit : undefined,
+      margin: "0 auto",
+    }}
+  >
+  <div
+    style={{
+      width: gridNeedsFit ? gridNaturalW : undefined,
+      transform: gridNeedsFit ? `scale(${gridFit})` : undefined,
+      transformOrigin: "top left",
+    }}
+  >
+  <div
+    style={{
       display: "grid",
-      gridTemplateColumns: `repeat(${layoutDef.cols}, ${gridFrameW}px)`,
+      gridTemplateColumns: gridColumnWidths.map((w) => `${w}px`).join(" "),
       columnGap: baseGap,
       rowGap: baseRowGap,
       justifyContent: "center",
+      justifyItems: "center",
       alignContent: "start",
     }}
   >
@@ -14092,6 +14125,8 @@ const isDraggingMe = pageDragFromId === p.id;
                 ))}
               </div>
             )}
+          </div>
+          </div>
           </div>
         )}
       </div>
