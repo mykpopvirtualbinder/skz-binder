@@ -401,6 +401,8 @@ function HeaderSiteSearchDropdown({
   inputRef,
   onPick,
   t,
+  screenTop,
+  menuRef,
 }: {
   query: string;
   setQuery: (v: string) => void;
@@ -409,21 +411,29 @@ function HeaderSiteSearchDropdown({
   inputRef: React.RefObject<HTMLInputElement | null>;
   onPick: (hit: SiteSearchHit) => void;
   t: (key: string) => string;
+  screenTop?: number;
+  menuRef?: React.RefObject<HTMLDivElement | null>;
 }) {
-  return (
+  const centered = typeof screenTop === "number";
+  const menu = (
     <div
-      className="header-dropdown-menu"
+      ref={menuRef}
+      className={centered ? "header-dropdown-menu header-dropdown-menu--screen" : "header-dropdown-menu"}
       style={{
-        position: "absolute",
-        top: "calc(100% + 8px)",
-        right: 0,
-        width: 340,
-        maxWidth: "calc(100vw - 24px)",
+        ...(centered
+          ? { ["--header-menu-top" as string]: `${screenTop}px` }
+          : {
+              position: "absolute" as const,
+              top: "calc(100% + 8px)",
+              right: 0,
+              width: 340,
+              maxWidth: "calc(100vw - 24px)",
+              zIndex: 1300,
+            }),
         background: "var(--bg-card)",
         border: "1px solid var(--color-border)",
         borderRadius: 12,
         boxShadow: "var(--shadow-card)",
-        zIndex: 1300,
         padding: 8,
       }}
     >
@@ -444,7 +454,7 @@ function HeaderSiteSearchDropdown({
         {loading && <Loader2 size={14} className="spinner" color="var(--text-muted)" />}
       </div>
       {query.trim().length >= 2 && (
-        <div style={{ marginTop: 6, maxHeight: 360, overflowY: "auto" }}>
+        <div style={{ marginTop: 6, maxHeight: centered ? undefined : 360, overflowY: centered ? "visible" : "auto" }}>
           {results.length === 0 && !loading ? (
             <div style={{ padding: "10px 12px", color: "var(--text-muted)", fontSize: 12 }}>{t("no_results")}</div>
           ) : (
@@ -477,6 +487,8 @@ function HeaderSiteSearchDropdown({
       )}
     </div>
   );
+  if (centered && typeof document !== "undefined") return createPortal(menu, document.body);
+  return menu;
 }
 
 export default function Header() {
@@ -523,6 +535,7 @@ export default function Header() {
     setMoreMenuOpen(false);
   }, []);
   const searchBoxRef = useRef<HTMLDivElement | null>(null);
+  const searchMenuRef = useRef<HTMLDivElement | null>(null);
   const userSearchInputRef = useRef<HTMLInputElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(62);
@@ -894,10 +907,9 @@ export default function Header() {
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
-      if (!searchBoxRef.current) return;
-      if (!searchBoxRef.current.contains(e.target as Node)) {
-        setUserSearchOpen(false);
-      }
+      const target = e.target as Node;
+      if (searchBoxRef.current?.contains(target) || searchMenuRef.current?.contains(target)) return;
+      setUserSearchOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
@@ -1003,7 +1015,7 @@ export default function Header() {
           backgroundColor: "var(--bg-soft)",
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
-          padding: isMobile ? "10px 15px 8px 15px" : "15px 40px",
+          padding: isMobile ? "8px 8px 6px 8px" : "15px 40px",
           display: isMobile ? "flex" : "block",
           flexDirection: isMobile ? "column" : undefined,
           justifyContent: isMobile ? "space-between" : undefined,
@@ -1019,25 +1031,18 @@ export default function Header() {
         {isMobile ? (
         <>
         {/* --- ZONA IZQUIERDA (Logo y Móvil) --- */}
-        <div style={{ display: "flex", width: isMobile ? "100%" : "auto", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-          <Link href="/" onPointerDown={closeAllMenus}>
+        <div className="mobile-header-row">
+          <Link href="/" onPointerDown={closeAllMenus} className="mobile-header-logo-link">
             <img
               src="/branding/logo.png"
               alt={t('header.logo_alt')}
-              style={{
-                height: isMobile ? 40 : 55,
-                width: "auto",
-                maxWidth: isMobile ? 140 : 240,
-                objectFit: "contain",
-                display: "block",
-                flexShrink: 0,
-              }}
+              className="mobile-header-logo"
             />
           </Link>
           
           {/* ICONOS EN MÓVIL */}
           {isMobile && (
-            <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div className="mobile-header-tools">
               {/* Buscar en el catálogo público */}
               <div ref={searchBoxRef} style={{ position: "relative" }}>
                 <button
@@ -1060,6 +1065,8 @@ export default function Header() {
                     loading={searchLoading}
                     inputRef={userSearchInputRef}
                     t={t}
+                    screenTop={mobileHeaderHeight + 8}
+                    menuRef={searchMenuRef}
                     onPick={(hit) => {
                       setUserSearchOpen(false);
                       setSearchQuery("");
@@ -1111,7 +1118,7 @@ export default function Header() {
               {showAdminPanelInHeader && (
                 <Link href="/admin-panel" onPointerDown={closeAllMenus} className="action-btn-mini header-admin-link" title={t("header.dropdown.admin_panel")} style={{ position: "relative", color: "var(--header-btn-profile)" }}>
                   <ShieldAlert size={14} />
-                  Admin
+                  <span className="mobile-header-admin-label">Admin</span>
                   {adminPending > 0 && <span className="notification-badge-mini">{adminPending > 99 ? "99+" : adminPending}</span>}
                 </Link>
               )}
@@ -1157,26 +1164,26 @@ export default function Header() {
 
              {hasAccountSession && (
                 <>
-                  <div style={{ position: "relative", marginLeft: "4px" }}>
+                  <div className="mobile-header-avatar">
                   <button
                     onClick={() => {
                       closeAllMenus();
                       setProfileMenuOpen(!profileMenuOpen);
                     }}
-                    style={{ position: "relative", display: "block", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                    className="mobile-header-avatar-btn"
                     title={t("header.dropdown.my_profile")}
                   >
-                    <div style={{ width: 32, height: 32, borderRadius: "50%", border: profile?.is_premium ? "2px solid var(--color-primary)" : "2px solid var(--color-border)", padding: "1px", background: "var(--bg-card)", overflow: "visible", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span className="mobile-header-avatar-ring" style={{ borderColor: profile?.is_premium ? "var(--color-primary)" : "var(--color-border)" }}>
                       <img src={profile?.avatar_url || DEFAULT_SITE_PROFILE_AVATAR_URL} alt="" style={{ width: "100%", height: "100%", objectFit: (profile?.avatar_url || "").includes("logo-avatar") ? "contain" : "cover", borderRadius: "50%", background: "var(--bg-soft)" }} onError={(e) => { const img = e.currentTarget; if (img.dataset.fallback === "1") return; img.dataset.fallback = "1"; img.src = DEFAULT_SITE_PROFILE_AVATAR_URL; img.style.objectFit = "contain"; }} />
-                    </div>
+                    </span>
                     {profile?.is_premium && (
-                      <div style={{ position: "absolute", top: "-6px", right: "-5px", transform: "rotate(15deg)", width: 20, height: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "color-mix(in srgb, var(--state-warning-bg) 70%, var(--bg-card) 30%)", boxShadow: "0 0 0 1px color-mix(in srgb, var(--state-warning-border) 65%, transparent), 0 6px 12px color-mix(in srgb, var(--state-warning-fg) 45%, transparent)" }}>
-                        <Crown size={13} color="var(--state-warning-fg)" fill="var(--state-warning-border)" strokeWidth={1.7} />
-                      </div>
+                      <span className="mobile-header-avatar-crown">
+                        <Crown size={11} color="var(--state-warning-fg)" fill="var(--state-warning-border)" strokeWidth={1.7} />
+                      </span>
                     )}
                   </button>
                   {profileMenuOpen && (
-                    <div className="header-dropdown-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "200px" }}>
+                    <MobileCenteredDropdown top={mobileHeaderHeight + 8}>
                       {showAdminPanelInHeader && (
                         <Link href="/admin-panel" onClick={closeAllMenus} style={{ ...dropdownItemStyle, backgroundColor: "var(--text-main)", color: "var(--bg-main)", marginBottom: "4px" }} className="dropdown-item-hover">
                           <ShieldAlert size={16} color="var(--bg-main)" /> {t("header.dropdown.admin_panel")}
@@ -1194,7 +1201,7 @@ export default function Header() {
                       <button onClick={() => void handleLogout()} style={{ ...dropdownItemStyle, background: "none", border: "none", width: "100%", cursor: "pointer", textAlign: "left", color: "var(--state-danger-fg)", fontWeight: 900 }} className="dropdown-item-hover">
                         <LogOut size={16} /> {t("header.dropdown.logout")}
                       </button>
-                    </div>
+                    </MobileCenteredDropdown>
                   )}
                   </div>
                 </>
@@ -1204,17 +1211,19 @@ export default function Header() {
                   data-tour="hdr-account"
                   href="/login"
                   onPointerDown={closeAllMenus}
-                  className="tan-font"
+                  className="tan-font mobile-header-login"
                   style={{
                     background: "var(--bg-card)",
                     color: "var(--color-primary)",
                     border: "2px solid var(--color-border)",
-                    padding: "6px 12px",
+                    padding: "6px 10px",
                     borderRadius: "99px",
                     textDecoration: "none",
-                    fontSize: "13px",
+                    fontSize: "12px",
                     fontWeight: 900,
                     lineHeight: 1,
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {t("header.login_btn")}
@@ -1621,9 +1630,9 @@ export default function Header() {
             right: auto !important;
             transform: translateX(-50%) !important;
             top: var(--header-menu-top, 72px) !important;
-            width: min(320px, calc(100vw - 32px)) !important;
+            width: min(340px, calc(100vw - 24px)) !important;
             min-width: 0 !important;
-            max-width: calc(100vw - 32px) !important;
+            max-width: calc(100vw - 24px) !important;
             max-height: min(70dvh, calc(100dvh - var(--header-menu-top, 72px) - var(--mobile-tabbar-h, 64px) - 12px)) !important;
             margin: 0 !important;
             z-index: 1300 !important;
@@ -1631,6 +1640,114 @@ export default function Header() {
             overflow-x: hidden;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+          }
+
+          .mobile-header-row {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+          }
+          .mobile-header-logo-link {
+            flex: 0 1 auto;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+          }
+          .mobile-header-logo {
+            height: 32px;
+            width: auto;
+            max-width: 68px;
+            object-fit: contain;
+            display: block;
+          }
+          .mobile-header-tools {
+            display: flex;
+            flex: 1 1 auto;
+            min-width: 0;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+            flex-wrap: nowrap;
+          }
+          .mobile-header-tools > * {
+            flex: 0 0 auto;
+          }
+          .mobile-header-tools .action-btn-mini {
+            flex: 0 0 30px !important;
+            width: 30px !important;
+            height: 30px !important;
+            min-width: 30px !important;
+            min-height: 30px !important;
+            max-width: 30px !important;
+            max-height: 30px !important;
+          }
+          .mobile-header-tools .header-admin-link {
+            padding: 0 !important;
+            gap: 0 !important;
+            font-size: 0 !important;
+          }
+          .mobile-header-admin-label { display: none; }
+          .mobile-header-avatar,
+          .mobile-header-avatar-btn,
+          .mobile-header-avatar-ring {
+            width: 30px;
+            height: 30px;
+            flex: 0 0 30px;
+            box-sizing: border-box;
+          }
+          .mobile-header-avatar { position: relative; }
+          .mobile-header-avatar-btn {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border: none;
+            background: none;
+            cursor: pointer;
+          }
+          .mobile-header-avatar-ring {
+            border-radius: 50%;
+            border: 2px solid var(--color-border);
+            padding: 1px;
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+          }
+          .mobile-header-avatar-crown {
+            position: absolute;
+            top: -5px;
+            right: -4px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(15deg);
+            background: color-mix(in srgb, var(--state-warning-bg) 70%, var(--bg-card) 30%);
+            box-shadow: 0 0 0 1px color-mix(in srgb, var(--state-warning-border) 65%, transparent);
+            pointer-events: none;
+          }
+        }
+        @media (max-width: 360px) {
+          .mobile-header-logo { max-width: 46px; height: 28px; }
+          .mobile-header-tools { gap: 3px; }
+          .mobile-header-tools .action-btn-mini,
+          .mobile-header-avatar,
+          .mobile-header-avatar-btn,
+          .mobile-header-avatar-ring {
+            flex-basis: 26px !important;
+            width: 26px !important;
+            height: 26px !important;
+            min-width: 26px !important;
+            max-width: 26px !important;
+            min-height: 26px !important;
+            max-height: 26px !important;
           }
         }
       `}} />
