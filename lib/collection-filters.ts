@@ -224,7 +224,7 @@ const STRAY_KIDS_RELEASE_LABEL_PRETTIER: Array<[RegExp, string]> = [
   [/^cle\s*1\s*miroh$/i, "Clé 1 : MIROH"],
   [/^cle\s*2\s*yellow\s*wood$/i, "Clé 2 : Yellow Wood"],
   [/^cle\s*2\s*yellowwood$/i, "Clé 2 : Yellow Wood"],
-  [/^cle\s*levanter$/i, "Clé : LEVANTER"],
+  [/^cle[\s._:-]*levanter$/i, "Clé : LEVANTER"],
   [/^levanter$/i, "LEVANTER"],
   [/^in\s*life$/i, "IN LIFE"],
   [/^go\s*live$/i, "GO LIVE"],
