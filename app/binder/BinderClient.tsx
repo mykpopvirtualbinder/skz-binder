@@ -584,6 +584,7 @@ function ItemPicker({
   refreshTick,
   userBiases,
   onPick,
+  onPlaceMany,
   onClose,
   isMobile, // ✅ AÑADE ESTA LÍNEA AQUÍ
 }: {
@@ -596,6 +597,7 @@ function ItemPicker({
   refreshTick: number;
   userBiases: number[];
   onPick: (itemId: number) => void;
+  onPlaceMany: (itemIds: number[]) => void | Promise<void>;
   onClose: () => void;
   isMobile: boolean; // ✅ Y ESTA LÍNEA TAMBIÉN
 }) {
@@ -618,6 +620,7 @@ const [items, setItems] = useState<PickerItem[]>([]);
 const [unitFilter, setUnitFilter] = useState<UnitFilter>("all");
   const [onlyBiases, setOnlyBiases] = useState(false); // <--- NUEVO ESTADO PARA EL BOTÓN
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
  const [groups, setGroups] = useState<FilterOption[]>([]);
 const [albums, setAlbums] = useState<AlbumOption[]>([]);
 
@@ -1528,6 +1531,8 @@ return (
                   });
 
   // --- 3. DISEÑO VISUAL ANCHO ---
+  const pickOrder = selectedIds.indexOf(it.id);
+  const picked = pickOrder >= 0;
   return (
   <div
     key={it.id}
@@ -1538,7 +1543,7 @@ return (
       flexDirection: "column",
       backgroundColor: "var(--bg-card)",
       borderRadius: 20,
-      border: `2px solid ${st.border}`,
+      border: `2px solid ${picked ? "var(--color-primary)" : st.border}`,
       padding: isMobile ? "10px 12px" : "15px 20px", // Padding dinámico [cite: 3411]
       boxShadow: "0 6px 18px color-mix(in srgb, var(--text-main) 4%, transparent)",
       justifyContent: "space-between",
@@ -1566,6 +1571,27 @@ return (
         {isMyBias && (
           <div style={{ position: "absolute", left: 4, bottom: 4, zIndex: 3 }}>
             <Heart size={isMobile ? 12 : 16} fill="var(--color-primary)" color="var(--color-primary)" strokeWidth={0} />
+          </div>
+        )}
+        {picked && (
+          <div style={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            zIndex: 4,
+            minWidth: 22,
+            height: 22,
+            borderRadius: 999,
+            background: "var(--color-primary)",
+            color: "var(--bg-main)",
+            fontSize: 12,
+            fontWeight: 950,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 6px",
+          }}>
+            {pickOrder + 1}
           </div>
         )}
       </div>
@@ -1651,20 +1677,29 @@ return (
       </div>
       <button
         type="button"
-        onClick={() => onPick(it.id)}
+        onClick={() => {
+          if (disabled && !picked) return;
+          setSelectedIds((prev) => (
+            prev.includes(it.id) ? prev.filter((id) => id !== it.id) : [...prev, it.id]
+          ));
+        }}
         disabled={disabled}
         style={{
-          background: disabled ? "var(--state-disabled-bg)" : "var(--bg-soft)",
-          color: disabled ? "var(--state-disabled-fg)" : "var(--color-primary)",
-          border: `1px solid ${disabled ? "var(--state-disabled-border)" : "var(--color-primary)"}`,
+          background: disabled && !picked ? "var(--state-disabled-bg)" : picked ? "var(--color-primary)" : "var(--bg-soft)",
+          color: disabled && !picked ? "var(--state-disabled-fg)" : picked ? "var(--bg-main)" : "var(--color-primary)",
+          border: `1px solid ${disabled && !picked ? "var(--state-disabled-border)" : "var(--color-primary)"}`,
           borderRadius: 8,
           padding: isMobile ? "4px 10px" : "6px 20px",
           fontSize: isMobile ? "11px" : "13px",
           fontWeight: 900,
-          cursor: disabled ? "not-allowed" : "pointer",
+          cursor: disabled && !picked ? "not-allowed" : "pointer",
         }}
       >
-        {disabled ? t("binders.picker.not_available") : t("binders.picker.select_button")}
+        {disabled && !picked
+          ? t("binders.picker.not_available")
+          : picked
+            ? String(pickOrder + 1)
+            : t("binders.picker.select_button")}
       </button>
     </div>
   </div>
@@ -1679,6 +1714,32 @@ return (
       )}
     </div>
     )}
+    <div style={{
+      flex: "0 0 auto",
+      display: "flex",
+      justifyContent: "flex-end",
+      gap: 10,
+      padding: "10px 12px",
+      borderTop: "1px solid var(--color-border)",
+      background: "var(--bg-soft)",
+    }}>
+      <button
+        type="button"
+        disabled={selectedIds.length === 0}
+        onClick={() => { void onPlaceMany(selectedIds); }}
+        style={{
+          background: selectedIds.length ? "var(--color-primary)" : "var(--state-disabled-bg)",
+          color: selectedIds.length ? "var(--bg-main)" : "var(--state-disabled-fg)",
+          border: "none",
+          borderRadius: 999,
+          padding: "10px 18px",
+          fontWeight: 950,
+          cursor: selectedIds.length ? "pointer" : "not-allowed",
+        }}
+      >
+        {t("binders.picker.place_selected", { n: selectedIds.length })}
+      </button>
+    </div>
   </div>
 </div>
 );
@@ -3739,6 +3800,7 @@ const [applyAll, setApplyAll] = useState<boolean>(false);
 const [layoutHover, setLayoutHover] = useState<LayoutType | null>(null);
 const [unlockedLayouts, setUnlockedLayouts] = useState<Set<string>>(new Set());
 const [pickingSlot, setPickingSlot] = useState<number | null>(null);
+const [pageLimitNotice, setPageLimitNotice] = useState<{ free: number; selected: number } | null>(null);
 const layoutBoxRef = useRef<HTMLDivElement | null>(null);
 const [layoutOpen, setLayoutOpen] = useState(false);
 
@@ -6646,6 +6708,174 @@ if (!itRes.error && itRes.data) {
   setStatus("Slot guardado ✅");
   setRefreshTick((t) => t + 1);
     return;
+};
+
+const placeSelectedItems = async (rawIds: number[]) => {
+  if (!pageId || !binderId) return;
+  const seen = new Set<number>();
+  const itemIds: number[] = [];
+  for (const id of rawIds) {
+    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+    if ((placedByItem[id] ?? 0) >= 1) continue;
+    seen.add(id);
+    itemIds.push(id);
+  }
+  if (!itemIds.length) {
+    setPickingSlot(null);
+    return;
+  }
+
+  const freeSlots: number[] = [];
+  for (let n = 1; n <= layoutDef.slots; n += 1) {
+    if (!slotItems[n]) freeSlots.push(n);
+  }
+  const newLayout: LayoutType = layout === "separator" ? "3x3" : layout;
+  const slotsPerNewPage = defFor(newLayout).slots;
+  const overflow = Math.max(0, itemIds.length - freeSlots.length);
+  const pagesNeeded = overflow > 0 ? Math.ceil(overflow / Math.max(1, slotsPerNewPage)) : 0;
+  const room = Number.isFinite(quota.maxPages)
+    ? Math.max(0, quota.maxPages - realPagesCount)
+    : pagesNeeded;
+
+  let idsToPlace = itemIds;
+  let pagesToCreate = 0;
+  if (pagesNeeded > 0 && room >= pagesNeeded) {
+    const ok = await showConfirm(
+      t("binders.picker.extra_pages_title"),
+      t("binders.picker.extra_pages_msg", { n: pagesNeeded }),
+    );
+    if (ok) pagesToCreate = pagesNeeded;
+    else idsToPlace = itemIds.slice(0, freeSlots.length);
+  } else if (pagesNeeded > 0) {
+    idsToPlace = itemIds.slice(0, freeSlots.length);
+    setPageLimitNotice({ free: freeSlots.length, selected: itemIds.length });
+  }
+
+  setPickingSlot(null);
+  if (!idsToPlace.length) return;
+
+  await pushUndoSnapshot();
+  setError(null);
+  setStatus("Guardando...");
+
+  const createdPages: Array<{ id: number; page_index: number; layout_type: LayoutType }> = [];
+  if (pagesToCreate > 0) {
+    const lastRes = await supabase
+      .from("binder_pages")
+      .select("page_index")
+      .eq("binder_id", binderId)
+      .order("page_index", { ascending: false })
+      .limit(1);
+    let nextIndex = (lastRes.data?.[0]?.page_index ?? -1) + 1;
+    for (let i = 0; i < pagesToCreate; i += 1) {
+      const ins = await supabase
+        .from("binder_pages")
+        .insert({ binder_id: binderId, page_index: nextIndex, layout_type: newLayout })
+        .select("id")
+        .single();
+      if (ins.error || !ins.data) {
+        setError(ins.error?.message || "No se pudo crear la página");
+        setStatus("Error creando páginas");
+        return;
+      }
+      createdPages.push({ id: ins.data.id, page_index: nextIndex, layout_type: newLayout });
+      nextIndex += 1;
+    }
+    setBinderPages((prev) => [...prev, ...createdPages].sort((a, b) => a.page_index - b.page_index));
+    setPagesCount((prev) => prev + createdPages.length);
+  }
+
+  const targets: Array<{ pageId: number; slotIndex: number }> = freeSlots.map((slotIndex) => ({
+    pageId,
+    slotIndex,
+  }));
+  for (const page of createdPages) {
+    for (let slotIndex = 1; slotIndex <= defFor(page.layout_type).slots; slotIndex += 1) {
+      targets.push({ pageId: page.id, slotIndex });
+    }
+  }
+
+  const pairs = idsToPlace.slice(0, targets.length).map((itemId, index) => ({
+    itemId,
+    pageId: targets[index].pageId,
+    slotIndex: targets[index].slotIndex,
+  }));
+
+  const itRes = await supabase
+    .from("items")
+    .select("id, name, image_url, back_image_url, member_id, member")
+    .in("id", pairs.map((pair) => pair.itemId));
+  const byId = new Map<number, DbItemRow & { member_id?: number | null; member?: string | null }>();
+  if (!itRes.error) {
+    for (const row of (itRes.data ?? []) as Array<DbItemRow & { member_id?: number | null; member?: string | null }>) {
+      byId.set(Number(row.id), row);
+    }
+  }
+
+  const up = await supabase.from("page_slots").upsert(
+    pairs.map((pair) => {
+      const item = byId.get(pair.itemId);
+      return {
+        page_id: pair.pageId,
+        slot_index: pair.slotIndex,
+        item_id: pair.itemId,
+        member_id: item?.member_id ?? null,
+        rot: 0,
+        flip_h: false,
+        is_custom: false,
+        custom_text: null,
+        custom_image_url: null,
+      };
+    }),
+    { onConflict: "page_id,slot_index" },
+  );
+  if (up.error) {
+    setError(up.error.message);
+    setStatus("Error guardando slots");
+    return;
+  }
+
+  setSlotItems((prev) => {
+    const next = { ...prev };
+    for (const pair of pairs) {
+      if (pair.pageId !== pageId) continue;
+      const item = byId.get(pair.itemId);
+      const resolved = withResolvedPcImages({
+        image_url: item?.image_url ?? null,
+        back_image_url: item?.back_image_url ?? null,
+      });
+      next[pair.slotIndex] = {
+        id: pair.itemId,
+        name: item?.name ?? null,
+        image_url: resolved.image_url ?? null,
+        back_image_url: resolved.back_image_url ?? null,
+        member_id: item?.member_id ?? null,
+        member: item?.member ?? null,
+      };
+    }
+    return next;
+  });
+  setSlotRot((prev) => {
+    const next = { ...prev };
+    for (const pair of pairs) {
+      if (pair.pageId === pageId) next[pair.slotIndex] = 0;
+    }
+    return next;
+  });
+  setSlotFlipH((prev) => {
+    const next = { ...prev };
+    for (const pair of pairs) {
+      if (pair.pageId === pageId) next[pair.slotIndex] = false;
+    }
+    return next;
+  });
+  setPlacedByItem((prev) => {
+    const next = { ...prev };
+    for (const pair of pairs) next[pair.itemId] = (next[pair.itemId] ?? 0) + 1;
+    return next;
+  });
+  setRefreshTick((tick) => tick + 1);
+  setStatus(pagesToCreate > 0 ? `Colocadas y ${pagesToCreate} página(s) añadida(s)` : "Colocadas ✅");
 };
 
   const removeItemFromSlot = useCallback(
@@ -14420,6 +14650,75 @@ onRotateLeft={() => {
 {/* --- SECCIÓN DE MODALES --- */}
       {pagesOpen && renderPagesModal()}
       {buyPagesOpen && <BuyPagesModal />}
+      {pageLimitNotice && (
+        <div
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setPageLimitNotice(null);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "var(--overlay-medium)",
+            zIndex: 1000001,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 18,
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div style={{
+            width: "min(420px, 92vw)",
+            background: "var(--bg-main)",
+            borderRadius: 18,
+            border: "1px solid var(--color-primary)",
+            padding: 18,
+          }}>
+            <div style={{ fontWeight: 950, color: "var(--color-primary)", fontSize: 18, marginBottom: 10 }}>
+              {t("binders.picker.no_room_title")}
+            </div>
+            <p style={{ margin: "0 0 16px", color: "var(--text-main)", fontWeight: 700, lineHeight: 1.45 }}>
+              {t("binders.picker.no_room_msg", { free: pageLimitNotice.free, selected: pageLimitNotice.selected })}
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => setPageLimitNotice(null)}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--bg-soft)",
+                  color: "var(--text-main)",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                {t("binders.actions.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPageLimitNotice(null);
+                  router.push("/shop?item=paginas");
+                }}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  border: "none",
+                  background: "var(--color-primary)",
+                  color: "var(--bg-main)",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                {t("binders.picker.buy_pages")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {buySeparatorsOpen && <BuySeparatorsModal />}
 
       {showOnboarding && userId && (
@@ -14606,6 +14905,7 @@ pickerBinderId != null && (
         if (s != null) assignItemToSlot(s, itemId);
         setWttListingModalOpen(true);
       }}
+      onPlaceMany={(itemIds) => placeSelectedItems(itemIds)}
       onClose={() => {
         setPickingSlot(null);
         setWttListingModalOpen(true);
