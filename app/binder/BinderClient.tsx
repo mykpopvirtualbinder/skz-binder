@@ -6712,6 +6712,7 @@ if (!itRes.error && itRes.data) {
 
 const placeSelectedItems = async (rawIds: number[]) => {
   if (!pageId || !binderId) return;
+  const startSlot = typeof pickingSlot === "number" && pickingSlot > 0 ? pickingSlot : 1;
   const seen = new Set<number>();
   const itemIds: number[] = [];
   for (const id of rawIds) {
@@ -6762,7 +6763,8 @@ const placeSelectedItems = async (rawIds: number[]) => {
   for (const page of forwardPages) {
     const slotCount = page.id === pageId ? layoutDef.slots : defFor(page.layout_type).slots;
     const occupied = occupiedByPage.get(page.id);
-    for (let n = 1; n <= slotCount; n += 1) {
+    const firstSlot = page.id === pageId ? startSlot : 1;
+    for (let n = firstSlot; n <= slotCount; n += 1) {
       const taken = page.id === pageId ? Boolean(slotItems[n]) : Boolean(occupied?.has(n));
       if (!taken) forwardTargets.push({ pageId: page.id, slotIndex: n });
     }
