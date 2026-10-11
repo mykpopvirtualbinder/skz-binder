@@ -6725,13 +6725,52 @@ const placeSelectedItems = async (rawIds: number[]) => {
     return;
   }
 
-  const freeSlots: number[] = [];
-  for (let n = 1; n <= layoutDef.slots; n += 1) {
-    if (!slotItems[n]) freeSlots.push(n);
+  const orderedPages = binderPages
+    .slice()
+    .sort((a, b) => a.page_index - b.page_index);
+  const currentPage = orderedPages.find((page) => page.id === pageId);
+  const startIndex = currentPage?.page_index ?? 0;
+  const forwardPages = orderedPages.filter(
+    (page) => page.page_index >= startIndex && page.layout_type !== "separator",
+  );
+  const otherPageIds = forwardPages.filter((page) => page.id !== pageId).map((page) => page.id);
+  const occupiedByPage = new Map<number, Set<number>>();
+  if (otherPageIds.length > 0) {
+    const slotsRes = await supabase
+      .from("page_slots")
+      .select("page_id, slot_index, item_id, is_custom, custom_image_url, custom_text")
+      .in("page_id", otherPageIds);
+    if (slotsRes.error) {
+      setError(slotsRes.error.message);
+      setStatus("Error leyendo huecos");
+      return;
+    }
+    for (const row of slotsRes.data ?? []) {
+      const taken = Boolean(
+        row.item_id || row.is_custom || row.custom_image_url || String(row.custom_text || "").trim(),
+      );
+      if (!taken) continue;
+      const pageKey = Number(row.page_id);
+      const slotKey = Number(row.slot_index);
+      const set = occupiedByPage.get(pageKey) ?? new Set<number>();
+      set.add(slotKey);
+      occupiedByPage.set(pageKey, set);
+    }
   }
+
+  const forwardTargets: Array<{ pageId: number; slotIndex: number }> = [];
+  for (const page of forwardPages) {
+    const slotCount = page.id === pageId ? layoutDef.slots : defFor(page.layout_type).slots;
+    const occupied = occupiedByPage.get(page.id);
+    for (let n = 1; n <= slotCount; n += 1) {
+      const taken = page.id === pageId ? Boolean(slotItems[n]) : Boolean(occupied?.has(n));
+      if (!taken) forwardTargets.push({ pageId: page.id, slotIndex: n });
+    }
+  }
+
   const newLayout: LayoutType = layout === "separator" ? "3x3" : layout;
   const slotsPerNewPage = defFor(newLayout).slots;
-  const overflow = Math.max(0, itemIds.length - freeSlots.length);
+  const overflow = Math.max(0, itemIds.length - forwardTargets.length);
   const pagesNeeded = overflow > 0 ? Math.ceil(overflow / Math.max(1, slotsPerNewPage)) : 0;
   const room = Number.isFinite(quota.maxPages)
     ? Math.max(0, quota.maxPages - realPagesCount)
@@ -6745,10 +6784,10 @@ const placeSelectedItems = async (rawIds: number[]) => {
       t("binders.picker.extra_pages_msg", { n: pagesNeeded }),
     );
     if (ok) pagesToCreate = pagesNeeded;
-    else idsToPlace = itemIds.slice(0, freeSlots.length);
+    else idsToPlace = itemIds.slice(0, forwardTargets.length);
   } else if (pagesNeeded > 0) {
-    idsToPlace = itemIds.slice(0, freeSlots.length);
-    setPageLimitNotice({ free: freeSlots.length, selected: itemIds.length });
+    idsToPlace = itemIds.slice(0, forwardTargets.length);
+    setPageLimitNotice({ free: forwardTargets.length, selected: itemIds.length });
   }
 
   setPickingSlot(null);
@@ -6785,10 +6824,7 @@ const placeSelectedItems = async (rawIds: number[]) => {
     setPagesCount((prev) => prev + createdPages.length);
   }
 
-  const targets: Array<{ pageId: number; slotIndex: number }> = freeSlots.map((slotIndex) => ({
-    pageId,
-    slotIndex,
-  }));
+  const targets: Array<{ pageId: number; slotIndex: number }> = [...forwardTargets];
   for (const page of createdPages) {
     for (let slotIndex = 1; slotIndex <= defFor(page.layout_type).slots; slotIndex += 1) {
       targets.push({ pageId: page.id, slotIndex });
