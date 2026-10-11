@@ -208,7 +208,7 @@
       "title": "卡册信息",
       "name": "名称",
       "created": "创建日期",
-      "updated": "最后修改",
+      "updated": "最后修改 / 访问",
       "pcs": "小卡",
       "separators": "分隔页",
       "no_separators": "还没有分隔页",

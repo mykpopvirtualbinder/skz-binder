@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { backdropPointerClose, useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { useGlobal } from "../context/GlobalContext";
+import { laterIso, readBinderActivity } from "@/lib/binder-activity";
 
 type SeparatorLink = {
   pageIndex: number;
@@ -27,7 +28,7 @@ async function fetchBinderInfo(binderId: number): Promise<InfoData> {
 
   const full = await supabase
     .from("binders")
-    .select("title, created_at, updated_at")
+    .select("title, created_at")
     .eq("id", binderId)
     .single();
 
@@ -35,25 +36,30 @@ async function fetchBinderInfo(binderId: number): Promise<InfoData> {
     const basic = await supabase.from("binders").select("title").eq("id", binderId).single();
     title = basic.data?.title || "";
   } else {
-    const row = full.data as { title?: string | null; created_at?: string | null; updated_at?: string | null };
+    const row = full.data as { title?: string | null; created_at?: string | null };
     title = row?.title || "";
     createdAt = row?.created_at ?? null;
-    updatedAt = row?.updated_at ?? null;
   }
 
   const pagesRes = await supabase
     .from("binder_pages")
-    .select("id, page_index, layout_type")
+    .select("id, page_index, layout_type, created_at")
     .eq("binder_id", binderId)
     .order("page_index", { ascending: true });
 
-  const pages = ((pagesRes.data ?? []) as Array<{ id: number; page_index: number | null; layout_type: string | null }>)
+  const pages = ((pagesRes.data ?? []) as Array<{ id: number; page_index: number | null; layout_type: string | null; created_at?: string | null }>)
     .map((p) => ({
       id: Number(p.id),
       pageIndex: typeof p.page_index === "number" ? p.page_index : 0,
       layout: String(p.layout_type || ""),
     }))
     .sort((a, b) => a.pageIndex - b.pageIndex);
+
+  const latestPageAt = ((pagesRes.data ?? []) as Array<{ created_at?: string | null }>).reduce<string | null>(
+    (latest, page) => laterIso(latest, page.created_at ?? null),
+    null,
+  );
+  updatedAt = laterIso(laterIso(createdAt, latestPageAt), readBinderActivity(binderId));
 
   const pageIds = pages.map((p) => p.id);
   const slots = pageIds.length

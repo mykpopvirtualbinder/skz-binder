@@ -38,6 +38,7 @@ import { mergeBinderFaces, writeBinderFacesLocal, emptyCoverStyles, urlColumnFor
 import BinderCoverFaceEditor from "./BinderCoverFaceEditor";
 import CoverImageSourceModal from "./CoverImageSourceModal";
 import BinderInfoModal from "../binders/BinderInfoModal";
+import { touchBinderActivity } from "@/lib/binder-activity";
 
 const CUSTOM_BUCKET = "binder_custom";
 const SUBMISSIONS_BUCKET = "pc-submissions";
@@ -6148,6 +6149,11 @@ if (pageError || !pageData) {
       cancelled = true;
     };
   }, [binderId, refreshTick]); // 👈 añade refreshTick
+
+  useEffect(() => {
+    if (!binderId) return;
+    touchBinderActivity(binderId);
+  }, [binderId, refreshTick]);
 
   useEffect(() => {
     let cancelled = false;

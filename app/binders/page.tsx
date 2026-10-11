@@ -17,6 +17,7 @@ import { requireLoggedIn } from "@/lib/auth-gate";
 import { mergeBinderFaces, writeBinderFacesLocal } from "@/lib/binder-faces";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import BinderInfoModal from "./BinderInfoModal";
+import { touchBinderActivity } from "@/lib/binder-activity";
 
 const SHELF_SCROLL_KEY = "mkb_binders_scroll";
 
@@ -204,6 +205,7 @@ export default function BindersPage() {
         insideBackUrl: updates.inside_back_url,
       });
       setBinders(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+      touchBinderActivity(id);
       setStatus("¡Cambios guardados!");
       setTimeout(() => setStatus(""), 3000);
       return;
@@ -219,6 +221,7 @@ export default function BindersPage() {
         insideBackUrl: updates.inside_back_url,
       });
       setBinders(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+      touchBinderActivity(id);
       setStatus("¡Cambios guardados!");
       setTimeout(() => setStatus(""), 3000);
     }
@@ -574,6 +577,7 @@ export default function BindersPage() {
                 coverUrl={b.cover_url}
                 backCoverUrl={b.back_cover_url}
                 onOpenBinder={() => {
+                  touchBinderActivity(b.id);
                   sessionStorage.setItem(SHELF_SCROLL_KEY, String(window.scrollY));
                   router.push(`/binder?binderId=${b.id}`);
                 }}

@@ -403,7 +403,7 @@
       "title": "バインダー情報",
       "name": "名前",
       "created": "作成日",
-      "updated": "最終更新",
+      "updated": "最終更新 / アクセス",
       "pcs": "フォトカード",
       "separators": "仕切り",
       "no_separators": "仕切りはまだありません",
