@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, usePathname } from "next/navigation";
 import { 
   User, Mail, BookHeart, ShieldAlert, LogOut, 
@@ -360,6 +361,38 @@ function siteSearchTypeLabel(type: SiteSearchHit["type"], t: (key: string) => st
   return label && label !== key ? label : type;
 }
 
+function MobileCenteredDropdown({
+  top,
+  dataTour,
+  children,
+}: {
+  top: number;
+  dataTour?: string;
+  children: React.ReactNode;
+}) {
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      className="header-dropdown-menu header-dropdown-menu--screen"
+      data-tour={dataTour}
+      style={{
+        ["--header-menu-top" as string]: `${top}px`,
+        background: "var(--bg-card)",
+        border: "1px solid var(--color-border)",
+        borderRadius: "16px",
+        padding: "8px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+        boxShadow: "var(--shadow-card)",
+      }}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
 function HeaderSiteSearchDropdown({
   query,
   setQuery,
@@ -491,6 +524,8 @@ export default function Header() {
   }, []);
   const searchBoxRef = useRef<HTMLDivElement | null>(null);
   const userSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
+  const [mobileHeaderHeight, setMobileHeaderHeight] = useState(62);
 
   // ✨ SEGUIDOR DE RATÓN GLOBAL ✨ (solo sincroniza si el perfil trae la clave cursor_url; evita borrar al refrescar con JSON viejo sin esa clave)
   useEffect(() => {
@@ -726,6 +761,23 @@ export default function Header() {
   }, [showAdminPanelInHeader]);
   const hasAccountSession = Boolean(user || profile?.id);
 
+  useEffect(() => {
+    if (!mounted) return;
+    const el = headerRef.current;
+    if (!el) return;
+    const measure = () => {
+      setMobileHeaderHeight(Math.ceil(el.getBoundingClientRect().height));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [mounted, isMobile, hasAccountSession, showAdminPanelInHeader]);
+
   const applyVipCursorSelection = useCallback(
     async (c: VipCursorOption) => {
       if (!user?.id) return;
@@ -945,6 +997,7 @@ export default function Header() {
   return (
     <>
       <header
+        ref={headerRef}
         style={{
           width: "100%",
           backgroundColor: "var(--bg-soft)",
@@ -1023,13 +1076,13 @@ export default function Header() {
                   <span style={{ fontSize: "9px", fontWeight: 900, lineHeight: 1 }}>{currentLocale.toUpperCase()}</span>
                 </button>
                 {langMenuOpen && (
-                  <div className="hide-scrollbar header-dropdown-menu" data-tour="hdr-lang-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "150px", maxHeight: "250px", overflowY: "auto" }}>
+                  <MobileCenteredDropdown top={mobileHeaderHeight + 8} dataTour="hdr-lang-menu">
                     {LANGUAGES.map(lang => (
                       <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{ ...dropdownItemStyle, border: currentLocale === lang.code ? "1px solid var(--color-primary)" : "1px solid transparent", background: currentLocale === lang.code ? "var(--bg-soft)" : "transparent" }} className="dropdown-item-hover">
                         <span style={{ fontWeight: currentLocale === lang.code ? "900" : "600" }}>{lang.label}</span>
                       </button>
                     ))}
-                  </div>
+                  </MobileCenteredDropdown>
                 )}
               </div>
 
@@ -1039,7 +1092,7 @@ export default function Header() {
                   <Palette size={16} />
                 </button>
                 {themeMenuOpen && (
-                  <div className="header-dropdown-menu" data-tour="hdr-theme-menu" style={{ position: "absolute", top: "100%", right: 0, marginTop: "8px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "8px", display: "flex", flexDirection: "column", gap: "4px", boxShadow: "var(--shadow-card)", zIndex: 1200, minWidth: "200px", maxHeight: "min(70vh, 360px)", overflowY: "auto" }}>
+                  <MobileCenteredDropdown top={mobileHeaderHeight + 8} dataTour="hdr-theme-menu">
                     {THEME_OPTIONS.map(themeOpt => (
                       <button key={themeOpt.id} onClick={() => changeTheme(themeOpt.id, themeOpt.vip)} style={{ ...dropdownItemStyle, justifyContent: "space-between", border: activeTheme === themeOpt.id ? "1px solid var(--color-primary)" : "1px solid transparent", background: activeTheme === themeOpt.id ? "var(--bg-soft)" : "transparent" }} className="dropdown-item-hover">
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1051,7 +1104,7 @@ export default function Header() {
                         {themeOpt.vip && (<span style={{ width: 20, height: 20, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "color-mix(in srgb, var(--state-warning-bg) 70%, var(--bg-card) 30%)", boxShadow: "0 0 0 1px color-mix(in srgb, var(--state-warning-border) 60%, transparent), 0 4px 10px color-mix(in srgb, var(--state-warning-fg) 40%, transparent)" }}><Crown size={13} color="var(--state-warning-fg)" fill="var(--state-warning-border)" /></span>)}
                       </button>
                     ))}
-                  </div>
+                  </MobileCenteredDropdown>
                 )}
               </div>
 
@@ -1060,6 +1113,18 @@ export default function Header() {
                   <ShieldAlert size={14} />
                   Admin
                   {adminPending > 0 && <span className="notification-badge-mini">{adminPending > 99 ? "99+" : adminPending}</span>}
+                </Link>
+              )}
+              {hasAccountSession && (
+                <Link
+                  href="/binders"
+                  onPointerDown={closeAllMenus}
+                  className="action-btn-mini"
+                  style={{ color: "var(--nav-binders, var(--header-btn-profile))" }}
+                  title={t("header.dropdown.my_binders")}
+                  aria-label={t("header.dropdown.my_binders")}
+                >
+                  <BookHeart size={16} />
                 </Link>
               )}
               {user && (
@@ -1548,8 +1613,28 @@ export default function Header() {
         .avatar-hover:hover {
           transform: scale(1.1);
         }
+
+        @media (max-width: 1023px) {
+          .header-dropdown-menu.header-dropdown-menu--screen {
+            position: fixed !important;
+            left: 50% !important;
+            right: auto !important;
+            transform: translateX(-50%) !important;
+            top: var(--header-menu-top, 72px) !important;
+            width: min(320px, calc(100vw - 32px)) !important;
+            min-width: 0 !important;
+            max-width: calc(100vw - 32px) !important;
+            max-height: min(70dvh, calc(100dvh - var(--header-menu-top, 72px) - var(--mobile-tabbar-h, 64px) - 12px)) !important;
+            margin: 0 !important;
+            z-index: 1300 !important;
+            box-sizing: border-box;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
       `}} />
-      <div className="site-header-spacer" style={{ height: isMobile ? 62 : 90, width: "100%", flexShrink: 0 }} />
+      <div className="site-header-spacer" style={{ height: isMobile ? mobileHeaderHeight : 90, width: "100%", flexShrink: 0 }} />
       {moreMenuOpen && (
         <>
           <button type="button" className="mobile-more-backdrop" aria-label={t("common.close") || "Cerrar"} onClick={closeAllMenus} />

@@ -2627,6 +2627,25 @@ textarea:disabled {
     --mobile-tabbar-h: calc(60px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* Menús de idioma y tema: centrados en la pantalla, no anclados al botón. */
+  .header-dropdown-menu.header-dropdown-menu--screen {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    top: var(--header-menu-top, 72px) !important;
+    width: min(320px, calc(100vw - 32px)) !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 32px) !important;
+    max-height: min(70dvh, calc(100dvh - var(--header-menu-top, 72px) - var(--mobile-tabbar-h, 64px) - 12px)) !important;
+    margin: 0 !important;
+    z-index: 1300 !important;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .site-header__mobile-nav-row {
     display: none !important;
   }
