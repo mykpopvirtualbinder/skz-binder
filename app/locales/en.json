@@ -491,6 +491,7 @@
       "undo": "Undo",
       "redo": "Redo",
       "view_detail": "View detail",
+      "go_to_slot": "Open in binder",
       "flip": "Flip",
       "back_side": "Back side",
       "preview": "Preview",

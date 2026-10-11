@@ -288,6 +288,7 @@
       "undo": "Desfazer",
       "redo": "Refazer",
       "view_detail": "Ver detalhe",
+      "go_to_slot": "Ver no binder",
       "flip": "Virar",
       "back_side": "Verso",
       "preview": "Pré-visualizar",

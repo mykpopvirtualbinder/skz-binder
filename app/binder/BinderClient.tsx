@@ -11,7 +11,7 @@ import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { 
   Trash2, ChevronLeft, ChevronRight, ChevronDown, Users, Disc3, PenLine, Mic2, User, Layers, 
-    SlidersHorizontal, RotateCw, Undo2, Redo2, BookText, Bookmark, Heart, Plus, ZoomIn, Info, Eye 
+    SlidersHorizontal, RotateCw, Undo2, Redo2, BookText, Bookmark, Heart, Plus, ZoomIn, Info, Eye, FilePlus, BookmarkPlus, MapPin 
 } from "lucide-react";
 import WtsListingModal from "../library/WtsListingModal"
 import WttListingModal from "../library/WttListingModal"
@@ -2028,9 +2028,7 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const [binderId, setBinderId] = useState<number | null>(null);
   const [pageId, setPageId] = useState<number | null>(null);
   const [slotToolsIndex, setSlotToolsIndex] = useState<number | null>(null);
-  useEffect(() => {
-    setSlotToolsIndex(null);
-  }, [pageId]);
+  const pendingSlotFocus = useRef<number | null>(null);
   const [pagesCount, setPagesCount] = useState<number>(0);
   const pageFromUrl = Number(searchParams.get("page"));
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(
@@ -2039,6 +2037,36 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const [binderPages, setBinderPages] = useState<
     Array<{ id: number; page_index: number; layout_type: LayoutType }>
   >([]);
+  useEffect(() => {
+    const rawPage = searchParams.get("page");
+    const rawSlot = searchParams.get("slot");
+    if (rawPage != null && rawPage !== "") {
+      const page = Number(rawPage);
+      if (Number.isFinite(page) && page >= 0) setCurrentPageIndex(Math.floor(page));
+    }
+    if (rawSlot != null && rawSlot !== "") {
+      const slot = Number(rawSlot);
+      if (Number.isFinite(slot) && slot > 0) {
+        pendingSlotFocus.current = Math.floor(slot);
+        setSlotToolsIndex(Math.floor(slot));
+      }
+    }
+  }, [searchParams]);
+  useEffect(() => {
+    if (pendingSlotFocus.current != null) return;
+    setSlotToolsIndex(null);
+  }, [pageId]);
+  useEffect(() => {
+    const slot = pendingSlotFocus.current;
+    if (slot == null) return;
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector(`[data-binder-slot="${slot}"]`);
+      if (!el) return;
+      pendingSlotFocus.current = null;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [slotToolsIndex, pageId, binderPages.length]);
   const binderPagesFetchGen = useRef(0);
   const [binderInfoOpen, setBinderInfoOpen] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
@@ -8920,7 +8948,7 @@ const base = `scaleX(${flip ? -1 : 1})`;
 
   return (
   <div
-      data-binder-pocket=""
+      data-binder-slot={slotIndex}
       data-filled={assigned ? "1" : "0"}
       className={`pcSlotWrap${assigned && slotToolsIndex === slotIndex ? " is-tools-open" : ""}`}
      onMouseEnter={() => {
@@ -8941,6 +8969,8 @@ const base = `scaleX(${flip ? -1 : 1})`;
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        outline: assigned && slotToolsIndex === slotIndex ? "2px solid var(--color-primary)" : "none",
+        outlineOffset: 3,
         transform: outerShift ? `translateX(${outerShift}px)` : "translateX(0)",
         transition: "transform 160ms ease",
       }}
@@ -9291,7 +9321,9 @@ onClick={(e) => {
       +{extraCount} {/* 👈 CAMBIADO A extraCount */}
     </div>
   )}
-<div className="pcControls" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 1000 }}>
+{slotToolsIndex === slotIndex && (
+<>
+<div className="pcControls pcControlsOpen" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 1000 }}>
  <button type="button" onClick={onRotateMinus90} title={t("binders.actions.flip")} style={iconBtnStyle}>⟲</button>
  <button type="button" onClick={onRotatePlus90} title={t("binders.actions.flip")} style={iconBtnStyle}>⟳</button>
  <button type="button" onClick={onToggleFaceAnimated} title={t("binders.actions.back_side")} style={iconBtnStyle}>⇄</button>
@@ -9309,7 +9341,7 @@ onClick={(e) => {
  </button>
 </div>
 
-    <div className="pcDeleteCorner" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 950 }}>
+    <div className="pcDeleteCorner pcControlsOpen" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 950 }}>
       <button
         type="button"
         onClick={async (e) => {
@@ -9323,6 +9355,8 @@ onClick={(e) => {
         ✕
       </button>
     </div>
+</>
+)}
   </>
 ) : (
   <button type="button" onClick={() => setPickingSlot(slotIndex)} style={{ width: '100%', height: '100%', borderRadius: 12, border: '1px dashed var(--state-info-border)', background: 'var(--state-info-bg)', fontSize: 24, color: 'var(--state-info-border)', cursor: 'pointer', zIndex: 1 }}>+</button>
@@ -12269,6 +12303,21 @@ color: "var(--text-main)",
   </button>
   {/* ✅ FIN DE BOTONES DE NAVEGACIÓN */}
 
+  <button
+    type="button"
+    onClick={() => {
+      onClose();
+      setSlotToolsIndex(slotIndex);
+      window.setTimeout(() => {
+        document.querySelector(`[data-binder-slot="${slotIndex}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 60);
+    }}
+    style={{ ...iconBtnStyle, width: "auto", padding: "0 10px", gap: 6, fontSize: 12, fontWeight: 900 }}
+    title={t("binders.actions.go_to_slot")}
+  >
+    <MapPin size={16} strokeWidth={2.4} />
+    <span>{t("binders.actions.go_to_slot")}</span>
+  </button>
   <button type="button" data-tour="binder-slot-close" onClick={onClose} style={iconBtnStyle} title={t('common.close')} className="iconDangerHover modalCloseBtn">
   ✕
   </button>
@@ -13241,7 +13290,9 @@ bottom: 8px;
 
   /* Aparecen al pulsar la photocard, no al pasar el ratón */
   .pcSlotWrap.is-tools-open .pcControls,
+  .pcControls.pcControlsOpen,
   .pcSlotWrap.is-tools-open .pcDeleteCorner,
+  .pcDeleteCorner.pcControlsOpen,
   .pcSlotWrap.is-tools-open .pcQtyBadgeCentered {
     opacity: 1 !important;
     pointer-events: auto !important;
@@ -13258,7 +13309,8 @@ bottom: 8px;
     gap: 6px;
   }
   
-  .pcSlotWrap.is-tools-open .pcControls {
+  .pcSlotWrap.is-tools-open .pcControls,
+  .pcControls.pcControlsOpen {
     transform: translateX(-50%) translateY(0) !important;
   }
 
@@ -14125,38 +14177,53 @@ const isDraggingMe = pageDragFromId === p.id;
       <button
         type="button"
         onClick={() => createNewPage("3x3")}
-        title={t("binders.actions.add_page")}
+        title={`${t("binders.actions.add_page")} (${formatQuota(realPagesCount, quota.maxPages)})`}
+        aria-label={`${t("binders.actions.add_page")} (${formatQuota(realPagesCount, quota.maxPages)})`}
         style={{
           ...topBtnStyle,
+          width: 38,
           height: 38,
-          width: "auto",
-          padding: isMobile ? "0 10px" : "0 12px",
-          gap: 6,
-          fontSize: 12,
-          lineHeight: 1,
-          whiteSpace: "nowrap",
+          minWidth: 38,
+          padding: 0,
+          gap: 0,
+          justifyContent: "center",
+          position: "relative",
           flex: "0 0 auto",
         }}
       >
-        <Plus size={15} strokeWidth={2.6} />
-        <span>{isMobile ? formatQuota(realPagesCount, quota.maxPages) : t("binders.actions.add_page")}</span>
-        {!isMobile && (
-          <span style={{ fontSize: 10, fontWeight: 900, opacity: 0.72 }}>{formatQuota(realPagesCount, quota.maxPages)}</span>
-        )}
+        <FilePlus size={18} strokeWidth={2.4} />
+        <span
+          style={{
+            position: "absolute",
+            right: -6,
+            bottom: -6,
+            fontSize: 9,
+            fontWeight: 900,
+            lineHeight: 1,
+            padding: "2px 4px",
+            borderRadius: 999,
+            background: "var(--bg-card)",
+            border: "1px solid var(--binder-btn-outline-border)",
+            color: "var(--binder-btn-outline-fg)",
+          }}
+        >
+          {formatQuota(realPagesCount, quota.maxPages)}
+        </span>
       </button>
       <button
         type="button"
         onClick={() => createNewPage("separator")}
-        title={t("binders.actions.add_separator")}
+        title={`${t("binders.actions.add_separator")} (${formatQuota(separatorsCount, quota.maxSeparators)})`}
+        aria-label={`${t("binders.actions.add_separator")} (${formatQuota(separatorsCount, quota.maxSeparators)})`}
         style={{
           ...topBtnStyle,
+          width: 38,
           height: 38,
-          width: "auto",
-          padding: isMobile ? "0 10px" : "0 12px",
-          gap: 6,
-          fontSize: 12,
-          lineHeight: 1,
-          whiteSpace: "nowrap",
+          minWidth: 38,
+          padding: 0,
+          gap: 0,
+          justifyContent: "center",
+          position: "relative",
           flex: "0 0 auto",
           background: "var(--binder-btn-separator-bg)",
           color: "var(--binder-btn-separator-fg)",
@@ -14164,11 +14231,24 @@ const isDraggingMe = pageDragFromId === p.id;
           boxShadow: "0 4px 14px color-mix(in srgb, var(--color-primary) 22%, transparent)",
         }}
       >
-        <Bookmark size={14} />
-        <span>{isMobile ? formatQuota(separatorsCount, quota.maxSeparators) : t("binders.actions.add_separator")}</span>
-        {!isMobile && (
-          <span style={{ fontSize: 10, fontWeight: 900, opacity: 0.85 }}>{formatQuota(separatorsCount, quota.maxSeparators)}</span>
-        )}
+        <BookmarkPlus size={18} strokeWidth={2.4} />
+        <span
+          style={{
+            position: "absolute",
+            right: -6,
+            bottom: -6,
+            fontSize: 9,
+            fontWeight: 900,
+            lineHeight: 1,
+            padding: "2px 4px",
+            borderRadius: 999,
+            background: "var(--bg-card)",
+            border: "1px solid var(--binder-btn-outline-border)",
+            color: "var(--binder-btn-outline-fg)",
+          }}
+        >
+          {formatQuota(separatorsCount, quota.maxSeparators)}
+        </span>
       </button>
         {/* NUEVO BOTÓN DE BORRAR MÚLTIPLE EN EL CARRUSEL */}
   {deleteMode ? (

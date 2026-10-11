@@ -26,6 +26,7 @@ import { stockStatusRank } from "@/lib/catalog-sort";
 import BindersShortcut from "../components/BindersShortcut";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { supabase } from "@/lib/supabase";
+import { findUserItemSlot, type BinderSlotLink } from "@/lib/binder-slot-link";
 import { marketRefUsdStorageKey } from "@/lib/market-reference-keys";
 import { backdropPointerClose, useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { getCurrencyOptions } from "./currencyOptions";
@@ -76,6 +77,7 @@ import {
   ZoomIn,
   ZoomOut,
   ArrowUpDown,
+  MapPin,
 } from "lucide-react";
 const filterLabelStyle: React.CSSProperties = {
   fontSize: 12,
@@ -1406,7 +1408,23 @@ function ItemModal({
   const [marketFxLoading, setMarketFxLoading] = useState(false);
   const [marketConsultLoading, setMarketConsultLoading] = useState(false);
   const [wtsCurrency, setWtsCurrency] = useState<string>("EUR");
+  const [slotLink, setSlotLink] = useState<BinderSlotLink | null>(null);
   const marketCurrencyOptions = useMemo(() => getCurrencyOptions(uiLang), [uiLang]);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (hideBinder || isViewingOtherUser || !viewingUserId) {
+      setSlotLink(null);
+      return;
+    }
+    let cancelled = false;
+    void findUserItemSlot(viewingUserId, item.id).then((link) => {
+      if (!cancelled) setSlotLink(link);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hideBinder, isViewingOtherUser, viewingUserId, item.id]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -1759,6 +1777,19 @@ function ItemModal({
                 title={t("common.report_content")}
               >
                 <Siren size={18} strokeWidth={2.4} />
+              </button>
+            )}
+            {slotLink && (
+              <button
+                type="button"
+                onClick={() => {
+                  router.push(`/binder?binderId=${slotLink.binderId}&page=${slotLink.pageIndex}&slot=${slotLink.slotIndex}`);
+                }}
+                style={{ ...headerIconBtn, width: "auto", padding: "0 10px", gap: 6, fontSize: 12 }}
+                title={slotLink.title ? `${t("binders.actions.go_to_slot")} · ${slotLink.title}` : t("binders.actions.go_to_slot")}
+              >
+                <MapPin size={16} strokeWidth={2.4} />
+                <span>{t("binders.actions.go_to_slot")}</span>
               </button>
             )}
             <button type="button" data-tour="pc-modal-close" onClick={onClose} style={headerIconBtn} title={t("common.close")}>
