@@ -201,7 +201,8 @@
       "back": "返回",
       "empty": "没有符合搜索的图片",
       "loading": "加载中…",
-      "choose": "📷 选择图片"
+      "choose": "📷 选择图片",
+      "artist": "画师"
     },
     "loading_page": "页面加载中...",
     "my_binders": "我的卡册",

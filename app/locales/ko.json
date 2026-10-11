@@ -201,7 +201,8 @@
       "back": "뒤로",
       "empty": "검색과 맞는 이미지가 없어요",
       "loading": "불러오는 중…",
-      "choose": "📷 이미지 선택"
+      "choose": "📷 이미지 선택",
+      "artist": "아티스트"
     },
     "loading_page": "페이지 로딩 중...",
     "my_binders": "내 바인더",

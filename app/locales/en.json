@@ -457,7 +457,8 @@
       "back": "Back",
       "empty": "No images match that search",
       "loading": "Loading…",
-      "choose": "📷 Choose image"
+      "choose": "📷 Choose image",
+      "artist": "Artist"
     },
     "loading_page": "Loading page...",
     "my_binders": "My Binders",

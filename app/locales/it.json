@@ -396,7 +396,8 @@
       "back": "Indietro",
       "empty": "Nessuna immagine per questa ricerca",
       "loading": "Caricamento…",
-      "choose": "📷 Scegli immagine"
+      "choose": "📷 Scegli immagine",
+      "artist": "Artista"
     },
     "loading_page": "Caricamento pagina…",
     "my_binders": "I Miei Binder",

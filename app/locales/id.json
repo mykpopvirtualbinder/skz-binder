@@ -396,7 +396,8 @@
       "back": "Kembali",
       "empty": "Tidak ada gambar untuk pencarian ini",
       "loading": "Memuat…",
-      "choose": "📷 Pilih gambar"
+      "choose": "📷 Pilih gambar",
+      "artist": "Artis"
     },
     "loading_page": "Memuat halaman…",
     "my_binders": "Binder Milikku",

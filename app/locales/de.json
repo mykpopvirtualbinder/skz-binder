@@ -396,7 +396,8 @@
       "back": "Zurück",
       "empty": "Keine Bilder zu dieser Suche",
       "loading": "Lädt…",
-      "choose": "📷 Bild wählen"
+      "choose": "📷 Bild wählen",
+      "artist": "Künstler"
     },
     "loading_page": "Seite wird geladen…",
     "my_binders": "Meine Binder",
