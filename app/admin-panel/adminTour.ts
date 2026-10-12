@@ -99,6 +99,7 @@ export const ADMIN_TOUR_IDS = [
   "denuncias",
   "buzon",
   "aportaciones",
+  "correo",
 ] as const;
 
 export type AdminTourId = (typeof ADMIN_TOUR_IDS)[number];
@@ -447,6 +448,29 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
       side: "bottom",
       tab: "aportaciones",
       expand: true,
+    },
+    ],
+    correo: [
+    {
+      selector: "[data-tour='nav-correo']",
+      title: "El correo de info@",
+      text: "Esta bandeja es el buzón de Arsys, dentro del admin. La bolita rosa es el correo que todavía no se ha abierto.",
+      side: "right",
+      tab: "correo",
+    },
+    {
+      selector: "[data-tour='mail-list']",
+      title: "La bandeja",
+      text: "Los últimos mensajes. El punto rosa y la negrita son los no leídos. Al pinchar uno se abre una ventana con el texto: responder, reenviar, archivar o eliminar.",
+      side: "top",
+      tab: "correo",
+    },
+    {
+      selector: "[data-tour='mail-new']",
+      title: "Escribir",
+      text: "Nuevo abre un mensaje en blanco y lo manda desde info@. Responder y reenviar salen dentro del mensaje abierto.",
+      side: "bottom",
+      tab: "correo",
     },
     ],
   };

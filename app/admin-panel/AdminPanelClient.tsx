@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
 import { supabase } from "@/lib/supabase";
-import { fetchAdminPendingByArea, type AdminPendingByArea } from "@/lib/admin-pending-count";
+import { fetchAdminPendingByArea, fetchArsysUnseen, type AdminPendingByArea } from "@/lib/admin-pending-count";
 import Footer from "../components/footer";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { useGlobal } from "../context/GlobalContext";
@@ -182,6 +182,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [buzon, setBuzon] = useState<any[]>([]);
   const [aportaciones, setAportaciones] = useState<any[]>([]);
   const [areaPending, setAreaPending] = useState<AdminPendingByArea>({ solicitudes: 0, denuncias: 0, buzon: 0, aportaciones: 0 });
+  const [arsysUnseen, setArsysUnseen] = useState(0);
   const [queueCases, setQueueCases] = useState<Record<string, QueueCase>>({});
   const [queueLoaded, setQueueLoaded] = useState(false);
   const tourBuzonId = React.useRef<string | null>(null);
@@ -2714,13 +2715,16 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
   const launchTour = (id: string) => startAdminTour(id, tourHandlers);
 
-  const pendingNav: Record<string, number> = areaPending;
+  const pendingNav: Record<string, number> = { ...areaPending, correo: arsysUnseen };
 
   useEffect(() => {
     let stop = false;
     const load = () => {
-      void fetchAdminPendingByArea().then((areas) => {
-        if (!stop) setAreaPending(areas);
+      void Promise.all([fetchAdminPendingByArea(), fetchArsysUnseen()]).then(([areas, unseen]) => {
+        if (!stop) {
+          setAreaPending(areas);
+          setArsysUnseen(unseen);
+        }
       });
     };
     load();

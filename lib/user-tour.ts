@@ -38,7 +38,7 @@ type TourStep = {
   /** Clic al salir del paso, por ejemplo para cerrar un modal. */
   closeAfter?: string;
   /** Animación visual que no guarda cambios (mover slot, girarlo, reordenar páginas). */
-  demo?: "slot-move" | "slot-spin" | "page-order" | "strip-order" | "card-spin-flip";
+  demo?: "slot-move" | "slot-spin" | "page-order" | "strip-order" | "card-spin-flip" | "page-swipe";
 };
 
 const openedMenus = new Set<HTMLSelectElement>();
@@ -195,7 +195,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='hdr-mail']",
         title: "Notificaciones",
-        text: "El numerito del sobre es lo que no has leído. Ábrelo y caes en tu perfil, pestaña de avisos: trades, comentarios y respuestas del equipo.",
+        text: "El numerito del sobre es lo que no has leído. En el equipo, esa bolita suma también el correo de info@ sin abrir; ese buzón está en Admin, sección Correo. El sobre, para el resto, abre los avisos del perfil.",
         side: "bottom",
       },
       {
@@ -794,9 +794,16 @@ const stepsFor = (id: string): TourStep[] => {
         side: "bottom",
       },
       {
+        selector: "[data-tour='binders-find']",
+        title: "Buscar o saltar",
+        text: "Escribe el nombre, o elige el binder en el desplegable. Con muchos álbumes no hace falta recorrer toda la estantería: el desplegable te lleva al que elijas.",
+        side: "bottom",
+        expand: true,
+      },
+      {
         selector: "[data-tour='binders-create']",
         title: "Crear uno nuevo",
-        text: "Esta tarjeta discontinua añade otro binder, si todavía te queda hueco. Hay que entrar con tu cuenta. VIP sube el máximo.",
+        text: "La tarjeta discontinua añade otro binder, si todavía te queda hueco. Hay una al principio de la estantería y otra al final. Hay que entrar con tu cuenta. VIP sube el máximo.",
         side: "top",
       },
       {
@@ -843,8 +850,24 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='binder-page']",
         title: "La página",
-        text: "Cada hueco es un bolsillo. Pincha uno vacío para meter una photocard de tu biblioteca, o una que ya está para ver su ficha, su stock y moverla.",
+        text: "Cada hueco es un bolsillo. Pincha uno vacío para meter una photocard de tu biblioteca, o una que ya está para ver sus botones. Arrastra el dedo a la izquierda para la página siguiente y a la derecha para la anterior.",
         side: "top",
+      },
+      {
+        selector: "[data-tour='binder-page']",
+        title: "Pasar la página con el dedo",
+        text: "En el móvil, el gesto de deslizar cambia de página, como ves ahora. No abre los botones de la carta. Las flechas de siempre siguen ahí.",
+        side: "top",
+        demo: "page-swipe",
+      },
+      {
+        selector: "[data-tour='binder-picker']",
+        title: "El orden al colocar",
+        text: "El picker sale por colección, luego por carpeta y, dentro de cada carpeta, por edad: Bang Chan, Lee Know, Changbin, Hyunjin, Han, Felix, Seungmin e I.N. Si la carta ya está en cualquier binder, no vuelve a salir como libre.",
+        side: "left",
+        clickBefore: "[data-tour='binder-empty-slot']",
+        wait: 500,
+        closeAfter: "[data-tour='binder-picker-close']",
       },
       {
         selector: "[data-tour='binder-page']",
@@ -859,6 +882,15 @@ const stepsFor = (id: string): TourStep[] => {
         text: "Las flechas de la ficha giran esa photocard 90 grados. El giro se ve en el bolsillo, como ahora, y también en la miniatura del carrusel.",
         side: "top",
         demo: "slot-spin",
+      },
+      {
+        selector: "[data-tour='binder-unslot']",
+        title: "Devolverla al stock",
+        text: "La papelera saca la photocard del bolsillo y la devuelve al picker. El movimiento se puede deshacer. Mientras siga colocada en algún binder, no vuelve a salir como libre.",
+        side: "top",
+        clickBefore: "[data-tour='binder-slot']",
+        wait: 400,
+        closeAfter: "[data-tour='binder-slot']",
       },
       {
         selector: "[data-tour='binder-format']",
@@ -1052,6 +1084,21 @@ function scrollTourTarget(el: HTMLElement) {
 
 function playBinderDemo(kind: NonNullable<TourStep["demo"]>) {
   clearBinderDemo();
+  if (kind === "page-swipe") {
+    const page = document.querySelector<HTMLElement>("[data-tour='binder-page']");
+    if (!page) return;
+    binderDemoAnims.push(
+      page.animate(
+        [
+          { transform: "translateX(0px)" },
+          { transform: "translateX(-72px)", offset: 0.42 },
+          { transform: "translateX(0px)" },
+        ],
+        { duration: 1400, easing: "ease-in-out" },
+      ),
+    );
+    return;
+  }
   if (kind === "slot-move") {
     const pockets = Array.from(document.querySelectorAll<HTMLElement>("[data-binder-pocket]"));
     const filled = pockets.find((pocket) => pocket.dataset.filled === "1");

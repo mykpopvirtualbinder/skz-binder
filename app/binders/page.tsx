@@ -591,7 +591,7 @@ export default function BindersPage() {
         {error && <div style={{ background: "var(--bg-soft)", color: "var(--state-danger-fg)", border: "1px solid var(--state-danger-fg)", padding: 12, borderRadius: 12, marginBottom: 20, fontWeight: 700 }}>Error: {error}</div>}
 
         {userId && !loading && (
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
+          <div data-tour="binders-find" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
             <label style={{ position: "relative", flex: "1 1 220px", minWidth: 180 }}>
               <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
               <input

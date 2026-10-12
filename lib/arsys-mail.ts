@@ -147,6 +147,7 @@ export async function readMessage(uid: number): Promise<MailMessage | null> {
       const base = summaryFromFetch(fetched);
       const htmlRaw = typeof parsed.html === "string" ? parsed.html : "";
       await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
+      clearUnseenCache();
       return {
         ...base,
         seen: true,
@@ -161,11 +162,55 @@ export async function readMessage(uid: number): Promise<MailMessage | null> {
 }
 
 async function trashPath(client: ImapFlow): Promise<string | null> {
+  return specialPath(client, "\\Trash", /trash|papelera|deleted|bin/i);
+}
+
+export async function archiveMessage(uid: number): Promise<void> {
+  await withImap(async (client) => {
+    let destination = await specialPath(client, "\\Archive", /archive|archivo|archiv/i);
+    if (!destination) {
+      destination = "Archive";
+      try {
+        await client.mailboxCreate(destination);
+      } catch {
+        const again = await specialPath(client, "\\Archive", /archive|archivo|archiv/i);
+        if (!again) throw new Error("NO_ARCHIVE");
+        destination = again;
+      }
+    }
+    const lock = await client.getMailboxLock("INBOX");
+    try {
+      await client.messageMove(String(uid), destination, { uid: true });
+    } finally {
+      lock.release();
+    }
+  });
+  clearUnseenCache();
+}
+
+async function specialPath(client: ImapFlow, specialUse: string, namePattern: RegExp): Promise<string | null> {
   const boxes = await client.list();
-  const trash = boxes.find((box) => box.specialUse === "\\Trash");
-  if (trash?.path) return trash.path;
-  const named = boxes.find((box) => /trash|papelera|deleted|bin/i.test(box.path));
+  const flagged = boxes.find((box) => box.specialUse === specialUse);
+  if (flagged?.path) return flagged.path;
+  const named = boxes.find((box) => namePattern.test(box.path));
   return named?.path || null;
+}
+
+let unseenCache: { at: number; value: number } | null = null;
+
+export function clearUnseenCache() {
+  unseenCache = null;
+}
+
+/** Mensajes de INBOX sin la marca de leído. */
+export async function countUnseen(): Promise<number> {
+  if (unseenCache && Date.now() - unseenCache.at < 20000) return unseenCache.value;
+  const value = await withImap(async (client) => {
+    const status = await client.status("INBOX", { unseen: true });
+    return status ? status.unseen || 0 : 0;
+  });
+  unseenCache = { at: Date.now(), value };
+  return value;
 }
 
 export async function deleteMessage(uid: number): Promise<void> {
@@ -183,6 +228,7 @@ export async function deleteMessage(uid: number): Promise<void> {
       lock.release();
     }
   });
+  clearUnseenCache();
 }
 
 export async function sendMail(input: { to: string; subject: string; text: string; inReplyTo?: string }): Promise<void> {
@@ -225,6 +271,7 @@ export function publicMailError(err: unknown): { status: number; error: string }
   }
   if (message === "BAD_RECIPIENT") return { status: 400, error: "El destinatario no es un correo válido." };
   if (message === "EMPTY_BODY") return { status: 400, error: "Escribe el mensaje antes de enviarlo." };
+  if (message === "NO_ARCHIVE") return { status: 502, error: "Arsys no tiene una carpeta de archivo." };
   if (code === "EAUTH" || /auth|authentication|invalid credentials/i.test(message)) {
     return { status: 502, error: "Arsys ha rechazado el acceso. Revisa ARSYS_MAIL_PASSWORD." };
   }

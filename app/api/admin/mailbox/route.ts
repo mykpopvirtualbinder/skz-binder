@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
-import { deleteMessage, listInbox, mailAccount, publicMailError, readMessage, sendMail } from "@/lib/arsys-mail";
+import { archiveMessage, countUnseen, deleteMessage, listInbox, mailAccount, publicMailError, readMessage, sendMail } from "@/lib/arsys-mail";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -23,7 +23,18 @@ export async function GET(req: Request) {
     );
   }
 
-  const uid = uidFrom(new URL(req.url).searchParams.get("uid"));
+  const url = new URL(req.url);
+  if (url.searchParams.get("unseen") === "1") {
+    try {
+      const unseen = await countUnseen();
+      return NextResponse.json({ configured: true, account: account.user, unseen });
+    } catch (err) {
+      const pub = publicMailError(err);
+      return NextResponse.json({ configured: true, account: account.user, unseen: 0, error: pub.error }, { status: pub.status });
+    }
+  }
+
+  const uid = uidFrom(url.searchParams.get("uid"));
   try {
     if (uid) {
       const message = await readMessage(uid);
@@ -55,10 +66,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    if (body.action === "delete") {
+    if (body.action === "delete" || body.action === "archive") {
       const uid = uidFrom(body.uid);
       if (!uid) return NextResponse.json({ error: "Mensaje no válido." }, { status: 400 });
-      await deleteMessage(uid);
+      if (body.action === "archive") await archiveMessage(uid);
+      else await deleteMessage(uid);
       return NextResponse.json({ ok: true });
     }
     if (body.action === "send") {

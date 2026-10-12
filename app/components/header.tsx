@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
-import { fetchAdminPendingCount } from "@/lib/admin-pending-count";
+import { fetchAdminPendingCount, fetchArsysUnseen } from "@/lib/admin-pending-count";
 import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 import {
   getCursorUnlockCost,
@@ -749,16 +749,22 @@ export default function Header() {
   const isAdmin = isAdminTeamEmail(sessionEmail || null);
   const showAdminPanelInHeader = isAdminTeamEmail(sessionEmail || null);
   const [adminPending, setAdminPending] = useState(0);
+  const [arsysUnseen, setArsysUnseen] = useState(0);
+  const mailBadge = unreadCount + arsysUnseen;
 
   useEffect(() => {
     if (!showAdminPanelInHeader) {
       setAdminPending(0);
+      setArsysUnseen(0);
       return;
     }
     let stop = false;
     const load = () => {
-      void fetchAdminPendingCount().then((count) => {
-        if (!stop) setAdminPending(count);
+      void Promise.all([fetchAdminPendingCount(), fetchArsysUnseen()]).then(([count, unseen]) => {
+        if (!stop) {
+          setArsysUnseen(unseen);
+          setAdminPending(count + unseen);
+        }
       });
     };
     load();
@@ -1139,13 +1145,13 @@ export default function Header() {
                   data-tour="hdr-mail"
                   href="/me?tab=notices"
                   onPointerDown={closeAllMenus}
-                  className={`action-btn-mini header-mail-btn ${unreadCount > 0 ? "header-mail-btn--unread" : ""}`}
-                  title={t("header.dropdown.notifications")}
+                  className={`action-btn-mini header-mail-btn ${mailBadge > 0 ? "header-mail-btn--unread" : ""}`}
+                  title={arsysUnseen > 0 ? `${t("header.dropdown.notifications")} · ${arsysUnseen} sin leer en info@` : t("header.dropdown.notifications")}
                   style={{ position: "relative" }}
                 >
-                  <Mail size={16} strokeWidth={unreadCount > 0 ? 2.4 : 2} />
-                  {unreadCount > 0 && (
-                    <span className="notification-badge-mini">{unreadCount > 99 ? "99+" : unreadCount}</span>
+                  <Mail size={16} strokeWidth={mailBadge > 0 ? 2.4 : 2} />
+                  {mailBadge > 0 && (
+                    <span className="notification-badge-mini">{mailBadge > 99 ? "99+" : mailBadge}</span>
                   )}
                 </Link>
               )}
@@ -1372,13 +1378,13 @@ export default function Header() {
                 <Link
                   data-tour="hdr-mail"
                   href="/me?tab=notices"
-                  className={`action-btn-mini header-mail-btn ${unreadCount > 0 ? "header-mail-btn--unread" : ""}`}
-                  style={unreadCount > 0 ? { position: "relative" } : { color: "var(--header-btn-profile)", position: "relative" }}
-                  title={t("header.dropdown.notifications")}
+                  className={`action-btn-mini header-mail-btn ${mailBadge > 0 ? "header-mail-btn--unread" : ""}`}
+                  style={mailBadge > 0 ? { position: "relative" } : { color: "var(--header-btn-profile)", position: "relative" }}
+                  title={arsysUnseen > 0 ? `${t("header.dropdown.notifications")} · ${arsysUnseen} sin leer en info@` : t("header.dropdown.notifications")}
                 >
-                  <Mail size={16} strokeWidth={unreadCount > 0 ? 2.4 : 2} />
-                  {unreadCount > 0 && (
-                    <span className="notification-badge-mini">{unreadCount > 99 ? "99+" : unreadCount}</span>
+                  <Mail size={16} strokeWidth={mailBadge > 0 ? 2.4 : 2} />
+                  {mailBadge > 0 && (
+                    <span className="notification-badge-mini">{mailBadge > 99 ? "99+" : mailBadge}</span>
                   )}
                 </Link>
 

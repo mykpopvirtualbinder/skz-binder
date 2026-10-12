@@ -1208,7 +1208,7 @@ const activeFilterCount = [
 const showFilterFields = !isMobile || mobileFiltersOpen;
 
 return (
-  <div style={pickerShellStyle}>
+  <div data-tour="binder-picker" style={pickerShellStyle}>
    <div style={pickerHeaderStyle}>
   <div style={pickerTitleWrapStyle}>
     <img
@@ -1222,6 +1222,7 @@ return (
 
   <button
     type="button"
+    data-tour="binder-picker-close"
     onClick={onClose}
     title={t('common.close')}
     style={{
@@ -3033,6 +3034,7 @@ onClick={(e) => {
    type="button"
    title={t("binders.actions.remove_from_slot")}
    aria-label={t("binders.actions.remove_from_slot")}
+   data-tour="binder-unslot"
    onClick={async (e) => {
      e.stopPropagation();
      const ok = await showConfirm(t("common.confirm"), t("binders.actions.remove_from_slot_confirm"));
@@ -3066,7 +3068,7 @@ onClick={(e) => {
 )}
   </>
 ) : (
-  <button type="button" onClick={() => setPickingSlot(slotIndex)} style={{ width: '100%', height: '100%', borderRadius: 12, border: '1px dashed var(--state-info-border)', background: 'var(--state-info-bg)', fontSize: 24, color: 'var(--state-info-border)', cursor: 'pointer', zIndex: 1 }}>+</button>
+  <button type="button" data-tour="binder-empty-slot" onClick={() => setPickingSlot(slotIndex)} style={{ width: '100%', height: '100%', borderRadius: 12, border: '1px dashed var(--state-info-border)', background: 'var(--state-info-bg)', fontSize: 24, color: 'var(--state-info-border)', cursor: 'pointer', zIndex: 1 }}>+</button>
 )}
 </div>
 );

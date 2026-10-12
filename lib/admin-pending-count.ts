@@ -61,6 +61,24 @@ export async function fetchAdminPendingByArea(): Promise<AdminPendingByArea> {
   };
 }
 
+/** Correo de info@ sin leer en Arsys. 0 si la sesión no es de admin o el buzón no responde. */
+export async function fetchArsysUnseen(): Promise<number> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return 0;
+  try {
+    const res = await fetch("/api/admin/mailbox?unseen=1", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return 0;
+    const json = (await res.json()) as { unseen?: number };
+    const unseen = Number(json.unseen);
+    return Number.isFinite(unseen) && unseen > 0 ? unseen : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Solicitudes, denuncias, buzón y aportaciones que siguen abiertas. */
 export async function fetchAdminPendingCount() {
   const areas = await fetchAdminPendingByArea();
