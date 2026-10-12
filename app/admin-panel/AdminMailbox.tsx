@@ -119,13 +119,6 @@ function folderLabel(folder: MailFolder) {
   return tr(folderEsName(folder));
 }
 
-function folderServerName(folder: MailFolder) {
-  const raw = folder.name || folder.path;
-  const plain = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (plain(folderEsName(folder)) === plain(raw)) return "";
-  return raw;
-}
-
 function folderRank(folder: MailFolder) {
   return knownFolder(folder)?.rank ?? 10;
 }
@@ -395,12 +388,7 @@ export default function AdminMailbox() {
             color: node.selectable ? "var(--text-main)" : "var(--text-muted)",
           }}
         >
-          <span style={{ display: "grid", lineHeight: 1.2, minWidth: 0 }}>
-            <span>{folderLabel(node)}</span>
-            {folderServerName(node) ? (
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)" }}>{folderServerName(node)}</span>
-            ) : null}
-          </span>
+          <span style={{ minWidth: 0 }}>{folderLabel(node)}</span>
         </button>
         {node.children.length > 0 ? renderBranch(node.children, depth + 1) : null}
       </div>
@@ -530,7 +518,7 @@ export default function AdminMailbox() {
                   <option value="">{tr("Elegir carpeta")}</option>
                   {folders.filter((folder) => folder.selectable && folder.path !== box).map((folder) => (
                     <option key={folder.path} value={folder.path}>
-                      {folderServerName(folder) ? `${folderLabel(folder)} (${folderServerName(folder)})` : folderLabel(folder)}
+                      {folderLabel(folder)}
                     </option>
                   ))}
                 </select>
