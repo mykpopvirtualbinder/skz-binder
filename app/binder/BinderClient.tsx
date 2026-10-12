@@ -31,6 +31,7 @@ import {
   isSeasonsGreetings,
   strayKidsAlbumOrderIndex,
 } from "@/lib/collection-filters";
+import { prettyMemberLabel as canonicalMemberLabel } from "@/lib/member-labels";
 import { PC_IMAGE_FILENAME_EXT_RE } from "@/lib/pc-image-extensions";
 import { resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { formatQuota, packSeparatorColors, resolveBinderQuota, unpackSeparatorColors } from "@/lib/binder-quotas";
@@ -434,17 +435,16 @@ const formatPrice = (val: number | string | null) => {
 const prettyMemberLabel = (raw: string | null | undefined, slugMap?: Record<string, string>) => {
   const s = String(raw ?? "").trim();
   if (!s || s === "—") return "";
+  if (s.toLowerCase() === "ot8") return "OT8";
   const parts = s
-    .split(/\s*(?:\/|,|&|\+|x|\s)\s*/i)
+    .split(/\s*(?:\/|,|&|\+|x)\s*/i)
     .map((p) => p.trim())
     .filter(Boolean);
   if (parts.some((p) => p.toLowerCase() === "ot8")) return "OT8";
   const mapped = parts.map((p) => {
-    const key = p.toLowerCase().replace(/\./g, "").trim();
-    if (key === "feli") return slugMap?.["felix"] ?? "Felix";
-    if (key === "in") return slugMap?.["in"] ?? "I.N";
-    if (slugMap && slugMap[key]) return slugMap[key];
-    return prettyText(p);
+    const key = p.toLowerCase().replace(/[.\s_-]/g, "");
+    const fromSlug = key && slugMap?.[key] ? slugMap[key] : "";
+    return canonicalMemberLabel(fromSlug || p) || prettyText(p);
   });
   return mapped.filter(Boolean).join(" + ");
 };
@@ -2030,6 +2030,1046 @@ const footerLinkStyle: CSSProperties = {
   marginBottom: "8px", 
   display: "block" 
 };
+const slotRuntimeRef: { current: Record<string, any> | null } = { current: null };
+
+type PersistSlotPayload =
+  | { kind: "empty" }
+  | { kind: "real"; itemId: number; custom_text?: null; custom_image_url?: null }
+  | { kind: "custom"; custom_text: string; custom_image_url: string | null };
+
+function SlotBox({ 
+  slotIndex, 
+  invByItem, 
+  emptyCounts, 
+  placedByItem,
+  modalZoom, // 👈 AÑADE ESTO AQUÍ
+}: { 
+  slotIndex: number; 
+  invByItem: Record<number, StatusCounts>; 
+  emptyCounts: () => StatusCounts; 
+  placedByItem: Record<number, number>;
+  modalZoom: number;
+}) {
+  const {
+    slotItems,
+    itemMetaById,
+    fetchItemMeta,
+    checkIsBias,
+    userBiases,
+    slotFace,
+    slotRot,
+    slotFlipH,
+    slotZoom,
+    loadZoomForSlot,
+    pageId,
+    pageRotateAll,
+    getSlotDimsForLayout,
+    layoutDef,
+    pageSlotW,
+    pageSlotH,
+    pageSlotFrame,
+    pageContainAll,
+    slotContain,
+    lastSlotDragRef,
+    setDragData,
+    setPageDragFromId,
+    setPageDragOverId,
+    pageDraggingRef,
+    setDragOverSlot,
+    onDropSwap,
+    persistSlotStateForPage,
+    setError,
+    setStatus,
+    setRefreshTick,
+    hoverSeam,
+    setSlotRot,
+    persistTransformForSlotSafe,
+    pushUndoSnapshot,
+    setSlotFlipH,
+    shiftFx,
+    swapFxSlots,
+    setSlotFace,
+    slotToolsIndex,
+    setHoverSeam,
+    isShifting,
+    closeGapAtGlobal,
+    makeRoomAtGlobal,
+    dragOverSlot,
+    setSlotToolsIndex,
+    t,
+    openItemModal,
+    showConfirm,
+    clearSlot,
+    setPickingSlot,
+    WesternWantedFrame,
+  } = slotRuntimeRef.current ?? {};
+  const assigned = slotItems?.[slotIndex] ?? null;
+  const neonOrange = "color-mix(in srgb, var(--state-warning-border) 90%, transparent)";
+  const slotRef = useRef<HTMLDivElement | null>(null);
+  const flipWrapRef = useRef<HTMLDivElement | null>(null);
+  const itemId = assigned?.id ?? null;
+   useEffect(() => {
+  if (!itemId) return;
+  if ((assigned as any)?.is_custom) return;
+  if (itemMetaById[itemId]) return;
+  void fetchItemMeta(itemId);
+}, [itemId, assigned, itemMetaById, fetchItemMeta]);
+const counts =
+    assigned && !(assigned as any)?.is_custom && itemId
+      ? (invByItem[itemId] ?? emptyCounts())
+      : emptyCounts();
+
+  const st = statusColors(counts);
+  const stockTotal = stockTotalOf(counts);
+  
+  // 👇 NUEVA LÓGICA DE CÁLCULO DE EXTRAS 👇
+  const placedCount = itemId ? (placedByItem[itemId] ?? 1) : 1; 
+  const extraCount = Math.max(0, stockTotal - placedCount);
+  const uiWishlist = Number(counts.wish ?? 0); //
+  const isMulti = extraCount > 0;
+
+  const prevItemRef = useRef<number | null>(itemId);
+
+  
+ // ==========================================
+ // LÓGICA DE CORAZONES
+ // ==========================================
+ 
+// --- INICIO CAMBIO CORAZONES REACTIVOS ---
+const isBiasPC = useMemo(() => {
+  if (!assigned) return false;
+  
+  // 1. Extraemos el ID y el nombre directamente del objeto 'assigned'
+  // Esto garantiza que si handleToggleCustomBias cambia el ID, React lo vea aquí.
+  const mid = (assigned as any).member_id;
+  const rawMember = (assigned as any).member ?? (assigned as any).custom_text ?? "";
+
+  // 2. Usamos la función maestra del GlobalContext
+  return checkIsBias(mid, rawMember);
+}, [assigned, userBiases, checkIsBias]); 
+// --- FIN CAMBIO CORAZONES REACTIVOS ---
+
+
+
+   // Función de ráfaga
+ const burstHearts = () => {
+ if (!isBiasPC) return;
+
+ const container = document.getElementById(`hearts-container-${slotIndex}`);
+ if (!container) {
+  return;
+ }
+
+ for (let i = 0; i < 8; i++) {
+  setTimeout(() => {
+    const h = document.createElement("div");
+    h.className = "floating-heart-new";
+    h.innerHTML = "❤";
+
+    h.style.cssText = `
+      position: absolute;
+      bottom: 20%;
+      left: ${Math.random() * 80 + 10}%;
+      font-size: 28px;
+color: var(--state-danger-fg);
+text-shadow: 0 0 6px color-mix(in srgb, var(--color-secondary) 60%, transparent);
+      z-index: 99999;
+      pointer-events: none;
+      animation: heartFlyUp 1.2s ease-out forwards;
+    `;
+
+    container.appendChild(h);
+    setTimeout(() => h.remove(), 1200);
+  }, i * 100);
+}}
+  // ==========================================
+  // HASTA AQUÍ
+  // ==========================================
+
+  useEffect(() => {
+    if (prevItemRef.current !== itemId) {
+      slotRef.current?.animate(
+        [
+          { boxShadow: "0 0 0 transparent", backgroundColor: "transparent" },
+          { boxShadow: "0 10px 22px var(--overlay-faint)", backgroundColor: "color-mix(in srgb, var(--state-info-bg) 80%, var(--color-accent-blue) 20%)" },
+          { boxShadow: "0 0 0 transparent", backgroundColor: "transparent" },
+        ],
+        { duration: 260, easing: "ease-out" }
+      );
+
+      prevItemRef.current = itemId;
+    }
+  }, [itemId]);
+  
+  const face = slotFace[slotIndex] ?? "front";
+  // ✅ NUEVO: cara visual (la que se anima)
+const [visualFace, setVisualFace] = useState<"front" | "back">(face);
+useEffect(() => {
+ setVisualFace(face);
+}, [itemId]);
+
+ const rot = slotRot[slotIndex] ?? 0;
+const flip = slotFlipH[slotIndex] ?? false;
+const zoom = slotZoom[slotIndex] ?? loadZoomForSlot(pageId!, slotIndex); // ✅ NUEVO
+
+const prevFaceRef = useRef<"front" | "back">(face);
+const rotNorm = ((rot % 360) + 360) % 360;
+
+// 🔥 rotación efectiva del “sleeve”: pageRotateAll (90º) + rot del slot
+const sleeveBaseRot = pageRotateAll ? 90 : 0;
+const sleeveRot = ((sleeveBaseRot + rotNorm) % 360 + 360) % 360;
+
+// ✅ la carta cuenta como “quarter turn” según la rotación FINAL real
+const effectiveQuarterTurn = sleeveRot % 180 !== 0;
+const modalQuarterTurn = rotNorm % 180 !== 0; // si lo sigues usando en otras partes, déjalo
+const useSquareFrame = effectiveQuarterTurn;
+
+
+
+const { slotW, slotH } = getSlotDimsForLayout(layoutDef);
+
+  // TAMAÑO NATIVO DE LA CARTA (Siempre rectangular)
+  const nativeW = layoutDef.size === "special" ? slotW : pageSlotW;
+  const nativeH = layoutDef.size === "special" ? slotH : pageSlotH;
+
+  const frameW =
+    layoutDef.size === "special"
+      ? slotW
+      : useSquareFrame
+      ? pageSlotFrame
+      : pageSlotW;
+  const frameH =
+    layoutDef.size === "special"
+      ? slotH
+      : useSquareFrame
+      ? pageSlotFrame
+      : pageSlotH;
+
+  // Eliminamos el fitScale (ya no lo necesitamos)
+
+
+const badge = assigned ? dominantBadge(counts) : { key: null, label: "", bg: "var(--bg-card)", border: "var(--state-disabled-border)" };
+
+
+
+   // ... (unas líneas arriba tienes: const face = slotFace[slotIndex] ?? "front"; etc.)
+
+const frontUrl = assigned?.is_custom
+  ? (assigned.custom_image_url ?? undefined) 
+  : (assigned?.image_url ? resolveMockPcImageUrl(assigned.image_url) : undefined);
+
+const backUrl = assigned?.is_custom
+  ? ((assigned as any).custom_back_image_url ?? DEFAULT_BACK_URL)
+  : resolveMockPcBackUrl(assigned?.image_url, assigned?.back_image_url);
+
+
+    
+
+
+
+
+
+
+
+const fitThis =
+  layoutDef.size === "special" ? true : Boolean(pageContainAll || slotContain[slotIndex]);
+
+
+
+
+ const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+  if (!assigned) return;
+  if (!pageId) return;
+
+  const payload: DragPayload = {
+    fromPageId: pageId,
+    fromSlot: slotIndex,
+    itemId: assigned.id,
+
+    is_custom: Boolean((assigned as any).is_custom),
+    custom_text: (assigned as any).custom_text ?? null,
+    custom_image_url: (assigned as any).custom_image_url ?? null,
+
+    rot: slotRot[slotIndex] ?? 0,
+    flipH: slotFlipH[slotIndex] ?? false,
+    face: (slotFace[slotIndex] ?? "front") as "front" | "back",
+
+    name: assigned.name ?? null,
+    image_url: assigned.image_url ?? null,
+    back_image_url: assigned.back_image_url ?? null,
+  };
+
+  lastSlotDragRef.current = payload;
+  setDragData(e.dataTransfer, JSON.stringify(payload));
+};
+
+// Busca o actualiza los handlers de Drag en el carrusel (Página 253 aprox)
+const handleDragEnd = () => {
+  setPageDragFromId(null);
+  setPageDragOverId(null);
+  pageDraggingRef.current = false;
+};
+const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+e.preventDefault();
+e.dataTransfer.dropEffect = "move";
+if (lastSlotDragRef.current) setDragOverSlot(slotIndex);
+e.stopPropagation();
+};
+
+const handleDragLeave = () => {
+  setDragOverSlot((cur: number | null) => (cur === slotIndex ? null : cur));
+};
+
+const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setDragOverSlot(null);
+
+  const raw =
+    e.dataTransfer.getData("application/json") ||
+    e.dataTransfer.getData("text/plain");
+
+  const p = parseDragPayload(raw) ?? lastSlotDragRef.current;
+  if (!p) return;
+  if (!pageId) return;
+
+  const fromSlotNum = Number(p.fromSlot);
+  if (!Number.isFinite(fromSlotNum)) return;
+
+  // ✅ misma página: tu swap de siempre
+  if (p.fromPageId === pageId) {
+ await onDropSwap(p, slotIndex);
+    return;
+  }
+
+  // ✅ cross-page: swap entre páginas (destino <-> origen)
+  const destItem = slotItems[slotIndex] ?? null;
+  const destRot = destItem ? (slotRot[slotIndex] ?? 0) : 0;
+  const destFlip = destItem ? (slotFlipH[slotIndex] ?? false) : false;
+
+  // lo que “viaja” al destino
+  const toPayload: PersistSlotPayload =
+    p.is_custom
+      ? {
+          kind: "custom",
+          custom_text: p.custom_text ?? "",
+          custom_image_url: p.custom_image_url ?? null,
+        }
+      : { kind: "real", itemId: p.itemId };
+
+  const toRot = Number(p.rot ?? 0);
+  const toFlip = Boolean(p.flipH);
+
+  // lo que vuelve al origen (lo que hubiera en destino, o vacío)
+  const fromPayload: PersistSlotPayload =
+    !destItem
+      ? { kind: "empty" }
+      : destItem.is_custom
+        ? {
+            kind: "custom",
+            custom_text: destItem.custom_text ?? "",
+            custom_image_url: destItem.custom_image_url ?? null,
+          }
+        : { kind: "real", itemId: destItem.id };
+
+  const [a, b] = await Promise.all([
+    persistSlotStateForPage(pageId, slotIndex, toPayload, toRot, toFlip),
+    persistSlotStateForPage(p.fromPageId, fromSlotNum, fromPayload, destRot, destFlip),
+  ]);
+
+  if (!a.ok || !b.ok) {
+    setError((a.error || b.error) ?? "Error moviendo entre páginas");
+    setStatus("Error moviendo entre páginas");
+    setRefreshTick((t: number) => t + 1);
+    return;
+  }
+
+  setStatus("Movida a otra página ✅ ");
+  setRefreshTick((t: number) => t + 1);
+
+
+  if (!a.ok || !b.ok) {
+    setError((a.error || b.error) ?? "Error moviendo entre páginas");
+    setStatus("Error moviendo entre páginas");
+    setRefreshTick((t: number) => t + 1);
+    return;
+  }
+
+  setStatus("Movida a otra página ✅ ");
+  setRefreshTick((t: number) => t + 1);
+};
+
+    const hasRightNeighbor =
+      ((slotIndex - 1) % layoutDef.cols) !== layoutDef.cols - 1 &&
+      slotIndex < layoutDef.slots;
+
+    const seamActive = hoverSeam === slotIndex;
+    const isRightNeighborOfActiveSeam = hoverSeam === slotIndex - 1;
+
+    const rightAssigned = hasRightNeighbor ? (slotItems[slotIndex + 1] ?? null) : null;
+    const canCloseHere = hasRightNeighbor && !rightAssigned;
+
+   const onRotate90 = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  e.stopPropagation();
+  if (!assigned) return;
+
+  const nextRot = ((rot + 90) % 360 + 360) % 360;
+  setSlotRot((prev: Record<number, number>) => ({ ...prev, [slotIndex]: nextRot }));
+
+  const res = await persistTransformForSlotSafe(slotIndex, nextRot, flip);
+  if (!res.ok) {
+    setError(res.error || "Error guardando rotación");
+    setStatus("Error guardando rotación");
+  }
+};
+
+const onRotateMinus90 = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!assigned) return;
+    await pushUndoSnapshot(); // <-- AÑADIDO
+    const nextRot = ((rot - 90) % 360 + 360) % 360;
+  setSlotRot((prev: Record<number, number>) => ({ ...prev, [slotIndex]: nextRot }));
+
+  const res = await persistTransformForSlotSafe(slotIndex, nextRot, flip);
+  if (!res.ok) {
+    setError(res.error || "Error guardando rotación");
+    setStatus("Error guardando rotación");
+  }
+};
+
+const onRotatePlus90 = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!assigned) return;
+    await pushUndoSnapshot(); // <-- AÑADIDO
+    const nextRot = ((rot + 90) % 360 + 360) % 360;
+
+  
+  setSlotRot((prev: Record<number, number>) => ({ ...prev, [slotIndex]: nextRot }));
+
+  const res = await persistTransformForSlotSafe(slotIndex, nextRot, flip);
+  if (!res.ok) {
+    setError(res.error || "Error guardando rotación");
+    setStatus("Error guardando rotación");
+  }
+};
+
+const onFlipH = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  e.stopPropagation();
+  if (!assigned) return;
+  const nextFlip = !flip;
+  setSlotFlipH((prev: Record<number, boolean>) => ({ ...prev, [slotIndex]: nextFlip }));
+
+const res = await persistTransformForSlotSafe(slotIndex, rot, nextFlip);
+      if (!res.ok) {
+        setError(res.error || "Error guardando flip");
+        setStatus("Error guardando flip");
+      }
+    };
+
+    // ⇆: toggle 0/90 (ahora la rotación mueve el sleeve)
+    const toggleHorizontal = async (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      if (!assigned) return;
+
+      const cur = ((slotRot[slotIndex] ?? 0) % 360 + 360) % 360;
+      const nextRot = cur === 90 ? 0 : 90;
+
+      setSlotRot((prev: Record<number, number>) => ({ ...prev, [slotIndex]: nextRot }));
+
+const res = await persistTransformForSlotSafe(slotIndex, nextRot, flip);
+      if (!res.ok) {
+        setError(res.error || "Error guardando orientación");
+        setStatus("Error guardando orientación");
+      }
+    };
+const currencyPrettyLabel = (code: string) => {
+  const map: Record<string, string> = {
+    EUR: "Europa · EUR",
+    USD: "Estados Unidos · USD",
+    GBP: "Reino Unido · GBP",
+    JPY: "Japón · JPY",
+    KRW: "Corea del Sur · KRW",
+    CNY: "China · CNY",
+    AUD: "Australia · AUD",
+    CAD: "Canadá · CAD",
+    CHF: "Suiza · CHF",
+    HKD: "Hong Kong · HKD",
+    SGD: "Singapur · SGD",
+    NZD: "Nueva Zelanda · NZD",
+    SEK: "Suecia · SEK",
+    NOK: "Noruega · NOK",
+    DKK: "Dinamarca · DKK",
+    INR: "India · INR",
+    BRL: "Brasil · BRL",
+    MXN: "México · MXN",
+  };
+  return map[code] ?? code;
+};
+
+const currencySelectStyle: CSSProperties = {
+  height: 30,
+  padding: "6px 8px",
+  borderRadius: 10,
+  border: "1px solid var(--color-primary)",
+  background: "var(--bg-main)",
+  color: "var(--color-primary)",
+  fontSize: 12,
+  fontWeight: 900,
+  cursor: "pointer",
+  boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 12%, transparent)",
+};
+    const iconBtnStyle: React.CSSProperties = {
+  width: 23,
+  height: 23,
+  borderRadius: 8,
+  border: "1px solid var(--state-disabled-border)",
+  background: "var(--surface-float)",
+  backdropFilter: "blur(8px)",
+  fontWeight: 900,
+  fontSize: 13,
+  color: "var(--icon-color, var(--text-muted))",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 1,
+  cursor: "pointer",
+  boxShadow: "var(--icon-shadow, 0 10px 24px var(--overlay-faint))",
+};
+
+    const seamShift = !pageRotateAll ? 14 : 0;
+    const outerShift =
+      seamActive ? -seamShift : isRightNeighborOfActiveSeam ? seamShift : 0;
+const fx = shiftFx;
+const fxActive = Boolean(fx);
+const swapFxOn = Boolean(swapFxSlots[slotIndex]); // (esto ya lo tienes)
+
+useEffect(() => {
+  if (!swapFxOn) return;
+  slotRef.current?.animate(
+    [
+      { boxShadow: "0 0 0 transparent", filter: "brightness(1)", transform: "translateZ(0)" },
+      { boxShadow: "0 12px 26px color-mix(in srgb, var(--text-main) 14%, transparent)", filter: "brightness(1.03)", transform: "translateZ(0)" },
+      { boxShadow: "0 0 0 transparent", filter: "brightness(1)", transform: "translateZ(0)" },
+    ],
+    { duration: 260, easing: "cubic-bezier(.2,.9,.2,1)" }
+  );
+}, [swapFxOn]);
+
+const fxRange = useMemo(() => {
+  if (!fx || !Number.isFinite(layoutDef.slots)) return null;
+
+  const last = layoutDef.slots;
+  const start = Math.max(1, Math.min(fx.at, last));
+  const steps = Math.max(1, Math.floor(fx.steps));
+  // En makeRoomAt(atSlot): los items se desplazan hacia la derecha desde atSlot..(last-steps)
+  if (fx.kind === "make") {
+    const end = Math.max(start, last - steps);
+    return { start, end, dir: "right" as const };
+  }
+
+  // En closeGapAt(atSlot): los items se “corren” hacia la izquierda desde atSlot..(last-steps)
+  if (fx.kind === "close") {
+    const end = Math.max(start, last - steps);
+    return { start, end, dir: "left" as const };
+  }
+
+  return null;
+}, [fx, layoutDef.slots]);
+
+const inFxRange =
+  fxRange ? slotIndex >= fxRange.start && slotIndex <= fxRange.end : false;
+
+// “punto de acción” donde se entiende “aquí estoy insertando/cerrando”
+const isFxAnchor = fx ? slotIndex === fx.at : false;
+
+// leve escalonado: cuanto más lejos del anchor, más tarde empieza
+const fxDelayMs = fx && inFxRange ? Math.min(220, Math.abs(slotIndex - fx.at) * 28) : 0;
+
+const fxAnim =
+  fx && inFxRange
+    ? fx.kind === "make"
+      ? "shiftSlideRight"
+      : "shiftSlideLeft"
+    : "none";
+
+  function onToggleFaceAnimated(e: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
+ e.stopPropagation();
+
+ const curFace = visualFace;
+ const nextFace: "front" | "back" = curFace === "front" ? "back" : "front";
+ const el = flipWrapRef.current;
+
+ if (!el) {
+  setVisualFace(nextFace);
+  setSlotFace((prev: Record<number, "front" | "back">) => ({ ...prev, [slotIndex]: nextFace }));
+  return;
+ }
+
+const base = `scaleX(${flip ? -1 : 1})`;
+ const fromY = curFace === "front" ? 0 : 180;
+ const toY = nextFace === "front" ? 0 : 180;
+
+ el.getAnimations().forEach((a) => a.cancel());
+
+ const anim = el.animate(
+  [
+   { transform: `${base} rotateY(${fromY}deg)` },
+   { transform: `${base} rotateY(${toY}deg)` },
+  ],
+  {
+   duration: 850,
+   easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+   fill: "forwards",
+  }
+ );
+
+ setVisualFace(nextFace);
+
+ anim.finished
+  .then(() => {
+   setSlotFace((prev: Record<number, "front" | "back">) => ({ ...prev, [slotIndex]: nextFace }));
+   prevFaceRef.current = nextFace;
+  })
+  .catch(() => {});
+}
+
+  return (
+  <div
+      data-binder-slot={slotIndex}
+      data-filled={assigned ? "1" : "0"}
+      className={`pcSlotWrap${assigned && slotToolsIndex === slotIndex ? " is-tools-open" : ""}`}
+     onMouseEnter={() => {
+ if (!isBiasPC) return;
+ burstHearts();
+}}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+   
+      style={{
+        width: frameW,
+        height: frameH,
+        borderRadius: 12,
+        userSelect: "none",
+        position: "relative",
+        overflow: "visible",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        outline: assigned && slotToolsIndex === slotIndex ? "2px solid var(--color-primary)" : "none",
+        outlineOffset: 3,
+        transform: outerShift ? `translateX(${outerShift}px)` : "translateX(0)",
+        transition: "transform 160ms ease",
+      }}
+    >
+      {/* 1. SEAM CONTROLS (Hacer/Cerrar hueco) */}
+      {hasRightNeighbor && (
+        <div
+          onMouseEnter={() => setHoverSeam(slotIndex)}
+          onMouseLeave={() => setHoverSeam(null)}
+          style={{
+            animation: fxAnim !== "none" ? `${fxAnim} 260ms cubic-bezier(.2,.9,.2,1) ${fxDelayMs}ms both` : undefined,
+            position: "absolute",
+            left: "100%",
+            top: 0,
+            width: seamActive ? 44 : 12,
+            height: "100%",
+            zIndex: 80,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "auto",
+          }}
+          aria-hidden="true"
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              opacity: seamActive ? 1 : 0,
+              transform: seamActive ? "scale(1)" : "scale(0.96)",
+              pointerEvents: seamActive ? "auto" : "none",
+              transition: "opacity 140ms ease, transform 140ms ease",
+            }}
+          >
+            <button
+              type="button"
+              disabled={isShifting || !canCloseHere}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => closeGapAtGlobal(slotIndex + 1, 1)}
+              style={{
+                boxShadow: "0 8px 18px var(--overlay-faint)",
+                width: 26,
+                height: 26,
+                borderRadius: 999,
+                border: "1px solid var(--state-disabled-border)",
+                background: "var(--bg-card)",
+                fontWeight: 900,
+                cursor: isShifting || !canCloseHere ? "not-allowed" : "pointer",
+                opacity: isShifting || !canCloseHere ? 0.45 : 1,
+                lineHeight: 1,
+              }}
+            >
+              ⟪
+            </button>
+            <button
+              type="button"
+              disabled={isShifting}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => makeRoomAtGlobal(slotIndex + 1, 1)}
+              style={{
+                boxShadow: "0 8px 18px var(--overlay-faint)",
+                width: 26,
+                height: 26,
+                borderRadius: 999,
+                border: "1px solid var(--state-disabled-border)",
+                background: "var(--bg-card)",
+                fontWeight: 900,
+                cursor: isShifting ? "not-allowed" : "pointer",
+                opacity: isShifting ? 0.45 : 1,
+                lineHeight: 1,
+              }}
+            >
+              ⟫
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. FEEDBACK ANIMACIONES (Shift/Drag) */}
+      {fxActive && (inFxRange || isFxAnchor) && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: -6,
+            borderRadius: 16,
+            border: isFxAnchor ? "2px solid var(--color-accent-blue)" : "1px solid color-mix(in srgb, var(--color-accent-blue) 55%, transparent)",
+            boxShadow: isFxAnchor
+              ? "0 0 0 6px color-mix(in srgb, var(--color-accent-blue) 16%, transparent), 0 14px 30px var(--overlay-faint)"
+              : "0 0 0 4px color-mix(in srgb, var(--color-accent-blue) 10%, transparent)",
+            background: isFxAnchor ? "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)" : "transparent",
+            pointerEvents: "none",
+            opacity: isFxAnchor ? 1 : 0.9,
+            animation: isFxAnchor ? "shiftPulse 520ms ease-out 1" : "none",
+            zIndex: 200,
+          }}
+        />
+      )}
+
+      {dragOverSlot === slotIndex &&
+        lastSlotDragRef.current &&
+        lastSlotDragRef.current.fromSlot !== slotIndex && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: -6,
+              borderRadius: 16,
+              border: "2px solid color-mix(in srgb, var(--color-accent-blue) 95%, transparent)",
+              background: "color-mix(in srgb, var(--color-accent-blue) 12%, transparent)",
+              boxShadow: "0 18px 40px color-mix(in srgb, var(--color-accent-blue) 22%, transparent)",
+              pointerEvents: "none",
+              zIndex: 210,
+            }}
+          />
+      )}
+
+      {assigned ? (
+        <>
+        {/* 3. LA CARTA (BASE) */}
+          <div style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            width: nativeW,
+            height: nativeH,
+            // La rotación se aplica al contenedor físico de la carta
+            transform: `translate(-50%, -50%) rotate(${sleeveRot}deg)`,
+            transformOrigin: "center center",
+            transition: "transform 160ms ease",
+            zIndex: 1,
+          }}>
+
+            {/* 👇 NUEVO: CARTAS EXTRA (EFECTO MAZO CON LA IMAGEN REAL) 👇 */}
+            {isMulti && (
+              <>
+                {/* Carta inferior (más profunda) */}
+                <div style={{
+                  position: "absolute", inset: 0,
+                  transform: "translate(6px, 6px)",
+                  borderRadius: 12, border: "1px solid var(--state-disabled-fg)",
+                  overflow: "hidden", 
+                  // Filtro para hacerla más grisácea y oscura, dando sombra real
+                  filter: "brightness(0.6) grayscale(0.2)", 
+                  boxShadow: "0 8px 16px var(--overlay-soft)"
+                }}>
+                  <ImageWithExtensionFallback src={frontUrl || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
+                </div>
+                
+                {/* Carta intermedia */}
+                <div style={{
+                  position: "absolute", inset: 0,
+                  transform: "translate(3px, 3px)",
+                  borderRadius: 12, border: "1px solid var(--state-disabled-border)",
+                  overflow: "hidden", 
+                  filter: "brightness(0.8) grayscale(0.1)" // Ligeramente oscurecida
+                }}>
+                  <ImageWithExtensionFallback src={frontUrl || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
+                </div>
+              </>
+            )}
+
+           {/* CARTA PRINCIPAL */}
+<div style={{
+  width: "100%", height: "100%",
+  background: st.bg,
+  borderRadius: 12, overflow: "hidden",
+  boxShadow: isMulti ? "none" : "0 4px 12px color-mix(in srgb, var(--text-main) 8%, transparent)",
+  border: `1.5px solid ${st.border}`,
+  cursor: "pointer", position: "relative"
+}}
+ref={slotRef}
+draggable={true}
+onDragStart={handleDragStart}
+onDragEnd={handleDragEnd}
+onMouseEnter={() => {
+  if (!isBiasPC) return;
+  burstHearts();
+}}
+data-tour={assigned ? "binder-slot" : undefined}
+onClick={(e) => {
+  e.stopPropagation();
+  setSlotToolsIndex((cur: number | null) => (cur === slotIndex ? null : slotIndex));
+}}
+>
+  <div style={{ width: "100%", height: "100%", perspective: 900 }}>
+    <div
+      data-flip-slot={slotIndex}
+      ref={flipWrapRef}
+      style={{
+        width: "100%",  
+        height: "100%",
+        position: "absolute",
+        transformStyle: "preserve-3d",
+        transition: "none",
+        transform: `scaleX(${flip ? -1 : 1}) rotateY(${visualFace === "front" ? 0 : 180}deg)`,
+        willChange: "transform",
+      }}
+    >
+{/* LADO FRONTAL (FRONT) */}
+<div style={{
+  position: "absolute", inset: 0,
+  backfaceVisibility: "hidden",
+  WebkitBackfaceVisibility: "hidden",
+  overflow: modalZoom > 1 ? "visible" : "hidden",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center"
+}}>
+  {((z: number, item: any, wishlist: number) => {
+    // 1. Definimos la imagen frontal correctamente (soporta real y custom) 
+    const frontImg = item?.is_custom
+      ? item.custom_image_url
+      : item?.image_url;
+
+    // 2. Lógica de título para el marco (Stray Kids / OT8 / Miembros) 
+    let headerTitle = "WANTED";
+    if (item) {
+      const rawMember: string = String(item?.member ?? item?.custom_text ?? "");
+      const memberAliases = ["bang chan", "lee know", "changbin", "hyunjin", "han", "felix", "seungmin", "i.n", "in"];
+      const norm = rawMember.toLowerCase().replace(/,|\+|\/|\|/g, " ").replace(/\s+/g, " ").trim();
+      const headerParts: string[] = memberAliases
+        .filter((m) => (m.includes(" ") ? norm.includes(m) : new RegExp(`\\b${m}\\b`, "i").test(norm)))
+        .map((m) => (m === "i.n" || m === "in" ? "I.N" : m.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")));
+      
+      const rawLower = rawMember.trim().toLowerCase();
+      if (rawLower.includes("ot8") || rawLower.includes("all")) {
+        headerTitle = "OT8";
+      } else if (!headerParts.length) {
+        headerTitle = rawMember || "WANTED";
+      } else if (headerParts.length === 1) {
+        headerTitle = headerParts[0];
+      } else if (headerParts.length === 2) {
+        headerTitle = `${headerParts[0]} + ${headerParts[1]}`;
+      } else if (headerParts.length > 2) {
+        headerTitle = `${headerParts[0]} + ${headerParts[1]}\n+ ${headerParts.length - 2} más`;
+      }
+    }
+
+    // 3. Renderizado final: Con marco si es Wanted, o imagen limpia si no [cite: 1553]
+    if (item?.is_wanted === true && wishlist > 0) {
+      return (
+        <WesternWantedFrame name={headerTitle} variant="modal">
+          <img 
+            src={frontImg || "/mock-pcs/groups/not-available.png"} 
+            style={{ 
+              width: '100%', height: '100%', 
+              objectFit: z > 1 ? "contain" : "cover", 
+              filter: 'sepia(0.2)',
+              transform: `scale(${z})`, 
+              transition: "transform 0.2s ease" 
+            }} 
+            alt="" 
+          /> 
+        </WesternWantedFrame>
+      );
+    } else {
+      return (
+        <img
+          src={frontImg || "/mock-pcs/groups/not-available.png"}
+          style={{
+            width: '100%', height: '100%', 
+            objectFit: z > 1 ? "contain" : "cover",
+            transform: `scale(${z})`,
+            transition: "transform 0.2s ease"
+          }}
+          alt=""
+        />
+      );
+    }
+  })(modalZoom, assigned, uiWishlist)} 
+</div>
+
+{/* LADO TRASERO (BACK) */}
+<div style={{ 
+  position: "absolute", inset: 0, transform: "rotateY(180deg)", 
+  backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+  overflow: modalZoom > 1 ? "visible" : "hidden",
+  display: "flex", alignItems: "center", justifyContent: "center"
+}}> 
+  <ImageWithExtensionFallback
+    src={backUrl}
+    frontSrcForBack={assigned?.is_custom ? undefined : assigned?.image_url ?? undefined}
+    fallbackSrc={DEFAULT_BACK_URL}
+    style={{ 
+      width: "100%", height: "100%", 
+      objectFit: modalZoom > 1 ? "contain" : "cover", 
+      transform: `scale(${modalZoom})`,
+      transition: "transform 0.2s ease" 
+    }} 
+    alt="" 
+  /> 
+</div>
+   </div>
+    </div>
+    </div>
+  </div>
+
+
+
+   
+
+  {/* CAPA DE CORAZONES */}
+ <div
+  id={`hearts-container-${slotIndex}`}
+  className="heartsBurstArea"
+  style={{
+   position: "absolute",
+   inset: 0,
+   pointerEvents: "none",
+   zIndex: 900,
+   overflow: "visible",
+  }}
+ />
+
+ {isBiasPC && (
+ <button
+  type="button"
+  className="pcFixedHeart"
+  onMouseDown={(e) => e.stopPropagation()}
+  onClick={(e) => {
+   e.stopPropagation();
+   burstHearts();
+  }}
+  style={{
+   position: "absolute",
+   left: 8,
+   bottom: 8,
+   zIndex: 910,
+   width: 26,
+   height: 26,
+   display: "flex",
+   alignItems: "center",
+   justifyContent: "center",
+   border: "none",
+   background: "transparent",
+   padding: 0,
+   cursor: "pointer",
+  }}
+ >
+  <Heart size={18} fill="var(--color-primary)" color="var(--color-primary)" strokeWidth={0} />
+ </button>
+)}
+   {/* CONTROLES (Los botones de siempre) */}
+  {isMulti && (
+    <div className="pcQtyBadgeCentered" style={{ zIndex: 960 }}>
+      +{extraCount} {/* 👈 CAMBIADO A extraCount */}
+    </div>
+  )}
+{slotToolsIndex === slotIndex && (
+<>
+<div className="pcControls pcControlsOpen" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 1000 }}>
+ <button type="button" onClick={onRotateMinus90} title={t("binders.actions.flip")} style={iconBtnStyle}>⟲</button>
+ <button type="button" onClick={onRotatePlus90} title={t("binders.actions.flip")} style={iconBtnStyle}>⟳</button>
+ <button type="button" onClick={onToggleFaceAnimated} title={t("binders.actions.back_side")} style={iconBtnStyle}>⇄</button>
+ <button
+   type="button"
+   title={t("binders.actions.view_detail")}
+   onClick={(e) => {
+     e.stopPropagation();
+     setSlotToolsIndex(null);
+     openItemModal(slotIndex, assigned);
+   }}
+   style={iconBtnStyle}
+ >
+   <Eye size={13} strokeWidth={2.4} />
+ </button>
+ <button
+   type="button"
+   title={t("binders.actions.remove_from_slot")}
+   aria-label={t("binders.actions.remove_from_slot")}
+   onClick={async (e) => {
+     e.stopPropagation();
+     const ok = await showConfirm(t("common.confirm"), t("binders.actions.remove_from_slot_confirm"));
+     if (!ok) return;
+     setSlotToolsIndex(null);
+     await clearSlot(slotIndex);
+   }}
+   style={iconBtnStyle}
+ >
+   <Trash2 size={13} strokeWidth={2.4} />
+ </button>
+</div>
+
+    <div className="pcDeleteCorner pcControlsOpen" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 950 }}>
+      <button
+        type="button"
+        onClick={async (e) => {
+          e.stopPropagation();
+          const ok = await showConfirm(t("common.confirm"), t("binders.actions.remove_from_slot_confirm"));
+          if (!ok) return;
+          setSlotToolsIndex(null);
+          await clearSlot(slotIndex);
+        }}
+        className="iconDangerHover modalCloseBtn"
+        style={{ ...iconBtnStyle, width: 24, height: 24, background: 'color-mix(in srgb, var(--bg-card) 90%, transparent)' }}
+      >
+        ✕
+      </button>
+    </div>
+</>
+)}
+  </>
+) : (
+  <button type="button" onClick={() => setPickingSlot(slotIndex)} style={{ width: '100%', height: '100%', borderRadius: 12, border: '1px dashed var(--state-info-border)', background: 'var(--state-info-bg)', fontSize: 24, color: 'var(--state-info-border)', cursor: 'pointer', zIndex: 1 }}>+</button>
+)}
+</div>
+);
+
+}
+
 export default function BinderClient() {
   // 1. Hooks de Next al principio
   const router = useRouter(); 
@@ -2281,19 +3321,19 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
       return next;
     });
 
-    setSlotRot((prev) => {
+    setSlotRot((prev: Record<number, number>) => {
       const next = { ...prev };
       delete next[modalSlotIndex];
       return next;
     });
 
-    setSlotFlipH((prev) => {
+    setSlotFlipH((prev: Record<number, boolean>) => {
       const next = { ...prev };
       delete next[modalSlotIndex];
       return next;
     });
 
-    setSlotFace((prev) => {
+    setSlotFace((prev: Record<number, "front" | "back">) => {
       const next = { ...prev };
       delete next[modalSlotIndex];
       return next;
@@ -2337,7 +3377,7 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
       return next;
     });
 
-    setRefreshTick((t) => t + 1);
+    setRefreshTick((t: number) => t + 1);
     await loadPageThumbs();
     setTimeout(() => setShowPreview(true), 100);
     closeItemModal();
@@ -2749,7 +3789,7 @@ async function doPagesModalUndo(): Promise<void> {
   setCurrentPageIndex(prev.currentPageIndex);
   setPageId(prev.pageId);
   setLayout(prev.layout);
-  setRefreshTick((t) => t + 1);
+  setRefreshTick((t: number) => t + 1);
 }
 
 async function readModalUndoSnapshot(itemId: number): Promise<ModalUndoSnapshot | null> {
@@ -2827,7 +3867,7 @@ async function doModalUndo(): Promise<void> {
       // ... lógica de PC real [cite: 600, 607]
   }
   
-  setRefreshTick((t) => t + 1);
+  setRefreshTick((t: number) => t + 1);
  // ✅ CUSTOM PC
  if (modalAssigned?.is_custom && modalSlotIndex != null) {
   setSlotItems((map) => ({
@@ -2896,7 +3936,7 @@ async function doModalUndo(): Promise<void> {
  setWttOfferByItem((map) => ({ ...map, [itemId]: prev.wttOffer }));
  setWttOfferQtyByItem((map) => ({ ...map, [itemId]: prev.wttOfferQty }));
 
- setRefreshTick((t) => t + 1);
+ setRefreshTick((t: number) => t + 1);
 }
   const persistWttQty = useCallback(
  async (itemId: number, value: number) => {
@@ -3605,7 +4645,7 @@ const nodes = Array.from(document.querySelectorAll<HTMLElement>("[data-flip-slot
   const nextAll = !pageShowBackAllUI;
   const target: "front" | "back" = nextAll ? "back" : "front";
 // 1) Estado inmediato (sin esperar a finished)
-setSlotFace((prev) => {
+setSlotFace((prev: Record<number, "front" | "back">) => {
   const out: Record<number, "front" | "back"> = { ...prev };
   for (const el of nodes) {
     const raw = el.getAttribute("data-flip-slot");
@@ -3656,7 +4696,7 @@ setPageShowBackAllUI(nextAll);
     }
 
    const commit = () => {
-  setSlotFace((prev) => {
+  setSlotFace((prev: Record<number, "front" | "back">) => {
     const out = { ...prev };
     for (const el of nodes) {
       const raw = el.getAttribute("data-flip-slot");
@@ -4469,11 +5509,6 @@ useEffect(() => {
   }, [modalItemId, wttOfferQtyByItem, readWttOffer, invByItem]);
 
   
-type PersistSlotPayload =
-  | { kind: "empty" }
-  | { kind: "real"; itemId: number; custom_text?: null; custom_image_url?: null }
-  | { kind: "custom"; custom_text: string; custom_image_url: string | null };
-
 function normRot(v: number) {
   const n = Number(v ?? 0);
   const r = Number.isFinite(n) ? n : 0;
@@ -4709,7 +5744,7 @@ const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
         return next;
       });
 
-      setSlotFace((prev) => {
+      setSlotFace((prev: Record<number, "front" | "back">) => {
         const next = { ...prev };
         const fromFace = prev[fromSlot] ?? "front";
         const toFace = prev[toSlot] ?? "front";
@@ -4719,7 +5754,7 @@ const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
         return next;
       });
 
-      setSlotRot((prev) => {
+      setSlotRot((prev: Record<number, number>) => {
         const next = { ...prev };
         next[toSlot] = fromRot;
         if (toItem) next[fromSlot] = toRot;
@@ -4727,7 +5762,7 @@ const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
         return next;
       });
 
-      setSlotFlipH((prev) => {
+      setSlotFlipH((prev: Record<number, boolean>) => {
         const next = { ...prev };
         next[toSlot] = fromFlip;
         if (toItem) next[fromSlot] = toFlip;
@@ -4815,16 +5850,16 @@ const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
 
     // UI: solo podemos pintar seguro la página actual
     setSlotItems((prev) => ({ ...prev, [toSlot]: fromItemSnapshot }));
-    setSlotRot((prev) => ({ ...prev, [toSlot]: fromRot }));
-    setSlotFlipH((prev) => ({ ...prev, [toSlot]: fromFlip }));
-    setSlotFace((prev) => ({ ...prev, [toSlot]: fromFace }));
+    setSlotRot((prev: Record<number, number>) => ({ ...prev, [toSlot]: fromRot }));
+    setSlotFlipH((prev: Record<number, boolean>) => ({ ...prev, [toSlot]: fromFlip }));
+    setSlotFace((prev: Record<number, "front" | "back">) => ({ ...prev, [toSlot]: fromFace }));
 
     const nextItems = { ...slotItems, [toSlot]: fromItemSnapshot };
     const nextRots = { ...slotRot, [toSlot]: fromRot };
     const nextFlips = { ...slotFlipH, [toSlot]: fromFlip };
     rebuildThumbsForPage(pageId, nextItems, nextRots, nextFlips);
 
-    setRefreshTick((t) => t + 1);
+    setRefreshTick((t: number) => t + 1);
     setStatus("Movida a otra página ✅ ");
   },
   [pageId, slotItems, slotFace, slotRot, slotFlipH, persistSwapSafe, rebuildThumbsForPage]
@@ -4979,7 +6014,7 @@ setShiftFx({ kind: "make", at: atSlot, steps, tick: Date.now() });
       if (!res.ok) {
         setError(res.error || "Error haciendo hueco");
         setStatus("Error haciendo hueco");
-        setRefreshTick((t) => t + 1);
+        setRefreshTick((t: number) => t + 1);
       } else {
         setStatus("Hueco creado ✅");
       }
@@ -5119,7 +6154,7 @@ setShiftFx({ kind: "make", at: atSlot, steps, tick: Date.now() });
       setError(delRes.error.message);
       setStatus("Error haciendo hueco");
       setIsShifting(false);
-      setRefreshTick((t) => t + 1);
+      setRefreshTick((t: number) => t + 1);
       return;
     }
 
@@ -5157,7 +6192,7 @@ setShiftFx({ kind: "make", at: atSlot, steps, tick: Date.now() });
         setError(insRes.error.message);
         setStatus("Error haciendo hueco");
         setIsShifting(false);
-        setRefreshTick((t) => t + 1);
+        setRefreshTick((t: number) => t + 1);
         return;
       }
     }
@@ -5166,7 +6201,7 @@ setShiftFx({ kind: "make", at: atSlot, steps, tick: Date.now() });
     setIsShifting(false);
 
     // recarga la página actual desde DB
-    setRefreshTick((t) => t + 1);
+    setRefreshTick((t: number) => t + 1);
   },
   [binderId, pageId, binderPages, isShifting, setShiftFx, supabase]
 );
@@ -5275,7 +6310,7 @@ const closeGapAtGlobal = useCallback(
       setError(delRes.error.message);
       setStatus("Error cerrando hueco");
       setIsShifting(false);
-      setRefreshTick((t) => t + 1);
+      setRefreshTick((t: number) => t + 1);
       return;
     }
 
@@ -5310,14 +6345,14 @@ const closeGapAtGlobal = useCallback(
         setError(upRes.error.message);
         setStatus("Error cerrando hueco");
         setIsShifting(false);
-        setRefreshTick((t) => t + 1);
+        setRefreshTick((t: number) => t + 1);
         return;
       }
     }
 
     setStatus("Hueco cerrado ✅");
     setIsShifting(false);
-    setRefreshTick((t) => t + 1);
+    setRefreshTick((t: number) => t + 1);
   },
   [binderId, pageId, binderPages, isShifting, setShiftFx, supabase]
 );
@@ -5371,7 +6406,7 @@ setShiftFx({ kind: "close", at: atSlot, steps, tick: Date.now() });
       if (!res.ok) {
         setError(res.error || "Error cerrando hueco");
         setStatus("Error cerrando hueco");
-        setRefreshTick((t) => t + 1);
+        setRefreshTick((t: number) => t + 1);
       } else {
         setStatus("Hueco cerrado ✅");
       }
@@ -5798,7 +6833,7 @@ if (loading || pageReorderBusy) return;
 
   setPagesCount(remaining.length);
   setCurrentPageIndex((prev) => Math.min(prev, Math.max(0, remaining.length - 1)));
-  setRefreshTick((t) => t + 1);
+  setRefreshTick((t: number) => t + 1);
   setStatus("Páginas borradas ✅ ");
   
   setDeleteMode(false);
@@ -6059,7 +7094,7 @@ async function doUndo(): Promise<void> {
     return;
   }
   setStatus("Cambio deshecho ✅");
-  setRefreshTick((t) => t + 1);
+  setRefreshTick((t: number) => t + 1);
 }
 
 async function doRedo(): Promise<void> {
@@ -6086,7 +7121,7 @@ async function doRedo(): Promise<void> {
     return;
   }
   setStatus("Cambio rehecho ✅");
-  setRefreshTick((t) => t + 1);
+  setRefreshTick((t: number) => t + 1);
 }
  const reorderPagesInState = useCallback(
  async (dragPageId: number, dropPageId: number) => {
@@ -6112,7 +7147,7 @@ async function doRedo(): Promise<void> {
   if (!res.ok) {
     setError(res.error || "Error reordenando páginas");
     setStatus("Error reordenando páginas");
-    setRefreshTick((t) => t + 1);
+    setRefreshTick((t: number) => t + 1);
   } else {
     setStatus("Orden de páginas guardado ✅");
   }
@@ -6186,7 +7221,7 @@ const movePcToPageFromCarousel = useCallback(
     ]);
 
     setStatus("Movida a otra página ✅");
-    setRefreshTick((t) => t + 1);
+    setRefreshTick((t: number) => t + 1);
   },
   [binderPages, supabase, persistSlotStateForPage]
 );
@@ -6707,7 +7742,7 @@ if (!itemsRes.error) {
     setLoading(false);
     
     // Esto fuerza al useEffect de la línea 1500 aprox. a bajarse las páginas frescas (incluyendo las nuevas)
-    setRefreshTick((t) => t + 1); 
+    setRefreshTick((t: number) => t + 1); 
 
     if (newPagesCreated > 0) {
       setStatus(`Formato guardado. Se añadieron ${newPagesCreated} página(s) nueva(s).`);
@@ -6748,12 +7783,12 @@ if (itemId === -1) {
       setError(up.error.message);
       setStatus("Error guardando PC personalizada");
       return;
-      setRefreshTick((t) => t + 1);
+      setRefreshTick((t: number) => t + 1);
     }
 
     // UI: pintamos placeholder custom
-    setSlotRot((prev) => ({ ...prev, [slotIndex]: 0 }));
-    setSlotFlipH((prev) => ({ ...prev, [slotIndex]: false }));
+    setSlotRot((prev: Record<number, number>) => ({ ...prev, [slotIndex]: 0 }));
+    setSlotFlipH((prev: Record<number, boolean>) => ({ ...prev, [slotIndex]: false }));
     setSlotItems((prev) => ({
       ...prev,
       [slotIndex]: {
@@ -6831,8 +7866,8 @@ if (up.error) {
  return;
 }
 
-setSlotRot((prev) => ({ ...prev, [slotIndex]: 0 }));
-setSlotFlipH((prev) => ({ ...prev, [slotIndex]: false }));
+setSlotRot((prev: Record<number, number>) => ({ ...prev, [slotIndex]: 0 }));
+setSlotFlipH((prev: Record<number, boolean>) => ({ ...prev, [slotIndex]: false }));
 
 if (!itRes.error && itRes.data) {
  const it = itRes.data as DbItemRow & { member_id?: number | null };
@@ -6877,9 +7912,9 @@ if (!itRes.error && itRes.data) {
     return next;
   });
 
-  setSlotFace((prev) => ({ ...prev, [slotIndex]: pageFace }));
+  setSlotFace((prev: Record<number, "front" | "back">) => ({ ...prev, [slotIndex]: pageFace }));
   setStatus("Slot guardado ✅");
-  setRefreshTick((t) => t + 1);
+  setRefreshTick((t: number) => t + 1);
     return;
 };
 
@@ -7066,14 +8101,14 @@ const placeSelectedItems = async (rawIds: number[]) => {
     }
     return next;
   });
-  setSlotRot((prev) => {
+  setSlotRot((prev: Record<number, number>) => {
     const next = { ...prev };
     for (const pair of pairs) {
       if (pair.pageId === pageId) next[pair.slotIndex] = 0;
     }
     return next;
   });
-  setSlotFlipH((prev) => {
+  setSlotFlipH((prev: Record<number, boolean>) => {
     const next = { ...prev };
     for (const pair of pairs) {
       if (pair.pageId === pageId) next[pair.slotIndex] = false;
@@ -7117,19 +8152,19 @@ const placeSelectedItems = async (rawIds: number[]) => {
         return next;
       });
 
-      setSlotRot((prev) => {
+      setSlotRot((prev: Record<number, number>) => {
         const next = { ...prev };
         delete next[slotIndex];
         return next;
       });
 
-      setSlotFlipH((prev) => {
+      setSlotFlipH((prev: Record<number, boolean>) => {
         const next = { ...prev };
         delete next[slotIndex];
         return next;
       });
 
-      setSlotFace((prev) => {
+      setSlotFace((prev: Record<number, "front" | "back">) => {
         const next = { ...prev };
         delete next[slotIndex];
         return next;
@@ -7143,7 +8178,7 @@ const placeSelectedItems = async (rawIds: number[]) => {
       });
 
       // Fuerza refresh antes de thumbnails
-      setRefreshTick((t) => t + 1);
+      setRefreshTick((t: number) => t + 1);
 
       // Borra la miniatura del estado local inmediatamente
   if (pageId) {
@@ -7157,7 +8192,7 @@ const placeSelectedItems = async (rawIds: number[]) => {
       return next;
     });
   }
-  setRefreshTick((t) => t + 1);
+  setRefreshTick((t: number) => t + 1);
 
       // Quitar de la preview del carrusel si corresponde
       setWttCarousel((prev) => {
@@ -8197,7 +9232,7 @@ const pickModalCustomImage = useCallback(
 
     // 5. AUTO-GIRO: Forzamos la cara según el lado subido
 
-    setSlotFace((prev) => ({ ...prev, [modalSlotIndex]: side }));
+    setSlotFace((prev: Record<number, "front" | "back">) => ({ ...prev, [modalSlotIndex]: side }));
 
 
     // 6. Persistencia en Base de Datos (✅ Corregido para que no guarde 'null')
@@ -8466,984 +9501,6 @@ const WesternWantedFrame = ({
   );
 };
 
-const SlotBox = ({ 
-  slotIndex, 
-  invByItem, 
-  emptyCounts, 
-  placedByItem,
-  modalZoom, // 👈 AÑADE ESTO AQUÍ
-}: { 
-  slotIndex: number; 
-  invByItem: Record<number, StatusCounts>; 
-  emptyCounts: () => StatusCounts; 
-  placedByItem: Record<number, number>;
-  modalZoom: number; // 👈 Y ESTO AQUÍ TAMBIÉN
-}) => {
-  const assigned = slotItems[slotIndex] ?? null;
-  const neonOrange = "color-mix(in srgb, var(--state-warning-border) 90%, transparent)";
-  const slotRef = useRef<HTMLDivElement | null>(null);
-  const flipWrapRef = useRef<HTMLDivElement | null>(null);
-  const itemId = assigned?.id ?? null;
-   useEffect(() => {
-  if (!itemId) return;
-  if ((assigned as any)?.is_custom) return;
-  if (itemMetaById[itemId]) return;
-  void fetchItemMeta(itemId);
-}, [itemId, assigned, itemMetaById, fetchItemMeta]);
-const counts =
-    assigned && !(assigned as any)?.is_custom && itemId
-      ? (invByItem[itemId] ?? emptyCounts())
-      : emptyCounts();
-
-  const st = statusColors(counts);
-  const stockTotal = stockTotalOf(counts);
-  
-  // 👇 NUEVA LÓGICA DE CÁLCULO DE EXTRAS 👇
-  const placedCount = itemId ? (placedByItem[itemId] ?? 1) : 1; 
-  const extraCount = Math.max(0, stockTotal - placedCount);
-  const uiWishlist = Number(counts.wish ?? 0); //
-  const isMulti = extraCount > 0;
-
-  const prevItemRef = useRef<number | null>(itemId);
-
-  
- // ==========================================
- // LÓGICA DE CORAZONES
- // ==========================================
- 
-// --- INICIO CAMBIO CORAZONES REACTIVOS ---
-const isBiasPC = useMemo(() => {
-  if (!assigned) return false;
-  
-  // 1. Extraemos el ID y el nombre directamente del objeto 'assigned'
-  // Esto garantiza que si handleToggleCustomBias cambia el ID, React lo vea aquí.
-  const mid = (assigned as any).member_id;
-  const rawMember = (assigned as any).member ?? (assigned as any).custom_text ?? "";
-
-  // 2. Usamos la función maestra del GlobalContext
-  return checkIsBias(mid, rawMember);
-}, [assigned, userBiases, checkIsBias]); 
-// --- FIN CAMBIO CORAZONES REACTIVOS ---
-
-
-
-   // Función de ráfaga
- const burstHearts = () => {
- if (!isBiasPC) return;
-
- const container = document.getElementById(`hearts-container-${slotIndex}`);
- if (!container) {
-  return;
- }
-
- for (let i = 0; i < 8; i++) {
-  setTimeout(() => {
-    const h = document.createElement("div");
-    h.className = "floating-heart-new";
-    h.innerHTML = "❤";
-
-    h.style.cssText = `
-      position: absolute;
-      bottom: 20%;
-      left: ${Math.random() * 80 + 10}%;
-      font-size: 28px;
-color: var(--state-danger-fg);
-text-shadow: 0 0 6px color-mix(in srgb, var(--color-secondary) 60%, transparent);
-      z-index: 99999;
-      pointer-events: none;
-      animation: heartFlyUp 1.2s ease-out forwards;
-    `;
-
-    container.appendChild(h);
-    setTimeout(() => h.remove(), 1200);
-  }, i * 100);
-}}
-  // ==========================================
-  // HASTA AQUÍ
-  // ==========================================
-
-  useEffect(() => {
-    if (prevItemRef.current !== itemId) {
-      slotRef.current?.animate(
-        [
-          { boxShadow: "0 0 0 transparent", backgroundColor: "transparent" },
-          { boxShadow: "0 10px 22px var(--overlay-faint)", backgroundColor: "color-mix(in srgb, var(--state-info-bg) 80%, var(--color-accent-blue) 20%)" },
-          { boxShadow: "0 0 0 transparent", backgroundColor: "transparent" },
-        ],
-        { duration: 260, easing: "ease-out" }
-      );
-
-      prevItemRef.current = itemId;
-    }
-  }, [itemId]);
-  
-  const face = slotFace[slotIndex] ?? "front";
-  // ✅ NUEVO: cara visual (la que se anima)
-const [visualFace, setVisualFace] = useState<"front" | "back">(face);
-useEffect(() => {
- setVisualFace(face);
-}, [itemId]);
-
- const rot = slotRot[slotIndex] ?? 0;
-const flip = slotFlipH[slotIndex] ?? false;
-const zoom = slotZoom[slotIndex] ?? loadZoomForSlot(pageId!, slotIndex); // ✅ NUEVO
-
-const prevFaceRef = useRef<"front" | "back">(face);
-const rotNorm = ((rot % 360) + 360) % 360;
-
-// 🔥 rotación efectiva del “sleeve”: pageRotateAll (90º) + rot del slot
-const sleeveBaseRot = pageRotateAll ? 90 : 0;
-const sleeveRot = ((sleeveBaseRot + rotNorm) % 360 + 360) % 360;
-
-// ✅ la carta cuenta como “quarter turn” según la rotación FINAL real
-const effectiveQuarterTurn = sleeveRot % 180 !== 0;
-const modalQuarterTurn = rotNorm % 180 !== 0; // si lo sigues usando en otras partes, déjalo
-const useSquareFrame = effectiveQuarterTurn;
-
-
-
-const { slotW, slotH } = getSlotDimsForLayout(layoutDef);
-
-  // TAMAÑO NATIVO DE LA CARTA (Siempre rectangular)
-  const nativeW = layoutDef.size === "special" ? slotW : pageSlotW;
-  const nativeH = layoutDef.size === "special" ? slotH : pageSlotH;
-
-  const frameW =
-    layoutDef.size === "special"
-      ? slotW
-      : useSquareFrame
-      ? pageSlotFrame
-      : pageSlotW;
-  const frameH =
-    layoutDef.size === "special"
-      ? slotH
-      : useSquareFrame
-      ? pageSlotFrame
-      : pageSlotH;
-
-  // Eliminamos el fitScale (ya no lo necesitamos)
-
-
-const badge = assigned ? dominantBadge(counts) : { key: null, label: "", bg: "var(--bg-card)", border: "var(--state-disabled-border)" };
-
-
-
-   // ... (unas líneas arriba tienes: const face = slotFace[slotIndex] ?? "front"; etc.)
-
-const frontUrl = assigned?.is_custom
-  ? (assigned.custom_image_url ?? undefined) 
-  : (assigned?.image_url ? resolveMockPcImageUrl(assigned.image_url) : undefined);
-
-const backUrl = assigned?.is_custom
-  ? ((assigned as any).custom_back_image_url ?? DEFAULT_BACK_URL)
-  : resolveMockPcBackUrl(assigned?.image_url, assigned?.back_image_url);
-
-
-    
-
-
-
-
-
-
-
-const fitThis =
-  layoutDef.size === "special" ? true : Boolean(pageContainAll || slotContain[slotIndex]);
-
-
-
-
- const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-  if (!assigned) return;
-  if (!pageId) return;
-
-  const payload: DragPayload = {
-    fromPageId: pageId,
-    fromSlot: slotIndex,
-    itemId: assigned.id,
-
-    is_custom: Boolean((assigned as any).is_custom),
-    custom_text: (assigned as any).custom_text ?? null,
-    custom_image_url: (assigned as any).custom_image_url ?? null,
-
-    rot: slotRot[slotIndex] ?? 0,
-    flipH: slotFlipH[slotIndex] ?? false,
-    face: (slotFace[slotIndex] ?? "front") as "front" | "back",
-
-    name: assigned.name ?? null,
-    image_url: assigned.image_url ?? null,
-    back_image_url: assigned.back_image_url ?? null,
-  };
-
-  lastSlotDragRef.current = payload;
-  setDragData(e.dataTransfer, JSON.stringify(payload));
-};
-
-// Busca o actualiza los handlers de Drag en el carrusel (Página 253 aprox)
-const handleDragEnd = () => {
-  setPageDragFromId(null);
-  setPageDragOverId(null);
-  pageDraggingRef.current = false;
-};
-const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-e.preventDefault();
-e.dataTransfer.dropEffect = "move";
-if (lastSlotDragRef.current) setDragOverSlot(slotIndex);
-e.stopPropagation();
-};
-
-const handleDragLeave = () => {
-  setDragOverSlot((cur) => (cur === slotIndex ? null : cur));
-};
-
-const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-  e.preventDefault();
-  e.stopPropagation();
-  setDragOverSlot(null);
-
-  const raw =
-    e.dataTransfer.getData("application/json") ||
-    e.dataTransfer.getData("text/plain");
-
-  const p = parseDragPayload(raw) ?? lastSlotDragRef.current;
-  if (!p) return;
-  if (!pageId) return;
-
-  const fromSlotNum = Number(p.fromSlot);
-  if (!Number.isFinite(fromSlotNum)) return;
-
-  // ✅ misma página: tu swap de siempre
-  if (p.fromPageId === pageId) {
- await onDropSwap(p, slotIndex);
-    return;
-  }
-
-  // ✅ cross-page: swap entre páginas (destino <-> origen)
-  const destItem = slotItems[slotIndex] ?? null;
-  const destRot = destItem ? (slotRot[slotIndex] ?? 0) : 0;
-  const destFlip = destItem ? (slotFlipH[slotIndex] ?? false) : false;
-
-  // lo que “viaja” al destino
-  const toPayload: PersistSlotPayload =
-    p.is_custom
-      ? {
-          kind: "custom",
-          custom_text: p.custom_text ?? "",
-          custom_image_url: p.custom_image_url ?? null,
-        }
-      : { kind: "real", itemId: p.itemId };
-
-  const toRot = Number(p.rot ?? 0);
-  const toFlip = Boolean(p.flipH);
-
-  // lo que vuelve al origen (lo que hubiera en destino, o vacío)
-  const fromPayload: PersistSlotPayload =
-    !destItem
-      ? { kind: "empty" }
-      : destItem.is_custom
-        ? {
-            kind: "custom",
-            custom_text: destItem.custom_text ?? "",
-            custom_image_url: destItem.custom_image_url ?? null,
-          }
-        : { kind: "real", itemId: destItem.id };
-
-  const [a, b] = await Promise.all([
-    persistSlotStateForPage(pageId, slotIndex, toPayload, toRot, toFlip),
-    persistSlotStateForPage(p.fromPageId, fromSlotNum, fromPayload, destRot, destFlip),
-  ]);
-
-  if (!a.ok || !b.ok) {
-    setError((a.error || b.error) ?? "Error moviendo entre páginas");
-    setStatus("Error moviendo entre páginas");
-    setRefreshTick((t) => t + 1);
-    return;
-  }
-
-  setStatus("Movida a otra página ✅ ");
-  setRefreshTick((t) => t + 1);
-
-
-  if (!a.ok || !b.ok) {
-    setError((a.error || b.error) ?? "Error moviendo entre páginas");
-    setStatus("Error moviendo entre páginas");
-    setRefreshTick((t) => t + 1);
-    return;
-  }
-
-  setStatus("Movida a otra página ✅ ");
-  setRefreshTick((t) => t + 1);
-};
-
-    const hasRightNeighbor =
-      ((slotIndex - 1) % layoutDef.cols) !== layoutDef.cols - 1 &&
-      slotIndex < layoutDef.slots;
-
-    const seamActive = hoverSeam === slotIndex;
-    const isRightNeighborOfActiveSeam = hoverSeam === slotIndex - 1;
-
-    const rightAssigned = hasRightNeighbor ? (slotItems[slotIndex + 1] ?? null) : null;
-    const canCloseHere = hasRightNeighbor && !rightAssigned;
-
-   const onRotate90 = async (e: React.MouseEvent<HTMLButtonElement>) => {
-  e.stopPropagation();
-  if (!assigned) return;
-
-  const nextRot = ((rot + 90) % 360 + 360) % 360;
-  setSlotRot((prev) => ({ ...prev, [slotIndex]: nextRot }));
-
-  const res = await persistTransformForSlotSafe(slotIndex, nextRot, flip);
-  if (!res.ok) {
-    setError(res.error || "Error guardando rotación");
-    setStatus("Error guardando rotación");
-  }
-};
-
-const onRotateMinus90 = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    if (!assigned) return;
-    await pushUndoSnapshot(); // <-- AÑADIDO
-    const nextRot = ((rot - 90) % 360 + 360) % 360;
-  setSlotRot((prev) => ({ ...prev, [slotIndex]: nextRot }));
-
-  const res = await persistTransformForSlotSafe(slotIndex, nextRot, flip);
-  if (!res.ok) {
-    setError(res.error || "Error guardando rotación");
-    setStatus("Error guardando rotación");
-  }
-};
-
-const onRotatePlus90 = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    if (!assigned) return;
-    await pushUndoSnapshot(); // <-- AÑADIDO
-    const nextRot = ((rot + 90) % 360 + 360) % 360;
-
-  
-  setSlotRot((prev) => ({ ...prev, [slotIndex]: nextRot }));
-
-  const res = await persistTransformForSlotSafe(slotIndex, nextRot, flip);
-  if (!res.ok) {
-    setError(res.error || "Error guardando rotación");
-    setStatus("Error guardando rotación");
-  }
-};
-
-const onFlipH = async (e: React.MouseEvent<HTMLButtonElement>) => {
-  e.stopPropagation();
-  if (!assigned) return;
-  const nextFlip = !flip;
-  setSlotFlipH((prev) => ({ ...prev, [slotIndex]: nextFlip }));
-
-const res = await persistTransformForSlotSafe(slotIndex, rot, nextFlip);
-      if (!res.ok) {
-        setError(res.error || "Error guardando flip");
-        setStatus("Error guardando flip");
-      }
-    };
-
-    // ⇆: toggle 0/90 (ahora la rotación mueve el sleeve)
-    const toggleHorizontal = async (e: React.MouseEvent<HTMLButtonElement>) => {
-      e.stopPropagation();
-      if (!assigned) return;
-
-      const cur = ((slotRot[slotIndex] ?? 0) % 360 + 360) % 360;
-      const nextRot = cur === 90 ? 0 : 90;
-
-      setSlotRot((prev) => ({ ...prev, [slotIndex]: nextRot }));
-
-const res = await persistTransformForSlotSafe(slotIndex, nextRot, flip);
-      if (!res.ok) {
-        setError(res.error || "Error guardando orientación");
-        setStatus("Error guardando orientación");
-      }
-    };
-const currencyPrettyLabel = (code: string) => {
-  const map: Record<string, string> = {
-    EUR: "Europa · EUR",
-    USD: "Estados Unidos · USD",
-    GBP: "Reino Unido · GBP",
-    JPY: "Japón · JPY",
-    KRW: "Corea del Sur · KRW",
-    CNY: "China · CNY",
-    AUD: "Australia · AUD",
-    CAD: "Canadá · CAD",
-    CHF: "Suiza · CHF",
-    HKD: "Hong Kong · HKD",
-    SGD: "Singapur · SGD",
-    NZD: "Nueva Zelanda · NZD",
-    SEK: "Suecia · SEK",
-    NOK: "Noruega · NOK",
-    DKK: "Dinamarca · DKK",
-    INR: "India · INR",
-    BRL: "Brasil · BRL",
-    MXN: "México · MXN",
-  };
-  return map[code] ?? code;
-};
-
-const currencySelectStyle: CSSProperties = {
-  height: 30,
-  padding: "6px 8px",
-  borderRadius: 10,
-  border: "1px solid var(--color-primary)",
-  background: "var(--bg-main)",
-  color: "var(--color-primary)",
-  fontSize: 12,
-  fontWeight: 900,
-  cursor: "pointer",
-  boxShadow: "0 2px 8px color-mix(in srgb, var(--color-primary) 12%, transparent)",
-};
-    const iconBtnStyle: React.CSSProperties = {
-  width: 23,
-  height: 23,
-  borderRadius: 8,
-  border: "1px solid var(--state-disabled-border)",
-  background: "var(--surface-float)",
-  backdropFilter: "blur(8px)",
-  fontWeight: 900,
-  fontSize: 13,
-  color: "var(--icon-color, var(--text-muted))",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  lineHeight: 1,
-  cursor: "pointer",
-  boxShadow: "var(--icon-shadow, 0 10px 24px var(--overlay-faint))",
-};
-
-    const seamShift = !pageRotateAll ? 14 : 0;
-    const outerShift =
-      seamActive ? -seamShift : isRightNeighborOfActiveSeam ? seamShift : 0;
-const fx = shiftFx;
-const fxActive = Boolean(fx);
-const swapFxOn = Boolean(swapFxSlots[slotIndex]); // (esto ya lo tienes)
-
-useEffect(() => {
-  if (!swapFxOn) return;
-  slotRef.current?.animate(
-    [
-      { boxShadow: "0 0 0 transparent", filter: "brightness(1)", transform: "translateZ(0)" },
-      { boxShadow: "0 12px 26px color-mix(in srgb, var(--text-main) 14%, transparent)", filter: "brightness(1.03)", transform: "translateZ(0)" },
-      { boxShadow: "0 0 0 transparent", filter: "brightness(1)", transform: "translateZ(0)" },
-    ],
-    { duration: 260, easing: "cubic-bezier(.2,.9,.2,1)" }
-  );
-}, [swapFxOn]);
-
-const fxRange = useMemo(() => {
-  if (!fx || !Number.isFinite(layoutDef.slots)) return null;
-
-  const last = layoutDef.slots;
-  const start = Math.max(1, Math.min(fx.at, last));
-  const steps = Math.max(1, Math.floor(fx.steps));
-  // En makeRoomAt(atSlot): los items se desplazan hacia la derecha desde atSlot..(last-steps)
-  if (fx.kind === "make") {
-    const end = Math.max(start, last - steps);
-    return { start, end, dir: "right" as const };
-  }
-
-  // En closeGapAt(atSlot): los items se “corren” hacia la izquierda desde atSlot..(last-steps)
-  if (fx.kind === "close") {
-    const end = Math.max(start, last - steps);
-    return { start, end, dir: "left" as const };
-  }
-
-  return null;
-}, [fx, layoutDef.slots]);
-
-const inFxRange =
-  fxRange ? slotIndex >= fxRange.start && slotIndex <= fxRange.end : false;
-
-// “punto de acción” donde se entiende “aquí estoy insertando/cerrando”
-const isFxAnchor = fx ? slotIndex === fx.at : false;
-
-// leve escalonado: cuanto más lejos del anchor, más tarde empieza
-const fxDelayMs = fx && inFxRange ? Math.min(220, Math.abs(slotIndex - fx.at) * 28) : 0;
-
-const fxAnim =
-  fx && inFxRange
-    ? fx.kind === "make"
-      ? "shiftSlideRight"
-      : "shiftSlideLeft"
-    : "none";
-
-  function onToggleFaceAnimated(e: React.MouseEvent<HTMLButtonElement, MouseEvent>): void {
- e.stopPropagation();
-
- const curFace = visualFace;
- const nextFace: "front" | "back" = curFace === "front" ? "back" : "front";
- const el = flipWrapRef.current;
-
- if (!el) {
-  setVisualFace(nextFace);
-  setSlotFace((prev) => ({ ...prev, [slotIndex]: nextFace }));
-  return;
- }
-
-const base = `scaleX(${flip ? -1 : 1})`;
- const fromY = curFace === "front" ? 0 : 180;
- const toY = nextFace === "front" ? 0 : 180;
-
- el.getAnimations().forEach((a) => a.cancel());
-
- const anim = el.animate(
-  [
-   { transform: `${base} rotateY(${fromY}deg)` },
-   { transform: `${base} rotateY(${toY}deg)` },
-  ],
-  {
-   duration: 850,
-   easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-   fill: "forwards",
-  }
- );
-
- setVisualFace(nextFace);
-
- anim.finished
-  .then(() => {
-   setSlotFace((prev) => ({ ...prev, [slotIndex]: nextFace }));
-   prevFaceRef.current = nextFace;
-  })
-  .catch(() => {});
-}
-
-  return (
-  <div
-      data-binder-slot={slotIndex}
-      data-filled={assigned ? "1" : "0"}
-      className={`pcSlotWrap${assigned && slotToolsIndex === slotIndex ? " is-tools-open" : ""}`}
-     onMouseEnter={() => {
- if (!isBiasPC) return;
- burstHearts();
-}}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-   
-      style={{
-        width: frameW,
-        height: frameH,
-        borderRadius: 12,
-        userSelect: "none",
-        position: "relative",
-        overflow: "visible",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        outline: assigned && slotToolsIndex === slotIndex ? "2px solid var(--color-primary)" : "none",
-        outlineOffset: 3,
-        transform: outerShift ? `translateX(${outerShift}px)` : "translateX(0)",
-        transition: "transform 160ms ease",
-      }}
-    >
-      {/* 1. SEAM CONTROLS (Hacer/Cerrar hueco) */}
-      {hasRightNeighbor && (
-        <div
-          onMouseEnter={() => setHoverSeam(slotIndex)}
-          onMouseLeave={() => setHoverSeam(null)}
-          style={{
-            animation: fxAnim !== "none" ? `${fxAnim} 260ms cubic-bezier(.2,.9,.2,1) ${fxDelayMs}ms both` : undefined,
-            position: "absolute",
-            left: "100%",
-            top: 0,
-            width: seamActive ? 44 : 12,
-            height: "100%",
-            zIndex: 80,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            pointerEvents: "auto",
-          }}
-          aria-hidden="true"
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              opacity: seamActive ? 1 : 0,
-              transform: seamActive ? "scale(1)" : "scale(0.96)",
-              pointerEvents: seamActive ? "auto" : "none",
-              transition: "opacity 140ms ease, transform 140ms ease",
-            }}
-          >
-            <button
-              type="button"
-              disabled={isShifting || !canCloseHere}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => closeGapAtGlobal(slotIndex + 1, 1)}
-              style={{
-                boxShadow: "0 8px 18px var(--overlay-faint)",
-                width: 26,
-                height: 26,
-                borderRadius: 999,
-                border: "1px solid var(--state-disabled-border)",
-                background: "var(--bg-card)",
-                fontWeight: 900,
-                cursor: isShifting || !canCloseHere ? "not-allowed" : "pointer",
-                opacity: isShifting || !canCloseHere ? 0.45 : 1,
-                lineHeight: 1,
-              }}
-            >
-              ⟪
-            </button>
-            <button
-              type="button"
-              disabled={isShifting}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => makeRoomAtGlobal(slotIndex + 1, 1)}
-              style={{
-                boxShadow: "0 8px 18px var(--overlay-faint)",
-                width: 26,
-                height: 26,
-                borderRadius: 999,
-                border: "1px solid var(--state-disabled-border)",
-                background: "var(--bg-card)",
-                fontWeight: 900,
-                cursor: isShifting ? "not-allowed" : "pointer",
-                opacity: isShifting ? 0.45 : 1,
-                lineHeight: 1,
-              }}
-            >
-              ⟫
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 2. FEEDBACK ANIMACIONES (Shift/Drag) */}
-      {fxActive && (inFxRange || isFxAnchor) && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: -6,
-            borderRadius: 16,
-            border: isFxAnchor ? "2px solid var(--color-accent-blue)" : "1px solid color-mix(in srgb, var(--color-accent-blue) 55%, transparent)",
-            boxShadow: isFxAnchor
-              ? "0 0 0 6px color-mix(in srgb, var(--color-accent-blue) 16%, transparent), 0 14px 30px var(--overlay-faint)"
-              : "0 0 0 4px color-mix(in srgb, var(--color-accent-blue) 10%, transparent)",
-            background: isFxAnchor ? "color-mix(in srgb, var(--color-accent-blue) 8%, transparent)" : "transparent",
-            pointerEvents: "none",
-            opacity: isFxAnchor ? 1 : 0.9,
-            animation: isFxAnchor ? "shiftPulse 520ms ease-out 1" : "none",
-            zIndex: 200,
-          }}
-        />
-      )}
-
-      {dragOverSlot === slotIndex &&
-        lastSlotDragRef.current &&
-        lastSlotDragRef.current.fromSlot !== slotIndex && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              inset: -6,
-              borderRadius: 16,
-              border: "2px solid color-mix(in srgb, var(--color-accent-blue) 95%, transparent)",
-              background: "color-mix(in srgb, var(--color-accent-blue) 12%, transparent)",
-              boxShadow: "0 18px 40px color-mix(in srgb, var(--color-accent-blue) 22%, transparent)",
-              pointerEvents: "none",
-              zIndex: 210,
-            }}
-          />
-      )}
-
-      {assigned ? (
-        <>
-        {/* 3. LA CARTA (BASE) */}
-          <div style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            width: nativeW,
-            height: nativeH,
-            // La rotación se aplica al contenedor físico de la carta
-            transform: `translate(-50%, -50%) rotate(${sleeveRot}deg)`,
-            transformOrigin: "center center",
-            transition: "transform 160ms ease",
-            zIndex: 1,
-          }}>
-
-            {/* 👇 NUEVO: CARTAS EXTRA (EFECTO MAZO CON LA IMAGEN REAL) 👇 */}
-            {isMulti && (
-              <>
-                {/* Carta inferior (más profunda) */}
-                <div style={{
-                  position: "absolute", inset: 0,
-                  transform: "translate(6px, 6px)",
-                  borderRadius: 12, border: "1px solid var(--state-disabled-fg)",
-                  overflow: "hidden", 
-                  // Filtro para hacerla más grisácea y oscura, dando sombra real
-                  filter: "brightness(0.6) grayscale(0.2)", 
-                  boxShadow: "0 8px 16px var(--overlay-soft)"
-                }}>
-                  <ImageWithExtensionFallback src={frontUrl || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
-                </div>
-                
-                {/* Carta intermedia */}
-                <div style={{
-                  position: "absolute", inset: 0,
-                  transform: "translate(3px, 3px)",
-                  borderRadius: 12, border: "1px solid var(--state-disabled-border)",
-                  overflow: "hidden", 
-                  filter: "brightness(0.8) grayscale(0.1)" // Ligeramente oscurecida
-                }}>
-                  <ImageWithExtensionFallback src={frontUrl || "/mock-pcs/groups/not-available.png"} style={{ width: '100%', height: '100%', objectFit: fitThis ? 'contain' : 'cover' }} alt="" />
-                </div>
-              </>
-            )}
-
-           {/* CARTA PRINCIPAL */}
-<div style={{
-  width: "100%", height: "100%",
-  background: st.bg,
-  borderRadius: 12, overflow: "hidden",
-  boxShadow: isMulti ? "none" : "0 4px 12px color-mix(in srgb, var(--text-main) 8%, transparent)",
-  border: `1.5px solid ${st.border}`,
-  cursor: "pointer", position: "relative"
-}}
-ref={slotRef}
-draggable={true}
-onDragStart={handleDragStart}
-onDragEnd={handleDragEnd}
-onMouseEnter={() => {
-  if (!isBiasPC) return;
-  burstHearts();
-}}
-data-tour={assigned ? "binder-slot" : undefined}
-onClick={(e) => {
-  e.stopPropagation();
-  setSlotToolsIndex((cur) => (cur === slotIndex ? null : slotIndex));
-}}
->
-  <div style={{ width: "100%", height: "100%", perspective: 900 }}>
-    <div
-      data-flip-slot={slotIndex}
-      ref={flipWrapRef}
-      style={{
-        width: "100%",  
-        height: "100%",
-        position: "absolute",
-        transformStyle: "preserve-3d",
-        transition: "none",
-        transform: `scaleX(${flip ? -1 : 1}) rotateY(${visualFace === "front" ? 0 : 180}deg)`,
-        willChange: "transform",
-      }}
-    >
-{/* LADO FRONTAL (FRONT) */}
-<div style={{
-  position: "absolute", inset: 0,
-  backfaceVisibility: "hidden",
-  WebkitBackfaceVisibility: "hidden",
-  overflow: modalZoom > 1 ? "visible" : "hidden",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center"
-}}>
-  {((z: number, item: any, wishlist: number) => {
-    // 1. Definimos la imagen frontal correctamente (soporta real y custom) 
-    const frontImg = item?.is_custom
-      ? item.custom_image_url
-      : item?.image_url;
-
-    // 2. Lógica de título para el marco (Stray Kids / OT8 / Miembros) 
-    let headerTitle = "WANTED";
-    if (item) {
-      const rawMember: string = String(item?.member ?? item?.custom_text ?? "");
-      const memberAliases = ["bang chan", "lee know", "changbin", "hyunjin", "han", "felix", "seungmin", "i.n", "in"];
-      const norm = rawMember.toLowerCase().replace(/,|\+|\/|\|/g, " ").replace(/\s+/g, " ").trim();
-      const headerParts: string[] = memberAliases
-        .filter((m) => (m.includes(" ") ? norm.includes(m) : new RegExp(`\\b${m}\\b`, "i").test(norm)))
-        .map((m) => (m === "i.n" || m === "in" ? "I.N" : m.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")));
-      
-      const rawLower = rawMember.trim().toLowerCase();
-      if (rawLower.includes("ot8") || rawLower.includes("all")) {
-        headerTitle = "OT8";
-      } else if (!headerParts.length) {
-        headerTitle = rawMember || "WANTED";
-      } else if (headerParts.length === 1) {
-        headerTitle = headerParts[0];
-      } else if (headerParts.length === 2) {
-        headerTitle = `${headerParts[0]} + ${headerParts[1]}`;
-      } else if (headerParts.length > 2) {
-        headerTitle = `${headerParts[0]} + ${headerParts[1]}\n+ ${headerParts.length - 2} más`;
-      }
-    }
-
-    // 3. Renderizado final: Con marco si es Wanted, o imagen limpia si no [cite: 1553]
-    if (item?.is_wanted === true && wishlist > 0) {
-      return (
-        <WesternWantedFrame name={headerTitle} variant="modal">
-          <img 
-            src={frontImg || "/mock-pcs/groups/not-available.png"} 
-            style={{ 
-              width: '100%', height: '100%', 
-              objectFit: z > 1 ? "contain" : "cover", 
-              filter: 'sepia(0.2)',
-              transform: `scale(${z})`, 
-              transition: "transform 0.2s ease" 
-            }} 
-            alt="" 
-          /> 
-        </WesternWantedFrame>
-      );
-    } else {
-      return (
-        <img
-          src={frontImg || "/mock-pcs/groups/not-available.png"}
-          style={{
-            width: '100%', height: '100%', 
-            objectFit: z > 1 ? "contain" : "cover",
-            transform: `scale(${z})`,
-            transition: "transform 0.2s ease"
-          }}
-          alt=""
-        />
-      );
-    }
-  })(modalZoom, assigned, uiWishlist)} 
-</div>
-
-{/* LADO TRASERO (BACK) */}
-<div style={{ 
-  position: "absolute", inset: 0, transform: "rotateY(180deg)", 
-  backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
-  overflow: modalZoom > 1 ? "visible" : "hidden",
-  display: "flex", alignItems: "center", justifyContent: "center"
-}}> 
-  <ImageWithExtensionFallback
-    src={backUrl}
-    frontSrcForBack={assigned?.is_custom ? undefined : assigned?.image_url ?? undefined}
-    fallbackSrc={DEFAULT_BACK_URL}
-    style={{ 
-      width: "100%", height: "100%", 
-      objectFit: modalZoom > 1 ? "contain" : "cover", 
-      transform: `scale(${modalZoom})`,
-      transition: "transform 0.2s ease" 
-    }} 
-    alt="" 
-  /> 
-</div>
-   </div>
-    </div>
-    </div>
-  </div>
-
-
-
-   
-
-  {/* CAPA DE CORAZONES */}
- <div
-  id={`hearts-container-${slotIndex}`}
-  className="heartsBurstArea"
-  style={{
-   position: "absolute",
-   inset: 0,
-   pointerEvents: "none",
-   zIndex: 900,
-   overflow: "visible",
-  }}
- />
-
- {isBiasPC && (
- <button
-  type="button"
-  className="pcFixedHeart"
-  onMouseDown={(e) => e.stopPropagation()}
-  onClick={(e) => {
-   e.stopPropagation();
-   burstHearts();
-  }}
-  style={{
-   position: "absolute",
-   left: 8,
-   bottom: 8,
-   zIndex: 910,
-   width: 26,
-   height: 26,
-   display: "flex",
-   alignItems: "center",
-   justifyContent: "center",
-   border: "none",
-   background: "transparent",
-   padding: 0,
-   cursor: "pointer",
-  }}
- >
-  <Heart size={18} fill="var(--color-primary)" color="var(--color-primary)" strokeWidth={0} />
- </button>
-)}
-   {/* CONTROLES (Los botones de siempre) */}
-  {isMulti && (
-    <div className="pcQtyBadgeCentered" style={{ zIndex: 960 }}>
-      +{extraCount} {/* 👈 CAMBIADO A extraCount */}
-    </div>
-  )}
-{slotToolsIndex === slotIndex && (
-<>
-<div className="pcControls pcControlsOpen" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 1000 }}>
- <button type="button" onClick={onRotateMinus90} title={t("binders.actions.flip")} style={iconBtnStyle}>⟲</button>
- <button type="button" onClick={onRotatePlus90} title={t("binders.actions.flip")} style={iconBtnStyle}>⟳</button>
- <button type="button" onClick={onToggleFaceAnimated} title={t("binders.actions.back_side")} style={iconBtnStyle}>⇄</button>
- <button
-   type="button"
-   title={t("binders.actions.view_detail")}
-   onClick={(e) => {
-     e.stopPropagation();
-     setSlotToolsIndex(null);
-     openItemModal(slotIndex, assigned);
-   }}
-   style={iconBtnStyle}
- >
-   <Eye size={13} strokeWidth={2.4} />
- </button>
- <button
-   type="button"
-   title={t("binders.actions.remove_from_slot")}
-   aria-label={t("binders.actions.remove_from_slot")}
-   onClick={async (e) => {
-     e.stopPropagation();
-     const ok = await showConfirm(t("common.confirm"), t("binders.actions.remove_from_slot_confirm"));
-     if (!ok) return;
-     setSlotToolsIndex(null);
-     await clearSlot(slotIndex);
-   }}
-   style={iconBtnStyle}
- >
-   <Trash2 size={13} strokeWidth={2.4} />
- </button>
-</div>
-
-    <div className="pcDeleteCorner pcControlsOpen" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 950 }}>
-      <button
-        type="button"
-        onClick={async (e) => {
-          e.stopPropagation();
-          const ok = await showConfirm(t("common.confirm"), t("binders.actions.remove_from_slot_confirm"));
-          if (!ok) return;
-          setSlotToolsIndex(null);
-          await clearSlot(slotIndex);
-        }}
-        className="iconDangerHover modalCloseBtn"
-        style={{ ...iconBtnStyle, width: 24, height: 24, background: 'color-mix(in srgb, var(--bg-card) 90%, transparent)' }}
-      >
-        ✕
-      </button>
-    </div>
-</>
-)}
-  </>
-) : (
-  <button type="button" onClick={() => setPickingSlot(slotIndex)} style={{ width: '100%', height: '100%', borderRadius: 12, border: '1px dashed var(--state-info-border)', background: 'var(--state-info-bg)', fontSize: 24, color: 'var(--state-info-border)', cursor: 'pointer', zIndex: 1 }}>+</button>
-)}
-</div>
-);
-};
 const { slotW: gridSlotW, slotH: gridSlotH, gap: baseGap, rowGap: baseRowGap } = useMemo(
   () => getSlotDimsForLayout(layoutDef),
   [layoutDef]
@@ -9599,7 +9656,7 @@ const rawPlan = (profileData?.plan_type || "free").toLowerCase().trim();
     setPagesCount(newBinderPages.length);
     setCurrentPageIndex(where === "start" ? 0 : newBinderPages.length - 1);
     
-    setRefreshTick((t) => t + 1);
+    setRefreshTick((t: number) => t + 1);
     setStatus(finalLayout === 'separator' ? "Separador añadido ✨" : "Página añadida ✅");
   } else {
     setError(ins.error?.message || "Error al crear");
@@ -9679,7 +9736,7 @@ const deletePageById = useCallback(
    return Math.min(prev, Math.max(0, ordered.length - 1));
   });
 
-  setRefreshTick((t) => t + 1);
+  setRefreshTick((t: number) => t + 1);
  setStatus("Página borrada ✅"); 
   setLoading(false); 
  }, [ 
@@ -10213,7 +10270,7 @@ const persistWishFlag = useCallback(
   }
   return next;
 });
-  setRefreshTick((t) => t + 1); // Esto fuerza a que la biblioteca y el binder se redibujen [cite: 1675, 1714]
+  setRefreshTick((t: number) => t + 1); // Esto fuerza a que la biblioteca y el binder se redibujen [cite: 1675, 1714]
   },
   [userId, activeItemId, supabase, clearWttWanted, pushModalUndoSnapshot]
 );
@@ -14747,6 +14804,62 @@ const isDraggingMe = pageDragFromId === p.id;
       alignContent: "start",
     }}
   >
+  {(() => {
+    slotRuntimeRef.current = {
+      slotItems,
+      itemMetaById,
+      fetchItemMeta,
+      checkIsBias,
+      userBiases,
+      slotFace,
+      slotRot,
+      slotFlipH,
+      slotZoom,
+      loadZoomForSlot,
+      pageId,
+      pageRotateAll,
+      getSlotDimsForLayout,
+      layoutDef,
+      pageSlotW,
+      pageSlotH,
+      pageSlotFrame,
+      pageContainAll,
+      slotContain,
+      lastSlotDragRef,
+      setDragData,
+      setPageDragFromId,
+      setPageDragOverId,
+      pageDraggingRef,
+      setDragOverSlot,
+      onDropSwap,
+      persistSlotStateForPage,
+      setError,
+      setStatus,
+      setRefreshTick,
+      hoverSeam,
+      setSlotRot,
+      persistTransformForSlotSafe,
+      pushUndoSnapshot,
+      setSlotFlipH,
+      shiftFx,
+      swapFxSlots,
+      setSlotFace,
+      slotToolsIndex,
+      setHoverSeam,
+      isShifting,
+      closeGapAtGlobal,
+      makeRoomAtGlobal,
+      dragOverSlot,
+      setSlotToolsIndex,
+      t,
+      openItemModal,
+      showConfirm,
+      clearSlot,
+      setPickingSlot,
+      WesternWantedFrame,
+    };
+    return null;
+  })()}
     {baseSlots.map((n) => ( 
       <SlotBox key={n} slotIndex={n} invByItem={invByItem} emptyCounts={emptyCounts} placedByItem={placedByItem} modalZoom={1} /> 
     ))}
@@ -14835,7 +14948,7 @@ const isDraggingMe = pageDragFromId === p.id;
     if (modalSlotIndex == null) return;
     await pushUndoSnapshot(); // <-- AÑADIDO
     const next = modalFace === "front" ? "back" : "front";
-    setSlotFace((prev) => ({ ...prev, [modalSlotIndex]: next }));
+    setSlotFace((prev: Record<number, "front" | "back">) => ({ ...prev, [modalSlotIndex]: next }));
   }}
  // Dentro de BinderClient, en el renderizado de <BinderItemModal />
 /* EN BinderClient.tsx, DENTRO DE <BinderItemModal /> (Pág. 265) */

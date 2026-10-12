@@ -13,6 +13,7 @@ import BackToMessagesBar from "../components/BackToMessagesBar";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
 import { useGlobal } from "../context/GlobalContext";
 import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
+import { prettyMemberLabel as canonicalMemberLabel } from "@/lib/member-labels";
 import { MERCH_ALBUM_DB_CATEGORY } from "@/lib/merch-album-filter-meta";
 import { getCurrencyOptions } from "../library/currencyOptions";
 import { requireLoggedIn } from "@/lib/auth-gate";
@@ -184,9 +185,8 @@ const splitMemberNames = (memberRaw: string | null | undefined): string[] => {
 
 const formatMemberLabel = (raw: string) => {
   const cleaned = raw.trim();
-  const normalized = normalizeMemberKey(cleaned);
-  if (normalized === "in") return "I.N";
-  return formatPrettyName(cleaned);
+  if (!cleaned) return "";
+  return canonicalMemberLabel(cleaned) || formatPrettyName(cleaned);
 };
 
 const extractMemberNames = (
