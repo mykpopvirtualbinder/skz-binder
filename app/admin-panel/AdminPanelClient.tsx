@@ -2797,9 +2797,16 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               </div>
             ))}
           </nav>
-          <a href="mailto:info@mykpopbinder.com" className="admin-nav-btn" style={{ margin: "12px 14px 0", textDecoration: "none" }}>
+          <a
+            href="https://correo.arsys.es"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="admin-nav-btn"
+            style={{ margin: "12px 14px 0", textDecoration: "none" }}
+          >
             <Mail size={16} />
-            <span style={{ flex: 1, minWidth: 0 }}>info@mykpopbinder.com</span>
+            <span style={{ flex: 1, minWidth: 0 }}>Correo Arsys</span>
+            <ExternalLink size={14} />
           </a>
         </aside>
 
