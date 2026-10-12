@@ -2031,6 +2031,8 @@ const footerLinkStyle: CSSProperties = {
   display: "block" 
 };
 const slotRuntimeRef: { current: Record<string, any> | null } = { current: null };
+const pageSwipeAtRef = { current: 0 };
+const pageSwipeRef: { current: { x: number; y: number } | null } = { current: null };
 
 type PersistSlotPayload =
   | { kind: "empty" }
@@ -2841,6 +2843,7 @@ onMouseEnter={() => {
 data-tour={assigned ? "binder-slot" : undefined}
 onClick={(e) => {
   e.stopPropagation();
+  if (Date.now() - pageSwipeAtRef.current < 450) return;
   setSlotToolsIndex((cur: number | null) => (cur === slotIndex ? null : slotIndex));
 }}
 >
@@ -7429,34 +7432,50 @@ if (pageError || !pageData) {
     let cancelled = false;
 
     const run = async () => {
-      if (!binderId) return;
+      if (!userId) return;
 
-      const pagesRes = await supabase.from("binder_pages").select("id").eq("binder_id", binderId);
-      if (pagesRes.error) return;
+      const bindersRes = await supabase.from("binders").select("id").eq("user_id", userId);
+      if (bindersRes.error || cancelled) return;
 
-      const pageIds = (pagesRes.data ?? [])
-        .map((r: { id: number }) => r.id)
-        .filter(Boolean);
-      if (pageIds.length === 0) return;
+      const binderIds = (bindersRes.data ?? [])
+        .map((row: { id: number }) => row.id)
+        .filter((id: number) => Number.isFinite(id));
+      if (binderIds.length === 0) {
+        if (!cancelled) setPlacedByItem({});
+        return;
+      }
 
-      const slotsRes = await supabase.from("page_slots").select("item_id").in("page_id", pageIds);
-      if (slotsRes.error) return;
+      const pageIds: number[] = [];
+      for (let i = 0; i < binderIds.length; i += IN_QUERY_CHUNK) {
+        const chunk = binderIds.slice(i, i + IN_QUERY_CHUNK);
+        const pagesRes = await supabase.from("binder_pages").select("id").in("binder_id", chunk);
+        if (pagesRes.error || cancelled) return;
+        for (const row of pagesRes.data ?? []) {
+          const id = Number((row as { id: number }).id);
+          if (Number.isFinite(id)) pageIds.push(id);
+        }
+      }
 
       const counts: Record<number, number> = {};
-      for (const r of slotsRes.data ?? []) {
-        const itemId = r.item_id as number | null;
-        if (!itemId) continue;
-        counts[itemId] = (counts[itemId] ?? 0) + 1;
+      for (let i = 0; i < pageIds.length; i += IN_QUERY_CHUNK) {
+        const chunk = pageIds.slice(i, i + IN_QUERY_CHUNK);
+        const slotsRes = await supabase.from("page_slots").select("item_id").in("page_id", chunk);
+        if (slotsRes.error || cancelled) return;
+        for (const row of slotsRes.data ?? []) {
+          const itemId = Number((row as { item_id: number | null }).item_id);
+          if (!Number.isFinite(itemId) || itemId <= 0) continue;
+          counts[itemId] = (counts[itemId] ?? 0) + 1;
+        }
       }
 
       if (!cancelled) setPlacedByItem(counts);
     };
 
-    run();
+    void run();
     return () => {
       cancelled = true;
     };
-  }, [binderId, pageId, refreshTick]);
+  }, [userId, refreshTick]);
 
  
 
@@ -7807,7 +7826,7 @@ if (itemId === -1) {
   const isSame = currentAssigned === itemId;
 
   if (alreadyPlaced && !isSame) {
-    setError(`Esta photocard (ID ${itemId}) ya está colocada en el binder. Solo puede aparecer 1 vez.`);
+    setError(`Esta photocard (ID ${itemId}) ya está colocada en un binder. Solo puede aparecer 1 vez.`);
     setStatus("No se pudo colocar");
     return;
   }
@@ -9565,6 +9584,26 @@ const rowGap = isSpecial ? 26 : 14;
   const goPrev = () => setCurrentPageIndex((p) => Math.max(0, p - 1));
 const goNext = () =>
   setCurrentPageIndex((p) => Math.min(Math.max(binderPages.length - 1, 0), p + 1));
+const onPageTouchStart = (event: React.TouchEvent) => {
+  if (event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  pageSwipeRef.current = { x: touch.clientX, y: touch.clientY };
+};
+const onPageTouchEnd = (event: React.TouchEvent) => {
+  const start = pageSwipeRef.current;
+  pageSwipeRef.current = null;
+  if (!start || event.changedTouches.length !== 1) return;
+  if (modalItemId != null || pickingSlot != null || selectedCoverFace) return;
+  const target = event.target as HTMLElement | null;
+  if (target?.closest("button, a, input, textarea, select, label")) return;
+  const touch = event.changedTouches[0];
+  const dx = touch.clientX - start.x;
+  const dy = touch.clientY - start.y;
+  if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy)) return;
+  pageSwipeAtRef.current = Date.now();
+  if (dx < 0) goNext();
+  else goPrev();
+};
 const createNewPage = useCallback(async (forcedLayout?: LayoutType, where: "start" | "end" = "end") => { 
   if (!binderId) return; 
   if (loading || pageReorderBusy) return; 
@@ -14580,7 +14619,12 @@ const isDraggingMe = pageDragFromId === p.id;
     </div>
       </div>
       {pageId ? (
-  <div data-tour="binder-page" style={{ display: "flex", justifyContent: "center" }}>
+  <div
+    data-tour="binder-page"
+    onTouchStart={onPageTouchStart}
+    onTouchEnd={onPageTouchEnd}
+    style={{ display: "flex", justifyContent: "center", touchAction: "pan-y" }}
+  >
     <div style={{ zoom: pageZoom as any }}>
       
       <div style={{ marginTop: 16 }}>
