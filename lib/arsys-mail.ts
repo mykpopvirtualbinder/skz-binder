@@ -1,4 +1,4 @@
-import { ImapFlow, type FetchMessageObject } from "imapflow";
+import { ImapFlow, type FetchMessageObject, type ListResponse } from "imapflow";
 import { simpleParser } from "mailparser";
 import nodemailer from "nodemailer";
 
@@ -7,8 +7,11 @@ const IMAP_PORT = 993;
 const SMTP_HOST = "smtp.serviciodecorreo.es";
 const SMTP_PORT = 465;
 const DEFAULT_USER = "info@mykpopbinder.com";
-const LIST_LIMIT = 40;
-const SOURCE_MAX = 1_500_000;
+const LIST_LIMIT = 30;
+const SOURCE_MAX = 400_000;
+const FOLDER_TTL = 60_000;
+const LIST_TTL = 12_000;
+const POOL_IDLE = 50_000;
 
 export type MailSummary = {
   uid: number;
@@ -25,7 +28,29 @@ export type MailMessage = MailSummary & {
   messageId: string;
 };
 
+export type MailFolder = {
+  path: string;
+  name: string;
+  parentPath: string;
+  specialUse: string;
+  delimiter: string;
+  selectable: boolean;
+};
+
 type MailAuth = { user: string; pass: string };
+
+type Pool = {
+  client: ImapFlow;
+  user: string;
+  chain: Promise<unknown>;
+  timer: ReturnType<typeof setTimeout> | null;
+};
+
+let pool: Pool | null = null;
+let connecting: Promise<ImapFlow> | null = null;
+let folderCache: { at: number; folders: MailFolder[] } | null = null;
+const listCache = new Map<string, { at: number; messages: MailSummary[] }>();
+let unseenCache: { at: number; value: number } | null = null;
 
 export function mailAccount() {
   const user = (process.env.ARSYS_MAIL_USER || DEFAULT_USER).trim() || DEFAULT_USER;
@@ -36,10 +61,7 @@ export function mailAccount() {
 function authOrThrow(): MailAuth {
   const user = (process.env.ARSYS_MAIL_USER || DEFAULT_USER).trim() || DEFAULT_USER;
   const pass = (process.env.ARSYS_MAIL_PASSWORD || "").trim();
-  if (!pass) {
-    const err = new Error("MISSING_PASSWORD");
-    throw err;
-  }
+  if (!pass) throw new Error("MISSING_PASSWORD");
   return { user, pass };
 }
 
@@ -67,27 +89,72 @@ function sanitizeMailHtml(html: string): string {
     .replace(/javascript:/gi, "");
 }
 
-async function withImap<T>(run: (client: ImapFlow) => Promise<T>): Promise<T> {
-  const { user, pass } = authOrThrow();
-  const client = new ImapFlow({
-    host: IMAP_HOST,
-    port: IMAP_PORT,
-    secure: true,
-    auth: { user, pass },
-    logger: false,
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 25000,
-  });
-  await client.connect();
+function isConnErr(err: unknown) {
+  const message = err instanceof Error ? err.message : "";
+  return /socket|closed|ECONNRESET|not available|timeout|Unexpected close/i.test(message);
+}
+
+function dropPool() {
+  const current = pool;
+  pool = null;
+  if (!current) return;
+  if (current.timer) clearTimeout(current.timer);
   try {
-    return await run(client);
+    current.client.close();
+  } catch {
+    /* la conexión ya estaba cerrada */
+  }
+}
+
+function touchPool() {
+  if (!pool) return;
+  if (pool.timer) clearTimeout(pool.timer);
+  pool.timer = setTimeout(() => dropPool(), POOL_IDLE);
+}
+
+async function sharedClient(auth: MailAuth): Promise<ImapFlow> {
+  if (pool && pool.user === auth.user && pool.client.usable) return pool.client;
+  if (connecting) return connecting;
+  connecting = (async () => {
+    dropPool();
+    const client = new ImapFlow({
+      host: IMAP_HOST,
+      port: IMAP_PORT,
+      secure: true,
+      auth,
+      logger: false,
+      connectionTimeout: 12000,
+      greetingTimeout: 12000,
+      socketTimeout: 20000,
+    });
+    await client.connect();
+    pool = { client, user: auth.user, chain: Promise.resolve(), timer: null };
+    return client;
+  })();
+  try {
+    return await connecting;
   } finally {
-    try {
-      await client.logout();
-    } catch {
-      client.close();
-    }
+    connecting = null;
+  }
+}
+
+async function withImap<T>(run: (client: ImapFlow) => Promise<T>): Promise<T> {
+  const auth = authOrThrow();
+  const client = await sharedClient(auth);
+  const current = pool;
+  if (!current || current.client !== client) return withImap(run);
+  const task = current.chain.then(() => run(current.client));
+  current.chain = task.then(
+    () => undefined,
+    () => undefined,
+  );
+  try {
+    const value = await task;
+    touchPool();
+    return value;
+  } catch (err) {
+    if (isConnErr(err)) dropPool();
+    throw err;
   }
 }
 
@@ -105,37 +172,96 @@ function summaryFromFetch(message: FetchMessageObject): MailSummary {
   };
 }
 
-export async function listInbox(): Promise<{ user: string; messages: MailSummary[] }> {
-  return withImap(async (client) => {
-    const lock = await client.getMailboxLock("INBOX");
-    try {
-      const exists = client.mailbox && typeof client.mailbox === "object" ? client.mailbox.exists : 0;
-      if (!exists) return { user: authOrThrow().user, messages: [] };
-      const start = Math.max(1, exists - LIST_LIMIT + 1);
-      const messages: MailSummary[] = [];
-      for await (const message of client.fetch(`${start}:*`, {
-        uid: true,
-        flags: true,
-        envelope: true,
-        internalDate: true,
-      })) {
-        messages.push(summaryFromFetch(message));
-      }
-      messages.sort((a, b) => {
-        const ad = a.date ? Date.parse(a.date) : 0;
-        const bd = b.date ? Date.parse(b.date) : 0;
-        return bd - ad;
-      });
-      return { user: (process.env.ARSYS_MAIL_USER || DEFAULT_USER).trim() || DEFAULT_USER, messages };
-    } finally {
-      lock.release();
+function folderFromList(box: ListResponse): MailFolder {
+  return {
+    path: box.path,
+    name: box.name || box.path,
+    parentPath: box.parentPath || "",
+    specialUse: box.specialUse || (box.path.toUpperCase() === "INBOX" ? "\\Inbox" : ""),
+    delimiter: box.delimiter || ".",
+    selectable: !box.flags?.has("\\Noselect"),
+  };
+}
+
+async function loadFolders(client: ImapFlow, fresh: boolean): Promise<MailFolder[]> {
+  if (!fresh && folderCache && Date.now() - folderCache.at < FOLDER_TTL) return folderCache.folders;
+  const listed = await client.list({ listOnly: true });
+  const folders = listed.map(folderFromList).filter((folder) => folder.path && !folder.path.startsWith("."));
+  folderCache = { at: Date.now(), folders };
+  return folders;
+}
+
+function resolveBox(folders: MailFolder[], box: string): MailFolder {
+  const wanted = (box || "INBOX").trim();
+  const found = folders.find((folder) => folder.path === wanted || folder.path.toUpperCase() === wanted.toUpperCase());
+  if (!found || !found.selectable) throw new Error("BAD_FOLDER");
+  return found;
+}
+
+function folderByUse(folders: MailFolder[], specialUse: string, pattern: RegExp): MailFolder | null {
+  return (
+    folders.find((folder) => folder.specialUse === specialUse) ||
+    folders.find((folder) => pattern.test(folder.path) || pattern.test(folder.name)) ||
+    null
+  );
+}
+
+function clearListCache() {
+  listCache.clear();
+  unseenCache = null;
+}
+
+export function clearUnseenCache() {
+  unseenCache = null;
+}
+
+async function fetchSummaries(client: ImapFlow, path: string): Promise<MailSummary[]> {
+  const lock = await client.getMailboxLock(path);
+  try {
+    const exists = client.mailbox && typeof client.mailbox === "object" ? client.mailbox.exists : 0;
+    if (!exists) return [];
+    const start = Math.max(1, exists - LIST_LIMIT + 1);
+    const messages: MailSummary[] = [];
+    for await (const message of client.fetch(`${start}:*`, {
+      uid: true,
+      flags: true,
+      envelope: true,
+      internalDate: true,
+    })) {
+      messages.push(summaryFromFetch(message));
     }
+    messages.sort((a, b) => (b.date ? Date.parse(b.date) : 0) - (a.date ? Date.parse(a.date) : 0));
+    return messages;
+  } finally {
+    lock.release();
+  }
+}
+
+export async function listMailbox(box = "INBOX", fresh = false): Promise<{ user: string; box: string; folders: MailFolder[]; messages: MailSummary[] }> {
+  const auth = authOrThrow();
+  return withImap(async (client) => {
+    const folders = await loadFolders(client, fresh);
+    const target = resolveBox(folders, box);
+    const cached = listCache.get(target.path);
+    if (!fresh && cached && Date.now() - cached.at < LIST_TTL) {
+      return { user: auth.user, box: target.path, folders, messages: cached.messages };
+    }
+    const messages = await fetchSummaries(client, target.path);
+    listCache.set(target.path, { at: Date.now(), messages });
+    return { user: auth.user, box: target.path, folders, messages };
   });
 }
 
-export async function readMessage(uid: number): Promise<MailMessage | null> {
+export async function listInbox() {
+  const listed = await listMailbox("INBOX");
+  return { user: listed.user, messages: listed.messages };
+}
+
+export async function readMessage(uid: number, box = "INBOX"): Promise<MailMessage | null> {
   return withImap(async (client) => {
-    const lock = await client.getMailboxLock("INBOX");
+    const folders = await loadFolders(client, false);
+    const target = resolveBox(folders, box);
+    const lock = await client.getMailboxLock(target.path);
     try {
       const fetched = await client.fetchOne(
         String(uid),
@@ -147,7 +273,11 @@ export async function readMessage(uid: number): Promise<MailMessage | null> {
       const base = summaryFromFetch(fetched);
       const htmlRaw = typeof parsed.html === "string" ? parsed.html : "";
       await client.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
-      clearUnseenCache();
+      const cached = listCache.get(target.path);
+      if (cached) {
+        cached.messages = cached.messages.map((item) => (item.uid === uid ? { ...item, seen: true } : item));
+      }
+      unseenCache = null;
       return {
         ...base,
         seen: true,
@@ -161,48 +291,96 @@ export async function readMessage(uid: number): Promise<MailMessage | null> {
   });
 }
 
-async function trashPath(client: ImapFlow): Promise<string | null> {
-  return specialPath(client, "\\Trash", /trash|papelera|deleted|bin/i);
+async function moveInside(client: ImapFlow, uid: number, box: string, destination: string) {
+  const folders = await loadFolders(client, false);
+  const source = resolveBox(folders, box);
+  const target = resolveBox(folders, destination);
+  if (source.path === target.path) return;
+  const lock = await client.getMailboxLock(source.path);
+  try {
+    await client.messageMove(String(uid), target.path, { uid: true });
+  } finally {
+    lock.release();
+  }
+  clearListCache();
 }
 
-export async function archiveMessage(uid: number): Promise<void> {
+export async function moveMessage(uid: number, box: string, destination: string) {
+  await withImap((client) => moveInside(client, uid, box, destination));
+}
+
+export async function archiveMessage(uid: number, box = "INBOX") {
   await withImap(async (client) => {
-    let destination = await specialPath(client, "\\Archive", /archive|archivo|archiv/i);
-    if (!destination) {
-      destination = "Archive";
-      try {
-        await client.mailboxCreate(destination);
-      } catch {
-        const again = await specialPath(client, "\\Archive", /archive|archivo|archiv/i);
-        if (!again) throw new Error("NO_ARCHIVE");
-        destination = again;
-      }
+    const folders = await loadFolders(client, false);
+    let archive = folderByUse(folders, "\\Archive", /archive|archivo|archiv/i);
+    if (!archive) {
+      await client.mailboxCreate("Archive");
+      folderCache = null;
+      const again = await loadFolders(client, true);
+      archive = folderByUse(again, "\\Archive", /archive|archivo|archiv/i);
+      if (!archive) throw new Error("NO_ARCHIVE");
     }
-    const lock = await client.getMailboxLock("INBOX");
+    await moveInside(client, uid, box, archive.path);
+  });
+}
+
+export async function deleteMessage(uid: number, box = "INBOX") {
+  await withImap(async (client) => {
+    const folders = await loadFolders(client, false);
+    const source = resolveBox(folders, box);
+    const trash = folderByUse(folders, "\\Trash", /trash|papelera|deleted|eliminados|bin/i);
+    if (trash && source.path !== trash.path) {
+      await moveInside(client, uid, source.path, trash.path);
+      return;
+    }
+    const lock = await client.getMailboxLock(source.path);
     try {
-      await client.messageMove(String(uid), destination, { uid: true });
+      await client.messageFlagsAdd(String(uid), ["\\Deleted"], { uid: true });
+      await client.messageDelete(String(uid), { uid: true });
     } finally {
       lock.release();
     }
+    clearListCache();
   });
-  clearUnseenCache();
 }
 
-async function specialPath(client: ImapFlow, specialUse: string, namePattern: RegExp): Promise<string | null> {
-  const boxes = await client.list();
-  const flagged = boxes.find((box) => box.specialUse === specialUse);
-  if (flagged?.path) return flagged.path;
-  const named = boxes.find((box) => namePattern.test(box.path));
-  return named?.path || null;
+function cleanFolderName(name: string) {
+  const clean = name.trim();
+  if (clean.length < 1 || clean.length > 40 || /[./\\]/.test(clean)) throw new Error("BAD_NAME");
+  return clean;
 }
 
-let unseenCache: { at: number; value: number } | null = null;
-
-export function clearUnseenCache() {
-  unseenCache = null;
+export async function createFolder(parent: string, name: string) {
+  const clean = cleanFolderName(name);
+  await withImap(async (client) => {
+    const folders = await loadFolders(client, true);
+    if (!parent.trim()) {
+      await client.mailboxCreate(clean);
+    } else {
+      const base = folders.find((folder) => folder.path === parent.trim());
+      if (!base) throw new Error("BAD_FOLDER");
+      const delimiter = base.delimiter || ".";
+      await client.mailboxCreate(`${base.path}${delimiter}${clean}`);
+    }
+    folderCache = null;
+    clearListCache();
+  });
 }
 
-/** Mensajes de INBOX sin la marca de leído. */
+export async function deleteFolder(path: string) {
+  await withImap(async (client) => {
+    const folders = await loadFolders(client, true);
+    const target = folders.find((folder) => folder.path === path.trim());
+    if (!target) throw new Error("BAD_FOLDER");
+    if (target.specialUse || target.path.toUpperCase() === "INBOX") throw new Error("PROTECTED_FOLDER");
+    const hasChild = folders.some((folder) => folder.parentPath === target.path);
+    if (hasChild) throw new Error("FOLDER_HAS_CHILDREN");
+    await client.mailboxDelete(target.path);
+    folderCache = null;
+    clearListCache();
+  });
+}
+
 export async function countUnseen(): Promise<number> {
   if (unseenCache && Date.now() - unseenCache.at < 20000) return unseenCache.value;
   const value = await withImap(async (client) => {
@@ -211,24 +389,6 @@ export async function countUnseen(): Promise<number> {
   });
   unseenCache = { at: Date.now(), value };
   return value;
-}
-
-export async function deleteMessage(uid: number): Promise<void> {
-  await withImap(async (client) => {
-    const destination = await trashPath(client);
-    const lock = await client.getMailboxLock("INBOX");
-    try {
-      if (destination) {
-        await client.messageMove(String(uid), destination, { uid: true });
-        return;
-      }
-      await client.messageFlagsAdd(String(uid), ["\\Deleted"], { uid: true });
-      await client.messageDelete(String(uid), { uid: true });
-    } finally {
-      lock.release();
-    }
-  });
-  clearUnseenCache();
 }
 
 export async function sendMail(input: { to: string; subject: string; text: string; inReplyTo?: string }): Promise<void> {
@@ -249,8 +409,8 @@ export async function sendMail(input: { to: string; subject: string; text: strin
     port: SMTP_PORT,
     secure: true,
     auth: { user, pass },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
+    connectionTimeout: 12000,
+    greetingTimeout: 12000,
     socketTimeout: 20000,
   });
   await transport.sendMail({
@@ -266,11 +426,13 @@ export async function sendMail(input: { to: string; subject: string; text: strin
 export function publicMailError(err: unknown): { status: number; error: string } {
   const message = err instanceof Error ? err.message : "";
   const code = typeof err === "object" && err && "code" in err ? String((err as { code?: string }).code || "") : "";
-  if (message === "MISSING_PASSWORD") {
-    return { status: 503, error: "Falta ARSYS_MAIL_PASSWORD en el servidor." };
-  }
+  if (message === "MISSING_PASSWORD") return { status: 503, error: "Falta ARSYS_MAIL_PASSWORD en el servidor." };
   if (message === "BAD_RECIPIENT") return { status: 400, error: "El destinatario no es un correo válido." };
   if (message === "EMPTY_BODY") return { status: 400, error: "Escribe el mensaje antes de enviarlo." };
+  if (message === "BAD_FOLDER") return { status: 400, error: "Esa carpeta no existe." };
+  if (message === "BAD_NAME") return { status: 400, error: "El nombre de la carpeta no es válido." };
+  if (message === "PROTECTED_FOLDER") return { status: 400, error: "Esa carpeta del buzón no se puede borrar." };
+  if (message === "FOLDER_HAS_CHILDREN") return { status: 400, error: "Borra primero las subcarpetas." };
   if (message === "NO_ARCHIVE") return { status: 502, error: "Arsys no tiene una carpeta de archivo." };
   if (code === "EAUTH" || /auth|authentication|invalid credentials/i.test(message)) {
     return { status: 502, error: "Arsys ha rechazado el acceso. Revisa ARSYS_MAIL_PASSWORD." };

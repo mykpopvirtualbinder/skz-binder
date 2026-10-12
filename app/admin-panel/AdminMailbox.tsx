@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import { Archive, Forward, Loader2, Mail, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Archive, FolderPlus, Forward, Loader2, Mail, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
 
@@ -19,6 +19,17 @@ type MailMessage = MailSummary & {
   html: string;
   messageId: string;
 };
+
+type MailFolder = {
+  path: string;
+  name: string;
+  parentPath: string;
+  specialUse: string;
+  delimiter: string;
+  selectable: boolean;
+};
+
+type MailFolderNode = MailFolder & { children: MailFolderNode[] };
 
 type ComposeDraft = { to: string; subject: string; text: string; inReplyTo: string };
 
@@ -45,6 +56,48 @@ function plainBody(message: MailMessage) {
   return message.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function folderLabel(folder: MailFolder) {
+  if (folder.path.toUpperCase() === "INBOX" || folder.specialUse === "\\Inbox") return "Bandeja de entrada";
+  if (folder.specialUse === "\\Sent") return "Enviados";
+  if (folder.specialUse === "\\Trash") return "Eliminados";
+  if (folder.specialUse === "\\Drafts") return "Borradores";
+  if (folder.specialUse === "\\Junk") return "Spam";
+  if (folder.specialUse === "\\Archive") return "Archivo";
+  return folder.name;
+}
+
+function folderRank(folder: MailFolder) {
+  if (folder.path.toUpperCase() === "INBOX" || folder.specialUse === "\\Inbox") return 0;
+  if (folder.specialUse === "\\Sent") return 1;
+  if (folder.specialUse === "\\Drafts") return 2;
+  if (folder.specialUse === "\\Archive") return 3;
+  if (folder.specialUse === "\\Junk") return 4;
+  if (folder.specialUse === "\\Trash") return 5;
+  return 10;
+}
+
+function buildTree(folders: MailFolder[]): MailFolderNode[] {
+  const nodes = new Map<string, MailFolderNode>();
+  for (const folder of folders) nodes.set(folder.path, { ...folder, children: [] });
+  const roots: MailFolderNode[] = [];
+  for (const node of nodes.values()) {
+    const parent = node.parentPath ? nodes.get(node.parentPath) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+  const sortNodes = (list: MailFolderNode[]) => {
+    list.sort((a, b) => folderRank(a) - folderRank(b) || folderLabel(a).localeCompare(folderLabel(b), "es"));
+    list.forEach((node) => sortNodes(node.children));
+  };
+  sortNodes(roots);
+  return roots;
+}
+
+function protectedFolder(folder: MailFolder | undefined) {
+  if (!folder) return true;
+  return Boolean(folder.specialUse) || folder.path.toUpperCase() === "INBOX";
+}
+
 function refreshBadges() {
   window.dispatchEvent(new Event("admin-pending-refresh"));
 }
@@ -54,21 +107,35 @@ export default function AdminMailbox() {
   const [loading, setLoading] = useState(true);
   const [configured, setConfigured] = useState(true);
   const [account, setAccount] = useState("info@mykpopbinder.com");
+  const [box, setBox] = useState("INBOX");
+  const [folders, setFolders] = useState<MailFolder[]>([]);
   const [messages, setMessages] = useState<MailSummary[]>([]);
   const [selected, setSelected] = useState<MailMessage | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [reading, setReading] = useState(false);
   const [compose, setCompose] = useState<ComposeDraft | null>(null);
   const [sending, setSending] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [moveTo, setMoveTo] = useState("");
 
-  const loadList = useCallback(async () => {
+  const tree = useMemo(() => buildTree(folders), [folders]);
+  const current = folders.find((folder) => folder.path === box);
+  const unseen = box.toUpperCase() === "INBOX" ? messages.filter((item) => !item.seen).length : 0;
+
+  const loadList = useCallback(async (nextBox = box, fresh = false) => {
     setLoading(true);
+    if (nextBox !== box) setMessages([]);
     try {
       const headers = await authHeaders();
-      const res = await fetch("/api/admin/mailbox", { headers });
+      const params = new URLSearchParams({ box: nextBox });
+      if (fresh) params.set("fresh", "1");
+      const res = await fetch(`/api/admin/mailbox?${params}`, { headers });
       const json = (await res.json().catch(() => ({}))) as {
         configured?: boolean;
         account?: string;
+        box?: string;
+        folders?: MailFolder[];
         messages?: MailSummary[];
         error?: string;
       };
@@ -79,25 +146,43 @@ export default function AdminMailbox() {
         return;
       }
       setConfigured(true);
-      if (!res.ok) throw new Error(json.error || "No se ha podido abrir la bandeja.");
+      if (!res.ok) throw new Error(json.error || "No se ha podido abrir la carpeta.");
+      if (json.folders) setFolders(json.folders);
+      if (json.box) setBox(json.box);
       setMessages(json.messages || []);
       refreshBadges();
     } catch (err) {
-      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido abrir la bandeja.");
+      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido abrir la carpeta.");
     } finally {
       setLoading(false);
     }
-  }, [showAlert]);
+  }, [box, showAlert]);
 
   useEffect(() => {
-    void loadList();
-  }, [loadList]);
+    void loadList("INBOX", true);
+    // La primera carga abre la bandeja. Cambiar de carpeta llama a loadList aparte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!viewerOpen && !compose) return;
+    const html = document.documentElement;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = html.style.overflow;
+    document.body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBody;
+      html.style.overflow = prevHtml;
+    };
+  }, [viewerOpen, compose]);
 
   const closeViewer = () => {
     setViewerOpen(false);
     setSelected(null);
     setCompose(null);
     setReading(false);
+    setMoveTo("");
   };
 
   const openMessage = async (uid: number) => {
@@ -105,9 +190,11 @@ export default function AdminMailbox() {
     setReading(true);
     setCompose(null);
     setSelected(null);
+    setMoveTo("");
     try {
       const headers = await authHeaders();
-      const res = await fetch(`/api/admin/mailbox?uid=${uid}`, { headers });
+      const params = new URLSearchParams({ uid: String(uid), box });
+      const res = await fetch(`/api/admin/mailbox?${params}`, { headers });
       const json = (await res.json().catch(() => ({}))) as { message?: MailMessage; error?: string };
       if (!res.ok || !json.message) throw new Error(json.error || "No se ha podido abrir el mensaje.");
       setSelected(json.message);
@@ -121,26 +208,37 @@ export default function AdminMailbox() {
     }
   };
 
-  const moveMessage = async (uid: number, action: "delete" | "archive") => {
-    const ok = await showConfirm(
-      action === "archive" ? "Archivar mensaje" : "Borrar mensaje",
-      action === "archive" ? "Saldrá de la bandeja y pasará a Archivo." : "Se moverá a la papelera de Arsys.",
-    );
-    if (!ok) return;
+  const postAction = async (payload: Record<string, unknown>) => {
+    const headers = await authHeaders();
+    const res = await fetch("/api/admin/mailbox", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) throw new Error(json.error || "No se ha podido completar la acción.");
+  };
+
+  const moveMessage = async (uid: number, action: "delete" | "archive" | "move", destination = "") => {
+    const titles = { delete: "Eliminar mensaje", archive: "Archivar mensaje", move: "Mover mensaje" };
+    const bodies = {
+      delete: "Se moverá a Eliminados.",
+      archive: "Se moverá a Archivo.",
+      move: "Se moverá a la carpeta elegida.",
+    };
+    const ok = await showConfirm(titles[action], bodies[action]);
+    if (!ok) {
+      setMoveTo("");
+      return;
+    }
     try {
-      const headers = await authHeaders();
-      const res = await fetch("/api/admin/mailbox", {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ action, uid }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(json.error || "No se ha podido mover el mensaje.");
+      await postAction({ action, uid, box, destination });
       setMessages((prev) => prev.filter((item) => item.uid !== uid));
       closeViewer();
       refreshBadges();
     } catch (err) {
       showAlert("Correo", err instanceof Error ? err.message : "No se ha podido mover el mensaje.");
+      setMoveTo("");
     }
   };
 
@@ -148,16 +246,8 @@ export default function AdminMailbox() {
     if (!compose) return;
     setSending(true);
     try {
-      const headers = await authHeaders();
-      const res = await fetch("/api/admin/mailbox", {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send", ...compose }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(json.error || "No se ha podido enviar.");
+      await postAction({ action: "send", ...compose });
       setCompose(null);
-      if (!viewerOpen) closeViewer();
       showAlert("Correo", "Mensaje enviado.");
     } catch (err) {
       showAlert("Correo", err instanceof Error ? err.message : "No se ha podido enviar.");
@@ -169,10 +259,7 @@ export default function AdminMailbox() {
   const startReply = () => {
     if (!selected) return;
     const subject = /^re:/i.test(selected.subject) ? selected.subject : `Re: ${selected.subject}`;
-    const quoted = plainBody(selected)
-      .split("\n")
-      .map((line) => `> ${line}`)
-      .join("\n");
+    const quoted = plainBody(selected).split("\n").map((line) => `> ${line}`).join("\n");
     setCompose({
       to: addressOnly(selected.from),
       subject,
@@ -197,6 +284,33 @@ export default function AdminMailbox() {
     setCompose({ to: "", subject, text: quoted, inReplyTo: "" });
   };
 
+  const createSubfolder = async (atRoot: boolean) => {
+    const name = folderName.trim();
+    if (!name) return;
+    setCreatingFolder(true);
+    try {
+      await postAction({ action: "create-folder", parent: atRoot ? "" : box, name });
+      setFolderName("");
+      await loadList(box, true);
+    } catch (err) {
+      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido crear la carpeta.");
+    } finally {
+      setCreatingFolder(false);
+    }
+  };
+
+  const removeFolder = async () => {
+    if (!current || protectedFolder(current)) return;
+    const ok = await showConfirm("Eliminar carpeta", `Se borrará «${folderLabel(current)}» y los mensajes que contenga.`);
+    if (!ok) return;
+    try {
+      await postAction({ action: "delete-folder", path: current.path });
+      await loadList("INBOX", true);
+    } catch (err) {
+      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido eliminar la carpeta.");
+    }
+  };
+
   if (!configured) {
     return (
       <div style={{ padding: 8 }}>
@@ -209,28 +323,42 @@ export default function AdminMailbox() {
     );
   }
 
-  const unseen = messages.filter((item) => !item.seen).length;
+  const renderBranch = (nodes: MailFolderNode[], depth: number) =>
+    nodes.map((node) => (
+      <div key={node.path}>
+        <button
+          type="button"
+          disabled={!node.selectable}
+          onClick={() => {
+            if (!node.selectable) return;
+            void loadList(node.path, false);
+          }}
+          style={{
+            ...folderBtn,
+            paddingLeft: 10 + depth * 14,
+            fontWeight: node.path === box ? 900 : 700,
+            background: node.path === box ? "var(--bg-soft)" : "transparent",
+            color: node.selectable ? "var(--text-main)" : "var(--text-muted)",
+          }}
+        >
+          {folderLabel(node)}
+        </button>
+        {node.children.length > 0 ? renderBranch(node.children, depth + 1) : null}
+      </div>
+    ));
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <style>{`
-        @keyframes mail-modal-in {
-          from { opacity: 0; transform: translateY(14px) scale(0.98); }
-          to { opacity: 1; transform: none; }
-        }
-      `}</style>
       <div data-tour="mail-toolbar" style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <div>
           <h2 style={{ margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>
             Correo
-            {unseen > 0 && (
-              <span style={countStyle} title="Sin leer">{unseen > 99 ? "99+" : unseen}</span>
-            )}
+            {unseen > 0 && <span style={countStyle} title="Sin leer">{unseen > 99 ? "99+" : unseen}</span>}
           </h2>
           <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700 }}>{account}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" onClick={() => void loadList()} style={btnStyle}>
+          <button type="button" onClick={() => void loadList(box, true)} style={btnStyle}>
             <RefreshCw size={14} /> Actualizar
           </button>
           <button
@@ -247,59 +375,66 @@ export default function AdminMailbox() {
         </div>
       </div>
 
-      <div data-tour="mail-list" style={{ ...cardStyle, padding: 0, maxHeight: 640, overflow: "auto" }}>
-        {loading ? (
-          <p style={{ padding: 16, color: "var(--text-muted)" }}>Abriendo la bandeja…</p>
-        ) : messages.length === 0 ? (
-          <p style={{ padding: 16, color: "var(--text-muted)" }}>La bandeja de entrada está vacía.</p>
-        ) : (
-          messages.map((item, index) => (
-            <button
-              key={item.uid}
-              type="button"
-              data-tour={index === 0 ? "mail-row" : undefined}
-              onClick={() => void openMessage(item.uid)}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "14px minmax(0, 1fr) auto",
-                gap: 10,
-                alignItems: "center",
-                width: "100%",
-                textAlign: "left",
-                padding: "12px 14px",
-                border: "none",
-                borderBottom: "1px solid var(--color-border)",
-                background: "transparent",
-                color: "var(--text-main)",
-                cursor: "pointer",
-                fontWeight: item.seen ? 600 : 900,
-              }}
-            >
-              <span
-                aria-hidden
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 999,
-                  background: item.seen ? "transparent" : "var(--accent-vibe-pink)",
-                }}
-              />
-              <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.from || account}</span>
-                <span style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.subject}</span>
-              </span>
-              <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{formatWhen(item.date)}</span>
+      <div className="mail-shell">
+        <aside data-tour="mail-folders" style={folderPane}>
+          <div style={{ overflow: "auto", minHeight: 0 }}>{renderBranch(tree, 0)}</div>
+          <div style={{ display: "grid", gap: 8, paddingTop: 10, borderTop: "1px solid var(--color-border)" }}>
+            <input
+              value={folderName}
+              onChange={(event) => setFolderName(event.target.value)}
+              placeholder="Nombre de la carpeta"
+              aria-label="Nombre de la carpeta"
+              style={inputStyle}
+            />
+            <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createSubfolder(false)} style={btnStyle}>
+              <FolderPlus size={14} /> Subcarpeta de {current ? folderLabel(current) : "esta"}
             </button>
-          ))
-        )}
+            <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createSubfolder(true)} style={btnStyle}>
+              <FolderPlus size={14} /> Carpeta en la raíz
+            </button>
+            {!protectedFolder(current) && (
+              <button type="button" onClick={() => void removeFolder()} style={btnStyle}>
+                <Trash2 size={14} /> Eliminar {folderLabel(current as MailFolder)}
+              </button>
+            )}
+          </div>
+        </aside>
+
+        <div data-tour="mail-list" style={{ ...cardStyle, padding: 0, maxHeight: 640, overflow: "auto", minWidth: 0 }}>
+          {loading && messages.length === 0 ? (
+            <p style={{ padding: 16, color: "var(--text-muted)" }}>Abriendo la carpeta…</p>
+          ) : messages.length === 0 ? (
+            <p style={{ padding: 16, color: "var(--text-muted)" }}>Esta carpeta está vacía.</p>
+          ) : (
+            messages.map((item, index) => (
+              <button
+                key={item.uid}
+                type="button"
+                data-tour={index === 0 ? "mail-row" : undefined}
+                onClick={() => void openMessage(item.uid)}
+                style={rowStyle(item.seen)}
+              >
+                <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: item.seen ? "transparent" : "var(--accent-vibe-pink)" }} />
+                <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                  <span style={ellipsis}>{current?.specialUse === "\\Sent" ? item.to || item.from || account : item.from || account}</span>
+                  <span style={{ ...ellipsis, fontSize: 14 }}>{item.subject}</span>
+                </span>
+                <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{formatWhen(item.date)}</span>
+              </button>
+            ))
+          )}
+        </div>
       </div>
 
+      <style>{`
+        .mail-shell { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 12px; align-items: start; }
+        .mail-html img, .mail-html table { max-width: 100%; }
+        @media (max-width: 860px) { .mail-shell { grid-template-columns: 1fr; } }
+        @keyframes mail-modal-in { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
+      `}</style>
+
       {viewerOpen && (
-        <div
-          role="presentation"
-          onClick={closeViewer}
-          style={overlayStyle}
-        >
+        <div role="presentation" onClick={closeViewer} style={overlayStyle}>
           <div
             role="dialog"
             aria-modal="true"
@@ -308,7 +443,7 @@ export default function AdminMailbox() {
             onClick={(event) => event.stopPropagation()}
             style={dialogStyle}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexShrink: 0 }}>
               <div style={{ minWidth: 0 }}>
                 <h3 style={{ margin: "0 0 6px" }}>{reading ? "Abriendo…" : selected?.subject || "(sin asunto)"}</h3>
                 {selected && (
@@ -320,55 +455,65 @@ export default function AdminMailbox() {
                   </p>
                 )}
               </div>
-              <button type="button" onClick={closeViewer} style={btnStyle} aria-label="Cerrar">
-                <X size={14} />
-              </button>
+              <button type="button" onClick={closeViewer} style={btnStyle} aria-label="Cerrar"><X size={14} /></button>
             </div>
 
-            {selected && (
-              <div data-tour="mail-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" data-tour="mail-reply" onClick={startReply} style={btnStyle}><Reply size={14} /> Responder</button>
-                <button type="button" data-tour="mail-forward" onClick={startForward} style={btnStyle}><Forward size={14} /> Reenviar</button>
-                <button type="button" data-tour="mail-archive" onClick={() => void moveMessage(selected.uid, "archive")} style={btnStyle}><Archive size={14} /> Archivar</button>
-                <button type="button" data-tour="mail-delete" onClick={() => void moveMessage(selected.uid, "delete")} style={btnStyle}><Trash2 size={14} /> Eliminar</button>
+            <div data-tour="mail-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0 }}>
+              <button type="button" data-tour="mail-reply" disabled={!selected} onClick={startReply} style={btnStyle}><Reply size={14} /> Responder</button>
+              <button type="button" data-tour="mail-forward" disabled={!selected} onClick={startForward} style={btnStyle}><Forward size={14} /> Reenviar</button>
+              <button type="button" data-tour="mail-archive" disabled={!selected} onClick={() => selected && void moveMessage(selected.uid, "archive")} style={btnStyle}><Archive size={14} /> Archivar</button>
+              <button type="button" data-tour="mail-delete" disabled={!selected} onClick={() => selected && void moveMessage(selected.uid, "delete")} style={btnStyle}><Trash2 size={14} /> Eliminar</button>
+              <label style={{ ...btnStyle, padding: "4px 10px" }}>
+                Mover a
+                <select
+                  value={moveTo}
+                  disabled={!selected}
+                  onChange={(event) => {
+                    const destination = event.target.value;
+                    setMoveTo(destination);
+                    if (selected && destination) void moveMessage(selected.uid, "move", destination);
+                  }}
+                  style={{ border: "none", background: "transparent", color: "inherit", font: "inherit", fontWeight: 800 }}
+                >
+                  <option value="">Elegir carpeta</option>
+                  {folders.filter((folder) => folder.selectable && folder.path !== box).map((folder) => (
+                    <option key={folder.path} value={folder.path}>{folderLabel(folder)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div data-mail-scroll style={messageScroll}>
+              {reading ? (
+                <p style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <Loader2 size={16} className="spinner" /> Leyendo el mensaje…
+                </p>
+              ) : selected?.html ? (
+                <div className="mail-html" dangerouslySetInnerHTML={{ __html: selected.html }} />
+              ) : (
+                <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0, lineHeight: 1.5 }}>{selected?.text || "(sin texto)"}</pre>
+              )}
+            </div>
+
+            {compose && (
+              <div style={{ flexShrink: 0, maxHeight: 240, overflow: "auto" }}>
+                <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} />
               </div>
             )}
-
-            {reading ? (
-              <p style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 8 }}>
-                <Loader2 size={16} className="spinner" /> Leyendo el mensaje…
-              </p>
-            ) : selected?.html ? (
-              <iframe
-                title={selected.subject}
-                sandbox=""
-                srcDoc={selected.html}
-                style={{ width: "100%", minHeight: 320, border: "1px solid var(--color-border)", borderRadius: 12, background: "white" }}
-              />
-            ) : (
-              <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0, lineHeight: 1.5 }}>{selected?.text || "(sin texto)"}</pre>
-            )}
-
-            {compose && <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} />}
           </div>
         </div>
       )}
 
       {compose && !viewerOpen && (
         <div role="presentation" onClick={() => setCompose(null)} style={overlayStyle}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Nuevo mensaje"
-            data-tour="mail-compose"
-            onClick={(event) => event.stopPropagation()}
-            style={dialogStyle}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div role="dialog" aria-modal="true" aria-label="Nuevo mensaje" data-tour="mail-compose" onClick={(event) => event.stopPropagation()} style={{ ...dialogStyle, height: "auto", maxHeight: "min(88vh, 720px)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
               <h3 style={{ margin: 0 }}>Nuevo mensaje</h3>
               <button type="button" onClick={() => setCompose(null)} style={btnStyle} aria-label="Cerrar"><X size={14} /></button>
             </div>
-            <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} />
+            <div data-mail-scroll style={{ ...messageScroll, flex: "0 1 auto" }}>
+              <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} />
+            </div>
           </div>
         </div>
       )}
@@ -399,12 +544,7 @@ function ComposeBox({
         Asunto
         <input value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} style={inputStyle} />
       </label>
-      <textarea
-        value={compose.text}
-        onChange={(e) => setCompose({ ...compose, text: e.target.value })}
-        rows={8}
-        style={{ ...inputStyle, resize: "vertical" }}
-      />
+      <textarea value={compose.text} onChange={(e) => setCompose({ ...compose, text: e.target.value })} rows={8} style={{ ...inputStyle, resize: "vertical" }} />
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" disabled={sending} onClick={onSend} style={{ ...btnStyle, background: "var(--color-primary)", color: "#111", borderColor: "transparent" }}>
           {sending ? <Loader2 size={14} className="spinner" /> : <Send size={14} />} Enviar
@@ -414,6 +554,26 @@ function ComposeBox({
     </div>
   );
 }
+
+function rowStyle(seen: boolean): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "14px minmax(0, 1fr) auto",
+    gap: 10,
+    alignItems: "center",
+    width: "100%",
+    textAlign: "left",
+    padding: "12px 14px",
+    border: "none",
+    borderBottom: "1px solid var(--color-border)",
+    background: "transparent",
+    color: "var(--text-main)",
+    cursor: "pointer",
+    fontWeight: seen ? 600 : 900,
+  };
+}
+
+const ellipsis: CSSProperties = { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 
 const btnStyle: CSSProperties = {
   display: "inline-flex",
@@ -428,6 +588,29 @@ const btnStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const folderBtn: CSSProperties = {
+  display: "block",
+  width: "100%",
+  textAlign: "left",
+  border: "none",
+  borderRadius: 10,
+  padding: "8px 10px",
+  cursor: "pointer",
+  fontSize: 13,
+};
+
+const folderPane: CSSProperties = {
+  display: "grid",
+  gridTemplateRows: "minmax(180px, 1fr) auto",
+  gap: 8,
+  maxHeight: 640,
+  padding: 10,
+  borderRadius: 16,
+  border: "1px solid var(--color-border)",
+  background: "var(--bg-card)",
+  minWidth: 0,
+};
+
 const cardStyle: CSSProperties = {
   display: "grid",
   gap: 10,
@@ -437,13 +620,7 @@ const cardStyle: CSSProperties = {
   background: "var(--bg-card)",
 };
 
-const labelStyle: CSSProperties = {
-  display: "grid",
-  gap: 4,
-  fontSize: 12,
-  fontWeight: 800,
-  color: "var(--text-muted)",
-};
+const labelStyle: CSSProperties = { display: "grid", gap: 4, fontSize: 12, fontWeight: 800, color: "var(--text-muted)" };
 
 const inputStyle: CSSProperties = {
   width: "100%",
@@ -480,18 +657,31 @@ const overlayStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: 16,
+  overflow: "hidden",
 };
 
 const dialogStyle: CSSProperties = {
   width: "min(760px, 100%)",
-  maxHeight: "min(88vh, 900px)",
-  overflow: "auto",
-  display: "grid",
-  gap: 14,
+  height: "min(88vh, 860px)",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
   padding: 18,
   borderRadius: 20,
   border: "1px solid var(--color-border)",
   background: "var(--bg-card)",
   boxShadow: "0 24px 60px var(--shadow-card)",
   animation: "mail-modal-in 180ms ease-out",
+};
+
+const messageScroll: CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  overflow: "auto",
+  overscrollBehavior: "contain",
+  border: "1px solid var(--color-border)",
+  borderRadius: 12,
+  padding: 14,
+  background: "var(--bg-main)",
 };

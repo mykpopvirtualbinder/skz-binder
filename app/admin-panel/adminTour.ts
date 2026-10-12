@@ -459,9 +459,16 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
       tab: "correo",
     },
     {
+      selector: "[data-tour='mail-folders']",
+      title: "Las carpetas",
+      text: "Bandeja, enviados, eliminados y las que crees tú: reclamaciones, gestionados u otra. Subcarpeta la mete dentro de la seleccionada. Carpeta en la raíz la deja al mismo nivel. Eliminar solo borra las tuyas.",
+      side: "right",
+      tab: "correo",
+    },
+    {
       selector: "[data-tour='mail-list']",
       title: "La bandeja",
-      text: "Los últimos mensajes. El punto rosa y la negrita son los no leídos. Al pinchar uno se abre una ventana con el texto: responder, reenviar, archivar o eliminar.",
+      text: "Los últimos mensajes. El punto rosa y la negrita son los no leídos. Al pinchar uno se abre una ventana y solo se desplaza el texto. Arriba, fijos: responder, reenviar, archivar, eliminar y mover a otra carpeta.",
       side: "top",
       tab: "correo",
     },
