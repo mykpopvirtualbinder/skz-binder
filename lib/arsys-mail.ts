@@ -172,12 +172,42 @@ function summaryFromFetch(message: FetchMessageObject): MailSummary {
   };
 }
 
+const USE_BY_NAME: Record<string, string> = {
+  inbox: "\\Inbox",
+  sent: "\\Sent",
+  sentitems: "\\Sent",
+  sentmessages: "\\Sent",
+  sentmail: "\\Sent",
+  outbox: "\\Sent",
+  enviados: "\\Sent",
+  drafts: "\\Drafts",
+  draft: "\\Drafts",
+  borradores: "\\Drafts",
+  archive: "\\Archive",
+  archives: "\\Archive",
+  archivo: "\\Archive",
+  junk: "\\Junk",
+  spam: "\\Junk",
+  junkemail: "\\Junk",
+  bulkmail: "\\Junk",
+  nodeseado: "\\Junk",
+  trash: "\\Trash",
+  deleted: "\\Trash",
+  deleteditems: "\\Trash",
+  deletedmessages: "\\Trash",
+  bin: "\\Trash",
+  papelera: "\\Trash",
+  eliminados: "\\Trash",
+};
+
 function folderFromList(box: ListResponse): MailFolder {
+  const name = box.name || box.path;
+  const key = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
   return {
     path: box.path,
-    name: box.name || box.path,
+    name,
     parentPath: box.parentPath || "",
-    specialUse: box.specialUse || (box.path.toUpperCase() === "INBOX" ? "\\Inbox" : ""),
+    specialUse: box.specialUse || USE_BY_NAME[key] || (box.path.toUpperCase() === "INBOX" ? "\\Inbox" : ""),
     delimiter: box.delimiter || ".",
     selectable: !box.flags?.has("\\Noselect"),
   };

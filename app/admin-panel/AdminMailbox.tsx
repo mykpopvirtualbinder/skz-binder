@@ -56,24 +56,73 @@ function plainBody(message: MailMessage) {
   return message.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+const FOLDER_ES: Record<string, { es: string; rank: number }> = {
+  inbox: { es: "Bandeja de entrada", rank: 0 },
+  bandejadeentrada: { es: "Bandeja de entrada", rank: 0 },
+  sent: { es: "Enviados", rank: 1 },
+  sentitems: { es: "Enviados", rank: 1 },
+  sentmessages: { es: "Enviados", rank: 1 },
+  sentmail: { es: "Enviados", rank: 1 },
+  outbox: { es: "Enviados", rank: 1 },
+  enviados: { es: "Enviados", rank: 1 },
+  drafts: { es: "Borradores", rank: 2 },
+  draft: { es: "Borradores", rank: 2 },
+  borradores: { es: "Borradores", rank: 2 },
+  archive: { es: "Archivo", rank: 3 },
+  archives: { es: "Archivo", rank: 3 },
+  archivo: { es: "Archivo", rank: 3 },
+  junk: { es: "No deseado", rank: 4 },
+  spam: { es: "No deseado", rank: 4 },
+  junkemail: { es: "No deseado", rank: 4 },
+  bulkmail: { es: "No deseado", rank: 4 },
+  nodeseado: { es: "No deseado", rank: 4 },
+  correonodeseado: { es: "No deseado", rank: 4 },
+  trash: { es: "Eliminados", rank: 5 },
+  deleted: { es: "Eliminados", rank: 5 },
+  deleteditems: { es: "Eliminados", rank: 5 },
+  deletedmessages: { es: "Eliminados", rank: 5 },
+  bin: { es: "Eliminados", rank: 5 },
+  papelera: { es: "Eliminados", rank: 5 },
+  eliminados: { es: "Eliminados", rank: 5 },
+  notes: { es: "Notas", rank: 6 },
+  notas: { es: "Notas", rank: 6 },
+  templates: { es: "Plantillas", rank: 6 },
+  plantillas: { es: "Plantillas", rank: 6 },
+  important: { es: "Importantes", rank: 6 },
+  importantes: { es: "Importantes", rank: 6 },
+  flagged: { es: "Destacados", rank: 6 },
+  starred: { es: "Destacados", rank: 6 },
+  destacados: { es: "Destacados", rank: 6 },
+};
+
+function folderKey(folder: MailFolder) {
+  const leaf = folder.name || folder.path.split(/[./\\]/).pop() || folder.path;
+  return leaf.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+}
+
+function knownFolder(folder: MailFolder) {
+  if (folder.path.toUpperCase() === "INBOX" || folder.specialUse === "\\Inbox") return FOLDER_ES.inbox;
+  if (folder.specialUse === "\\Sent") return FOLDER_ES.sent;
+  if (folder.specialUse === "\\Drafts") return FOLDER_ES.drafts;
+  if (folder.specialUse === "\\Archive") return FOLDER_ES.archive;
+  if (folder.specialUse === "\\Junk") return FOLDER_ES.junk;
+  if (folder.specialUse === "\\Trash") return FOLDER_ES.trash;
+  return FOLDER_ES[folderKey(folder)] || null;
+}
+
 function folderLabel(folder: MailFolder) {
-  if (folder.path.toUpperCase() === "INBOX" || folder.specialUse === "\\Inbox") return "Bandeja de entrada";
-  if (folder.specialUse === "\\Sent") return "Enviados";
-  if (folder.specialUse === "\\Trash") return "Eliminados";
-  if (folder.specialUse === "\\Drafts") return "Borradores";
-  if (folder.specialUse === "\\Junk") return "Spam";
-  if (folder.specialUse === "\\Archive") return "Archivo";
-  return folder.name;
+  return knownFolder(folder)?.es || folder.name || folder.path;
+}
+
+function folderServerName(folder: MailFolder) {
+  const raw = folder.name || folder.path;
+  const plain = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (plain(folderLabel(folder)) === plain(raw)) return "";
+  return raw;
 }
 
 function folderRank(folder: MailFolder) {
-  if (folder.path.toUpperCase() === "INBOX" || folder.specialUse === "\\Inbox") return 0;
-  if (folder.specialUse === "\\Sent") return 1;
-  if (folder.specialUse === "\\Drafts") return 2;
-  if (folder.specialUse === "\\Archive") return 3;
-  if (folder.specialUse === "\\Junk") return 4;
-  if (folder.specialUse === "\\Trash") return 5;
-  return 10;
+  return knownFolder(folder)?.rank ?? 10;
 }
 
 function buildTree(folders: MailFolder[]): MailFolderNode[] {
@@ -95,7 +144,7 @@ function buildTree(folders: MailFolder[]): MailFolderNode[] {
 
 function protectedFolder(folder: MailFolder | undefined) {
   if (!folder) return true;
-  return Boolean(folder.specialUse) || folder.path.toUpperCase() === "INBOX";
+  return Boolean(knownFolder(folder)) || Boolean(folder.specialUse) || folder.path.toUpperCase() === "INBOX";
 }
 
 function refreshBadges() {
@@ -341,7 +390,12 @@ export default function AdminMailbox() {
             color: node.selectable ? "var(--text-main)" : "var(--text-muted)",
           }}
         >
-          {folderLabel(node)}
+          <span style={{ display: "grid", lineHeight: 1.2, minWidth: 0 }}>
+            <span>{folderLabel(node)}</span>
+            {folderServerName(node) ? (
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)" }}>{folderServerName(node)}</span>
+            ) : null}
+          </span>
         </button>
         {node.children.length > 0 ? renderBranch(node.children, depth + 1) : null}
       </div>
@@ -477,7 +531,9 @@ export default function AdminMailbox() {
                 >
                   <option value="">Elegir carpeta</option>
                   {folders.filter((folder) => folder.selectable && folder.path !== box).map((folder) => (
-                    <option key={folder.path} value={folder.path}>{folderLabel(folder)}</option>
+                    <option key={folder.path} value={folder.path}>
+                      {folderServerName(folder) ? `${folderLabel(folder)} (${folderServerName(folder)})` : folderLabel(folder)}
+                    </option>
                   ))}
                 </select>
               </label>
