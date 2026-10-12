@@ -36,6 +36,7 @@ import { AdminQueueBar, AdminQueueFilters, ReadSelectionBar, UserCaseHistory, ca
 import AdminManual from "./AdminManual";
 import AdminMailbox from "./AdminMailbox";
 import { startAdminTour, adminTourActive, ADMIN_TOUR_IDS, type AdminTourHandlers, type AdminTourId } from "./adminTour";
+import { bindAdminLang, tr } from "@/lib/admin-i18n";
 
 
 
@@ -140,15 +141,13 @@ function aportacionOriginLine(row: { origin_kind?: string | null; origin_title?:
     collabs: "Colaboración",
     other: "Otro",
   };
-  const kind = row.origin_kind ? kinds[row.origin_kind] || row.origin_kind : "";
+  const kind = row.origin_kind ? tr(kinds[row.origin_kind] || row.origin_kind) : "";
   return [kind, row.origin_title, row.group_name, row.member_name].filter(Boolean).join(" · ");
 }
 
 function AdminPanelContent() {
-  // Sacamos la 't' mágica de useGlobal para que sea la universal
-const { profile, showAlert, t } = useGlobal();
-// Forzamos un log para ver qué idioma está llegando al panel (míralo en la consola F12)
-console.log("Idioma actual en Admin:", profile?.language);
+  const { profile, showAlert, t, uiLanguage } = useGlobal();
+  bindAdminLang(uiLanguage);
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -279,12 +278,12 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
 
     const buzonConNombres = buzonList.filter((b) => b.asunto !== ADMIN_QUEUE_SUBJECT).map(b => ({
       ...b,
-      userName: profilesMap[b.user_id]?.display_name || "Usuario Anónimo"
+      userName: profilesMap[b.user_id]?.display_name || tr("Usuario Anónimo")
     }));
 
     const aportacionesConNombres = aportacionesList.map(a => ({
       ...a,
-      userName: profilesMap[a.user_id]?.display_name || "Usuario Anónimo"
+      userName: profilesMap[a.user_id]?.display_name || tr("Usuario Anónimo")
     }));
 
     setBuzon(buzonConNombres);
@@ -324,8 +323,8 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
         gestor: caso.gestor ? gestorLabel(caso.gestor) : "Sin asignar",
         read: caso.leido ? "Leída" : "No leída",
         actions: caso.historial.length
-          ? caso.historial.map((ev) => `${new Date(ev.at).toLocaleString()} · ${ev.actor}: ${ev.detail}`).join("\n")
-          : "Sin acciones del equipo todavía.",
+          ? caso.historial.map((ev) => `${new Date(ev.at).toLocaleString()} · ${ev.actor}: ${tr(ev.detail)}`).join("\n")
+          : tr("Sin acciones del equipo todavía."),
       };
     });
 
@@ -415,7 +414,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
     if (rowId) {
       const { error } = await supabase.from("buzon_colaboraciones").update({ mensaje }).eq("id", rowId);
       if (error) {
-        showAlert("Error", error.message);
+        showAlert(tr("Error"), error.message);
         setQueueBusy(null);
         return;
       }
@@ -426,7 +425,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
         .select("id")
         .single();
       if (error || !data) {
-        showAlert("Error", error?.message || "No se pudo guardar el seguimiento.");
+        showAlert(tr("Error"), error?.message || tr("No se pudo guardar el seguimiento."));
         setQueueBusy(null);
         return;
       }
@@ -457,7 +456,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   };
 
   const markQueueRead = async (queue: QueueKind, ids: string[], leido: boolean) => {
-    const detail = leido ? "Marcada como leída" : "Marcada como no leída";
+    const detail = leido ? tr("Marcada como leída") : tr("Marcada como no leída");
     for (const id of ids) {
       const native = queue === "denuncia"
         ? denuncias.find((d) => d.id === id)?.estado
@@ -498,8 +497,8 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
       lastError = error;
     }
     showAlert(
-      "Error",
-      `No se pudieron cargar las campañas: ${lastError?.message || "desconocido"}. En Supabase SQL Editor ejecuta el script scripts/sync-ad-campaigns-schema.sql (añade todas las columnas de la pestaña Publicidad).`,
+      tr("Error"),
+      tr("No se pudieron cargar las campañas: {detail}. En Supabase SQL Editor ejecuta el script scripts/sync-ad-campaigns-schema.sql (añade todas las columnas de la pestaña Publicidad).", { detail: lastError?.message || tr("desconocido") }),
     );
   };
 
@@ -527,7 +526,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
       const fn = confirmDialog.onConfirm;
       setConfirmDialog(null);
       Promise.resolve(fn()).catch((err: unknown) =>
-        showAlert("Error", err instanceof Error ? err.message : String(err)),
+        showAlert(tr("Error"), err instanceof Error ? err.message : String(err)),
       );
     };
     window.addEventListener("keydown", onEnter);
@@ -571,7 +570,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
 
   const saveAdCampaign = async () => {
     if (!adForm.title.trim() || !adForm.target_url.trim()) {
-      showAlert("Error", "El titulo y la URL destino son obligatorios.");
+      showAlert(tr("Error"), tr("El titulo y la URL destino son obligatorios."));
       return;
     }
     setLoading(true);
@@ -595,22 +594,22 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
     const { error } = await query;
     setLoading(false);
     if (error) {
-      showAlert("Error", `No se pudo guardar la campaña: ${error.message}`);
+      showAlert(tr("Error"), tr("No se pudo guardar la campaña: {detail}", { detail: error.message }));
       return;
     }
-    showAlert("Perfecto", adForm.id ? "Campaña actualizada." : "Campaña creada.");
+    showAlert(tr("Perfecto"), adForm.id ? tr("Campaña actualizada.") : tr("Campaña creada."));
     resetAdForm();
     fetchAdCampaigns();
   };
 
   const deleteAdCampaign = async (id: string) => {
     setConfirmDialog({
-      title: "Eliminar campaña",
-      message: "Esta campaña publicitaria se eliminará. ¿Continuar?",
+      title: tr("Eliminar campaña"),
+      message: tr("Esta campaña publicitaria se eliminará. ¿Continuar?"),
       onConfirm: async () => {
         const { error } = await supabase.from("ad_campaigns").delete().eq("id", id);
         if (error) {
-          showAlert("Error", `No se pudo eliminar: ${error.message}`);
+          showAlert(tr("Error"), tr("No se pudo eliminar: {detail}", { detail: error.message }));
           return;
         }
         setAdCampaigns((prev) => prev.filter((c) => c.id !== id));
@@ -629,8 +628,8 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
 
   const eliminarBuzonMasivo = async () => {
     setConfirmDialog({
-      title: "Eliminar Mensajes",
-      message: "¿Seguro que quieres eliminar estos mensajes definitivamente?",
+      title: tr("Eliminar Mensajes"),
+      message: tr("¿Seguro que quieres eliminar estos mensajes definitivamente?"),
       onConfirm: async () => {
         await supabase.from('buzon_colaboraciones').delete().in('id', Array.from(selectedBuzonIds));
         setBuzon(prev => prev.filter(b => !selectedBuzonIds.has(b.id)));
@@ -642,8 +641,8 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
 
   const eliminarAportacionesMasivas = async () => {
     setConfirmDialog({
-      title: "Eliminar Aportaciones",
-      message: "¿Seguro que quieres eliminar estas aportaciones definitivamente?",
+      title: tr("Eliminar Aportaciones"),
+      message: tr("¿Seguro que quieres eliminar estas aportaciones definitivamente?"),
       onConfirm: async () => {
         await supabase.from('aportaciones_pcs').delete().in('id', Array.from(selectedAportacionIds));
         setAportaciones(prev => prev.filter(a => !selectedAportacionIds.has(a.id)));
@@ -667,13 +666,13 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
       window.URL.revokeObjectURL(blobUrl);
     } catch (e) {
       console.error(e);
-      alert("Error al descargar. Intenta click derecho > Guardar imagen como...");
+      alert(tr("Error al descargar. Intenta click derecho > Guardar imagen como..."));
     }
   };
   const enviarRespuestaWeb = async () => {
     if (!respuestaBuzon.trim() || !selectedBuzon) return;
     const nuevaRespuesta = {
-      admin: profile?.display_name || "Equipo MKB",
+      admin: profile?.display_name || tr("Equipo MKB"),
       texto: respuestaBuzon,
       fecha: new Date().toLocaleString()
     };
@@ -690,7 +689,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const enviarRespuestaAportacion = async () => {
     if (!respuestaAportacion.trim() || !selectedAportacion) return;
     const nuevaRespuesta = {
-      admin: profile?.display_name || "Equipo MKB",
+      admin: profile?.display_name || tr("Equipo MKB"),
       texto: respuestaAportacion,
       fecha: new Date().toLocaleString()
     };
@@ -778,7 +777,7 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error("Error cargando denuncias:", error);
+      console.error(tr("Error cargando denuncias:"), error);
       setDenuncias([]);
     } else if (reportes) {
       const userIds = new Set<string>();
@@ -812,7 +811,7 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
   };
 
   const enviarRespuestaAdmin = async (reporterId: string, tipo: string, denunciald: string, itemId?: string) => {
-    if (!reporterId) return showAlert("Aviso", "Esta denuncia es anónima o no tiene ID de usuario al que responder.");
+    if (!reporterId) return showAlert(tr("Aviso"), tr("Esta denuncia es anónima o no tiene ID de usuario al que responder."));
     let mensaje = "";
     if (tipo === "no_infringe") mensaje = "Hemos revisado tu reporte y no consideramos que infrinja nuestras normas.";
     if (tipo === "eliminado") mensaje = "Gracias por tu reporte. Hemos suprimido el perfil/contenido infractor.";
@@ -835,7 +834,7 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
       content: `RESOLUCIÓN DE TU REPORTE: ${mensaje}`
     });
 
-    showAlert("Éxito", "Notificación enviada al usuario con éxito.");
+    showAlert(tr("Éxito"), tr("Notificación enviada al usuario con éxito."));
   };
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -905,7 +904,7 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
   const [formData, setFormData] = useState({
     title: "",
     artist_name: "",
-    category: "Arte 2D",
+    category: tr("Arte 2D"),
     content_text: "",
     is_nsfw: false
   });
@@ -941,7 +940,7 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
     if (activeTab === "solicitudes") {
       const fetchSolicitudes = async () => {
         const { data, error } = await supabase.from('solicitudes_artistas').select('*').order('created_at', { ascending: false });
-        if (error) console.error("Error al cargar solicitudes:", error);
+        if (error) console.error(tr("Error al cargar solicitudes:"), error);
         setSolicitudes(data || []);
       };
       fetchSolicitudes();
@@ -986,11 +985,11 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       sincronizarCambioUsuario(userId, { is_restricted: false });
     }
 
-    showAlert("Éxito", "Usuario reactivado. El banner rojo ha desaparecido para siempre.");
+    showAlert(tr("Éxito"), tr("Usuario reactivado. El banner rojo ha desaparecido para siempre."));
     fetchDenuncias();
     setSelectedDenuncia(null); 
   } catch (err: any) {
-    showAlert("Error", err.message);
+    showAlert(tr("Error"), err.message);
   } finally {
     setLoading(false);
   }
@@ -1127,7 +1126,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
+      if (!accessToken) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
       const res = await fetch("/api/admin/users-overview", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -1166,7 +1165,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
         artistas: Number(json.summary?.artistas || 0),
       });
     } catch (err: any) {
-      setUsersOverviewError(err?.message || "No se pudo cargar el resumen de usuarios.");
+      setUsersOverviewError(err?.message || tr("No se pudo cargar el resumen de usuarios."));
     } finally {
       setUsersOverviewLoading(false);
     }
@@ -1225,16 +1224,16 @@ const levantarSancion = async (userId: string, ticketId: string) => {
   const fulminarUsuario = async (userIdMalicioso: string, userName: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setConfirmDialog({
-      title: "⚠️ ALERTA NUCLEAR ⚠️",
-      message: `¿Estás completamente segura de que quieres ELIMINAR a ${userName} de la base de datos?\n\nEsta acción borrará su cuenta, sus obras, sus me gustas y sus comentarios. NO SE PUEDE DESHACER.`,
+      title: tr("⚠️ ALERTA NUCLEAR ⚠️"),
+      message: tr("¿Estás completamente segura de que quieres ELIMINAR a {name} de la base de datos?\n\nEsta acción borrará su cuenta, sus obras, sus me gustas y sus comentarios. NO SE PUEDE DESHACER.", { name: userName }),
       onConfirm: async () => {
         setLoading(true);
         const { error } = await supabase.rpc('admin_delete_user', { target_user_id: userIdMalicioso });
         setLoading(false);
         if (error) {
-          showAlert("Error", "Error al borrar usuario: " + error.message);
+          showAlert(tr("Error"), tr("Error al borrar usuario: {detail}", { detail: error.message }));
         } else {
-          showAlert("Usuario Eliminado", `El usuario ${userName} ha sido eliminado de la existencia.`);
+          showAlert(tr("Usuario Eliminado"), tr("El usuario {name} ha sido eliminado de la existencia.", { name: userName }));
           setSearchTerm("");
           setProfiles([]);
           setUsersOverview((prev) => prev.filter((u) => u.user_id !== userIdMalicioso));
@@ -1254,10 +1253,12 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     const removingArtist = field === "is_artist" && currentValue;
 
     setConfirmDialog({
-      title: "Confirmar Acción",
+      title: tr("Confirmar Acción"),
       message: removingArtist
-        ? `¿Seguro que quieres quitar el estado de Artista a ${userName}?\n\nDespués puedes dejar sus obras, borrarlas todas o elegir cuáles salen de la web.`
-        : `¿Seguro que quieres ${action} el estado de ${fieldNameEs} a ${userName}?`,
+        ? tr("¿Seguro que quieres quitar el estado de Artista a {name}?\n\nDespués puedes dejar sus obras, borrarlas todas o elegir cuáles salen de la web.", { name: userName })
+        : currentValue
+          ? tr("¿Seguro que quieres quitar el estado de {field} a {name}?", { field: tr(fieldNameEs), name: userName })
+          : tr("¿Seguro que quieres dar el estado de {field} a {name}?", { field: tr(fieldNameEs), name: userName }),
       onConfirm: async () => {
         setLoading(true);
         try {
@@ -1275,10 +1276,10 @@ const levantarSancion = async (userId: string, ticketId: string) => {
           if (removingArtist) {
             await openArtistWorksCleanup(userName, userId);
           } else {
-            showAlert("Éxito", `¡Estado de ${fieldNameEs} actualizado!`);
+            showAlert(tr("Éxito"), tr("¡Estado de {field} actualizado!", { field: tr(fieldNameEs) }));
           }
         } catch (err: any) {
-          showAlert("Error", err.message);
+          showAlert(tr("Error"), err.message);
         } finally {
           setLoading(false);
         }
@@ -1293,17 +1294,17 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (error) {
-      showAlert("Artista quitado", `${userName} ya no es artista. No pude cargar sus obras: ${error.message}`);
+      showAlert(tr("Artista quitado"), tr("{name} ya no es artista. No pude cargar sus obras: {detail}", { name: userName, detail: error.message }));
       return;
     }
     const works = (data || []).map((row) => ({
       id: String(row.id),
-      title: String(row.title || "Sin título"),
-      category: String(row.category || "Obra"),
+      title: String(row.title || tr("Sin título")),
+      category: String(row.category || tr("Obra")),
       thumb: (row.thumbnail_url || row.image_url || null) as string | null,
     }));
     if (works.length === 0) {
-      showAlert("Artista quitado", `${userName} ya no es artista. No tiene obras en la web.`);
+      showAlert(tr("Artista quitado"), tr("{name} ya no es artista. No tiene obras en la web.", { name: userName }));
       return;
     }
     const picked: Record<string, boolean> = {};
@@ -1345,15 +1346,15 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     const currentStrikes = p.strikes || 0;
     
     if (currentStrikes >= 3) {
-      showAlert("Límite alcanzado", "Este usuario ya tiene 3 strikes. Debes decidir si fulminarlo o mantenerlo restringido.");
+      showAlert(tr("Límite alcanzado"), tr("Este usuario ya tiene 3 strikes. Debes decidir si fulminarlo o mantenerlo restringido."));
       return;
     }
 
     const newStrikes = currentStrikes + 1;
 
     setConfirmDialog({
-      title: `¿Añadir Strike ${newStrikes}/3?`,
-      message: `Vas a ponerle una falta a ${p.display_name}. Al llegar a 3, la cuenta quedará marcada para eliminación.`,
+      title: tr("¿Añadir Strike {n}/3?", { n: newStrikes }),
+      message: tr("Vas a ponerle una falta a {name}. Al llegar a 3, la cuenta quedará marcada para eliminación.", { name: p.display_name }),
       onConfirm: async () => {
         setLoading(true);
         try {
@@ -1378,9 +1379,9 @@ const levantarSancion = async (userId: string, ticketId: string) => {
           });
 
           sincronizarCambioUsuario(p.user_id, { strikes: newStrikes, is_restricted: shouldRestrict });
-          showAlert("Strike Añadido", `Usuario ${p.display_name} ahora tiene ${newStrikes} strikes.${shouldRestrict ? " Cuenta restringida (3.er strike)." : ""}`);
+          showAlert(tr("Strike Añadido"), tr("Usuario {name} ahora tiene {n} strikes.{extra}", { name: p.display_name, n: newStrikes, extra: shouldRestrict ? tr(" Cuenta restringida (3.er strike).") : "" }));
         } catch (err: any) {
-          showAlert("Error", err.message);
+          showAlert(tr("Error"), err.message);
         } finally {
           setLoading(false);
         }
@@ -1394,7 +1395,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
+      if (!accessToken) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
 
       const ptsEl =
         typeof document !== "undefined"
@@ -1424,9 +1425,9 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
       sincronizarCambioUsuario(p.user_id, body);
-      showAlert("Éxito", "Perfil guardado en base de datos.");
+      showAlert(tr("Éxito"), tr("Perfil guardado en base de datos."));
     } catch (err: any) {
-      showAlert("Error", err?.message || "No se pudo guardar.");
+      showAlert(tr("Error"), err?.message || tr("No se pudo guardar."));
     } finally {
       setLoading(false);
     }
@@ -1438,7 +1439,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
   ) => {
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
-    if (!accessToken) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
+    if (!accessToken) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
     const res = await fetch("/api/admin/user-auth", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
@@ -1463,10 +1464,10 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       }
     }
     showAlert(
-      "Listo",
+      tr("Listo"),
       json.recovery_link
-        ? `${json.message || "Acción completada."}\n\nEnlace (también copiado si el navegador lo permite):\n${json.recovery_link}`
-        : json.message || "Acción completada.",
+        ? `${json.message || tr("Acción completada.")}\n\nEnlace (también copiado si el navegador lo permite):\n${json.recovery_link}`
+        : json.message || tr("Acción completada."),
     );
   };
 
@@ -1486,7 +1487,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
         try {
           await runUserAuthAction(p, action);
         } catch (err: any) {
-          showAlert("Error", err?.message || "No se pudo completar la acción.");
+          showAlert(tr("Error"), err?.message || tr("No se pudo completar la acción."));
         } finally {
           setLoading(false);
         }
@@ -1499,7 +1500,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      if (!accessToken) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
+      if (!accessToken) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
       const body = {
         user_id: p.user_id,
         is_premium: !!p.is_premium,
@@ -1518,16 +1519,16 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
       sincronizarCambioUsuario(p.user_id, { is_featured_artist: !p.is_featured_artist });
-      showAlert("Éxito", !p.is_featured_artist ? "Usuario marcado como Artista Estrella." : "Usuario quitado de Artista Estrella.");
+      showAlert(tr("Éxito"), !p.is_featured_artist ? tr("Usuario marcado como Artista Estrella.") : tr("Usuario quitado de Artista Estrella."));
     } catch (err: any) {
-      showAlert("Error", err.message || "No se pudo actualizar Artista Estrella.");
+      showAlert(tr("Error"), err.message || tr("No se pudo actualizar Artista Estrella."));
     }
   };
 
   const catalogAuthHeaders = async (): Promise<HeadersInit> => {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
-    if (!token) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
+    if (!token) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
     return { Authorization: `Bearer ${token}` };
   };
 
@@ -1541,7 +1542,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       setCatalogGroups(json.groups || []);
       setCatalogMembers(json.members || []);
     } catch (err: any) {
-      showAlert("Catálogo", err?.message || "No se pudo cargar.");
+      showAlert(tr("Catálogo"), err?.message || tr("No se pudo cargar."));
     } finally {
       setCatalogLoading(false);
     }
@@ -1560,7 +1561,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     const res = await fetch("/api/admin/catalog-upload", { method: "POST", headers: h, body: fd });
     const json = (await res.json().catch(() => ({}))) as { publicUrl?: string; error?: string };
     if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-    if (!json.publicUrl) throw new Error("Sin URL pública");
+    if (!json.publicUrl) throw new Error(tr("Sin URL pública"));
     return json.publicUrl;
   };
 
@@ -1582,11 +1583,11 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-      showAlert("Catálogo", catalogGroupForm.id ? "Grupo actualizado." : "Grupo creado.");
+      showAlert(tr("Catálogo"), catalogGroupForm.id ? tr("Grupo actualizado.") : tr("Grupo creado."));
       setCatalogGroupForm({ id: null, name: "", slug: "", logo_url: "" });
       await loadCatalog();
     } catch (err: any) {
-      showAlert("Catálogo", err?.message || "Error al guardar grupo.");
+      showAlert(tr("Catálogo"), err?.message || tr("Error al guardar grupo."));
     } finally {
       setLoading(false);
     }
@@ -1594,7 +1595,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
 
   const saveCatalogMember = async () => {
     if (catalogMemberForm.group_id == null) {
-      showAlert("Catálogo", "Elige un grupo para el miembro.");
+      showAlert(tr("Catálogo"), tr("Elige un grupo para el miembro."));
       return;
     }
     setLoading(true);
@@ -1615,11 +1616,11 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-      showAlert("Catálogo", catalogMemberForm.id ? "Miembro actualizado." : "Miembro creado.");
+      showAlert(tr("Catálogo"), catalogMemberForm.id ? tr("Miembro actualizado.") : tr("Miembro creado."));
       setCatalogMemberForm((p) => ({ id: null, group_id: p.group_id, name: "", slug: "", image_url: "" }));
       await loadCatalog();
     } catch (err: any) {
-      showAlert("Catálogo", err?.message || "Error al guardar miembro.");
+      showAlert(tr("Catálogo"), err?.message || tr("Error al guardar miembro."));
     } finally {
       setLoading(false);
     }
@@ -1629,11 +1630,12 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
     e.stopPropagation();
     const isGivingPremium = !p.is_premium;
     const planText = planToSet === 'anual' ? 'Anual' : 'Mensual';
-    const action = isGivingPremium ? `dar el pase Premium ${planText}` : "quitar el Premium";
 
     setConfirmDialog({
-      title: "Confirmar Premium",
-      message: `¿Seguro que quieres ${action} a ${p.display_name}?`,
+      title: tr("Confirmar Premium"),
+      message: isGivingPremium
+        ? tr("¿Seguro que quieres dar el pase Premium {plan} a {name}?", { plan: tr(planText), name: p.display_name })
+        : tr("¿Seguro que quieres quitar el Premium a {name}?", { name: p.display_name }),
       onConfirm: async () => {
         setLoading(true);
         try {
@@ -1652,9 +1654,9 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
 
           // 4. UI
           sincronizarCambioUsuario(p.user_id, { is_premium: isGivingPremium, plan_type: finalPlan });
-          showAlert("Éxito", `Estado Premium actualizado a ${finalPlan}.`);
+          showAlert(tr("Éxito"), tr("Estado Premium actualizado a {plan}.", { plan: finalPlan }));
         } catch(err: any) {
-          showAlert("Error", err.message);
+          showAlert(tr("Error"), err.message);
         } finally {
           setLoading(false);
         }
@@ -1668,8 +1670,8 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
     if (p.is_restricted) {
       // Quitar restricción no resta strikes (el antecedente se queda)
       setConfirmDialog({
-        title: "Levantar Restricción",
-        message: `¿Seguro que quieres quitar la restricción a ${p.display_name}? (Mantendrá su historial de ${p.strikes || 0}/3 strikes)`,
+        title: tr("Levantar Restricción"),
+        message: tr("¿Seguro que quieres quitar la restricción a {name}? (Mantendrá su historial de {strikes}/3 strikes)", { name: p.display_name, strikes: p.strikes || 0 }),
         onConfirm: async () => {
           setLoading(true);
           try {
@@ -1680,9 +1682,9 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
             await supabase.from('notifications').insert({ user_id: p.user_id, sender_id: authData.user?.id, type: 'admin_message', content: `ACTUALIZACIÓN: Tu restricción ha sido levantada. Vuelves a tener acceso a las funciones comunitarias.`, read: false });
 
             sincronizarCambioUsuario(p.user_id, { is_restricted: false });
-            showAlert("Éxito", "Restricción levantada.");
+            showAlert(tr("Éxito"), tr("Restricción levantada."));
           } catch(err: any) {
-            showAlert("Error", err.message);
+            showAlert(tr("Error"), err.message);
           } finally {
             setLoading(false);
           }
@@ -1695,7 +1697,7 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
             <button onClick={() => setHistorialModal(null)} style={{ position: "absolute", top: "20px", right: "20px", background: "none", border: "none", cursor: "pointer", color: "var(--color-primary)" }}><X size={24} /></button>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "20px" }}>
                <FileText color="var(--color-primary)" size={28} />
-               <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: 0, fontSize: "24px" }}>Historial de {historialModal.user.display_name}</h3>
+               <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: 0, fontSize: "24px" }}>{tr("Historial de {name}", { name: historialModal.user.display_name })}</h3>
             </div>
             
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -1717,7 +1719,7 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
                       }} 
                       style={{ background: "var(--badge-bg)", color: "var(--color-primary)", border: "1px solid var(--badge-border)", padding: "6px 12px", borderRadius: "8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 900, fontSize: "11px" }}
                     >
-                      <ExternalLink size={14} /> VER EXPEDIENTE ORIGINAL
+                      <ExternalLink size={14} /> {tr("VER EXPEDIENTE ORIGINAL")}
                     </button>
                   )}
                 </div>
@@ -1731,25 +1733,25 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
   const aprobarArtista = async (targetId: string, userName: string, isAlreadyArtist: boolean, e: React.MouseEvent, solicitudId?: string) => {
     e.stopPropagation();
     if (isAlreadyArtist) {
-      showAlert("Aviso", `${userName} ya tiene permisos de artista.`);
+      showAlert(tr("Aviso"), tr("{name} ya tiene permisos de artista.", { name: userName }));
       return;
     }
 
     setConfirmDialog({
-      title: "Aprobar Artista",
-      message: `¿Quieres autorizar a ${userName} para que pueda publicar su propio arte de forma autónoma?`,
+      title: tr("Aprobar Artista"),
+      message: tr("¿Quieres autorizar a {name} para que pueda publicar su propio arte de forma autónoma?", { name: userName }),
       onConfirm: async () => {
         setLoading(true);
         const { error } = await supabase.rpc('admin_verify_artist', { target_user_id: targetId });
         setLoading(false);
 
         if (error) {
-          showAlert("Error", "Error al dar permisos: " + error.message);
+          showAlert(tr("Error"), tr("Error al dar permisos: {detail}", { detail: error.message }));
         } else {
           if (solicitudId) {
-            await saveQueueCase("solicitud", solicitudId, { status: "aprobada", leido: true }, "estado", "Aprobada como artista");
+            await saveQueueCase("solicitud", solicitudId, { status: "aprobada", leido: true }, "estado", tr("Aprobada como artista"));
           }
-          showAlert("Éxito", `¡Listo! ${userName} ahora es un Artista Verificado.`);
+          showAlert(tr("Éxito"), tr("¡Listo! {name} ahora es un Artista Verificado.", { name: userName }));
           setSearchTerm(searchTerm + " ");
           setTimeout(() => setSearchTerm(searchTerm.trim()), 100);
         }
@@ -1791,7 +1793,7 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
     e.stopPropagation();
     const currentStrikes = p.strikes || 0;
     if (currentStrikes >= 3) {
-      showAlert("Límite", "Este usuario ya tiene 3 strikes.");
+      showAlert(tr("Límite"), tr("Este usuario ya tiene 3 strikes."));
       return;
     }
     const nextN = currentStrikes + 1;
@@ -1807,7 +1809,7 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
     if (!strikeModal) return;
     const trimmed = strikeModal.motivo.trim();
     if (!trimmed) {
-      showAlert("Motivo obligatorio", "Describe el motivo del strike.");
+      showAlert(tr("Motivo obligatorio"), tr("Describe el motivo del strike."));
       return;
     }
     const { p, denunciaId, duration } = strikeModal;
@@ -1833,7 +1835,7 @@ const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => 
 
       await supabase.from("strike_history").insert({
         user_id: p.user_id,
-        admin_name: profile?.display_name || "Admin",
+        admin_name: profile?.display_name || tr("Admin"),
         reason: trimmed,
         denuncia_id: denunciaId || null,
       });
@@ -1895,9 +1897,9 @@ Si crees que es un error, entra en tu Perfil y pulsa «Recurrir sanción».`;
       });
 
       sincronizarCambioUsuario(p.user_id, { strikes: newStrikes, is_restricted: restrict });
-      showAlert("Éxito", `Strike ${newStrikes}/3 registrado y notificado.`);
+      showAlert(tr("Éxito"), tr("Strike {n}/3 registrado y notificado.", { n: newStrikes }));
     } catch (err: any) {
-      showAlert("Error", err.message);
+      showAlert(tr("Error"), err.message);
     } finally {
       setLoading(false);
     }
@@ -1906,7 +1908,7 @@ Si crees que es un error, entra en tu Perfil y pulsa «Recurrir sanción».`;
   // --- FUNCIÓN QUITAR STRIKE ---
   const quitarStrike = async (p: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!p.strikes || p.strikes <= 0) return showAlert("Aviso", "No tiene strikes.");
+    if (!p.strikes || p.strikes <= 0) return showAlert(tr("Aviso"), tr("No tiene strikes."));
     
     setLoading(true);
     try {
@@ -1916,8 +1918,8 @@ Si crees que es un error, entra en tu Perfil y pulsa «Recurrir sanción».`;
       if (error) throw error;
 
       sincronizarCambioUsuario(p.user_id, { strikes: newStrikes });
-      showAlert("Éxito", `Strike retirado. Ahora tiene ${newStrikes}/3.`);
-    } catch (err: any) { showAlert("Error", err.message); } 
+      showAlert(tr("Éxito"), tr("Strike retirado. Ahora tiene {n}/3.", { n: newStrikes }));
+    } catch (err: any) { showAlert(tr("Error"), err.message); } 
     finally { setLoading(false); }
   };
 
@@ -1936,8 +1938,8 @@ Si crees que es un error, entra en tu Perfil y pulsa «Recurrir sanción».`;
       });
 
       sincronizarCambioUsuario(p.user_id, { is_restricted: false });
-      showAlert("Éxito", "Perfil restaurado y usuario notificado.");
-    } catch (err: any) { showAlert("Error", err.message); } 
+      showAlert(tr("Éxito"), tr("Perfil restaurado y usuario notificado."));
+    } catch (err: any) { showAlert(tr("Error"), err.message); } 
     finally { setLoading(false); }
   };
 const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false);
@@ -1959,8 +1961,8 @@ const [menuEstadoAbierto, setMenuEstadoAbierto] = useState(false);
       
       const input = document.getElementById("input-nueva-nota") as HTMLTextAreaElement;
       if (input) input.value = "";
-      showAlert("Éxito", "Comentario guardado con fecha y hora.");
-    } catch (err: any) { showAlert("Error", err.message); }
+      showAlert(tr("Éxito"), tr("Comentario guardado con fecha y hora."));
+    } catch (err: any) { showAlert(tr("Error"), err.message); }
     finally { setLoading(false); }
   };
 
@@ -2038,15 +2040,15 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
     sincronizarCambioUsuario(p.user_id, { is_restricted: true });
     setSuspenderModal(null);
-    showAlert("Éxito", `Usuario suspendido. El ticket ha quedado actualizado.`);
+    showAlert(tr("Éxito"), tr("Usuario suspendido. El ticket ha quedado actualizado."));
   } catch (err: any) { 
-    showAlert("Error", err.message); 
+    showAlert(tr("Error"), err.message); 
   } finally { 
     setLoading(false); 
   }
 };
   const enviarNotificacionSancion = async () => {
-    if (!mensajeNotif.trim()) return showAlert("Error", "Escribe un mensaje.");
+    if (!mensajeNotif.trim()) return showAlert(tr("Error"), tr("Escribe un mensaje."));
     setLoading(true);
     try {
       const { data: auth } = await supabase.auth.getUser();
@@ -2057,10 +2059,10 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
         content: `⚠️ AVISO DE MODERACIÓN: ${mensajeNotif}`,
         read: false
       });
-      showAlert("Enviado", "Notificación enviada al usuario.");
+      showAlert(tr("Enviado"), tr("Notificación enviada al usuario."));
       setNotificarModal(null);
       setMensajeNotif("");
-    } catch (err: any) { showAlert("Error", err.message); }
+    } catch (err: any) { showAlert(tr("Error"), err.message); }
     finally { setLoading(false); }
   };
 
@@ -2072,7 +2074,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
       const { data, error } = await supabase.from('strike_history').select('*').eq('user_id', p.user_id).order('created_at', { ascending: false });
       if (error) throw error;
       if (!data || data.length === 0) {
-        showAlert("Historial Vacío", "No hay motivos registrados.");
+        showAlert(tr("Historial Vacío"), tr("No hay motivos registrados."));
       } else {
         const listaMotivos = data.map(s => `• [${new Date(s.created_at).toLocaleDateString()}] ${s.admin_name}: ${s.reason}`).join('\n');
         setConfirmDialog({
@@ -2081,7 +2083,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
           onConfirm: () => setConfirmDialog(null)
         });
       }
-    } catch (err: any) { showAlert("Error", err.message); } 
+    } catch (err: any) { showAlert(tr("Error"), err.message); } 
     finally { setLoading(false); }
   };
 
@@ -2089,16 +2091,16 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
   const resetStrikes = async (p: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setConfirmDialog({
-      title: "Resetear Historial",
-      message: `¿Seguro que quieres borrar TODOS los strikes de ${p.display_name}? Esto volverá su contador a 0/3.`,
+      title: tr("Resetear Historial"),
+      message: tr("¿Seguro que quieres borrar TODOS los strikes de {name}? Esto volverá su contador a 0/3.", { name: p.display_name }),
       onConfirm: async () => {
         setLoading(true);
         try {
           await supabase.from('profiles').update({ strikes: 0 }).eq('user_id', p.user_id);
           await supabase.from('strike_history').delete().eq('user_id', p.user_id);
           sincronizarCambioUsuario(p.user_id, { strikes: 0 });
-          showAlert("Historial Limpiado", "Contador vuelto a 0.");
-        } catch (err: any) { showAlert("Error", err.message); } 
+          showAlert(tr("Historial Limpiado"), tr("Contador vuelto a 0."));
+        } catch (err: any) { showAlert(tr("Error"), err.message); } 
         finally { setLoading(false); }
       }
     });
@@ -2111,12 +2113,14 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     const next = (current || 0) + delta;
     
     if (next < 0 && delta < 0) {
-      return showAlert("Aviso", "No puedes dejar al usuario con K-oins negativos.");
+      return showAlert(tr("Aviso"), tr("No puedes dejar al usuario con K-oins negativos."));
     }
 
     setConfirmDialog({
-      title: delta > 0 ? "🎁 Premiar Usuario" : "⚠️ Penalizar Usuario",
-      message: `¿Quieres ${delta > 0 ? 'darle' : 'quitarle'} ${Math.abs(delta)} K-oins a @${name}?`,
+      title: delta > 0 ? tr("🎁 Premiar Usuario") : tr("⚠️ Penalizar Usuario"),
+      message: delta > 0
+        ? tr("¿Quieres darle {n} K-oins a @{name}?", { n: Math.abs(delta), name })
+        : tr("¿Quieres quitarle {n} K-oins a @{name}?", { n: Math.abs(delta), name }),
       onConfirm: async () => {
         try {
           const { error } = await supabase.rpc('admin_update_puntos', { target_user_id: userId, nuevos_puntos: next });
@@ -2129,10 +2133,10 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             read: false
           });
 
-          showAlert("K-oins Actualizados", `Saldo de @${name} actualizado a ${next} K-oins.`);
+          showAlert(tr("K-oins Actualizados"), tr("Saldo de @{name} actualizado a {n} K-oins.", { name, n: next }));
           sincronizarCambioUsuario(userId, { puntos: next });
         } catch(err:any) {
-          showAlert("Error", err.message);
+          showAlert(tr("Error"), err.message);
         }
       }
     });
@@ -2140,10 +2144,10 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
   const updatePuntosExact = async (userId: string, name: string, exact: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (exact < 0) return showAlert("Aviso", "No puedes dejar al usuario con K-oins negativos.");
+    if (exact < 0) return showAlert(tr("Aviso"), tr("No puedes dejar al usuario con K-oins negativos."));
 
     setConfirmDialog({
-      title: "Fijar K-oins",
+      title: tr("Fijar K-oins"),
       message: `¿Quieres fijar los K-oins de @${name} exactamente en ${exact}?`,
       onConfirm: async () => {
         try {
@@ -2157,10 +2161,10 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             read: false
           });
 
-          showAlert("K-oins Actualizados", `Saldo de @${name} fijado en ${exact} K-oins.`);
+          showAlert(tr("K-oins Actualizados"), tr("Saldo de @{name} fijado en {n} K-oins.", { name, n: exact }));
           sincronizarCambioUsuario(userId, { puntos: exact });
         } catch(err:any) {
-          showAlert("Error", err.message);
+          showAlert(tr("Error"), err.message);
         }
       }
     });
@@ -2228,11 +2232,11 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No hay sesión de usuario");
+      if (!user) throw new Error(tr("No hay sesión de usuario"));
 
       if (!selectedUserId) {
         setLoading(false);
-        return showAlert("Atención", "¡Error! Debes seleccionar un usuario del buscador.");
+        return showAlert(tr("Atención"), tr("¡Error! Debes seleccionar un usuario del buscador."));
       }
 
       let mainUrl: string = "text-only";
@@ -2241,12 +2245,12 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
       if (formData.category === "Fanfics") {
         if (!formData.content_text.trim()) {
           setLoading(false);
-          return showAlert("Atención", "El contenido del fanfic no puede estar vacío.");
+          return showAlert(tr("Atención"), tr("El contenido del fanfic no puede estar vacío."));
         }
 
         if (!isNewStory && !selectedStoryId) {
           setLoading(false);
-          return showAlert("Atención", "Por favor, selecciona una historia existente.");
+          return showAlert(tr("Atención"), tr("Por favor, selecciona una historia existente."));
         }
 
         const textoParaTraducir = `${formData.title}\n|||\n${formData.content_text}`;
@@ -2256,8 +2260,8 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
         if (!traduccionesIA) {
           showAlert(
-            "Atención",
-            "No se pudieron generar traducciones automáticas ahora (API de Gemini no disponible o clave inválida). Se publicará solo en español."
+            tr("Atención"),
+            tr("No se pudieron generar traducciones automáticas ahora (API de Gemini no disponible o clave inválida). Se publicará solo en español.")
           );
         }
 
@@ -2318,27 +2322,27 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
         });
 
         const { error: errT } = await supabase.from('traducciones').insert(rowsTraducciones);
-        if (errT) console.error("Error en traducciones:", errT);
+        if (errT) console.error(tr("Error en traducciones:"), errT);
 
         if (isNewStory) {
           if (thumbFile) { finalThumbUrl = await uploadToStorage(thumbFile); mainUrl = finalThumbUrl; }
           await supabase.from('fanarts').insert({
             id: currentObraId, title: formData.title, artist_name: formData.artist_name,
-            user_id: selectedUserId, category: "Fanfics", image_url: mainUrl,
+            user_id: selectedUserId, category: tr("Fanfics"), image_url: mainUrl,
             thumbnail_url: finalThumbUrl, content_text: formData.content_text, active: true
           });
         }
 
-        showAlert("Éxito", `¡${isNewStory ? 'HISTORIA' : 'CAPÍTULO ' + sigCapitulo} PUBLICADA!`);
+        showAlert(tr("Éxito"), tr("¡{what} PUBLICADA!", { what: isNewStory ? tr("HISTORIA") : tr("CAPÍTULO {n}", { n: sigCapitulo }) }));
         
-        setFormData({ title: "", artist_name: "", category: "Arte 2D", content_text: "", is_nsfw: false });
+        setFormData({ title: "", artist_name: "", category: tr("Arte 2D"), content_text: "", is_nsfw: false });
         setFile(null); setThumbFile(null); setSearchTerm(""); setSelectedUserId(null);
         setLoading(false);
         return;
       } else {
         if (!file) {
           setLoading(false);
-          return showAlert("Atención", "Selecciona un archivo para la galería.");
+          return showAlert(tr("Atención"), tr("Selecciona un archivo para la galería."));
         }
 
         mainUrl = await uploadToStorage(file);
@@ -2364,9 +2368,9 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
           content: `Tu obra "${formData.title}" ha sido publicada.`
         });
 
-        showAlert("Éxito", "¡Publicado con éxito!");
+        showAlert(tr("Éxito"), tr("¡Publicado con éxito!"));
         
-        setFormData({ title: "", artist_name: "", category: "Arte 2D", content_text: "", is_nsfw: false });
+        setFormData({ title: "", artist_name: "", category: tr("Arte 2D"), content_text: "", is_nsfw: false });
         setFile(null);
         setThumbFile(null);
         setSearchTerm("");
@@ -2374,8 +2378,8 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
       }
 
     } catch (error: any) {
-      console.error("Error detallado:", error);
-      showAlert("Error", "Error en la subida: " + error.message);
+      console.error(tr("Error detallado:"), error);
+      showAlert(tr("Error"), tr("Error en la subida: {detail}", { detail: error.message }));
     } finally {
       setLoading(false);
     }
@@ -2389,14 +2393,14 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
   };
 
   const usersFilterTitle: Record<AdminUsersFilter, string> = {
-    todos: "Todos los usuarios",
-    alta: "Usuarios dados de alta",
-    baja: "Usuarios dados de baja",
-    pendiente: "Pendientes de confirmación",
-    restringido: "Usuarios restringidos",
-    sin_perfil: "Sin perfil",
-    premium: "Usuarios Premium",
-    artista: "Artistas",
+    todos: tr("Todos los usuarios"),
+    alta: tr("Usuarios dados de alta"),
+    baja: tr("Usuarios dados de baja"),
+    pendiente: tr("Pendientes de confirmación"),
+    restringido: tr("Usuarios restringidos"),
+    sin_perfil: tr("Sin perfil"),
+    premium: tr("Usuarios Premium"),
+    artista: tr("Artistas"),
   };
 
   const renderAdminUserCard = (p: AdminOverviewUser) => {
@@ -2414,16 +2418,16 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               : "var(--text-muted)";
     const bucketText =
       p.is_deleted
-        ? "ELIMINADA"
+        ? tr("ELIMINADA")
         : p.is_banned
-          ? "BLOQUEADO"
+          ? tr("BLOQUEADO")
           : bucket === "alta"
-            ? "ALTA"
+            ? tr("ALTA")
             : bucket === "pendiente"
-              ? "PENDIENTE"
+              ? tr("PENDIENTE")
               : bucket === "restringido"
-                ? "RESTRINGIDO"
-                : "BAJA";
+                ? tr("RESTRINGIDO")
+                : tr("BAJA");
     const actionsOpen = openUserActionsId === p.user_id;
     return (
       <div data-tour={actionsOpen ? "usr-ficha" : undefined} key={p.user_id} style={{ padding: "10px 14px", borderBottom: "1px solid var(--bg-soft)", display: "flex", flexDirection: "column", gap: actionsOpen ? "10px" : "0", background: actionsOpen ? "var(--bg-soft)" : "transparent" }}>
@@ -2431,12 +2435,12 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
               <span style={{ fontWeight: 900, color: p.is_restricted || p.is_banned ? "var(--state-danger-fg)" : "var(--text-main)", fontSize: "14px", textDecoration: p.is_restricted ? "line-through" : "none" }}>
-                {p.display_name || p.email || p.user_id.slice(0, 8)} {p.is_premium && <span title="Usuario Premium">👑</span>} {p.is_artist && <span title="Artista Verificado">✨</span>} {p.is_featured_artist && <span title="Artista Estrella">🌟</span>} {p.is_restricted && <span title="Cuenta Restringida">🛑</span>} {p.is_banned && <span title="Login bloqueado">🔒</span>}
+                {p.display_name || p.email || p.user_id.slice(0, 8)} {p.is_premium && <span title={tr("Usuario Premium")}>👑</span>} {p.is_artist && <span title={tr("Artista Verificado")}>✨</span>} {p.is_featured_artist && <span title={tr("Artista Estrella")}>🌟</span>} {p.is_restricted && <span title={tr("Cuenta Restringida")}>🛑</span>} {p.is_banned && <span title={tr("Login bloqueado")}>🔒</span>}
               </span>
               <span style={{ fontSize: "10px", fontWeight: 900, color: bucketColor }}>{bucketText}</span>
             </div>
             <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 700, marginTop: "2px" }}>
-              {p.email || "Sin email"} · Alta: {formatAdminDate(p.created_at)} · Último acceso: {formatAdminDate(p.last_sign_in_at)}
+              {p.email || tr("Sin email")} · Alta: {formatAdminDate(p.created_at)} · Último acceso: {formatAdminDate(p.last_sign_in_at)}
             </div>
           </div>
           <button
@@ -2446,29 +2450,28 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             style={{ ...compactActionStyle(actionsOpen ? "primary" : "default"), flexShrink: 0 }}
           >
             {actionsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            {actionsOpen ? "Cerrar" : "Acciones"}
+            {actionsOpen ? tr("Cerrar") : tr("Acciones")}
           </button>
         </div>
 
         {actionsOpen && (
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {!p.is_deleted && (
-            <AdminUserActionGroup label="ACCESO" tour="usr-acceso">
+            <AdminUserActionGroup label={tr("ACCESO")} tour="usr-acceso">
               <button
                 type="button"
                 onClick={(e) =>
                   confirmUserAuthAction(
                     p,
                     "reset_password",
-                    "Restablecer contraseña",
+                    tr("Restablecer contraseña"),
                     `Se enviará un email a ${p.email || who} para que elija una nueva contraseña.`,
                     e,
                   )
                 }
                 style={compactActionStyle()}
               >
-                <KeyRound size={12} /> Restablecer contraseña
-              </button>
+                <KeyRound size={12} />{tr("Restablecer contraseña")}</button>
               {p.is_banned ? (
                 <button
                   type="button"
@@ -2476,14 +2479,14 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                     confirmUserAuthAction(
                       p,
                       "unlock_login",
-                      "Desbloquear inicio de sesión",
+                      tr("Desbloquear inicio de sesión"),
                       `¿Desbloquear el acceso de ${who}? Podrá volver a entrar con su email y contraseña.`,
                       e,
                     )
                   }
                   style={compactActionStyle("success")}
                 >
-                  <Unlock size={12} /> Desbloquear login
+                  <Unlock size={12} /> {tr("Desbloquear login")}
                 </button>
               ) : (
                 <button
@@ -2492,14 +2495,14 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                     confirmUserAuthAction(
                       p,
                       "lock_login",
-                      "Bloquear inicio de sesión",
+                      tr("Bloquear inicio de sesión"),
                       `¿Bloquear el acceso de ${who}? La cuenta no se borra, pero no podrá iniciar sesión. Luego puedes desbloquearla.`,
                       e,
                     )
                   }
                   style={compactActionStyle("warning")}
                 >
-                  <Lock size={12} /> Bloquear login
+                  <Lock size={12} /> {tr("Bloquear login")}
                 </button>
               )}
               {!p.email_confirmed && (
@@ -2509,15 +2512,14 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                     confirmUserAuthAction(
                       p,
                       "confirm_email",
-                      "Confirmar email",
+                      tr("Confirmar email"),
                       `¿Marcar el email de ${who} como confirmado? Útil si no le llega el correo de verificación.`,
                       e,
                     )
                   }
                   style={compactActionStyle("success")}
                 >
-                  <MailOpen size={12} /> Confirmar email
-                </button>
+                  <MailOpen size={12} />{tr("Confirmar email")}</button>
               )}
               <button
                 type="button"
@@ -2525,44 +2527,44 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                   confirmUserAuthAction(
                     p,
                     "sign_out_all",
-                    "Cerrar todas las sesiones",
+                    tr("Cerrar todas las sesiones"),
                     `¿Cerrar todas las sesiones de ${who}? Tendrá que volver a iniciar sesión en todos sus dispositivos. Útil si cree que le han robado la cuenta.`,
                     e,
                   )
                 }
                 style={compactActionStyle()}
               >
-                <LogOut size={12} /> Cerrar sesiones
+                <LogOut size={12} /> {tr("Cerrar sesiones")}
               </button>
             </AdminUserActionGroup>
           )}
 
-          <AdminUserActionGroup label="CUENTA" tour="usr-cuenta">
+          <AdminUserActionGroup label={tr("CUENTA")} tour="usr-cuenta">
             <button type="button" onClick={() => router.push(`/user/${p.user_id}`)} style={compactActionStyle()}>
-              <ExternalLink size={12} /> Perfil
+              <ExternalLink size={12} /> {tr("Perfil")}
             </button>
             {p.is_premium ? (
               <button onClick={(e) => togglePremium(p, "free", e)} style={compactActionStyle("warning")}>
-                <Crown size={12} /> Quitar premium
+                <Crown size={12} /> {tr("Quitar premium")}
               </button>
             ) : (
               <>
                 <button onClick={(e) => togglePremium(p, "mensual", e)} style={compactActionStyle()}>
-                  <Crown size={12} /> + Mes
+                  <Crown size={12} /> {tr("+ Mes")}
                 </button>
                 <button onClick={(e) => togglePremium(p, "anual", e)} style={compactActionStyle()}>
-                  <Crown size={12} /> + Año
+                  <Crown size={12} /> {tr("+ Año")}
                 </button>
               </>
             )}
             <button onClick={(e) => toggleStatus(p.user_id, who, "is_artist", p.is_artist, e)} style={compactActionStyle(p.is_artist ? "success" : "default")}>
-              <Star size={12} /> {p.is_artist ? "Quitar artista" : "Artista"}
+              <Star size={12} /> {p.is_artist ? tr("Quitar artista") : "Artista"}
             </button>
             <button onClick={(e) => void toggleFeaturedArtist(p, e)} style={compactActionStyle(p.is_featured_artist ? "warning" : "default")}>
-              <Sparkles size={12} /> {p.is_featured_artist ? "Quitar estrella" : "Estrella"}
+              <Sparkles size={12} /> {p.is_featured_artist ? tr("Quitar estrella") : "Estrella"}
             </button>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "var(--bg-main)", padding: "3px 6px", borderRadius: "6px", border: "1px solid var(--color-border)" }}>
-              <span style={{ fontSize: "10px", fontWeight: 900, color: "var(--color-primary)" }}>K-oins</span>
+              <span style={{ fontSize: "10px", fontWeight: 900, color: "var(--color-primary)" }}>{tr("K-oins")}</span>
               <input
                 type="number"
                 defaultValue={p.puntos || 0}
@@ -2583,22 +2585,20 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             </div>
           </AdminUserActionGroup>
 
-          <AdminUserActionGroup label="MODERACIÓN" tour="usr-mod">
+          <AdminUserActionGroup label={tr("MODERACIÓN")} tour="usr-mod">
             <button onClick={(e) => openStrikeModal(p, e)} disabled={p.strikes >= 3} style={{ ...compactActionStyle(p.strikes >= 3 ? "default" : "danger"), opacity: p.strikes >= 3 ? 0.55 : 1, cursor: p.strikes >= 3 ? "not-allowed" : "pointer" }}>
-              <ShieldAlert size={12} /> Strike {p.strikes || 0}/3
+              <ShieldAlert size={12} /> {tr("Strike")} {p.strikes || 0}/3
             </button>
             <button onClick={(e) => verHistorialStrikes(p, e)} style={compactActionStyle()}>
-              <FileText size={12} /> Historial
-            </button>
+              <FileText size={12} />{tr("Historial")}</button>
             {p.strikes > 0 && (
               <button onClick={(e) => resetStrikes(p, e)} style={compactActionStyle("danger")}>
-                <Undo2 size={12} /> Reset strikes
+                <Undo2 size={12} /> {tr("Reiniciar strikes")}
               </button>
             )}
             {p.is_restricted && (
               <button onClick={(e) => removerRestriccion(p, e)} style={compactActionStyle("success")}>
-                <CheckCircle size={12} /> Perdonar
-              </button>
+                <CheckCircle size={12} />{tr("Perdonar")}</button>
             )}
             <button
               type="button"
@@ -2609,12 +2609,10 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               disabled={loading}
               style={{ ...compactActionStyle(), opacity: loading ? 0.75 : 1, cursor: loading ? "wait" : "pointer" }}
             >
-              <Save size={12} /> Guardar
-            </button>
+              <Save size={12} />{tr("Guardar")}</button>
             {!p.is_deleted && (
               <button type="button" onClick={(e) => fulminarUsuario(p.user_id, who, e)} style={compactActionStyle("danger")}>
-                <AlertTriangle size={12} /> Fulminar
-              </button>
+                <AlertTriangle size={12} />{tr("Fulminar")}</button>
             )}
           </AdminUserActionGroup>
         </div>
@@ -2625,27 +2623,27 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
   const adminNav = [
     {
-      label: "Contenido",
+      label: tr("Contenido"),
       items: [
-        { id: "publicar", label: "Publicar", icon: PenTool },
-        { id: "catalogo", label: "Catálogo", icon: Tags },
-        { id: "publicidad", label: "Publicidad", icon: Sparkles },
+        { id: "publicar", label: tr("Publicar"), icon: PenTool },
+        { id: "catalogo", label: tr("Catálogo"), icon: Tags },
+        { id: "publicidad", label: tr("Publicidad"), icon: Sparkles },
       ],
     },
     {
-      label: "Comunidad",
+      label: tr("Comunidad"),
       items: [
-        { id: "usuarios", label: "Usuarios", icon: Users },
-        { id: "solicitudes", label: "Solicitudes", icon: Mail },
-        { id: "denuncias", label: "Denuncias", icon: ShieldAlert },
-        { id: "buzon", label: "Buzón", icon: MailOpen },
-        { id: "aportaciones", label: "Aportaciones", icon: ImagePlus },
-        { id: "correo", label: "Correo", icon: Mail },
+        { id: "usuarios", label: tr("Usuarios"), icon: Users },
+        { id: "solicitudes", label: tr("Solicitudes"), icon: Mail },
+        { id: "denuncias", label: tr("Denuncias"), icon: ShieldAlert },
+        { id: "buzon", label: tr("Buzón"), icon: MailOpen },
+        { id: "aportaciones", label: tr("Aportaciones"), icon: ImagePlus },
+        { id: "correo", label: tr("Correo"), icon: Mail },
       ],
     },
     {
-      label: "Ayuda",
-      items: [{ id: "manual", label: "Manual", icon: HelpCircle }],
+      label: tr("Ayuda"),
+      items: [{ id: "manual", label: tr("Manual"), icon: HelpCircle }],
     },
   ];
 
@@ -2670,9 +2668,9 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
   };
 
   const openPublishFor = (userId: string | null | undefined, name: string) => {
-    const label = name.trim() || "esta persona";
+    const label = name.trim() || tr("esta persona");
     if (!userId) {
-      showAlert("Sin usuario", `La solicitud de ${label} no tiene cuenta vinculada. Búscala a mano en Publicar.`);
+      showAlert(tr("Sin usuario"), tr("La solicitud de {label} no tiene cuenta vinculada. Búscala a mano en Publicar.", { label }));
       openAdminTab("publicar");
       return;
     }
@@ -2709,7 +2707,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
       setSelectedBuzon(first);
     },
     showArtworkFields: () => {
-      setFormData((prev) => (prev.category === "Fanfics" ? { ...prev, category: "Arte 2D" } : prev));
+      setFormData((prev) => (prev.category === "Fanfics" ? { ...prev, category: tr("Arte 2D") } : prev));
     },
   };
 
@@ -2758,11 +2756,9 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backgroundColor: "var(--bg-main)", padding: "24px", textAlign: "center", gap: "16px" }}>
         <ShieldAlert size={48} color="var(--state-danger-fg)" />
-        <h1 className="tan-font" style={{ color: "var(--color-primary)", margin: 0 }}>Acceso restringido</h1>
-        <p style={{ color: "var(--text-muted)", fontWeight: 600, maxWidth: "360px" }}>No tienes permiso para ver el panel de administración.</p>
-        <button type="button" onClick={() => router.push("/")} style={{ background: "var(--color-primary)", color: "white", border: "none", padding: "12px 24px", borderRadius: "12px", fontWeight: 900, cursor: "pointer" }}>
-          Volver al inicio
-        </button>
+        <h1 className="tan-font" style={{ color: "var(--color-primary)", margin: 0 }}>{tr("Acceso restringido")}</h1>
+        <p style={{ color: "var(--text-muted)", fontWeight: 600, maxWidth: "360px" }}>{tr("No tienes permiso para ver el panel de administración.")}</p>
+        <button type="button" onClick={() => router.push("/")} style={{ background: "var(--color-primary)", color: "white", border: "none", padding: "12px 24px", borderRadius: "12px", fontWeight: 900, cursor: "pointer" }}>{tr("Volver al inicio")}</button>
       </div>
     );
   }
@@ -2773,10 +2769,10 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
         <aside className="admin-side">
           <div className="admin-brand">
             <span className="admin-kicker">My K-pop Binder</span>
-            <h1 className="tan-font">Admin</h1>
-            <p>Gestión de la plataforma</p>
+            <h1 className="tan-font">{tr("Admin")}</h1>
+            <p>{tr("Gestión de la plataforma")}</p>
           </div>
-          <nav className="admin-nav" data-tour="admin-nav" aria-label="Secciones del panel">
+          <nav className="admin-nav" data-tour="admin-nav" aria-label={tr("Secciones del panel")}>
             {adminNav.map((group) => (
               <div key={group.label} className="admin-nav-group">
                 <span className="admin-nav-label">{group.label}</span>
@@ -2809,7 +2805,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
         <div className={activeTab === "manual" ? "admin-stage-body is-plain" : "admin-stage-body"}>
           {ADMIN_TOUR_IDS.includes(activeTab as AdminTourId) && (
             <div className="admin-section-tour">
-              <button type="button" onClick={() => launchTour(activeTab)}>Tour de esta sección</button>
+              <button type="button" onClick={() => launchTour(activeTab)}>{tr("Tour de esta sección")}</button>
             </div>
           )}
           
@@ -2818,12 +2814,12 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             <form onSubmit={handleUpload} style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", borderBottom: "2px dashed var(--color-border)", paddingBottom: "15px" }}>
                 <UploadCloud color="var(--color-primary)" size={28} />
-                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Publicar en nombre de un usuario</h2>
+                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>{tr("Publicar en nombre de un usuario")}</h2>
               </div>
               
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px" }}>
                 <div>
-                  <label style={labelStyle}>Título de la obra *</label>
+                  <label style={labelStyle}>{tr("Título de la obra *")}</label>
                   <input
                     data-tour="pub-titulo"
                     required
@@ -2841,22 +2837,22 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                         setNewStoryDraftTitle(nextTitle);
                       }
                     }}
-                    placeholder={formData.category === "Fanfics" && !isNewStory ? "Se rellena automáticamente con la obra elegida" : "Ej: Fanfic de Bang Chan"}
+                    placeholder={formData.category === "Fanfics" && !isNewStory ? tr("Se rellena automáticamente con la obra elegida") : tr("Ej: Fanfic de Bang Chan")}
                   />
                   {formData.category === "Fanfics" && !isNewStory && (
                     <p style={{ margin: "6px 0 0", fontSize: "12px", color: "var(--text-muted)", fontWeight: 700 }}>
-                      En continuación, el título se vincula automáticamente a la obra seleccionada.
+                      {tr("En continuación, el título se vincula automáticamente a la obra seleccionada.")}
                     </p>
                   )}
                 </div>
                 <div>
-                  <label style={labelStyle}>Categoría *</label>
+                  <label style={labelStyle}>{tr("Categoría *")}</label>
                   <select data-tour="pub-categoria" style={inputStyle} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                    <option>Arte 2D</option>
-                    <option>Arte 3D</option>
-                    <option>Artesanía</option>
-                    <option>Fanfics</option>
-                    <option>Multimedia</option>
+                    <option>{tr("Arte 2D")}</option>
+                    <option>{tr("Arte 3D")}</option>
+                    <option>{tr("Artesanía")}</option>
+                    <option>{tr("Fanfics")}</option>
+                    <option>{tr("Multimedia")}</option>
                   </select>
                 </div>
 
@@ -2872,7 +2868,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                             setSelectedStoryId("");
                             setFormData((prev) => ({ ...prev, title: newStoryDraftTitle || prev.title }));
                           }}
-                        /> Primera obra
+                        /> {tr("Primera obra")}
                       </label>
                       <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: userStories.length > 0 ? "pointer" : "not-allowed", fontWeight: 800, fontSize: "14px", color: userStories.length > 0 ? "var(--color-primary)" : "var(--text-muted)" }}>
                         <input
@@ -2886,33 +2882,33 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                           }}
                           disabled={userStories.length === 0}
                         />
-                        Continuación de obra existente
+                        {tr("Continuación de obra existente")}
                       </label>
                     </div>
                     {!isNewStory && (
                       <select style={{ ...inputStyle, flex: 1, padding: "8px" }} value={selectedStoryId} onChange={(e) => setSelectedStoryId(e.target.value)}>
-                        <option value="">-- Elige la obra existente --</option>
+                        <option value="">{tr("-- Elige la obra existente --")}</option>
                         {userStories.map(s => (
                           <option key={s.id} value={s.id}>
-                            {s.title} {typeof s.chapterCount === "number" ? `(${s.chapterCount} cap.)` : ""}
+                            {s.title} {typeof s.chapterCount === "number" ? tr("({n} cap.)", { n: s.chapterCount }) : ""}
                           </option>
                         ))}
                       </select>
                     )}
                     {userStories.length === 0 && (
                       <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)", fontWeight: 700 }}>
-                        Este usuario no tiene fanfics previos. Solo se puede publicar como primera obra.
+                        {tr("Este usuario no tiene fanfics previos. Solo se puede publicar como primera obra.")}
                       </p>
                     )}
                   </div>
                 )}
 
                 <div data-tour="pub-usuario" style={{ position: 'relative', gridColumn: "1 / -1" }}>
-                  <label style={labelStyle}>Buscar Usuario (Para asignarle la obra) *</label>
-                  <input style={inputStyle} placeholder="Busca por nombre de usuario..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                  <label style={labelStyle}>{tr("Buscar Usuario (Para asignarle la obra) *")}</label>
+                  <input style={inputStyle} placeholder={tr("Busca por nombre de usuario...")} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                   {selectedUserId && (
                     <p style={{ margin: "8px 0 0", fontSize: "13px", fontWeight: 800, color: "var(--color-primary)" }}>
-                      La obra se publicará a nombre de {searchTerm || "este usuario"}.
+                      La obra se publicará a nombre de {searchTerm || tr("este usuario")}.
                     </p>
                   )}
                   
@@ -2934,7 +2930,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                           style={{ padding: '12px 15px', cursor: 'pointer', borderBottom: '1px solid var(--color-border)', fontSize: "14px", color: "var(--text-main)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
                         >
                           <span style={{ fontWeight: selectedUserId === p.user_id ? 900 : 500, color: selectedUserId === p.user_id ? "var(--color-primary)" : "inherit" }}>
-                            {p.display_name} {selectedUserId === p.user_id && " ✓"} {p.is_artist && <span title="Artista Verificado">✨</span>} {p.is_featured_artist && <span title="Artista Estrella">🌟</span>}
+                            {p.display_name} {selectedUserId === p.user_id && " ✓"} {p.is_artist && <span title={tr("Artista Verificado")}>✨</span>} {p.is_featured_artist && <span title={tr("Artista Estrella")}>🌟</span>}
                           </span>
                         </div>
                       ))}
@@ -2948,17 +2944,17 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               {formData.category === "Fanfics" ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                   <div>
-                    <label style={labelStyle}><BookOpen size={16} style={{ display: "inline", marginBottom: "-3px" }}/> Texto de la Historia *</label>
-                    <textarea required style={{ ...inputStyle, minHeight: "350px", resize: "vertical", fontFamily: "Georgia, serif", fontSize: "15px", lineHeight: "1.6" }} value={formData.content_text} onChange={e => setFormData({...formData, content_text: e.target.value})} placeholder="Érase una vez..." />
+                    <label style={labelStyle}><BookOpen size={16} style={{ display: "inline", marginBottom: "-3px" }}/>{tr("Texto de la Historia *")}</label>
+                    <textarea required style={{ ...inputStyle, minHeight: "350px", resize: "vertical", fontFamily: "Georgia, serif", fontSize: "15px", lineHeight: "1.6" }} value={formData.content_text} onChange={e => setFormData({...formData, content_text: e.target.value})} placeholder={tr("Érase una vez...")} />
                   </div>
                   {isNewStory && (
                     <div>
-                      <label style={labelStyle}>Portada de la obra (opcional, solo imagen)</label>
+                      <label style={labelStyle}>{tr("Portada de la obra (opcional, solo imagen)")}</label>
                       <div style={dropzoneStyle(!!thumbFile, "var(--state-info-bg)")}>
                         <input type="file" accept="image/*" onChange={e => setThumbFile(e.target.files?.[0] || null)} style={{ display: "none" }} id="thumb-file-fanfic" />
                         <label htmlFor="thumb-file-fanfic" style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
                           {thumbFile ? <CheckCircle2 color="var(--state-info-fg)" /> : <ImagePlus color="var(--state-info-fg)" />}
-                          <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--state-info-fg)" }}>{thumbFile ? thumbFile.name : "Subir portada (JPG/PNG)"}</span>
+                          <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--state-info-fg)" }}>{thumbFile ? thumbFile.name : tr("Subir portada (JPG/PNG)")}</span>
                         </label>
                       </div>
                     </div>
@@ -2967,23 +2963,23 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               ) : (
                 <>
                   <div data-tour="pub-archivo">
-                    <label style={labelStyle}>1. Archivo Principal (PDF, Vídeo o Imagen) *</label>
+                    <label style={labelStyle}>{tr("1. Archivo Principal (PDF, Vídeo o Imagen) *")}</label>
                     <div style={dropzoneStyle(!!file)}>
                       <input type="file" accept="image/*,video/*,application/pdf" onChange={e => setFile(e.target.files?.[0] || null)} style={{ display: "none" }} id="main-file" />
                       <label htmlFor="main-file" style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
                         {file ? <CheckCircle2 color="var(--color-primary)" /> : <UploadCloud color="var(--color-primary)" />}
-                        <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--color-primary)" }}>{file ? file.name : "Subir contenido"}</span>
+                        <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--color-primary)" }}>{file ? file.name : tr("Subir contenido")}</span>
                       </label>
                     </div>
                   </div>
 
                   <div>
-                    <label style={labelStyle}>{formData.category === "Fanfics" ? "Portada (Opcional pero recomendada)" : `2. Portada (Solo Imagen) ${file?.type?.includes('image') ? ' (Opcional)' : '*'}`}</label>
+                    <label style={labelStyle}>{formData.category === "Fanfics" ? tr("Portada (Opcional pero recomendada)") : `2. Portada (Solo Imagen) ${file?.type?.includes('image') ? ' (Opcional)' : '*'}`}</label>
                     <div style={dropzoneStyle(!!thumbFile, "var(--state-info-bg)")}>
                       <input type="file" accept="image/*" onChange={e => setThumbFile(e.target.files?.[0] || null)} style={{ display: "none" }} id="thumb-file" />
                       <label htmlFor="thumb-file" style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
                         {thumbFile ? <CheckCircle2 color="var(--state-info-fg)" /> : <ImagePlus color="var(--state-info-fg)" />}
-                        <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--state-info-fg)" }}>{thumbFile ? thumbFile.name : "Subir portada (JPG/PNG)"}</span>
+                        <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--state-info-fg)" }}>{thumbFile ? thumbFile.name : tr("Subir portada (JPG/PNG)")}</span>
                       </label>
                     </div>
                   </div>
@@ -2992,7 +2988,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
               <label data-tour="pub-nsfw" style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", padding: "15px", backgroundColor: formData.is_nsfw ? "var(--bg-soft)" : "transparent", borderRadius: "12px", border: formData.is_nsfw ? "1px solid var(--color-border)" : "1px solid transparent", transition: "0.2s" }}>
                 <input type="checkbox" checked={formData.is_nsfw} onChange={e => setFormData({...formData, is_nsfw: e.target.checked})} style={{ width: "20px", height: "20px", accentColor: "var(--color-primary)" }} />
-                <span style={{ fontSize: "14px", color: "var(--color-primary)", fontWeight: 800 }}>🔞 Marcar como Contenido +18</span>
+                <span style={{ fontSize: "14px", color: "var(--color-primary)", fontWeight: 800 }}>{tr("🔞 Marcar como Contenido +18")}</span>
               </label>
 
               <button data-tour="pub-publicar" type="submit" disabled={loading} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "20px", borderRadius: "15px", fontWeight: 900, fontSize: "16px", cursor: loading ? "not-allowed" : "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginTop: "10px", boxShadow: "0 10px 20px var(--shadow-card)" }}>
@@ -3006,7 +3002,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", borderBottom: "2px dashed var(--color-border)", paddingBottom: "15px" }}>
                 <Users color="var(--color-primary)" size={28} />
-                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Administración de Cuentas</h2>
+                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>{tr("Administración de Cuentas")}</h2>
               </div>
 
               {usersOverviewError && (
@@ -3016,26 +3012,24 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               {!usersListOpen ? (
                 <>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-                    <p style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: 700, margin: 0 }}>Resumen de altas, bajas y cuentas pendientes de confirmar. Entra en cada tipo para ver el listado y actuar.</p>
+                    <p style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: 700, margin: 0 }}>{tr("Resumen de altas, bajas y cuentas pendientes de confirmar. Entra en cada tipo para ver el listado y actuar.")}</p>
                     <button
                       type="button"
                       onClick={() => void cargarResumenUsuarios()}
                       disabled={usersOverviewLoading}
                       style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", cursor: usersOverviewLoading ? "wait" : "pointer", fontWeight: 800, display: "flex", alignItems: "center", gap: "6px" }}
                     >
-                      {usersOverviewLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}
-                      Actualizar
-                    </button>
+                      {usersOverviewLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}{tr("Actualizar")}</button>
                   </div>
 
                   <div style={{ background: "var(--bg-main)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "18px" }}>
-                    <div style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", marginBottom: "12px" }}>Distribución de cuentas</div>
+                    <div style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", marginBottom: "12px" }}>{tr("Distribución de cuentas")}</div>
                     {(() => {
                       const bars = [
-                        { id: "alta" as AdminUsersFilter, label: "Alta", count: usersSummary.alta, color: "var(--state-success-fg)" },
-                        { id: "pendiente" as AdminUsersFilter, label: "Pendiente", count: usersSummary.pendiente, color: "var(--state-warning-fg)" },
-                        { id: "restringido" as AdminUsersFilter, label: "Restringidos", count: usersSummary.restringido, color: "var(--state-danger-fg)" },
-                        { id: "baja" as AdminUsersFilter, label: "Baja", count: usersSummary.baja, color: "var(--text-muted)" },
+                        { id: "alta" as AdminUsersFilter, label: tr("Alta"), count: usersSummary.alta, color: "var(--state-success-fg)" },
+                        { id: "pendiente" as AdminUsersFilter, label: tr("Pendiente"), count: usersSummary.pendiente, color: "var(--state-warning-fg)" },
+                        { id: "restringido" as AdminUsersFilter, label: tr("Restringidos"), count: usersSummary.restringido, color: "var(--state-danger-fg)" },
+                        { id: "baja" as AdminUsersFilter, label: tr("Baja"), count: usersSummary.baja, color: "var(--text-muted)" },
                       ];
                       const max = Math.max(1, ...bars.map((b) => b.count));
                       return (
@@ -3058,28 +3052,28 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 
                   <div data-tour="usr-resumen" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
                     {[
-                      { id: "todos" as AdminUsersFilter, label: "Total", count: usersSummary.total, hint: "Todas las cuentas" },
-                      { id: "alta" as AdminUsersFilter, label: "Dados de alta", count: usersSummary.alta, hint: "Email confirmado y activos" },
-                      { id: "pendiente" as AdminUsersFilter, label: "Pendientes", count: usersSummary.pendiente, hint: "Sin confirmar el email" },
-                      { id: "baja" as AdminUsersFilter, label: "Dados de baja", count: usersSummary.baja, hint: "Eliminados o suspendidos" },
-                      { id: "restringido" as AdminUsersFilter, label: "Restringidos", count: usersSummary.restringido, hint: "Cuentas con sanción" },
-                      { id: "premium" as AdminUsersFilter, label: "Premium", count: usersSummary.premium, hint: "Plan de pago" },
-                      { id: "artista" as AdminUsersFilter, label: "Artistas", count: usersSummary.artistas, hint: "Verificados" },
-                      { id: "sin_perfil" as AdminUsersFilter, label: "Sin perfil", count: usersSummary.sinPerfil, hint: "Alta incompleta" },
+                      { id: "todos" as AdminUsersFilter, label: tr("Total"), count: usersSummary.total, hint: tr("Todas las cuentas") },
+                      { id: "alta" as AdminUsersFilter, label: tr("Dados de alta"), count: usersSummary.alta, hint: tr("Email confirmado y activos") },
+                      { id: "pendiente" as AdminUsersFilter, label: tr("Pendientes"), count: usersSummary.pendiente, hint: tr("Sin confirmar el email") },
+                      { id: "baja" as AdminUsersFilter, label: tr("Dados de baja"), count: usersSummary.baja, hint: tr("Eliminados o suspendidos") },
+                      { id: "restringido" as AdminUsersFilter, label: tr("Restringidos"), count: usersSummary.restringido, hint: tr("Cuentas con sanción") },
+                      { id: "premium" as AdminUsersFilter, label: tr("Premium"), count: usersSummary.premium, hint: tr("Plan de pago") },
+                      { id: "artista" as AdminUsersFilter, label: tr("Artistas"), count: usersSummary.artistas, hint: tr("Verificados") },
+                      { id: "sin_perfil" as AdminUsersFilter, label: tr("Sin perfil"), count: usersSummary.sinPerfil, hint: tr("Alta incompleta") },
                     ].map((card) => (
                       <div key={card.id} style={{ background: "var(--bg-main)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
                         <div style={{ fontSize: "11px", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>{card.label}</div>
                         <div style={{ fontSize: "28px", fontWeight: 900, color: "var(--color-primary)", lineHeight: 1 }}>{usersOverviewLoading && usersOverview.length === 0 ? "…" : card.count}</div>
                         <div style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700 }}>{card.hint}</div>
                         <button type="button" onClick={() => openUsersList(card.id)} style={{ marginTop: "auto", background: "var(--color-primary)", color: "var(--bg-card)", border: "none", borderRadius: "10px", padding: "8px 10px", cursor: "pointer", fontWeight: 900, fontSize: "12px" }}>
-                          Ver listado
+                          {tr("Ver listado")}
                         </button>
                       </div>
                     ))}
                   </div>
                   <input
                     style={{ ...inputStyle, padding: "14px 16px", fontSize: "15px" }}
-                    placeholder="Buscar un usuario para abrir su ficha con acciones..."
+                    placeholder={tr("Buscar un usuario para abrir su ficha con acciones...")}
                     value={usersOverviewSearch}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -3096,7 +3090,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       onClick={() => { setUsersListOpen(false); setUsersOverviewSearch(""); setOpenUserActionsId(null); }}
                       style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", cursor: "pointer", fontWeight: 800, display: "flex", alignItems: "center", gap: "6px" }}
                     >
-                      <ChevronLeft size={16} /> Volver al resumen
+                      <ChevronLeft size={16} /> {tr("Volver al resumen")}
                     </button>
                     <button
                       type="button"
@@ -3104,29 +3098,27 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       disabled={usersOverviewLoading}
                       style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", cursor: usersOverviewLoading ? "wait" : "pointer", fontWeight: 800, display: "flex", alignItems: "center", gap: "6px" }}
                     >
-                      {usersOverviewLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}
-                      Actualizar
-                    </button>
+                      {usersOverviewLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}{tr("Actualizar")}</button>
                   </div>
                   <h3 style={{ margin: 0, color: "var(--color-primary)", fontSize: "18px", fontWeight: 900 }}>
                     {usersFilterTitle[usersOverviewFilter]} ({usersOverviewFiltered.length})
                   </h3>
                   <input
                     style={{ ...inputStyle, padding: "14px 16px", fontSize: "15px" }}
-                    placeholder="Filtra este listado por nombre, email o id..."
+                    placeholder={tr("Filtra este listado por nombre, email o id...")}
                     value={usersOverviewSearch}
                     onChange={(e) => setUsersOverviewSearch(e.target.value)}
                   />
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                     {([
-                      ["todos", "Todos"],
-                      ["alta", "Alta"],
-                      ["pendiente", "Pendientes"],
-                      ["baja", "Baja"],
-                      ["restringido", "Restringidos"],
-                      ["premium", "Premium"],
-                      ["artista", "Artistas"],
-                      ["sin_perfil", "Sin perfil"],
+                      ["todos", tr("Todos")],
+                      ["alta", tr("Alta")],
+                      ["pendiente", tr("Pendientes")],
+                      ["baja", tr("Baja")],
+                      ["restringido", tr("Restringidos")],
+                      ["premium", tr("Premium")],
+                      ["artista", tr("Artistas")],
+                      ["sin_perfil", tr("Sin perfil")],
                     ] as Array<[AdminUsersFilter, string]>).map(([id, label]) => (
                       <button
                         key={id}
@@ -3150,10 +3142,10 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                   <div style={{ border: "1px solid var(--color-border)", borderRadius: "16px", overflow: "hidden", background: "var(--bg-card)" }}>
                     {usersOverviewLoading && usersOverview.length === 0 ? (
                       <div style={{ padding: "20px", color: "var(--text-muted)", fontWeight: 800, display: "flex", alignItems: "center", gap: "8px" }}>
-                        <Loader2 size={14} className="spinner" /> Cargando usuarios...
+                        <Loader2 size={14} className="spinner" /> {tr("Cargando usuarios...")}
                       </div>
                     ) : usersOverviewFiltered.length === 0 ? (
-                      <div style={{ padding: "20px", color: "var(--text-muted)", fontWeight: 800 }}>No hay usuarios en este grupo.</div>
+                      <div style={{ padding: "20px", color: "var(--text-muted)", fontWeight: 800 }}>{tr("No hay usuarios en este grupo.")}</div>
                     ) : (
                       usersOverviewFiltered.map((u) => renderAdminUserCard(u))
                     )}
@@ -3166,7 +3158,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
           {/* PESTAÑA SOLICITUDES */}
           {activeTab === "solicitudes" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-              <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Bandeja de Solicitudes</h2>
+              <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>{tr("Bandeja de Solicitudes")}</h2>
               <AdminQueueFilters
                 tour="sol-filtros"
                 queue="solicitud"
@@ -3182,7 +3174,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               
               {(() => {
                 const visible = solicitudes.filter((sol) => caseMatchesFilters(caseOf("solicitud", sol.id), solFiltroStatus, solFiltroGestor, solFiltroUser, `${sol.nombre || ""} ${sol.email || ""}`, solFiltroLeido));
-                if (solicitudes.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700}}>No hay solicitudes.</p>;
+                if (solicitudes.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700}}>{tr("No hay solicitudes.")}</p>;
                 return (
                   <>
                     <ReadSelectionBar
@@ -3192,7 +3184,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       onChange={setSelectedSolicitudIds}
                       onMark={(ids, leido) => void markQueueRead("solicitud", ids, leido)}
                     />
-                    {visible.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>Nada con estos filtros.</p> : visible.map((sol, solIndex) => {
+                    {visible.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>{tr("Nada con estos filtros.")}</p> : visible.map((sol, solIndex) => {
                   const rawText = sol.comentarios || "";
                   const links = rawText.match(/(https?:\/\/[^\s"]+)/g) || [];
                   const adjuntos = (Array.from(new Set(links)) as string[]).filter((l: string) => !l.includes('ui-avatars'));
@@ -3203,17 +3195,17 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                   return (
                     <div id={`admin-case-solicitud-${sol.id}`} data-tour={solIndex === 0 ? "sol-card" : undefined} className="sol-card" key={sol.id} style={{ border: "1px solid var(--color-border)", padding: isMobile ? "12px" : "20px", borderRadius: "16px", background: selectedSolicitudIds.has(sol.id) ? "var(--bg-soft)" : "var(--bg-main)", boxShadow: highlightCase === `admin-case-solicitud-${sol.id}` ? "0 0 0 3px var(--color-primary)" : "0 4px 12px var(--shadow-card)" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <input type="checkbox" checked={selectedSolicitudIds.has(sol.id)} onChange={(e) => { const next = new Set(selectedSolicitudIds); e.target.checked ? next.add(sol.id) : next.delete(sol.id); setSelectedSolicitudIds(next); }} style={{ accentColor: "var(--color-primary)", marginTop: 4 }} aria-label="Seleccionar" />
+                        <input type="checkbox" checked={selectedSolicitudIds.has(sol.id)} onChange={(e) => { const next = new Set(selectedSolicitudIds); e.target.checked ? next.add(sol.id) : next.delete(sol.id); setSelectedSolicitudIds(next); }} style={{ accentColor: "var(--color-primary)", marginTop: 4 }} aria-label={tr("Seleccionar")} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                            <strong style={{ color: "var(--text-main)", fontSize: 15, overflowWrap: "anywhere" }}>{sol.nombre || "Solicitud"}</strong>
+                            <strong style={{ color: "var(--text-main)", fontSize: 15, overflowWrap: "anywhere" }}>{sol.nombre || tr("Solicitud")}</strong>
                             <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 900, textTransform: "uppercase", color: "var(--color-primary)", background: "var(--bg-soft)", borderRadius: 8, padding: "3px 8px" }}>{statusLabel(caso.status)}</span>
                           </div>
                           <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted)", fontWeight: 700, overflowWrap: "anywhere" }}>{sol.email}</p>
                         </div>
                         {isMobile && (
                           <button type="button" onClick={() => setOpenSolicitudId(expanded ? null : sol.id)} style={{ flexShrink: 0, background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 10px", fontWeight: 900, fontSize: 12, cursor: "pointer" }}>
-                            {expanded ? "Cerrar" : "Abrir"}
+                            {expanded ? tr("Cerrar") : tr("Abrir")}
                           </button>
                         )}
                       </div>
@@ -3221,19 +3213,19 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       <>
                       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px", marginTop: 14 }}>
                         <div style={{ minWidth: 0 }}>
-                          <p style={{margin: "0 0 8px 0", fontSize: "14px", overflowWrap: "anywhere"}}><strong>Redes:</strong> {sol.redes}</p>
-                          <p style={{margin: "15px 0 5px 0", fontSize: "13px", color: "var(--color-primary)", fontWeight: 800}}>MENSAJE DEL ARTISTA:</p>
-                          <p style={{margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: "14px", color: "var(--text-main)", lineHeight: "1.5"}}>{textoLimpio || "[Sin mensaje]"}</p>
+                          <p style={{margin: "0 0 8px 0", fontSize: "14px", overflowWrap: "anywhere"}}><strong>{tr("Redes:")}</strong> {sol.redes}</p>
+                          <p style={{margin: "15px 0 5px 0", fontSize: "13px", color: "var(--color-primary)", fontWeight: 800}}>{tr("MENSAJE DEL ARTISTA:")}</p>
+                          <p style={{margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: "14px", color: "var(--text-main)", lineHeight: "1.5"}}>{textoLimpio || tr("[Sin mensaje]")}</p>
                         </div>
                         <div style={{ minWidth: 0 }}>
                           <p style={{margin: "0 0 10px 0", fontSize: "13px", color: "var(--color-primary)", fontWeight: 800}}>ARCHIVOS ADJUNTOS ({adjuntos.length}):</p>
                           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                             {adjuntos.length > 0 ? (
                               <button onClick={(e) => { e.preventDefault(); openVisor(adjuntos); }} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", padding: "10px 15px", background: "var(--color-primary)", color: "var(--bg-card)", border: "none", borderRadius: "12px", fontWeight: 900, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px var(--shadow-card)" }}>
-                                <FilePlus size={16} /> VER ADJUNTOS EN GALERÍA
+                                <FilePlus size={16} /> {tr("VER ADJUNTOS EN GALERÍA")}
                               </button>
                             ) : (
-                              <div style={{ padding: "15px", background: "var(--bg-soft)", borderRadius: "12px", textAlign: "center" }}><p style={{ fontSize: "13px", color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>No hay archivos.</p></div>
+                              <div style={{ padding: "15px", background: "var(--bg-soft)", borderRadius: "12px", textAlign: "center" }}><p style={{ fontSize: "13px", color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>{tr("No hay archivos.")}</p></div>
                             )}
                           </div>
                         </div>
@@ -3249,19 +3241,19 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                         />
                       </div>
                       <div data-tour={solIndex === 0 ? "sol-acciones" : undefined} className="sol-actions" style={{ marginTop: "16px", paddingTop: "15px", borderTop: "1px dashed var(--color-border)", display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                        <button onClick={(e) => aprobarArtista(sol.user_id, sol.nombre, false, e, sol.id)} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Aprobar como Artista</button>
-                        <button type="button" onClick={() => openPublishFor(sol.user_id, sol.nombre || "")} style={{ background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-primary)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Publicar su obra</button>
-                        <button onClick={() => void saveQueueCase("solicitud", sol.id, { status: "denegada", leido: true }, "estado", "Denegada")} style={{ background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>Denegar</button>
+                        <button onClick={(e) => aprobarArtista(sol.user_id, sol.nombre, false, e, sol.id)} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>{tr("Aprobar como Artista")}</button>
+                        <button type="button" onClick={() => openPublishFor(sol.user_id, sol.nombre || "")} style={{ background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-primary)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>{tr("Publicar su obra")}</button>
+                        <button onClick={() => void saveQueueCase("solicitud", sol.id, { status: "denegada", leido: true }, "estado", tr("Denegada"))} style={{ background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "10px 20px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}>{tr("Denegar")}</button>
                       </div>
                       <UserCaseHistory
                         tour={solIndex === 0 ? "sol-historial" : undefined}
                         noun="solicitudes"
-                        name={sol.nombre || "este usuario"}
+                        name={sol.nombre || tr("este usuario")}
                         onOpen={(id) => revealCase("solicitud", id)}
                         rows={historyRowsFor("solicitud", solicitudes.filter((other) => other.id === sol.id || (sol.user_id && other.user_id === sol.user_id) || (!sol.user_id && sol.email && String(other.email || "").toLowerCase() === String(sol.email).toLowerCase())).map((other) => ({
                           id: other.id,
                           when: other.created_at,
-                          title: other.nombre || "Solicitud",
+                          title: other.nombre || tr("Solicitud"),
                         })))}
                       />
                       </>
@@ -3279,14 +3271,14 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
           {activeTab === "denuncias" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
-              <h2 style={{ color: "var(--color-primary)", margin: "0 0 20px 0", fontSize: "20px", fontWeight: 900 }}>Bandeja de Moderación</h2>
+              <h2 style={{ color: "var(--color-primary)", margin: "0 0 20px 0", fontSize: "20px", fontWeight: 900 }}>{tr("Bandeja de Moderación")}</h2>
 
 {/* CONTENEDOR DE FILTROS ALINEADOS A LA IZQUIERDA */}
 <div data-tour="den-filtros" style={{ display: "flex", flexDirection: "row", gap: "15px", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "25px" }}>
   
   {/* FILTRO DE CATEGORÍA (ESTILO PÍLDORA MORADA) */}
   <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-    <span style={{ fontWeight: 900, fontSize: "11px", color: "var(--color-primary)", textTransform: "uppercase", marginLeft: "10px" }}>Categoría</span>
+    <span style={{ fontWeight: 900, fontSize: "11px", color: "var(--color-primary)", textTransform: "uppercase", marginLeft: "10px" }}>{tr("Categoría")}</span>
     <div style={{ 
       display: "flex", alignItems: "center", gap: "10px", background: "var(--bg-soft)", 
       padding: "8px 16px", borderRadius: "99px", border: "1px solid var(--color-border)" 
@@ -3298,10 +3290,10 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
         onChange={(e) => setFiltroDenuncia(e.target.value)} 
         style={{ border: "none", background: "transparent", outline: "none", color: "var(--color-primary)", fontWeight: 800, fontSize: "13px", cursor: "pointer" }}
       >
-        <option value="all">📁 Todas las denuncias</option>
-        <option value="comentario">💬 Comentarios</option>
-        <option value="obra">🎨 Obras / Publicaciones</option>
-        <option value="abuso">🛡️ Reporte de Abuso General</option>
+        <option value="all">{tr("📁 Todas las denuncias")}</option>
+        <option value="comentario">{tr("💬 Comentarios")}</option>
+        <option value="obra">{tr("🎨 Obras / Publicaciones")}</option>
+        <option value="abuso">{tr("🛡️ Reporte de Abuso General")}</option>
       </select>
     </div>
   </div>
@@ -3325,7 +3317,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 <div style={{ display: "flex", gap: "10px", background: "var(--bg-soft)", padding: "10px 15px", borderRadius: "12px", alignItems: "center" }}>
                   <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--text-main)" }}>{selectedDenuncias.size} seleccionadas</span>
                   <button onClick={eliminarDenunciasMasivas} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "6px 12px", borderRadius: "8px", fontWeight: 900, fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Trash2 size={14} /> Eliminar Seleccionadas
+                    <Trash2 size={14} /> {tr("Eliminar Seleccionadas")}
                   </button>
                 </div>
               )}
@@ -3338,13 +3330,13 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 (() => {
                   const denunciasClasificadas = denuncias.map(d => {
                     const raw = JSON.stringify(d).toLowerCase();
-                    let categoria = "Reporte de Abuso";
+                    let categoria = tr("Reporte de Abuso");
                     let filterKey = "abuso";
 
                     if (raw.includes("comentario") || raw.includes("muro artista")) { 
-                      categoria = "Denuncia de Comentario"; filterKey = "comentario"; 
+                      categoria = tr("Denuncia de Comentario"); filterKey = "comentario"; 
                     } else if (raw.includes("publicación") || raw.includes("obra") || d.item_id) { 
-                      categoria = "Denuncia de Obra"; filterKey = "obra"; 
+                      categoria = tr("Denuncia de Obra"); filterKey = "obra"; 
                     }
                     
                     return { ...d, categoria, filterKey };
@@ -3360,7 +3352,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                     denFiltroLeido,
                   ));
 
-                  if (filtradas.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>No hay reportes con estos filtros.</p>;
+                  if (filtradas.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>{tr("No hay reportes con estos filtros.")}</p>;
 
                   return (
                     <>
@@ -3410,10 +3402,8 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
    setSelectedDenuncia({ ...d, estado: caso.status });
    router.push(`/admin-panel?tab=denuncias&reopen=${d.id}`);
 }}
-style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>
-                              Revisar
-                            </button>
-                            <button onClick={() => resolverDenuncia(d.id)} style={{ background: "transparent", color: "var(--text-main)", border: "none", padding: "8px", cursor: "pointer" }} title="Eliminar/Archivar">
+style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>{tr("Revisar")}</button>
+                            <button onClick={() => resolverDenuncia(d.id)} style={{ background: "transparent", color: "var(--text-main)", border: "none", padding: "8px", cursor: "pointer" }} title={tr("Eliminar/Archivar")}>
                               <Trash2 size={20} />
                             </button>
                           </div>
@@ -3427,12 +3417,12 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           />
                           <UserCaseHistory
                             noun="denuncias"
-                            name={d.denunciante?.display_name || "este usuario"}
+                            name={d.denunciante?.display_name || tr("este usuario")}
                             onOpen={(id) => revealCase("denuncia", id)}
                             rows={historyRowsFor("denuncia", denuncias.filter((other) => other.id === d.id || (d.reporter_id && other.reporter_id === d.reporter_id)).map((other) => ({
                               id: other.id,
                               when: other.created_at,
-                              title: other.categoria || other.motivo?.slice?.(0, 60) || "Denuncia",
+                              title: other.categoria || other.motivo?.slice?.(0, 60) || tr("Denuncia"),
                               native: other.estado,
                             })))}
                           />
@@ -3450,9 +3440,9 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           {activeTab === "buzon" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
-                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Buzón de Colaboraciones</h2>
+                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>{tr("Buzón de Colaboraciones")}</h2>
                 <div className="buz-filters" data-tour="buz-filtros" style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 900, fontSize: "12px", color: "var(--color-primary)" }}>ESTADO:</span>
+                  <span style={{ fontWeight: 900, fontSize: "12px", color: "var(--color-primary)" }}>{tr("ESTADO:")}</span>
                   {["todos", "pendiente", "gestionando", "cerrado"].map(est => (
                     <button key={est} onClick={() => setFiltroEstadoBuzon(est)} style={{ padding: "6px 12px", borderRadius: "99px", border: "1px solid var(--color-border)", fontSize: "11px", fontWeight: 800, cursor: "pointer", background: filtroEstadoBuzon === est ? "var(--color-primary)" : "var(--bg-card)", color: filtroEstadoBuzon === est ? "var(--bg-card)" : "var(--color-primary)", textTransform: "uppercase", transition: "0.2s" }}>
                       {est}
@@ -3460,7 +3450,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   ))}
                   {(["todos", "no_leidas", "leidas"] as const).map((id) => (
                     <button key={id} type="button" onClick={() => setBuzonFiltroLeido(id)} style={{ padding: "6px 12px", borderRadius: "99px", border: "1px solid var(--color-border)", fontSize: "11px", fontWeight: 800, cursor: "pointer", background: buzonFiltroLeido === id ? "var(--color-primary)" : "var(--bg-card)", color: buzonFiltroLeido === id ? "var(--bg-card)" : "var(--color-primary)" }}>
-                      {id === "todos" ? "Todas" : id === "no_leidas" ? "No leídas" : "Leídas"}
+                      {id === "todos" ? tr("Todas") : id === "no_leidas" ? tr("No leídas") : tr("Leídas")}
                     </button>
                   ))}
                 </div>
@@ -3470,8 +3460,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 <div style={{ display: "flex", gap: "10px", background: "var(--bg-soft)", padding: "10px 15px", borderRadius: "12px", alignItems: "center" }}>
                   <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--text-main)" }}>{selectedBuzonIds.size} seleccionados</span>
                   <button onClick={eliminarBuzonMasivo} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "6px 12px", borderRadius: "8px", fontWeight: 900, fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Trash2 size={14} /> Eliminar
-                  </button>
+                    <Trash2 size={14} />{tr("Eliminar")}</button>
                 </div>
               )}
               
@@ -3484,7 +3473,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     if (buzonFiltroLeido === "no_leidas" && leido) return false;
                     return true;
                   });
-                  if (filtrados.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>Bandeja limpia.</p>;
+                  if (filtrados.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>{tr("Bandeja limpia.")}</p>;
                   
                   return (
                     <>
@@ -3501,25 +3490,25 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         const status = b.status || "pendiente";
                         return (
                           <div key={b.id} className={selectedBuzonIds.has(b.id) ? "buz-row is-on" : "buz-row"}>
-                            <input type="checkbox" checked={selectedBuzonIds.has(b.id)} onChange={(e) => { const next = new Set(selectedBuzonIds); e.target.checked ? next.add(b.id) : next.delete(b.id); setSelectedBuzonIds(next); }} style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} aria-label="Seleccionar" />
+                            <input type="checkbox" checked={selectedBuzonIds.has(b.id)} onChange={(e) => { const next = new Set(selectedBuzonIds); e.target.checked ? next.add(b.id) : next.delete(b.id); setSelectedBuzonIds(next); }} style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} aria-label={tr("Seleccionar")} />
                             <div className="buz-main">
                               <div className="buz-top">
-                                <strong>{b.asunto || "Sin asunto"}</strong>
+                                <strong>{b.asunto || tr("Sin asunto")}</strong>
                                 <span className="buz-status" style={{ background: status === "cerrado" ? "var(--state-success-bg)" : status === "gestionando" ? "var(--state-warning-bg)" : "var(--bg-soft)", color: status === "cerrado" ? "var(--state-success-fg)" : status === "gestionando" ? "var(--state-warning-fg)" : "var(--color-primary)" }}>{status}</span>
                               </div>
-                              <p className="buz-from">De: {b.userName || "Usuario anónimo"}</p>
+                              <p className="buz-from">{tr("De:")} {b.userName || tr("Usuario anónimo")}</p>
                             </div>
                             <div className="buz-actions">
-                              <button type="button" onClick={() => void saveQueueCase("buzon", b.id, { leido: !leido }, "lectura", leido ? "Marcada como no leída" : "Marcada como leída")}>
-                                <span className="buz-long">{leido ? "Marcar no leída" : "Marcar leída"}</span>
-                                <span className="buz-short">{leido ? "No leída" : "Leída"}</span>
+                              <button type="button" onClick={() => void saveQueueCase("buzon", b.id, { leido: !leido }, "lectura", leido ? tr("Marcada como no leída") : tr("Marcada como leída"))}>
+                                <span className="buz-long">{leido ? tr("Marcar no leída") : tr("Marcar leída")}</span>
+                                <span className="buz-short">{leido ? tr("No leída") : tr("Leída")}</span>
                               </button>
                               <button type="button" onClick={() => {
                                 setSelectedBuzon(b);
                                 router.push(`/admin-panel?tab=buzon&buzonId=${b.id}`);
                               }}>
-                                <span className="buz-long">Abrir hilo</span>
-                                <span className="buz-short">Abrir</span>
+                                <span className="buz-long">{tr("Abrir hilo")}</span>
+                                <span className="buz-short">{tr("Abrir")}</span>
                               </button>
                             </div>
                           </div>
@@ -3534,7 +3523,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   <button onClick={() => {
   setSelectedBuzon(null);
   router.push(`/admin-panel?tab=buzon`);
-}}style={{ background: "none", border: "none", color: "var(--color-primary)", fontWeight: 900, cursor: "pointer", marginBottom: "15px", display: "flex", alignItems: "center", gap: "5px" }}><ChevronLeft size={16}/> Volver al Buzón</button>
+}}style={{ background: "none", border: "none", color: "var(--color-primary)", fontWeight: 900, cursor: "pointer", marginBottom: "15px", display: "flex", alignItems: "center", gap: "5px" }}><ChevronLeft size={16}/>{tr("Volver al Buzón")}</button>
                   
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
@@ -3545,7 +3534,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           onClick={() => router.push(`/me?u=${selectedBuzon.user_id}&fromAdmin=true`)}
                           style={{ textDecoration: "underline", cursor: "pointer", color: "var(--text-main)" }}
                         >
-                          @{selectedBuzon.userName || "Anónimo"}
+                          @{selectedBuzon.userName || tr("Anónimo")}
                         </span> <br/>
                         Email de Contacto: {selectedBuzon.email}
                       </p>
@@ -3556,24 +3545,24 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       setBuzon(prev => prev.map(x => x.id === selectedBuzon.id ? {...x, status: st} : x));
                       await supabase.from('buzon_colaboraciones').update({status: st}).eq('id', selectedBuzon.id);
                     }} style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--color-border)", outline: "none", fontWeight: 900, color: "var(--color-primary)", cursor: "pointer" }}>
-                      <option value="pendiente">Pendiente</option>
-                      <option value="gestionando">Gestionando</option>
-                      <option value="cerrado">Cerrado</option>
+                      <option value="pendiente">{tr("Pendiente")}</option>
+                      <option value="gestionando">{tr("Gestionando")}</option>
+                      <option value="cerrado">{tr("Cerrado")}</option>
                     </select>
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
                     <div style={{ background: "var(--bg-main)", padding: "15px", borderRadius: "12px", border: "1px solid var(--color-border)", fontSize: "14px", lineHeight: "1.5" }}>
-                      <strong style={{ color: "var(--text-main)", fontSize: "12px", display: "block", marginBottom: "5px" }}>MENSAJE ORIGINAL DEL USUARIO:</strong>
+                      <strong style={{ color: "var(--text-main)", fontSize: "12px", display: "block", marginBottom: "5px" }}>{tr("MENSAJE ORIGINAL DEL USUARIO:")}</strong>
                       {selectedBuzon.mensaje}
                      {selectedBuzon.adjuntos && (
   <div style={{ marginTop: "10px", padding: "15px", background: "var(--bg-soft)", borderRadius: "8px", border: "1px dashed var(--color-border)" }}>
-    <strong style={{ fontSize: "11px", color: "var(--color-primary)", display: "block", marginBottom: "5px" }}>🔍 INSPECCIÓN DE SEGURIDAD (URL):</strong>
+    <strong style={{ fontSize: "11px", color: "var(--color-primary)", display: "block", marginBottom: "5px" }}>{tr("🔍 INSPECCIÓN DE SEGURIDAD (URL):")}</strong>
     <code style={{ fontSize: "12px", color: "var(--text-main)", wordBreak: "break-all", display: "block", marginBottom: "10px", background: "var(--color-border)", padding: "5px", borderRadius: "4px" }}>
       {selectedBuzon.adjuntos} 
     </code>
     <a href={selectedBuzon.adjuntos} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--color-primary)", color: "var(--bg-card)", padding: "10px 20px", borderRadius: "10px", fontWeight: 900, textDecoration: "none", fontSize: "13px" }}>
-      <ExternalLink size={16} /> Abrir enlace verificado
+      <ExternalLink size={16} /> {tr("Abrir enlace verificado")}
     </a>
   </div>
 )}
@@ -3591,8 +3580,8 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   </div>
 
                   <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "15px" }}>
-                    <textarea data-tour="buz-nota" rows={3} placeholder="Añade una respuesta o nota interna al hilo..." value={respuestaBuzon} onChange={(e) => setRespuestaBuzon(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", marginBottom: "10px" }} />
-                    <button onClick={enviarRespuestaWeb} style={{ background: "var(--color-primary)", color: "var(--bg-card)", padding: "10px 20px", borderRadius: "10px", fontWeight: 900, cursor: "pointer", border: "none" }}>Guardar Respuesta en Hilo</button>
+                    <textarea data-tour="buz-nota" rows={3} placeholder={tr("Añade una respuesta o nota interna al hilo...")} value={respuestaBuzon} onChange={(e) => setRespuestaBuzon(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", marginBottom: "10px" }} />
+                    <button onClick={enviarRespuestaWeb} style={{ background: "var(--color-primary)", color: "var(--bg-card)", padding: "10px 20px", borderRadius: "10px", fontWeight: 900, cursor: "pointer", border: "none" }}>{tr("Guardar Respuesta en Hilo")}</button>
                   </div>
                 </div>
               )}
@@ -3603,7 +3592,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           {activeTab === "aportaciones" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
-                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Mejoras de Photocards</h2>
+                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>{tr("Mejoras de Photocards")}</h2>
               </div>
               <AdminQueueFilters
                 tour="apo-filtros"
@@ -3622,8 +3611,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 <div style={{ display: "flex", gap: "10px", background: "var(--bg-soft)", padding: "10px 15px", borderRadius: "12px", alignItems: "center" }}>
                   <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--text-main)" }}>{selectedAportacionIds.size} seleccionadas</span>
                   <button onClick={eliminarAportacionesMasivas} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "6px 12px", borderRadius: "8px", fontWeight: 900, fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Trash2 size={14} /> Eliminar
-                  </button>
+                    <Trash2 size={14} />{tr("Eliminar")}</button>
                 </div>
               )}
 
@@ -3637,7 +3625,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     `${a.userName || ""} ${a.item_id || ""} ${a.origin_title || ""} ${a.group_name || ""} ${a.member_name || ""} ${a.origin_kind || ""}`,
                     apoFiltroLeido,
                   ));
-                  if (filtrados.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>Bandeja limpia.</p>;
+                  if (filtrados.length === 0) return <p style={{color: "var(--text-muted)", fontWeight: 700, textAlign: "center", padding: "20px", background: "var(--bg-card)", borderRadius: "16px", border: "1px dashed var(--color-border)"}}>{tr("Bandeja limpia.")}</p>;
                   
                   return (
                     <>
@@ -3659,10 +3647,10 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             <div>
                               <span style={{ fontWeight: 900, color: "var(--text-main)", fontSize: "16px" }}>Mejora para Photocard #{a.item_id} ({a.face})</span>
                               <div data-tour={apoIndex === 0 ? "apo-origen" : undefined} style={{ marginTop: 4, fontSize: 12, fontWeight: 800, color: "var(--text-main)" }}>
-                                {aportacionOriginLine(a) || "Origen sin indicar"}
+                                {aportacionOriginLine(a) || tr("Origen sin indicar")}
                               </div>
                               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "5px" }}>
-                                <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "bold" }}>Por: {a.userName || "Usuario Anónimo"}</span>
+                                <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "bold" }}>Por: {a.userName || tr("Usuario Anónimo")}</span>
                                 <span style={{ padding: "4px 10px", borderRadius: "8px", fontSize: "10px", fontWeight: 900, textTransform: "uppercase", background: caso.status === "aprobada" ? "var(--state-success-bg)" : caso.status === "denegada" ? "var(--bg-soft)" : "var(--state-warning-bg)", color: caso.status === "aprobada" ? "var(--state-success-fg)" : "var(--color-primary)" }}>{statusLabel(caso.status)}</span>
                               </div>
                             </div>
@@ -3670,7 +3658,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           <button onClick={() => {
   setSelectedAportacion(a);
   router.push(`/admin-panel?tab=aportaciones&aportacionId=${a.id}`);
-}}style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>Revisar</button>
+}}style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>{tr("Revisar")}</button>
                           </div>
                           <AdminQueueBar
                             queue="aportacion"
@@ -3681,7 +3669,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           />
                           <UserCaseHistory
                             noun="aportaciones"
-                            name={a.userName || "este usuario"}
+                            name={a.userName || tr("este usuario")}
                             onOpen={(id) => revealCase("aportacion", id)}
                             rows={historyRowsFor("aportacion", aportaciones.filter((other) => other.id === a.id || (a.user_id && other.user_id === a.user_id)).map((other) => ({
                               id: other.id,
@@ -3702,22 +3690,22 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                      <button onClick={() => {
   setSelectedAportacion(null);
   router.push(`/admin-panel?tab=aportaciones`);
-}}style={{ background: "none", border: "none", color: "var(--color-primary)", fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}><ChevronLeft size={16}/> Volver a la lista</button>
+}}style={{ background: "none", border: "none", color: "var(--color-primary)", fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}><ChevronLeft size={16}/>{tr("Volver a la lista")}</button>
                      
                      <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--text-muted)" }}>
                        Aportado por:{" "}
                        <span 
                          onClick={() => router.push(`/me?u=${selectedAportacion.user_id}&fromAdmin=true`)} 
                          style={{ color: "var(--color-primary)", textDecoration: "underline", cursor: "pointer" }}
-                         title="Ir al perfil para dar K-oins"
+                         title={tr("Ir al perfil para dar K-oins")}
                        >
-                         @{selectedAportacion.userName || "Anónimo"}
+                         @{selectedAportacion.userName || tr("Anónimo")}
                        </span>
                      </span>
                    </div>
                    
                    <div style={{ display: "flex", flexDirection: "column", gap: "15px", alignItems: "center", justifyContent: "center", background: "var(--bg-main)", padding: "20px", borderRadius: "12px" }}>
-                     <img src={selectedAportacion.image_url} style={{ height: "250px", borderRadius: "10px", boxShadow: "0 10px 20px var(--overlay-faint)" }} alt="Nueva" />
+                     <img src={selectedAportacion.image_url} style={{ height: "250px", borderRadius: "10px", boxShadow: "0 10px 20px var(--overlay-faint)" }} alt={tr("Nueva")} />
                      
                      <button 
   onClick={async (e) => {
@@ -3740,7 +3728,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
   }}
   style={{ display: "flex", alignItems: "center", gap: "8px", background: "var(--color-primary)", color: "var(--bg-card)", padding: "10px 20px", borderRadius: "10px", fontWeight: 900, border: "none", cursor: "pointer", fontSize: "13px", boxShadow: "0 4px 10px var(--shadow-card)" }}
 >
-  <Download size={16} /> Descargar y Volver
+  <Download size={16} /> {tr("Descargar y Volver")}
 </button>
   </div>
                    
@@ -3766,8 +3754,8 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   </div>
 
                   <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "15px" }}>
-                    <textarea rows={3} placeholder="Añade una nota interna sobre esta aportación (ej: 'Le pedí otra foto por correo')..." value={respuestaAportacion} onChange={(e) => setRespuestaAportacion(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", marginBottom: "10px" }} />
-                    <button onClick={enviarRespuestaAportacion} style={{ background: "var(--color-primary)", color: "var(--bg-card)", padding: "10px 20px", borderRadius: "10px", fontWeight: 900, cursor: "pointer", border: "none" }}>Guardar Nota Interna</button>
+                    <textarea rows={3} placeholder={tr("Añade una nota interna sobre esta aportación (ej: 'Le pedí otra foto por correo')...")} value={respuestaAportacion} onChange={(e) => setRespuestaAportacion(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", marginBottom: "10px" }} />
+                    <button onClick={enviarRespuestaAportacion} style={{ background: "var(--color-primary)", color: "var(--bg-card)", padding: "10px 20px", borderRadius: "10px", fontWeight: 900, cursor: "pointer", border: "none" }}>{tr("Guardar Nota Interna")}</button>
                   </div>
 
                 </div>
@@ -3779,46 +3767,46 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", borderBottom: "2px dashed var(--color-border)", paddingBottom: "15px" }}>
                 <Sparkles color="var(--color-primary)" size={28} />
-                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Campañas de Publicidad</h2>
+                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>{tr("Campañas de Publicidad")}</h2>
               </div>
 
               <div data-tour="ad-copy" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "14px" }}>
-                <input style={inputStyle} placeholder="Titulo del anuncio*" value={adForm.title} onChange={(e) => setAdForm((p) => ({ ...p, title: e.target.value }))} />
-                <input style={inputStyle} placeholder="Subtitulo" value={adForm.subtitle} onChange={(e) => setAdForm((p) => ({ ...p, subtitle: e.target.value }))} />
-                <input style={inputStyle} placeholder="URL destino*" value={adForm.target_url} onChange={(e) => setAdForm((p) => ({ ...p, target_url: e.target.value }))} />
-                <input style={inputStyle} placeholder="URL imagen (opcional)" value={adForm.image_url} onChange={(e) => setAdForm((p) => ({ ...p, image_url: e.target.value }))} />
+                <input style={inputStyle} placeholder={tr("Titulo del anuncio*")} value={adForm.title} onChange={(e) => setAdForm((p) => ({ ...p, title: e.target.value }))} />
+                <input style={inputStyle} placeholder={tr("Subtitulo")} value={adForm.subtitle} onChange={(e) => setAdForm((p) => ({ ...p, subtitle: e.target.value }))} />
+                <input style={inputStyle} placeholder={tr("URL destino*")} value={adForm.target_url} onChange={(e) => setAdForm((p) => ({ ...p, target_url: e.target.value }))} />
+                <input style={inputStyle} placeholder={tr("URL imagen (opcional)")} value={adForm.image_url} onChange={(e) => setAdForm((p) => ({ ...p, image_url: e.target.value }))} />
                 <select data-tour="ad-hueco" style={inputStyle} value={adForm.placement} onChange={(e) => setAdForm((p) => ({ ...p, placement: e.target.value as AdPlacement }))}>
-                  <option value="sidebar_left">Sidebar izquierda</option>
-                  <option value="sidebar_right">Sidebar derecha</option>
-                  <option value="tablet_sidebar">Tablet inline</option>
-                  <option value="mobile_inline_top">Movil inline superior</option>
-                  <option value="mobile_inline_bottom">Movil inline inferior</option>
+                  <option value="sidebar_left">{tr("Sidebar izquierda")}</option>
+                  <option value="sidebar_right">{tr("Sidebar derecha")}</option>
+                  <option value="tablet_sidebar">{tr("Tablet inline")}</option>
+                  <option value="mobile_inline_top">{tr("Movil inline superior")}</option>
+                  <option value="mobile_inline_bottom">{tr("Movil inline inferior")}</option>
                 </select>
                 <select data-tour="ad-dispositivo" style={inputStyle} value={adForm.device} onChange={(e) => setAdForm((p) => ({ ...p, device: e.target.value as AdDevice }))}>
-                  <option value="desktop">Desktop</option>
-                  <option value="tablet">Tablet</option>
-                  <option value="mobile">Movil</option>
+                  <option value="desktop">{tr("Desktop")}</option>
+                  <option value="tablet">{tr("Tablet")}</option>
+                  <option value="mobile">{tr("Movil")}</option>
                 </select>
-                <input style={inputStyle} placeholder="Seccion (all, market, fanart...)" value={adForm.section} onChange={(e) => setAdForm((p) => ({ ...p, section: e.target.value }))} />
-                <input style={inputStyle} type="number" placeholder="Prioridad" value={adForm.priority} onChange={(e) => setAdForm((p) => ({ ...p, priority: Number(e.target.value || 0) }))} />
+                <input style={inputStyle} placeholder={tr("Seccion (all, market, fanart...)")} value={adForm.section} onChange={(e) => setAdForm((p) => ({ ...p, section: e.target.value }))} />
+                <input style={inputStyle} type="number" placeholder={tr("Prioridad")} value={adForm.priority} onChange={(e) => setAdForm((p) => ({ ...p, priority: Number(e.target.value || 0) }))} />
                 <input style={inputStyle} type="datetime-local" value={adForm.start_at} onChange={(e) => setAdForm((p) => ({ ...p, start_at: e.target.value }))} />
                 <input style={inputStyle} type="datetime-local" value={adForm.end_at} onChange={(e) => setAdForm((p) => ({ ...p, end_at: e.target.value }))} />
               </div>
 
               <label data-tour="ad-activar" style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, color: "var(--color-primary)" }}>
                 <input type="checkbox" checked={adForm.active} onChange={(e) => setAdForm((p) => ({ ...p, active: e.target.checked }))} />
-                Campaña activa
+                {tr("Campaña activa")}
               </label>
 
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                 <button onClick={saveAdCampaign} disabled={loading} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "12px 20px", borderRadius: "10px", fontWeight: 900, cursor: "pointer" }}>
-                  {loading ? "Guardando..." : adForm.id ? "Guardar cambios" : "Crear campaña"}
+                  {loading ? tr("Guardando...") : adForm.id ? tr("Guardar cambios") : tr("Crear campaña")}
                 </button>
                 <button onClick={resetAdForm} style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "12px 20px", borderRadius: "10px", fontWeight: 900, cursor: "pointer" }}>
-                  Limpiar formulario
+                  {tr("Limpiar formulario")}
                 </button>
                 <button onClick={fetchAdCampaigns} style={{ background: "var(--bg-card)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "12px 20px", borderRadius: "10px", fontWeight: 900, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <RefreshCw size={16} /> Recargar campañas
+                  <RefreshCw size={16} /> {tr("Recargar campañas")}
                 </button>
               </div>
 
@@ -3832,13 +3820,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => editAdCampaign(ad)} style={{ border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--color-primary)", borderRadius: 10, padding: "8px 10px", fontWeight: 900, cursor: "pointer" }}>Editar</button>
-                      <button onClick={() => deleteAdCampaign(ad.id)} style={{ border: "1px solid var(--state-danger-border)", background: "var(--state-danger-bg)", color: "var(--state-danger-fg)", borderRadius: 10, padding: "8px 10px", fontWeight: 900, cursor: "pointer" }}>Eliminar</button>
+                      <button onClick={() => editAdCampaign(ad)} style={{ border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--color-primary)", borderRadius: 10, padding: "8px 10px", fontWeight: 900, cursor: "pointer" }}>{tr("Editar")}</button>
+                      <button onClick={() => deleteAdCampaign(ad.id)} style={{ border: "1px solid var(--state-danger-border)", background: "var(--state-danger-bg)", color: "var(--state-danger-fg)", borderRadius: 10, padding: "8px 10px", fontWeight: 900, cursor: "pointer" }}>{tr("Eliminar")}</button>
                     </div>
                   </div>
                 ))}
                 {!adCampaigns.length && (
-                  <div style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 14 }}>No hay campañas creadas todavía.</div>
+                  <div style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 14 }}>{tr("No hay campañas creadas todavía.")}</div>
                 )}
               </div>
             </div>
@@ -3848,7 +3836,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             <div style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", borderBottom: "2px dashed var(--color-border)", paddingBottom: "15px", flexWrap: "wrap" }}>
                 <Tags color="var(--color-primary)" size={28} />
-                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>Grupos y miembros</h2>
+                <h2 style={{ color: "var(--color-primary)", margin: 0, fontSize: "20px", fontWeight: 900 }}>{tr("Grupos y miembros")}</h2>
                 <button
                   type="button"
                   onClick={() => void loadCatalog()}
@@ -3867,15 +3855,15 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     cursor: catalogLoading ? "wait" : "pointer",
                   }}
                 >
-                  <RefreshCw size={16} /> Recargar
+                  <RefreshCw size={16} /> {tr("Recargar")}
                 </button>
               </div>
               <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.55 }}>
-                Lo que pongas en nombre e imágenes es lo que verán los usuarios en el alta y en el perfil. El slug es solo para uso interno (opcional).
+                {tr("Lo que pongas en nombre e imágenes es lo que verán los usuarios en el alta y en el perfil. El slug es solo para uso interno (opcional).")}
               </p>
               <details style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>
                 <summary style={{ cursor: "pointer", color: "var(--color-primary)", fontWeight: 800 }}>
-                  Primera vez: Storage y slugs en Supabase
+                  {tr("Primera vez: Storage y slugs en Supabase")}
                 </summary>
                 <p style={{ margin: "10px 0 0 0", lineHeight: 1.5 }}>
                   Para que la subida de archivos funcione, en Supabase (SQL Editor) ejecuta{" "}
@@ -3893,27 +3881,27 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px", alignItems: "start" }}>
                     <div data-tour="cat-grupo" style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)" }}>
-                      <h3 style={{ margin: "0 0 14px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>Grupo</h3>
-                      <label style={labelStyle}>Nombre (visible)</label>
+                      <h3 style={{ margin: "0 0 14px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>{tr("Grupo")}</h3>
+                      <label style={labelStyle}>{tr("Nombre (visible)")}</label>
                       <input
                         style={inputStyle}
                         value={catalogGroupForm.name}
                         onChange={(e) => setCatalogGroupForm((p) => ({ ...p, name: e.target.value }))}
-                        placeholder="Ej: Stray Kids"
+                        placeholder={tr("Ej: Stray Kids")}
                       />
-                      <label style={{ ...labelStyle, marginTop: 12 }}>Slug interno (opcional)</label>
+                      <label style={{ ...labelStyle, marginTop: 12 }}>{tr("Slug interno (opcional)")}</label>
                       <input
                         style={inputStyle}
                         value={catalogGroupForm.slug}
                         onChange={(e) => setCatalogGroupForm((p) => ({ ...p, slug: e.target.value }))}
                         placeholder="stray-kids"
                       />
-                      <label style={{ ...labelStyle, marginTop: 12 }}>Logo (pega una URL o elige un archivo)</label>
+                      <label style={{ ...labelStyle, marginTop: 12 }}>{tr("Logo (pega una URL o elige un archivo)")}</label>
                       <input
                         style={inputStyle}
                         value={catalogGroupForm.logo_url}
                         onChange={(e) => setCatalogGroupForm((p) => ({ ...p, logo_url: e.target.value }))}
-                        placeholder="https://… o /groups/…"
+                        placeholder={tr("https://… o /groups/…")}
                       />
                       <input
                         ref={catalogGroupLogoFileRef}
@@ -3929,9 +3917,9 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             setLoading(true);
                             const url = await uploadCatalogAsset(f, "group");
                             setCatalogGroupForm((p) => ({ ...p, logo_url: url }));
-                            showAlert("Catálogo", "Imagen subida. Pulsa «Guardar en base de datos» para guardar el grupo.");
+                            showAlert(tr("Catálogo"), tr("Imagen subida. Pulsa «Guardar en base de datos» para guardar el grupo."));
                           } catch (err: any) {
-                            showAlert("Catálogo", err?.message || "Error al subir.");
+                            showAlert(tr("Catálogo"), err?.message || tr("Error al subir."));
                           } finally {
                             setLoading(false);
                           }
@@ -3956,7 +3944,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           cursor: loading ? "wait" : "pointer",
                         }}
                       >
-                        <ImagePlus size={18} /> Elegir imagen en el ordenador
+                        <ImagePlus size={18} /> {tr("Elegir imagen en el ordenador")}
                       </button>
                       <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", alignItems: "center" }}>
                         <button
@@ -3973,11 +3961,11 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             cursor: loading ? "wait" : "pointer",
                           }}
                         >
-                          Guardar en base de datos
+                          {tr("Guardar en base de datos")}
                         </button>
                         <button
                           type="button"
-                          title="Vacía solo este formulario. No borra grupos ya guardados."
+                          title={tr("Vacía solo este formulario. No borra grupos ya guardados.")}
                           onClick={() => setCatalogGroupForm({ id: null, name: "", slug: "", logo_url: "" })}
                           style={{
                             background: "var(--bg-soft)",
@@ -3989,17 +3977,17 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             cursor: "pointer",
                           }}
                         >
-                          Limpiar formulario
+                          {tr("Limpiar formulario")}
                         </button>
                       </div>
                       <p style={{ margin: "8px 0 0 0", fontSize: 11, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.4 }}>
-                        «Guardar» escribe en Supabase. «Limpiar» solo borra lo que has escrito aquí para empezar otro grupo (no toca la lista de abajo hasta que borres desde la lista).
+                        {tr("«Guardar» escribe en Supabase. «Limpiar» solo borra lo que has escrito aquí para empezar otro grupo (no toca la lista de abajo hasta que borres desde la lista).")}
                       </p>
                     </div>
 
                     <div data-tour="cat-miembro" style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)" }}>
-                      <h3 style={{ margin: "0 0 14px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>Miembro</h3>
-                      <label style={labelStyle}>Grupo</label>
+                      <h3 style={{ margin: "0 0 14px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>{tr("Miembro")}</h3>
+                      <label style={labelStyle}>{tr("Grupo")}</label>
                       <select
                         data-tour="cat-grupo-select"
                         style={inputStyle}
@@ -4011,33 +3999,33 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           }))
                         }
                       >
-                        <option value="">— Elige grupo —</option>
+                        <option value="">{tr("— Elige grupo —")}</option>
                         {catalogGroups.map((g) => (
                           <option key={g.id} value={g.id}>
                             {g.name} (id {g.id})
                           </option>
                         ))}
                       </select>
-                      <label style={{ ...labelStyle, marginTop: 12 }}>Nombre (visible)</label>
+                      <label style={{ ...labelStyle, marginTop: 12 }}>{tr("Nombre (visible)")}</label>
                       <input
                         style={inputStyle}
                         value={catalogMemberForm.name}
                         onChange={(e) => setCatalogMemberForm((p) => ({ ...p, name: e.target.value }))}
-                        placeholder="Ej: Bang Chan"
+                        placeholder={tr("Ej: Bang Chan")}
                       />
-                      <label style={{ ...labelStyle, marginTop: 12 }}>Slug interno (opcional)</label>
+                      <label style={{ ...labelStyle, marginTop: 12 }}>{tr("Slug interno (opcional)")}</label>
                       <input
                         style={inputStyle}
                         value={catalogMemberForm.slug}
                         onChange={(e) => setCatalogMemberForm((p) => ({ ...p, slug: e.target.value }))}
                         placeholder="bang-chan"
                       />
-                      <label style={{ ...labelStyle, marginTop: 12 }}>Foto (pega una URL o elige un archivo)</label>
+                      <label style={{ ...labelStyle, marginTop: 12 }}>{tr("Foto (pega una URL o elige un archivo)")}</label>
                       <input
                         style={inputStyle}
                         value={catalogMemberForm.image_url}
                         onChange={(e) => setCatalogMemberForm((p) => ({ ...p, image_url: e.target.value }))}
-                        placeholder="https://… o /members/…"
+                        placeholder={tr("https://… o /members/…")}
                       />
                       <input
                         ref={catalogMemberPhotoFileRef}
@@ -4053,9 +4041,9 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             setLoading(true);
                             const url = await uploadCatalogAsset(f, "member");
                             setCatalogMemberForm((p) => ({ ...p, image_url: url }));
-                            showAlert("Catálogo", "Imagen subida. Pulsa «Guardar en base de datos» para guardar el miembro.");
+                            showAlert(tr("Catálogo"), tr("Imagen subida. Pulsa «Guardar en base de datos» para guardar el miembro."));
                           } catch (err: any) {
-                            showAlert("Catálogo", err?.message || "Error al subir.");
+                            showAlert(tr("Catálogo"), err?.message || tr("Error al subir."));
                           } finally {
                             setLoading(false);
                           }
@@ -4080,7 +4068,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           cursor: loading ? "wait" : "pointer",
                         }}
                       >
-                        <ImagePlus size={18} /> Elegir imagen en el ordenador
+                        <ImagePlus size={18} /> {tr("Elegir imagen en el ordenador")}
                       </button>
                       <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", alignItems: "center" }}>
                         <button
@@ -4097,11 +4085,11 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             cursor: loading ? "wait" : "pointer",
                           }}
                         >
-                          Guardar en base de datos
+                          {tr("Guardar en base de datos")}
                         </button>
                         <button
                           type="button"
-                          title="Vacía solo este formulario. No borra miembros ya guardados."
+                          title={tr("Vacía solo este formulario. No borra miembros ya guardados.")}
                           onClick={() =>
                             setCatalogMemberForm((p) => ({
                               id: null,
@@ -4121,21 +4109,21 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             cursor: "pointer",
                           }}
                         >
-                          Limpiar formulario
+                          {tr("Limpiar formulario")}
                         </button>
                       </div>
                       <p style={{ margin: "8px 0 0 0", fontSize: 11, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.4 }}>
-                        «Guardar» escribe en Supabase. «Limpiar» solo vacía nombre, slug y foto para dar de alta otro miembro del mismo grupo (no borra filas de la lista hasta que uses Borrar).
+                        {tr("«Guardar» escribe en Supabase. «Limpiar» solo vacía nombre, slug y foto para dar de alta otro miembro del mismo grupo (no borra filas de la lista hasta que uses Borrar).")}
                       </p>
                     </div>
                   </div>
 
                   <div data-tour="cat-lista-grupos" style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 16, background: "var(--bg-main)" }}>
-                    <h3 style={{ margin: "0 0 12px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 15 }}>Lista de grupos</h3>
+                    <h3 style={{ margin: "0 0 12px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 15 }}>{tr("Lista de grupos")}</h3>
                     <input
                       value={catalogGroupQuery}
                       onChange={(e) => setCatalogGroupQuery(e.target.value)}
-                      placeholder="Buscar grupo"
+                      placeholder={tr("Buscar grupo")}
                       style={{ ...inputStyle, marginBottom: 12 }}
                     />
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 280, overflowY: "auto" }}>
@@ -4190,15 +4178,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                               fontSize: 12,
                               cursor: "pointer",
                             }}
-                          >
-                            Editar
-                          </button>
+                          >{tr("Editar")}</button>
                           <button
                             type="button"
                             data-tour={groupIndex === 0 ? "cat-borrar-grupo" : undefined}
                             onClick={() => {
                               setConfirmDialog({
-                                title: "Borrar grupo",
+                                title: tr("Borrar grupo"),
                                 message: `Se borrarán también todos los miembros del grupo «${g.name}». ¿Continuar?`,
                                 onConfirm: async () => {
                                   setLoading(true);
@@ -4211,13 +4197,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                                     });
                                     const json = (await res.json().catch(() => ({}))) as { error?: string };
                                     if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-                                    showAlert("Catálogo", "Grupo eliminado.");
+                                    showAlert(tr("Catálogo"), tr("Grupo eliminado."));
                                     if (catalogGroupForm.id === Number(g.id)) {
                                       setCatalogGroupForm({ id: null, name: "", slug: "", logo_url: "" });
                                     }
                                     await loadCatalog();
                                   } catch (err: any) {
-                                    showAlert("Catálogo", err?.message || "Error al borrar.");
+                                    showAlert(tr("Catálogo"), err?.message || tr("Error al borrar."));
                                   } finally {
                                     setLoading(false);
                                   }
@@ -4235,32 +4221,32 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                               cursor: "pointer",
                             }}
                           >
-                            Borrar
+                            {tr("Borrar")}
                           </button>
                         </div>
                       ))}
                       {!catalogGroups.length && (
-                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>No hay grupos.</p>
+                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>{tr("No hay grupos.")}</p>
                       )}
                       {catalogGroups.length > 0 && catalogGroupQuery.trim() && !catalogGroups.some((g) => `${g.name || ""} ${g.slug || ""}`.toLowerCase().includes(catalogGroupQuery.trim().toLowerCase())) && (
-                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>Ningún grupo con esa búsqueda.</p>
+                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>{tr("Ningún grupo con esa búsqueda.")}</p>
                       )}
                     </div>
                   </div>
 
                   <div data-tour="cat-lista-miembros" style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 16, background: "var(--bg-main)" }}>
-                    <h3 style={{ margin: "0 0 12px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 15 }}>Miembros</h3>
+                    <h3 style={{ margin: "0 0 12px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 15 }}>{tr("Miembros")}</h3>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
                       <input
                         value={catalogMemberGroupQuery}
                         onChange={(e) => setCatalogMemberGroupQuery(e.target.value)}
-                        placeholder="Buscar por grupo"
+                        placeholder={tr("Buscar por grupo")}
                         style={{ ...inputStyle, flex: "1 1 180px", margin: 0 }}
                       />
                       <input
                         value={catalogMemberQuery}
                         onChange={(e) => setCatalogMemberQuery(e.target.value)}
-                        placeholder="Buscar miembro"
+                        placeholder={tr("Buscar miembro")}
                         style={{ ...inputStyle, flex: "1 1 180px", margin: 0 }}
                       />
                     </div>
@@ -4325,15 +4311,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                                 fontSize: 12,
                                 cursor: "pointer",
                               }}
-                            >
-                              Editar
-                            </button>
+                            >{tr("Editar")}</button>
                             <button
                               type="button"
                               data-tour={memberIndex === 0 ? "cat-borrar-miembro" : undefined}
                               onClick={() => {
                                 setConfirmDialog({
-                                  title: "Borrar miembro",
+                                  title: tr("Borrar miembro"),
                                   message: `¿Eliminar a «${m.name}» del catálogo? Los biases de usuario pueden quedar huérfanos.`,
                                   onConfirm: async () => {
                                     setLoading(true);
@@ -4346,7 +4330,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                                       });
                                       const json = (await res.json().catch(() => ({}))) as { error?: string };
                                       if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-                                      showAlert("Catálogo", "Miembro eliminado.");
+                                      showAlert(tr("Catálogo"), tr("Miembro eliminado."));
                                       if (catalogMemberForm.id === mid) {
                                         setCatalogMemberForm((p) => ({
                                           id: null,
@@ -4358,7 +4342,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                                       }
                                       await loadCatalog();
                                     } catch (err: any) {
-                                      showAlert("Catálogo", err?.message || "Error al borrar.");
+                                      showAlert(tr("Catálogo"), err?.message || tr("Error al borrar."));
                                     } finally {
                                       setLoading(false);
                                     }
@@ -4376,13 +4360,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                                 cursor: "pointer",
                               }}
                             >
-                              Borrar
+                              {tr("Borrar")}
                             </button>
                           </div>
                         );
                       })}
                       {!catalogMembers.length && (
-                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>No hay miembros.</p>
+                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>{tr("No hay miembros.")}</p>
                       )}
                       {catalogMembers.length > 0 && (catalogMemberGroupQuery.trim() || catalogMemberQuery.trim()) && !catalogMembers.some((m) => {
                         const gid = m.group_id != null ? Number(m.group_id) : NaN;
@@ -4393,7 +4377,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         if (nameQ && !`${m.name || ""} ${m.slug || ""}`.toLowerCase().includes(nameQ)) return false;
                         return true;
                       }) && (
-                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>Ningún miembro con esa búsqueda.</p>
+                        <p style={{ color: "var(--text-muted)", fontWeight: 700, margin: 0 }}>{tr("Ningún miembro con esa búsqueda.")}</p>
                       )}
                     </div>
                   </div>
@@ -4493,7 +4477,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
       transition: "all 0.2s"
     }}
   >
-    <ChevronLeft size={18} /> <span>Anterior</span>
+    <ChevronLeft size={18} /> <span>{tr("Anterior")}</span>
   </button>
 
   <button
@@ -4524,7 +4508,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
       transition: "all 0.2s"
     }}
   >
-    <span>Siguiente</span> <ChevronRight size={18} />
+    <span>{tr("Siguiente")}</span> <ChevronRight size={18} />
   </button>
 
 
@@ -4535,14 +4519,14 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             {/* --- COLUMNA 1: DENUNCIANTE --- */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <div style={{ background: "var(--bg-card)", padding: "15px", borderRadius: "16px", border: "1px solid var(--color-border)" }}>
-                <p style={{ margin: "0 0 10px 0", fontSize: "11px", color: "var(--text-muted)", fontWeight: 900, textTransform: "uppercase" }}> Reportado por:</p>
+                <p style={{ margin: "0 0 10px 0", fontSize: "11px", color: "var(--text-muted)", fontWeight: 900, textTransform: "uppercase" }}>{tr("Reportado por:")}</p>
                 <div
                  onClick={() => selectedDenuncia.denunciante?.user_id && router.push(`/me?u=${selectedDenuncia.denunciante.user_id}&fromAdmin=true&reopen=${selectedDenuncia.id}`)}
                   style={{ display: "inline-flex", alignItems: "center", gap: "10px", background: "var(--bg-main)", padding: "8px 15px", borderRadius: "99px", border: "2px solid var(--color-border)", cursor: "pointer", width: "100%", boxSizing: "border-box" }}
                 >
                   <img src={selectedDenuncia.denunciante?.avatar_url || DEFAULT_AVATAR} style={{ width: "26px", height: "26px", borderRadius: "50%", objectFit: "cover" }} alt="" />
                   <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--text-main)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    @{selectedDenuncia.denunciante?.display_name || "Anónimo"}
+                    @{selectedDenuncia.denunciante?.display_name || tr("Anónimo")}
                   </span>
                 </div>
               </div>
@@ -4550,7 +4534,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             {/* CONTROLES DE K-OINS DENUNCIANTE */}
             {selectedDenuncia.denunciante && (
               <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-main)", padding: "6px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", justifyContent: "center", width: "fit-content", margin: "0 auto" }} onClick={e => e.stopPropagation()}>
-                <span style={{ fontSize: "11px", fontWeight: 900, color: "var(--color-primary)", marginRight: "2px" }}>K-OINS:</span>
+                <span style={{ fontSize: "11px", fontWeight: 900, color: "var(--color-primary)", marginRight: "2px" }}>{tr("K-OINS:")}</span>
                 
                 {/* Botón -5 */}
                 <button onClick={(e) => { updatePuntos(selectedDenuncia.denunciante.user_id, selectedDenuncia.denunciante.display_name, selectedDenuncia.denunciante.puntos, -5, e); setSelectedDenuncia((prev:any) => ({...prev, denunciante: {...prev.denunciante, puntos: (prev.denunciante.puntos||0)-5}})); }} style={{ background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", color: "var(--color-primary)", fontWeight: "bold", fontSize: "11px" }}>-5</button>
@@ -4574,7 +4558,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     updatePuntosExact(selectedDenuncia.denunciante.user_id, selectedDenuncia.denunciante.display_name, exact, e);
                     setSelectedDenuncia((prev:any) => ({...prev, denunciante: {...prev.denunciante, puntos: exact}}));
                   }}
-                  title="Guardar K-oins exactos"
+                  title={tr("Guardar K-oins exactos")}
                   style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", borderRadius: "6px", padding: "6px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px var(--overlay-faint)" }}
                 >
                   <Save size={14} />
@@ -4586,7 +4570,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
            {/* --- COLUMNA 2: DENUNCIADO --- */}
 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
   <div style={{ background: "var(--bg-card)", padding: "15px", borderRadius: "16px", border: "1px dashed var(--text-main)" }}>
-    <p style={{ margin: "0 0 10px 0", fontSize: "11px", color: "var(--text-main)", fontWeight: 900, textTransform: "uppercase" }}> Perfil Denunciado:</p>
+    <p style={{ margin: "0 0 10px 0", fontSize: "11px", color: "var(--text-main)", fontWeight: 900, textTransform: "uppercase" }}>{tr("Perfil Denunciado:")}</p>
     {selectedDenuncia.denunciado ? (
       <div
         onClick={() => {
@@ -4602,7 +4586,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
         </span>
       </div>
     ) : (
-      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-muted)" }}>Perfil no registrado</span>
+      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-muted)" }}>{tr("Perfil no registrado")}</span>
     )}
   </div>
 
@@ -4611,7 +4595,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
              {/* CONTROLES DE K-OINS DENUNCIADO */}
               {selectedDenuncia.denunciado && (
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-main)", padding: "6px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", justifyContent: "center", width: "fit-content", margin: "0 auto" }} onClick={e => e.stopPropagation()}>
-                  <span style={{ fontSize: "11px", fontWeight: 900, color: "var(--color-primary)", marginRight: "2px" }}>K-OINS:</span>
+                  <span style={{ fontSize: "11px", fontWeight: 900, color: "var(--color-primary)", marginRight: "2px" }}>{tr("K-OINS:")}</span>
                   
                   {/* Botón -5 */}
                   <button onClick={(e) => { updatePuntos(selectedDenuncia.denunciado.user_id, selectedDenuncia.denunciado.display_name, selectedDenuncia.denunciado.puntos, -5, e); setSelectedDenuncia((prev:any) => ({...prev, denunciado: {...prev.denunciado, puntos: (prev.denunciado.puntos||0)-5}})); }} style={{ background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", color: "var(--color-primary)", fontWeight: "bold", fontSize: "11px" }}>-5</button>
@@ -4635,7 +4619,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       updatePuntosExact(selectedDenuncia.denunciado.user_id, selectedDenuncia.denunciado.display_name, exact, e);
                       setSelectedDenuncia((prev:any) => ({...prev, denunciado: {...prev.denunciado, puntos: exact}}));
                     }}
-                    title="Guardar K-oins exactos"
+                    title={tr("Guardar K-oins exactos")}
                     style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", borderRadius: "6px", padding: "6px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px var(--overlay-faint)" }}
                   >
                     <Save size={14} />
@@ -4649,7 +4633,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             {/* ASIGNADOR DE ESTADO (MANDO DE CONTROL REAL) */}
 <div style={{ position: 'relative', width: '100%', gridColumn: "1 / -1", marginTop: '15px' }}>
   <span style={{ fontWeight: 900, fontSize: "11px", color: "var(--color-primary)", textTransform: "uppercase", display: "block", marginBottom: "8px", marginLeft: "10px" }}>
-    Asignar Estado a esta Denuncia
+    {tr("Asignar Estado a esta Denuncia")}
   </span>
   
   <div 
@@ -4756,7 +4740,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       style={{ width: "100%", background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "14px", borderRadius: "15px", fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", boxShadow: "0 4px 12px color-mix(in srgb, var(--color-primary) 30%, transparent)" }}
                     >
                       <ExternalLink size={18} />
-                      IR DIRECTAMENTE A LA PUBLICACIÓN DENUNCIADA
+                      {tr("IR DIRECTAMENTE A LA PUBLICACIÓN DENUNCIADA")}
                     </button>
                   </div>
                 );
@@ -4770,7 +4754,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
   </p>
 
   <p style={{ margin: "0 0 5px 0", fontSize: "11px", color: "var(--text-muted)", fontWeight: 900, textTransform: "uppercase" }}>
-    Motivo de la denuncia:
+    {tr("Motivo de la denuncia:")}
   </p>
   <p style={{ margin: "0", fontSize: "14px", color: "var(--text-main)", fontWeight: 600, whiteSpace: "pre-wrap" }}>
     {(() => {
@@ -4782,7 +4766,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
         .replace(/Enlace:/gi, '') 
         .trim();
       
-      return textoLimpio || "Sin descripción adicional.";
+      return textoLimpio || tr("Sin descripción adicional.");
     })()}
   </p>
 
@@ -4813,13 +4797,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 || selectedDenuncia.reported_user_id 
                 || selectedDenuncia.target_id;
                 
-    if (!maloId) return alert("No se encontró el ID del usuario.");
+    if (!maloId) return alert(tr("No se encontró el ID del usuario."));
     
     // 2. 🔥 EL ARREGLO: Usamos u=maloId (no id=) y le pasamos el reopen
     router.push(`/me?u=${maloId}&fromAdmin=true&reopen=${selectedDenuncia.id}`);
     
   }} style={{ width: "100%", background: "var(--text-main)", color: "var(--bg-card)", border: "none", padding: "12px", borderRadius: "10px", fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-    <UserX size={16} /> VER PERFIL DEL DENUNCIADO
+    <UserX size={16} /> {tr("VER PERFIL DEL DENUNCIADO")}
   </button>
 </div>
 
@@ -4844,7 +4828,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
 
   {/* 2. SANCIONAR */}
   <button onClick={() => setSuspenderModal({ user_id: selectedDenuncia.reported_user_id, display_name: selectedDenuncia.denunciado.display_name })} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: "pointer", fontWeight: 800, fontSize: "13px" }}>
-    Sancionar
+    {tr("Sancionar")}
   </button>
 
   {/* 3. +AÑO (O Quitar Premium) */}
@@ -4854,19 +4838,19 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
     </button>
   ) : (
     <button onClick={async (e) => { await togglePremium(selectedDenuncia.denunciado, 'anual', e); actualizarUsuarioEnTodasPartes(selectedDenuncia.denunciado.user_id, { is_premium: true, plan_type: 'anual' }); }} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: "pointer", fontWeight: 800, fontSize: "13px" }}>
-      +AÑO
+      {tr("+AÑO")}
     </button>
   )}
 
   {/* 4. +ARTISTA */}
   <button onClick={async (e) => { await toggleStatus(selectedDenuncia.denunciado.user_id, selectedDenuncia.denunciado.display_name, 'is_artist', selectedDenuncia.denunciado.is_artist, e); actualizarUsuarioEnTodasPartes(selectedDenuncia.denunciado.user_id, { is_artist: !selectedDenuncia.denunciado.is_artist }); }} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: "pointer", fontWeight: 800, fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-    <Star size={14} color="var(--color-border)" /> +ART
+    <Star size={14} color="var(--color-border)" /> {tr("+ART")}
   </button>
 
   {/* 5. -1 STRIKE y PAPELERA (Comparten celda) */}
   <div style={{ display: "flex", gap: "6px" }}>
     <button onClick={(e) => selectedDenuncia.denunciado.strikes > 0 ? quitarStrike(selectedDenuncia.denunciado, e) : null} style={{ flex: 2, background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: selectedDenuncia.denunciado.strikes > 0 ? "pointer" : "default", fontWeight: 800, fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", opacity: selectedDenuncia.denunciado.strikes > 0 ? 1 : 0.4 }}>
-      <Undo2 size={14} color="var(--color-border)" /> -1 STR
+      <Undo2 size={14} color="var(--color-border)" /> {tr("-1 STR")}
     </button>
     <button onClick={() => resolverDenuncia(selectedDenuncia.id)} style={{ flex: 1, background: "var(--bg-card)", color: "var(--color-border)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <Trash2 size={16} />
@@ -4876,7 +4860,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
   {/* 6. REACTIVAR (Solo visible si está restringido) */}
   {selectedDenuncia.denunciado?.is_restricted ? (
     <button onClick={() => levantarSancion(selectedDenuncia.reported_user_id, selectedDenuncia.id)} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: "pointer", fontWeight: 800, fontSize: "13px" }}>
-      Reactivar
+      {tr("Reactivar")}
     </button>
   ) : (
     <div /> 
@@ -4885,13 +4869,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
   {/* 7. +MES (Solo si no es premium) */}
   {!selectedDenuncia.denunciado.is_premium ? (
     <button onClick={async (e) => { await togglePremium(selectedDenuncia.denunciado, 'mensual', e); actualizarUsuarioEnTodasPartes(selectedDenuncia.denunciado.user_id, { is_premium: true, plan_type: 'mensual' }); }} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: "pointer", fontWeight: 800, fontSize: "13px" }}>
-      +MES
+      {tr("+MES")}
     </button>
   ) : <div />}
 
   {/* 8. NOTIFICAR */}
   <button onClick={() => setNotificarModal(selectedDenuncia.denunciado)} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: "pointer", fontWeight: 800, fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-    <Mail size={14} color="var(--color-border)" /> NOTIF
+    <Mail size={14} color="var(--color-border)" /> {tr("NOTIF")}
   </button>
 
 </div>
@@ -4911,30 +4895,30 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
   
   {/* Caja con los comentarios acumulados */}
   <div style={{ background: "var(--bg-soft)", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", fontSize: "13px", color: "var(--text-main)", whiteSpace: "pre-wrap", maxHeight: "150px", overflowY: "auto", marginBottom: "10px" }}>
-    {selectedDenuncia.notas_admin || "No hay comentarios previos."}
+    {selectedDenuncia.notas_admin || tr("No hay comentarios previos.")}
   </div>
 
   {/* Campo para añadir uno nuevo */}
   <textarea
     id="input-nueva-nota"
     rows={2}
-    placeholder="Escribe aquí para añadir un nuevo comentario al historial..."
+    placeholder={tr("Escribe aquí para añadir un nuevo comentario al historial...")}
     style={{ width: "100%", padding: "12px", boxSizing: "border-box", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", fontSize: "13px" }}
   />
   <button 
     onClick={() => guardarNotaAdmin(selectedDenuncia.id, (document.getElementById("input-nueva-nota") as HTMLTextAreaElement).value)} 
     style={{ background: "var(--bg-card)", color: "var(--color-primary)", border: "1px solid var(--color-primary)", padding: "6px 16px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", marginTop: "10px", display: "flex", alignItems: "center", gap: "6px" }}
   >
-    <Save size={14} /> AÑADIR COMENTARIO
+    <Save size={14} /> {tr("AÑADIR COMENTARIO")}
   </button>
 </div>
               {/* RESPUESTAS AL DENUNCIANTE */}
               <div>
-                <p style={{ margin: "0 0 10px 0", fontSize: "13px", color: "var(--color-primary)", fontWeight: 900 }}>NOTIFICAR AL DENUNCIANTE:</p>
+                <p style={{ margin: "0 0 10px 0", fontSize: "13px", color: "var(--color-primary)", fontWeight: 900 }}>{tr("NOTIFICAR AL DENUNCIANTE:")}</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <button onClick={() => enviarRespuestaAdmin(selectedDenuncia.reporter_id || selectedDenuncia.user_id, "eliminado", selectedDenuncia.id, selectedDenuncia.fanart_id || selectedDenuncia.item_id)} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "10px", borderRadius: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer", textAlign: "left" }}>✅ "Hemos suprimido el perfil/contenido"</button>
-                  <button onClick={() => enviarRespuestaAdmin(selectedDenuncia.reporter_id || selectedDenuncia.user_id, "no_infringe", selectedDenuncia.id, selectedDenuncia.fanart_id || selectedDenuncia.item_id)} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "10px", borderRadius: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer", textAlign: "left" }}>❌ "No consideramos que sea infracción"</button>
-                  <button onClick={() => enviarRespuestaAdmin(selectedDenuncia.reporter_id || selectedDenuncia.user_id, "mas_info", selectedDenuncia.id, selectedDenuncia.fanart_id || selectedDenuncia.item_id)} style={{ background: "var(--bg-card)", color: "var(--color-primary)", border: "1px solid var(--color-primary)", padding: "10px", borderRadius: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer", textAlign: "left" }}>ℹ️ "Necesitamos más información"</button>
+                  <button onClick={() => enviarRespuestaAdmin(selectedDenuncia.reporter_id || selectedDenuncia.user_id, "eliminado", selectedDenuncia.id, selectedDenuncia.fanart_id || selectedDenuncia.item_id)} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "10px", borderRadius: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer", textAlign: "left" }}>{tr("✅ \"Hemos suprimido el perfil/contenido\"")}</button>
+                  <button onClick={() => enviarRespuestaAdmin(selectedDenuncia.reporter_id || selectedDenuncia.user_id, "no_infringe", selectedDenuncia.id, selectedDenuncia.fanart_id || selectedDenuncia.item_id)} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "10px", borderRadius: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer", textAlign: "left" }}>{tr("❌ \"No consideramos que sea infracción\"")}</button>
+                  <button onClick={() => enviarRespuestaAdmin(selectedDenuncia.reporter_id || selectedDenuncia.user_id, "mas_info", selectedDenuncia.id, selectedDenuncia.fanart_id || selectedDenuncia.item_id)} style={{ background: "var(--bg-card)", color: "var(--color-primary)", border: "1px solid var(--color-primary)", padding: "10px", borderRadius: "10px", fontWeight: 800, fontSize: "13px", cursor: "pointer", textAlign: "left" }}>{tr("ℹ️ \"Necesitamos más información\"")}</button>
                 </div>
               </div>
 
@@ -4948,13 +4932,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             <button onClick={(e) => { e.stopPropagation(); setVisorImages([]); }} style={{ position: "absolute", top: "20px", right: "20px", background: "color-mix(in srgb, var(--bg-card) 10%, transparent)", border: "none", color: "var(--bg-card)", borderRadius: "50%", padding: "10px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "color-mix(in srgb, var(--bg-card) 30%, transparent)"} onMouseLeave={e => e.currentTarget.style.background = "color-mix(in srgb, var(--bg-card) 10%, transparent)"}>
               <X size={28} />
             </button>
-            <img src={visorImages[visorIndex]} onClick={(e) => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "80vh", objectFit: "contain", borderRadius: "12px", boxShadow: "0 10px 40px var(--overlay-medium)" }} alt="Prueba adjunta" />
+            <img src={visorImages[visorIndex]} onClick={(e) => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "80vh", objectFit: "contain", borderRadius: "12px", boxShadow: "0 10px 40px var(--overlay-medium)" }} alt={tr("Prueba adjunta")} />
             
             {visorImages.length > 1 && (
               <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: "20px", marginTop: "25px", background: "color-mix(in srgb, var(--bg-card) 10%, transparent)", padding: "10px 20px", borderRadius: "99px" }}>
-                <button onClick={() => setVisorIndex(i => i === 0 ? visorImages.length - 1 : i - 1)} style={{ background: "transparent", border: "none", color: "var(--bg-card)", cursor: "pointer", fontWeight: 900, fontSize: "14px" }}>ANTERIOR</button>
-                <span style={{ color: "var(--color-border)", fontWeight: 800, fontSize: "14px" }}>{visorIndex + 1} de {visorImages.length}</span>
-                <button onClick={() => setVisorIndex(i => (i + 1) % visorImages.length)} style={{ background: "transparent", border: "none", color: "var(--bg-card)", cursor: "pointer", fontWeight: 900, fontSize: "14px" }}>SIGUIENTE</button>
+                <button onClick={() => setVisorIndex(i => i === 0 ? visorImages.length - 1 : i - 1)} style={{ background: "transparent", border: "none", color: "var(--bg-card)", cursor: "pointer", fontWeight: 900, fontSize: "14px" }}>{tr("ANTERIOR")}</button>
+                <span style={{ color: "var(--color-border)", fontWeight: 800, fontSize: "14px" }}>{tr("{a} de {b}", { a: visorIndex + 1, b: visorImages.length })}</span>
+                <button onClick={() => setVisorIndex(i => (i + 1) % visorImages.length)} style={{ background: "transparent", border: "none", color: "var(--bg-card)", cursor: "pointer", fontWeight: 900, fontSize: "14px" }}>{tr("SIGUIENTE")}</button>
               </div>
             )}
           </div>
@@ -4985,14 +4969,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: "0 0 8px 0", fontSize: "22px" }}>
-              Strike {(strikeModal.p.strikes || 0) + 1}/3 · @{strikeModal.p.display_name}
+            <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: "0 0 8px 0", fontSize: "22px" }}>{tr("Strike")} {(strikeModal.p.strikes || 0) + 1}/3 · @{strikeModal.p.display_name}
             </h3>
             <p style={{ color: "var(--text-muted)", fontSize: "13px", fontWeight: 600, margin: "0 0 14px 0", lineHeight: 1.45 }}>
-              La restricción no es obligatoria en el 1.er o 2.º strike; en el 3.er suele aplicarse salvo que indiques lo contrario.
+              {tr("La restricción no es obligatoria en el 1.er o 2.º strike; en el 3.er suele aplicarse salvo que indiques lo contrario.")}
             </p>
             <label style={{ display: "block", fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", marginBottom: "6px" }}>
-              Motivo (visible para el usuario en la notificación)
+              {tr("Motivo (visible para el usuario en la notificación)")}
             </label>
             <textarea
               value={strikeModal.motivo}
@@ -5004,7 +4987,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 }
               }}
               rows={4}
-              placeholder="Describe la infracción con claridad…"
+              placeholder={tr("Describe la infracción con claridad…")}
               style={{
                 width: "100%",
                 padding: "12px",
@@ -5020,7 +5003,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
               }}
             />
             <label style={{ display: "block", fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", marginBottom: "6px" }}>
-              Restricción de cuenta
+              {tr("Restricción de cuenta")}
             </label>
             <select
               value={strikeModal.duration}
@@ -5040,16 +5023,16 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 color: "var(--text-main)",
               }}
             >
-              <option value="no_restrict">Sin restricción (solo registro de strike)</option>
-              <option value="indefinite">Restringir hasta levantar manualmente</option>
-              <option value="7d">Restringir 7 días</option>
-              <option value="30d">Restringir 30 días</option>
-              <option value="90d">Restringir 90 días</option>
-              <option value="180d">Restringir 6 meses</option>
-              <option value="365d">Restringir 1 año</option>
+              <option value="no_restrict">{tr("Sin restricción (solo registro de strike)")}</option>
+              <option value="indefinite">{tr("Restringir hasta levantar manualmente")}</option>
+              <option value="7d">{tr("Restringir 7 días")}</option>
+              <option value="30d">{tr("Restringir 30 días")}</option>
+              <option value="90d">{tr("Restringir 90 días")}</option>
+              <option value="180d">{tr("Restringir 6 meses")}</option>
+              <option value="365d">{tr("Restringir 1 año")}</option>
             </select>
             <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 16px 0", fontWeight: 600 }}>
-              Clic fuera o Esc cierra · Ctrl+Enter guarda
+              {tr("Clic fuera o Esc cierra · Ctrl+Enter guarda")}
             </p>
             <div style={{ display: "flex", gap: "10px" }}>
               <button
@@ -5065,9 +5048,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   fontWeight: 900,
                   cursor: "pointer",
                 }}
-              >
-                Cancelar
-              </button>
+              >{tr("Cancelar")}</button>
               <button
                 type="button"
                 disabled={loading}
@@ -5084,7 +5065,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   opacity: loading ? 0.75 : 1,
                 }}
               >
-                {loading ? "Guardando…" : "Registrar strike"}
+                {loading ? tr("Guardando…") : tr("Registrar strike")}
               </button>
             </div>
           </div>
@@ -5094,9 +5075,9 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
       {artistWorksModal && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-strong)", zIndex: 19000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={() => setArtistWorksModal(null)}>
           <div style={{ background: "var(--bg-main)", padding: "28px", borderRadius: "24px", maxWidth: "560px", width: "100%", border: "2px solid var(--color-border)", boxShadow: "0 20px 40px var(--overlay-soft)", maxHeight: "90vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
-            <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: "0 0 8px 0", fontSize: "24px" }}>Obras de {artistWorksModal.userName}</h3>
+            <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: "0 0 8px 0", fontSize: "24px" }}>{tr("Obras de {name}", { name: artistWorksModal.userName })}</h3>
             <p style={{ color: "var(--text-main)", fontSize: "14px", fontWeight: 600, margin: "0 0 16px 0", lineHeight: 1.5 }}>
-              Ya no es artista. Sus obras siguen en la web. Puedes dejarlas, borrarlas todas o marcar solo las que quieres quitar.
+              {tr("Ya no es artista. Sus obras siguen en la web. Puedes dejarlas, borrarlas todas o marcar solo las que quieres quitar.")}
             </p>
             <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
               {artistWorksModal.works.map((work) => (
@@ -5116,19 +5097,19 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
             </div>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <button type="button" onClick={() => setArtistWorksModal(null)} style={{ flex: "1 1 140px", background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}>
-                Dejarlas
+                {tr("Dejarlas")}
               </button>
               <button
                 type="button"
                 onClick={() => {
                   const ids = Object.entries(artistWorksModal.picked).filter(([, on]) => on).map(([id]) => id);
                   if (ids.length === 0) {
-                    showAlert("Elige obras", "Marca al menos una obra, o usa Eliminar todas.");
+                    showAlert(tr("Elige obras"), tr("Marca al menos una obra, o usa Eliminar todas."));
                     return;
                   }
                   const modal = artistWorksModal;
                   setConfirmDialog({
-                    title: "Quitar obras",
+                    title: tr("Quitar obras"),
                     message: `¿Eliminar ${ids.length} obra${ids.length === 1 ? "" : "s"} de ${modal.userName}? No se puede deshacer.`,
                     onConfirm: async () => {
                       setLoading(true);
@@ -5137,9 +5118,9 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         const left = modal.works.filter((work) => !ids.includes(work.id));
                         if (left.length === 0) setArtistWorksModal(null);
                         else setArtistWorksModal({ ...modal, works: left, picked: Object.fromEntries(left.map((work) => [work.id, false])) });
-                        showAlert("Obras eliminadas", `Se han quitado ${ids.length} de la web.`);
+                        showAlert(tr("Obras eliminadas"), `Se han quitado ${ids.length} de la web.`);
                       } catch (err: unknown) {
-                        showAlert("Error", err instanceof Error ? err.message : String(err));
+                        showAlert(tr("Error"), err instanceof Error ? err.message : String(err));
                       } finally {
                         setLoading(false);
                       }
@@ -5148,7 +5129,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 }}
                 style={{ flex: "1 1 160px", background: "transparent", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}
               >
-                Eliminar seleccionadas
+                {tr("Eliminar seleccionadas")}
               </button>
               <button
                 type="button"
@@ -5156,16 +5137,16 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   const modal = artistWorksModal;
                   const ids = modal.works.map((work) => work.id);
                   setConfirmDialog({
-                    title: "Eliminar todo su arte",
+                    title: tr("Eliminar todo su arte"),
                     message: `¿Eliminar las ${ids.length} obras de ${modal.userName}? No se puede deshacer.`,
                     onConfirm: async () => {
                       setLoading(true);
                       try {
                         await deleteArtistWorks(ids);
                         setArtistWorksModal(null);
-                        showAlert("Arte eliminado", `Se ha quitado todo el arte de ${modal.userName}.`);
+                        showAlert(tr("Arte eliminado"), `Se ha quitado todo el arte de ${modal.userName}.`);
                       } catch (err: unknown) {
-                        showAlert("Error", err instanceof Error ? err.message : String(err));
+                        showAlert(tr("Error"), err instanceof Error ? err.message : String(err));
                       } finally {
                         setLoading(false);
                       }
@@ -5174,7 +5155,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 }}
                 style={{ flex: "1 1 160px", background: "var(--state-danger-fg, #b42318)", color: "white", border: "none", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}
               >
-                Eliminar todas
+                {tr("Eliminar todas")}
               </button>
             </div>
           </div>
@@ -5189,9 +5170,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
               <button 
                 onClick={() => setConfirmDialog(null)} 
                 style={{ flex: 1, background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer", fontSize: "14px" }}
-              >
-                Cancelar
-              </button>
+              >{tr("Cancelar")}</button>
               <button 
                 type="button"
                 onClick={async () => {
@@ -5200,12 +5179,12 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   try {
                     await Promise.resolve(fn());
                   } catch (err: any) {
-                    showAlert("Error", err?.message || String(err));
+                    showAlert(tr("Error"), err?.message || String(err));
                   }
                 }} 
                 style={{ flex: 1, background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer", fontSize: "14px" }}
               >
-                Confirmar
+                {tr("Confirmar")}
               </button>
             </div>
           </div>
@@ -5216,14 +5195,14 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
     <div style={{ background: "var(--bg-card)", padding: "25px", borderRadius: "24px", maxWidth: "450px", width: "100%", border: "2px solid var(--state-info-border)" }} onClick={(e) => e.stopPropagation()}>
       <h3 style={{ color: "var(--state-info-fg)", margin: "0 0 15px 0", fontWeight: 900 }}>Notificar a @{notificarModal.display_name}</h3>
       <textarea 
-        placeholder="Escribe el motivo de la sanción o advertencia..."
+        placeholder={tr("Escribe el motivo de la sanción o advertencia...")}
         value={mensajeNotif}
         onChange={(e) => setMensajeNotif(e.target.value)}
         style={{ width: "100%", height: "120px", padding: "12px", borderRadius: "12px", border: "1px solid var(--state-disabled-border)", outline: "none", fontSize: "14px", marginBottom: "20px", boxSizing: "border-box" }}
       />
       <div style={{ display: "flex", gap: "10px" }}>
-        <button onClick={() => setNotificarModal(null)} style={{ flex: 1, background: "var(--state-disabled-bg)", color: "var(--text-main)", border: "none", padding: "12px", borderRadius: "12px", fontWeight: 900, cursor: "pointer" }}>Cancelar</button>
-        <button onClick={enviarNotificacionSancion} style={{ flex: 2, background: "var(--state-info-fg)", color: "var(--bg-card)", border: "none", padding: "12px", borderRadius: "12px", fontWeight: 900, cursor: "pointer" }}>Enviar Notificación</button>
+        <button onClick={() => setNotificarModal(null)} style={{ flex: 1, background: "var(--state-disabled-bg)", color: "var(--text-main)", border: "none", padding: "12px", borderRadius: "12px", fontWeight: 900, cursor: "pointer" }}>{tr("Cancelar")}</button>
+        <button onClick={enviarNotificacionSancion} style={{ flex: 2, background: "var(--state-info-fg)", color: "var(--bg-card)", border: "none", padding: "12px", borderRadius: "12px", fontWeight: 900, cursor: "pointer" }}>{tr("Enviar Notificación")}</button>
       </div>
     </div>
   </div>
@@ -5234,27 +5213,25 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
         <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-strong)", zIndex: 30000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={() => setSuspenderModal(null)}>
           <div style={{ background: "var(--bg-card)", padding: "25px", borderRadius: "24px", maxWidth: "450px", width: "100%", border: "2px solid var(--state-danger-fg)" }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ color: "var(--state-danger-fg)", margin: "0 0 10px 0", fontWeight: 900, display: "flex", alignItems: "center", gap: "8px" }}>
-              <Ban size={20} /> Suspender a @{suspenderModal.display_name}
+              <Ban size={20} /> {tr("Suspender a @{name}", { name: suspenderModal.display_name })}
             </h3>
             <p style={{ fontSize: "14px", color: "var(--text-main)", marginBottom: "20px", lineHeight: "1.5" }}>
-              Elige el tiempo de suspensión. El usuario será restringido, recibirá una notificación y se creará un ticket automático en vuestra bandeja de denuncias para revisar el caso cuando venza el plazo.
+              {tr("Elige el tiempo de suspensión. El usuario será restringido, recibirá una notificación y se creará un ticket automático en vuestra bandeja de denuncias para revisar el caso cuando venza el plazo.")}
             </p>
             
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
               <button onClick={() => aplicarSuspension('1_mes')} style={{ background: "var(--state-danger-bg)", color: "var(--state-danger-fg)", border: "1px solid var(--state-danger-border)", padding: "12px", borderRadius: "12px", fontWeight: 900, cursor: "pointer", textAlign: "left" }}>
-                ⏳ Suspender por 1 Mes
+                {tr("⏳ Suspender por 1 Mes")}
               </button>
               <button onClick={() => aplicarSuspension('6_meses')} style={{ background: "var(--state-danger-bg)", color: "var(--state-danger-fg)", border: "1px solid var(--state-danger-border)", padding: "12px", borderRadius: "12px", fontWeight: 900, cursor: "pointer", textAlign: "left" }}>
-                🕰️ Suspender por 6 Meses
+                {tr("🕰️ Suspender por 6 Meses")}
               </button>
               <button onClick={() => aplicarSuspension('definitivo')} style={{ background: "var(--state-danger-fg)", color: "var(--bg-card)", border: "none", padding: "12px", borderRadius: "12px", fontWeight: 900, cursor: "pointer", textAlign: "left" }}>
-                ☠️ Expulsión Definitiva
+                {tr("☠️ Expulsión Definitiva")}
               </button>
             </div>
 
-            <button onClick={() => setSuspenderModal(null)} style={{ width: "100%", background: "var(--state-disabled-bg)", color: "var(--text-main)", border: "none", padding: "12px", borderRadius: "12px", fontWeight: 900, cursor: "pointer" }}>
-              Cancelar
-            </button>
+            <button onClick={() => setSuspenderModal(null)} style={{ width: "100%", background: "var(--state-disabled-bg)", color: "var(--text-main)", border: "none", padding: "12px", borderRadius: "12px", fontWeight: 900, cursor: "pointer" }}>{tr("Cancelar")}</button>
           </div>
         </div>
         

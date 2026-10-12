@@ -1,6 +1,8 @@
 "use client";
 
 import { ImagePlus, Mail, MailOpen, PenTool, ShieldAlert, Sparkles, Tags, Users, type LucideIcon } from "lucide-react";
+import { bindAdminLang, tr } from "@/lib/admin-i18n";
+import { useGlobal } from "../context/GlobalContext";
 
 const SECTIONS: { id: string; label: string; group: string; icon: LucideIcon }[] = [
   { id: "publicar", label: "Publicar", group: "Contenido", icon: PenTool },
@@ -14,27 +16,28 @@ const SECTIONS: { id: string; label: string; group: string; icon: LucideIcon }[]
 ];
 
 export default function AdminManual({ onStartTour }: { onStartTour?: (id: string) => void }) {
+  const { uiLanguage } = useGlobal();
+  bindAdminLang(uiLanguage);
   const groups = Array.from(new Set(SECTIONS.map((item) => item.group)));
 
   return (
     <div className="adm-manual">
       <div className="adm-manual-stage">
-        <p className="adm-kicker">Manual</p>
-        <h2>Un tour por apartado</h2>
-        <p className="adm-lead">
-          Cada botón abre esa sección y señala los campos de verdad. Si el campo es un desplegable, las opciones se recorren solas. Siguiente y Anterior lo mueven. La X lo cierra.
-        </p>
+        <p className="adm-kicker">{tr("Manual")}</p>
+        <h2>{tr("Un tour por apartado")}</h2>
+        <p className="adm-lead">{tr("Cada botón abre esa sección y señala los campos de verdad. Si el campo es un desplegable, las opciones se recorren solas. Siguiente y Anterior lo mueven. La X lo cierra.")}</p>
         {groups.map((group) => (
           <div key={group} className="adm-group">
-            <span>{group}</span>
+            <span>{tr(group)}</span>
             <div className="adm-grid">
               {SECTIONS.filter((item) => item.group === group).map((item) => {
                 const Icon = item.icon;
+                const label = tr(item.label);
                 return (
-                  <button key={item.id} type="button" aria-label={`Tour de ${item.label}`} onClick={() => onStartTour?.(item.id)}>
+                  <button key={item.id} type="button" aria-label={tr("Tour de {name}", { name: label })} onClick={() => onStartTour?.(item.id)}>
                     <Icon size={28} strokeWidth={2.2} />
-                    <strong>{item.label}</strong>
-                    <small>Tour de la sección</small>
+                    <strong>{label}</strong>
+                    <small>{tr("Tour de la sección")}</small>
                   </button>
                 );
               })}

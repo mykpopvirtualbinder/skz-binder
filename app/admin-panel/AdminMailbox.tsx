@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "r
 import { Archive, FolderPlus, Forward, Loader2, Mail, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
+import { bindAdminLang, tr } from "@/lib/admin-i18n";
 
 type MailSummary = {
   uid: number;
@@ -36,7 +37,7 @@ type ComposeDraft = { to: string; subject: string; text: string; inReplyTo: stri
 async function authHeaders(): Promise<HeadersInit> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  if (!token) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
+  if (!token) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -110,14 +111,18 @@ function knownFolder(folder: MailFolder) {
   return FOLDER_ES[folderKey(folder)] || null;
 }
 
-function folderLabel(folder: MailFolder) {
+function folderEsName(folder: MailFolder) {
   return knownFolder(folder)?.es || folder.name || folder.path;
+}
+
+function folderLabel(folder: MailFolder) {
+  return tr(folderEsName(folder));
 }
 
 function folderServerName(folder: MailFolder) {
   const raw = folder.name || folder.path;
   const plain = (value: string) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (plain(folderLabel(folder)) === plain(raw)) return "";
+  if (plain(folderEsName(folder)) === plain(raw)) return "";
   return raw;
 }
 
@@ -152,7 +157,8 @@ function refreshBadges() {
 }
 
 export default function AdminMailbox() {
-  const { showAlert, showConfirm } = useGlobal();
+  const { showAlert, showConfirm, uiLanguage } = useGlobal();
+  bindAdminLang(uiLanguage);
   const [loading, setLoading] = useState(true);
   const [configured, setConfigured] = useState(true);
   const [account, setAccount] = useState("info@mykpopbinder.com");
@@ -195,13 +201,13 @@ export default function AdminMailbox() {
         return;
       }
       setConfigured(true);
-      if (!res.ok) throw new Error(json.error || "No se ha podido abrir la carpeta.");
+      if (!res.ok) throw new Error(json.error || tr("No se ha podido abrir la carpeta."));
       if (json.folders) setFolders(json.folders);
       if (json.box) setBox(json.box);
       setMessages(json.messages || []);
       refreshBadges();
     } catch (err) {
-      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido abrir la carpeta.");
+      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido abrir la carpeta."));
     } finally {
       setLoading(false);
     }
@@ -245,13 +251,13 @@ export default function AdminMailbox() {
       const params = new URLSearchParams({ uid: String(uid), box });
       const res = await fetch(`/api/admin/mailbox?${params}`, { headers });
       const json = (await res.json().catch(() => ({}))) as { message?: MailMessage; error?: string };
-      if (!res.ok || !json.message) throw new Error(json.error || "No se ha podido abrir el mensaje.");
+      if (!res.ok || !json.message) throw new Error(json.error || tr("No se ha podido abrir el mensaje."));
       setSelected(json.message);
       setMessages((prev) => prev.map((item) => (item.uid === uid ? { ...item, seen: true } : item)));
       refreshBadges();
     } catch (err) {
       closeViewer();
-      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido abrir el mensaje.");
+      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido abrir el mensaje."));
     } finally {
       setReading(false);
     }
@@ -265,15 +271,15 @@ export default function AdminMailbox() {
       body: JSON.stringify(payload),
     });
     const json = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) throw new Error(json.error || "No se ha podido completar la acción.");
+    if (!res.ok) throw new Error(json.error || tr("No se ha podido completar la acción."));
   };
 
   const moveMessage = async (uid: number, action: "delete" | "archive" | "move", destination = "") => {
-    const titles = { delete: "Eliminar mensaje", archive: "Archivar mensaje", move: "Mover mensaje" };
+    const titles = { delete: tr("Eliminar mensaje"), archive: tr("Archivar mensaje"), move: tr("Mover mensaje") };
     const bodies = {
-      delete: "Se moverá a Eliminados.",
-      archive: "Se moverá a Archivo.",
-      move: "Se moverá a la carpeta elegida.",
+      delete: tr("Se moverá a Eliminados."),
+      archive: tr("Se moverá a Archivo."),
+      move: tr("Se moverá a la carpeta elegida."),
     };
     const ok = await showConfirm(titles[action], bodies[action]);
     if (!ok) {
@@ -286,7 +292,7 @@ export default function AdminMailbox() {
       closeViewer();
       refreshBadges();
     } catch (err) {
-      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido mover el mensaje.");
+      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido mover el mensaje."));
       setMoveTo("");
     }
   };
@@ -297,9 +303,9 @@ export default function AdminMailbox() {
     try {
       await postAction({ action: "send", ...compose });
       setCompose(null);
-      showAlert("Correo", "Mensaje enviado.");
+      showAlert(tr("Correo"), tr("Mensaje enviado."));
     } catch (err) {
-      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido enviar.");
+      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido enviar."));
     } finally {
       setSending(false);
     }
@@ -323,7 +329,7 @@ export default function AdminMailbox() {
     const quoted = [
       "",
       "",
-      "---------- Mensaje reenviado ----------",
+      tr("---------- Mensaje reenviado ----------"),
       `De: ${selected.from}`,
       `Fecha: ${formatWhen(selected.date)}`,
       `Asunto: ${selected.subject}`,
@@ -342,7 +348,7 @@ export default function AdminMailbox() {
       setFolderName("");
       await loadList(box, true);
     } catch (err) {
-      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido crear la carpeta.");
+      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido crear la carpeta."));
     } finally {
       setCreatingFolder(false);
     }
@@ -350,23 +356,22 @@ export default function AdminMailbox() {
 
   const removeFolder = async () => {
     if (!current || protectedFolder(current)) return;
-    const ok = await showConfirm("Eliminar carpeta", `Se borrará «${folderLabel(current)}» y los mensajes que contenga.`);
+    const ok = await showConfirm(tr("Eliminar carpeta"), `Se borrará «${folderLabel(current)}» y los mensajes que contenga.`);
     if (!ok) return;
     try {
       await postAction({ action: "delete-folder", path: current.path });
       await loadList("INBOX", true);
     } catch (err) {
-      showAlert("Correo", err instanceof Error ? err.message : "No se ha podido eliminar la carpeta.");
+      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido eliminar la carpeta."));
     }
   };
 
   if (!configured) {
     return (
       <div style={{ padding: 8 }}>
-        <h2 style={{ marginTop: 0 }}>Correo</h2>
+        <h2 style={{ marginTop: 0 }}>{tr("Correo")}</h2>
         <p style={{ color: "var(--text-muted)", maxWidth: 560, lineHeight: 1.5 }}>
-          La bandeja de {account} está lista, pero el servidor todavía no tiene la contraseña del buzón.
-          Añade <b>ARSYS_MAIL_PASSWORD</b> en Vercel, en los ajustes del proyecto, y vuelve a desplegar.
+          {tr("La bandeja de {account} está lista, pero el servidor todavía no tiene la contraseña del buzón. Añade ARSYS_MAIL_PASSWORD en Vercel, en los ajustes del proyecto, y vuelve a desplegar.", { account })}
         </p>
       </div>
     );
@@ -405,16 +410,13 @@ export default function AdminMailbox() {
     <div style={{ display: "grid", gap: 16 }}>
       <div data-tour="mail-toolbar" style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <div>
-          <h2 style={{ margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>
-            Correo
-            {unseen > 0 && <span style={countStyle} title="Sin leer">{unseen > 99 ? "99+" : unseen}</span>}
+          <h2 style={{ margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>{tr("Correo")}{unseen > 0 && <span style={countStyle} title={tr("Sin leer")}>{unseen > 99 ? "99+" : unseen}</span>}
           </h2>
           <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700 }}>{account}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button type="button" onClick={() => void loadList(box, true)} style={btnStyle}>
-            <RefreshCw size={14} /> Actualizar
-          </button>
+            <RefreshCw size={14} />{tr("Actualizar")}</button>
           <button
             type="button"
             data-tour="mail-new"
@@ -424,8 +426,7 @@ export default function AdminMailbox() {
             }}
             style={{ ...btnStyle, background: "var(--color-primary)", color: "#111", borderColor: "transparent" }}
           >
-            <Mail size={14} /> Nuevo
-          </button>
+            <Mail size={14} />{tr("Nuevo")}</button>
         </div>
       </div>
 
@@ -436,19 +437,18 @@ export default function AdminMailbox() {
             <input
               value={folderName}
               onChange={(event) => setFolderName(event.target.value)}
-              placeholder="Nombre de la carpeta"
-              aria-label="Nombre de la carpeta"
+              placeholder={tr("Nombre de la carpeta")}
+              aria-label={tr("Nombre de la carpeta")}
               style={inputStyle}
             />
             <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createSubfolder(false)} style={btnStyle}>
-              <FolderPlus size={14} /> Subcarpeta de {current ? folderLabel(current) : "esta"}
+              <FolderPlus size={14} /> {tr("Subcarpeta de {name}", { name: current ? folderLabel(current) : tr("esta carpeta") })}
             </button>
             <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createSubfolder(true)} style={btnStyle}>
-              <FolderPlus size={14} /> Carpeta en la raíz
-            </button>
+              <FolderPlus size={14} />{tr("Carpeta en la raíz")}</button>
             {!protectedFolder(current) && (
               <button type="button" onClick={() => void removeFolder()} style={btnStyle}>
-                <Trash2 size={14} /> Eliminar {folderLabel(current as MailFolder)}
+                <Trash2 size={14} /> {tr("Eliminar {name}", { name: folderLabel(current as MailFolder) })}
               </button>
             )}
           </div>
@@ -456,9 +456,9 @@ export default function AdminMailbox() {
 
         <div data-tour="mail-list" style={{ ...cardStyle, padding: 0, maxHeight: 640, overflow: "auto", minWidth: 0 }}>
           {loading && messages.length === 0 ? (
-            <p style={{ padding: 16, color: "var(--text-muted)" }}>Abriendo la carpeta…</p>
+            <p style={{ padding: 16, color: "var(--text-muted)" }}>{tr("Abriendo la carpeta…")}</p>
           ) : messages.length === 0 ? (
-            <p style={{ padding: 16, color: "var(--text-muted)" }}>Esta carpeta está vacía.</p>
+            <p style={{ padding: 16, color: "var(--text-muted)" }}>{tr("Esta carpeta está vacía.")}</p>
           ) : (
             messages.map((item, index) => (
               <button
@@ -492,14 +492,14 @@ export default function AdminMailbox() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label={selected?.subject || "Mensaje"}
+            aria-label={selected?.subject || tr("Mensaje")}
             data-tour="mail-modal"
             onClick={(event) => event.stopPropagation()}
             style={dialogStyle}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexShrink: 0 }}>
               <div style={{ minWidth: 0 }}>
-                <h3 style={{ margin: "0 0 6px" }}>{reading ? "Abriendo…" : selected?.subject || "(sin asunto)"}</h3>
+                <h3 style={{ margin: "0 0 6px" }}>{reading ? tr("Abriendo…") : selected?.subject || tr("(sin asunto)")}</h3>
                 {selected && (
                   <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, lineHeight: 1.45 }}>
                     {selected.from}
@@ -509,17 +509,15 @@ export default function AdminMailbox() {
                   </p>
                 )}
               </div>
-              <button type="button" onClick={closeViewer} style={btnStyle} aria-label="Cerrar"><X size={14} /></button>
+              <button type="button" onClick={closeViewer} style={btnStyle} aria-label={tr("Cerrar")}><X size={14} /></button>
             </div>
 
             <div data-tour="mail-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0 }}>
-              <button type="button" data-tour="mail-reply" disabled={!selected} onClick={startReply} style={btnStyle}><Reply size={14} /> Responder</button>
-              <button type="button" data-tour="mail-forward" disabled={!selected} onClick={startForward} style={btnStyle}><Forward size={14} /> Reenviar</button>
-              <button type="button" data-tour="mail-archive" disabled={!selected} onClick={() => selected && void moveMessage(selected.uid, "archive")} style={btnStyle}><Archive size={14} /> Archivar</button>
-              <button type="button" data-tour="mail-delete" disabled={!selected} onClick={() => selected && void moveMessage(selected.uid, "delete")} style={btnStyle}><Trash2 size={14} /> Eliminar</button>
-              <label style={{ ...btnStyle, padding: "4px 10px" }}>
-                Mover a
-                <select
+              <button type="button" data-tour="mail-reply" disabled={!selected} onClick={startReply} style={btnStyle}><Reply size={14} />{tr("Responder")}</button>
+              <button type="button" data-tour="mail-forward" disabled={!selected} onClick={startForward} style={btnStyle}><Forward size={14} />{tr("Reenviar")}</button>
+              <button type="button" data-tour="mail-archive" disabled={!selected} onClick={() => selected && void moveMessage(selected.uid, "archive")} style={btnStyle}><Archive size={14} />{tr("Archivar")}</button>
+              <button type="button" data-tour="mail-delete" disabled={!selected} onClick={() => selected && void moveMessage(selected.uid, "delete")} style={btnStyle}><Trash2 size={14} />{tr("Eliminar")}</button>
+              <label style={{ ...btnStyle, padding: "4px 10px" }}>{tr("Mover a")}<select
                   value={moveTo}
                   disabled={!selected}
                   onChange={(event) => {
@@ -529,7 +527,7 @@ export default function AdminMailbox() {
                   }}
                   style={{ border: "none", background: "transparent", color: "inherit", font: "inherit", fontWeight: 800 }}
                 >
-                  <option value="">Elegir carpeta</option>
+                  <option value="">{tr("Elegir carpeta")}</option>
                   {folders.filter((folder) => folder.selectable && folder.path !== box).map((folder) => (
                     <option key={folder.path} value={folder.path}>
                       {folderServerName(folder) ? `${folderLabel(folder)} (${folderServerName(folder)})` : folderLabel(folder)}
@@ -542,12 +540,12 @@ export default function AdminMailbox() {
             <div data-mail-scroll style={messageScroll}>
               {reading ? (
                 <p style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 8 }}>
-                  <Loader2 size={16} className="spinner" /> Leyendo el mensaje…
+                  <Loader2 size={16} className="spinner" /> {tr("Leyendo el mensaje…")}
                 </p>
               ) : selected?.html ? (
                 <div className="mail-html" dangerouslySetInnerHTML={{ __html: selected.html }} />
               ) : (
-                <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0, lineHeight: 1.5 }}>{selected?.text || "(sin texto)"}</pre>
+                <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0, lineHeight: 1.5 }}>{selected?.text || tr("(sin texto)")}</pre>
               )}
             </div>
 
@@ -562,10 +560,10 @@ export default function AdminMailbox() {
 
       {compose && !viewerOpen && (
         <div role="presentation" onClick={() => setCompose(null)} style={overlayStyle}>
-          <div role="dialog" aria-modal="true" aria-label="Nuevo mensaje" data-tour="mail-compose" onClick={(event) => event.stopPropagation()} style={{ ...dialogStyle, height: "auto", maxHeight: "min(88vh, 720px)" }}>
+          <div role="dialog" aria-modal="true" aria-label={tr("Nuevo mensaje")} data-tour="mail-compose" onClick={(event) => event.stopPropagation()} style={{ ...dialogStyle, height: "auto", maxHeight: "min(88vh, 720px)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-              <h3 style={{ margin: 0 }}>Nuevo mensaje</h3>
-              <button type="button" onClick={() => setCompose(null)} style={btnStyle} aria-label="Cerrar"><X size={14} /></button>
+              <h3 style={{ margin: 0 }}>{tr("Nuevo mensaje")}</h3>
+              <button type="button" onClick={() => setCompose(null)} style={btnStyle} aria-label={tr("Cerrar")}><X size={14} /></button>
             </div>
             <div data-mail-scroll style={{ ...messageScroll, flex: "0 1 auto" }}>
               <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} />
@@ -592,20 +590,15 @@ function ComposeBox({
 }) {
   return (
     <div style={{ display: "grid", gap: 10 }}>
-      <label style={labelStyle}>
-        Para
-        <input value={compose.to} onChange={(e) => setCompose({ ...compose, to: e.target.value })} style={inputStyle} />
+      <label style={labelStyle}>{tr("Para")}<input value={compose.to} onChange={(e) => setCompose({ ...compose, to: e.target.value })} style={inputStyle} />
       </label>
-      <label style={labelStyle}>
-        Asunto
-        <input value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} style={inputStyle} />
+      <label style={labelStyle}>{tr("Asunto")}<input value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} style={inputStyle} />
       </label>
       <textarea value={compose.text} onChange={(e) => setCompose({ ...compose, text: e.target.value })} rows={8} style={{ ...inputStyle, resize: "vertical" }} />
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" disabled={sending} onClick={onSend} style={{ ...btnStyle, background: "var(--color-primary)", color: "#111", borderColor: "transparent" }}>
-          {sending ? <Loader2 size={14} className="spinner" /> : <Send size={14} />} Enviar
-        </button>
-        <button type="button" onClick={onCancel} style={btnStyle}>Cancelar</button>
+          {sending ? <Loader2 size={14} className="spinner" /> : <Send size={14} />}{tr("Enviar")}</button>
+        <button type="button" onClick={onCancel} style={btnStyle}>{tr("Cancelar")}</button>
       </div>
     </div>
   );

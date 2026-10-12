@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import { bindAdminLang, tr } from "@/lib/admin-i18n";
+import { useGlobal } from "../context/GlobalContext";
 import {
   CORE_STATUSES,
   DENUNCIA_STATUSES,
@@ -13,6 +15,11 @@ import {
   type QueueKind,
   type QueueStatus,
 } from "@/lib/admin-queue";
+
+function useAdminLang() {
+  const { uiLanguage } = useGlobal();
+  bindAdminLang(uiLanguage);
+}
 
 const chip: CSSProperties = {
   display: "inline-flex",
@@ -38,11 +45,12 @@ export type UserHistoryRow = {
 };
 
 export function UserCaseHistory({ noun, name, rows, onOpen, tour }: { noun: string; name: string; rows: UserHistoryRow[]; onOpen?: (id: string) => void; tour?: string }) {
+  useAdminLang();
   const [open, setOpen] = useState(false);
   return (
     <div style={{ marginTop: 12 }}>
       <button data-tour={tour} type="button" onClick={() => setOpen((v) => !v)} style={{ ...chip, cursor: "pointer" }}>
-        {open ? "Ocultar historial" : `Historial de ${noun} de ${name}`}
+        {open ? tr("Ocultar historial") : tr("Historial de {noun} de {name}", { noun, name })}
       </button>
       {open && (
         <div data-tour={tour ? `${tour}-lista` : undefined} style={{ marginTop: 8, background: "var(--bg-main)", border: "1px dashed var(--color-border)", borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -55,8 +63,7 @@ export function UserCaseHistory({ noun, name, rows, onOpen, tour }: { noun: stri
             >
               <div style={{ fontWeight: 900, color: "var(--color-primary)", fontSize: 13, textDecoration: onOpen ? "underline" : "none" }}>{row.title}</div>
               <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 700, marginTop: 2 }}>{row.when}</div>
-              <div style={{ fontSize: 13, color: "var(--text-main)", fontWeight: 700, marginTop: 4 }}>
-                Estado: {row.status} · Gestiona: {row.gestor} · {row.read}
+              <div style={{ fontSize: 13, color: "var(--text-main)", fontWeight: 700, marginTop: 4 }}>{tr("Estado:")} {tr(row.status)} · {tr("Gestiona:")} {tr(row.gestor)} · {tr(row.read)}
               </div>
               <p style={{ margin: "6px 0 0", whiteSpace: "pre-wrap", fontSize: 12, color: "var(--text-main)", fontWeight: 650 }}>{row.actions}</p>
             </button>
@@ -80,6 +87,7 @@ export function ReadSelectionBar({
   onMark: (ids: string[], leido: boolean) => void;
   tour?: string;
 }) {
+  useAdminLang();
   const allOn = ids.length > 0 && ids.every((id) => selected.has(id));
   const btn: CSSProperties = { ...chip, cursor: "pointer", background: "var(--bg-card)" };
   const label = (full: string, short: string) => (
@@ -97,12 +105,12 @@ export function ReadSelectionBar({
           onChange={(e) => onChange(e.target.checked ? new Set(ids) : new Set())}
           style={{ accentColor: "var(--color-primary)" }}
         />
-        {label("Seleccionar todas", "Todas")}
+        {label(tr("Seleccionar todas"), tr("Todas"))}
       </label>
-      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), true)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>{label("Marcar seleccionadas leídas", "Sel. leídas")}</button>
-      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), false)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>{label("Marcar seleccionadas no leídas", "Sel. no leídas")}</button>
-      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, true)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>{label("Marcar todas leídas", "Lista leída")}</button>
-      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, false)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>{label("Marcar todas no leídas", "Lista no leída")}</button>
+      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), true)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>{label(tr("Marcar seleccionadas leídas"), tr("Sel. leídas"))}</button>
+      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), false)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>{label(tr("Marcar seleccionadas no leídas"), tr("Sel. no leídas"))}</button>
+      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, true)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>{label(tr("Marcar todas leídas"), tr("Lista leída"))}</button>
+      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, false)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>{label(tr("Marcar todas no leídas"), tr("Lista no leída"))}</button>
       <style jsx>{`
         .aq-short { display: none; }
         @media (max-width: 860px) {
@@ -147,42 +155,37 @@ export function AdminQueueFilters({
   onRead: (value: string) => void;
   tour?: string;
 }) {
+  useAdminLang();
   const statuses = queue === "denuncia" ? DENUNCIA_STATUSES : CORE_STATUSES;
 
   return (
     <div className="aq-filters" data-tour={tour} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div className="aq-filter-row" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        <label data-tour={tour ? `${tour}-estado` : undefined} style={chip}>
-          Estado
-          <select value={status} onChange={(e) => onStatus(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
-            <option value="todos">Todos</option>
+        <label data-tour={tour ? `${tour}-estado` : undefined} style={chip}>{tr("Estado")}<select value={status} onChange={(e) => onStatus(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
+            <option value="todos">{tr("Todos")}</option>
             {statuses.map((s) => (
-              <option key={s.id} value={s.id}>{s.label}</option>
+              <option key={s.id} value={s.id}>{tr(s.label)}</option>
             ))}
           </select>
         </label>
-        <label data-tour={tour ? `${tour}-gestor` : undefined} style={chip}>
-          Quién gestiona
-          <select value={gestor} onChange={(e) => onGestor(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
-            <option value="todos">Todas</option>
-            <option value="sin_asignar">Sin asignar</option>
+        <label data-tour={tour ? `${tour}-gestor` : undefined} style={chip}>{tr("Quién gestiona")}<select value={gestor} onChange={(e) => onGestor(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
+            <option value="todos">{tr("Todas")}</option>
+            <option value="sin_asignar">{tr("Sin asignar")}</option>
             {GESTORES.map((g) => (
-              <option key={g.id} value={g.id}>{g.label}</option>
+              <option key={g.id} value={g.id}>{tr(g.label)}</option>
             ))}
           </select>
         </label>
         <input
           value={userQuery}
           onChange={(e) => onUserQuery(e.target.value)}
-          placeholder="Filtrar por usuario"
+          placeholder={tr("Filtrar por usuario")}
           style={{ ...chip, minWidth: 180, color: "var(--text-main)", outline: "none" }}
         />
-        <label data-tour={tour ? `${tour}-lectura` : undefined} style={chip}>
-          Lectura
-          <select value={read} onChange={(e) => onRead(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
-            <option value="todos">Todas</option>
-            <option value="no_leidas">No leídas</option>
-            <option value="leidas">Leídas</option>
+        <label data-tour={tour ? `${tour}-lectura` : undefined} style={chip}>{tr("Lectura")}<select value={read} onChange={(e) => onRead(e.target.value)} style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}>
+            <option value="todos">{tr("Todas")}</option>
+            <option value="no_leidas">{tr("No leídas")}</option>
+            <option value="leidas">{tr("Leídas")}</option>
           </select>
         </label>
       </div>
@@ -218,6 +221,7 @@ export function AdminQueueBar({
   onPatch: (patch: Partial<Pick<QueueCase, "leido" | "status" | "gestor">>, action: string, detail: string) => void;
   mark?: string;
 }) {
+  useAdminLang();
   const statuses = statusesOf(queue);
   return (
     <div className="aq-bar" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
@@ -232,12 +236,10 @@ export function AdminQueueBar({
         }}
       >
         <span style={{ width: 8, height: 8, borderRadius: 99, background: state.leido ? "var(--text-muted)" : "var(--color-primary)" }} />
-        <span className="aq-long">{state.leido ? "Marcar como no leída" : "Marcar como leída"}</span>
-        <span className="aq-short">{state.leido ? "No leída" : "Leída"}</span>
+        <span className="aq-long">{state.leido ? tr("Marcar como no leída") : tr("Marcar como leída")}</span>
+        <span className="aq-short">{state.leido ? tr("No leída") : tr("Leída")}</span>
       </button>
-      <label data-tour={mark ? `${mark}-estado` : undefined} style={chip}>
-        Estado
-        <select
+      <label data-tour={mark ? `${mark}-estado` : undefined} style={chip}>{tr("Estado")}<select
           disabled={busy}
           value={state.status}
           onChange={(e) => {
@@ -247,13 +249,11 @@ export function AdminQueueBar({
           style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}
         >
           {statuses.map((s) => (
-            <option key={s.id} value={s.id}>{s.label}</option>
+            <option key={s.id} value={s.id}>{tr(s.label)}</option>
           ))}
         </select>
       </label>
-      <label data-tour={mark ? `${mark}-gestor` : undefined} style={chip}>
-        Gestiona
-        <select
+      <label data-tour={mark ? `${mark}-gestor` : undefined} style={chip}>{tr("Gestiona")}<select
           disabled={busy}
           value={state.gestor || ""}
           onChange={(e) => {
@@ -262,15 +262,14 @@ export function AdminQueueBar({
           }}
           style={{ border: "none", background: "transparent", color: "var(--text-main)", fontWeight: 800, outline: "none" }}
         >
-          <option value="">Sin asignar</option>
+          <option value="">{tr("Sin asignar")}</option>
           {GESTORES.map((g) => (
-            <option key={g.id} value={g.id}>{g.label}</option>
+            <option key={g.id} value={g.id}>{tr(g.label)}</option>
           ))}
         </select>
       </label>
       {state.historial.length > 0 && (
-        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-muted)", overflowWrap: "anywhere" }}>
-          Última: {state.historial[state.historial.length - 1].actor} · {state.historial[state.historial.length - 1].detail}
+        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-muted)", overflowWrap: "anywhere" }}>{tr("Última:")} {state.historial[state.historial.length - 1].actor} · {tr(state.historial[state.historial.length - 1].detail)}
         </span>
       )}
       <style jsx>{`
