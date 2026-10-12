@@ -111,6 +111,7 @@ function albumSidecarMockPcRewrites() {
  */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: ["imapflow", "mailparser", "nodemailer"],
   async rewrites() {
     return {
       afterFiles: [

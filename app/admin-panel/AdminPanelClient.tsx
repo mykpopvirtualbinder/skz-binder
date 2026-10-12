@@ -34,6 +34,7 @@ import {
 } from "@/lib/admin-queue";
 import { AdminQueueBar, AdminQueueFilters, ReadSelectionBar, UserCaseHistory, caseMatchesFilters, type UserHistoryRow } from "./AdminQueueBar";
 import AdminManual from "./AdminManual";
+import AdminMailbox from "./AdminMailbox";
 import { startAdminTour, adminTourActive, ADMIN_TOUR_IDS, type AdminTourHandlers, type AdminTourId } from "./adminTour";
 
 
@@ -2638,6 +2639,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
         { id: "denuncias", label: "Denuncias", icon: ShieldAlert },
         { id: "buzon", label: "Buzón", icon: MailOpen },
         { id: "aportaciones", label: "Aportaciones", icon: ImagePlus },
+        { id: "correo", label: "Correo", icon: Mail },
       ],
     },
     {
@@ -2797,17 +2799,6 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               </div>
             ))}
           </nav>
-          <a
-            href="https://correo.arsys.es"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="admin-nav-btn"
-            style={{ margin: "12px 14px 0", textDecoration: "none" }}
-          >
-            <Mail size={16} />
-            <span style={{ flex: 1, minWidth: 0 }}>Correo Arsys</span>
-            <ExternalLink size={14} />
-          </a>
         </aside>
 
         <main className="admin-stage">
@@ -4411,6 +4402,8 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           {activeTab === "manual" && (
             <AdminManual onStartTour={launchTour} />
           )}
+
+          {activeTab === "correo" && <AdminMailbox />}
 
 
         </div>
