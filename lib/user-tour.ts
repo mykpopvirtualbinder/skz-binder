@@ -886,7 +886,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='binder-unslot']",
         title: "Devolverla al stock",
-        text: "La papelera saca la photocard del bolsillo y la devuelve al picker. El movimiento se puede deshacer. Mientras siga colocada en algún binder, no vuelve a salir como libre.",
+        text: "En el móvil, la papelera saca la photocard del bolsillo y la devuelve al picker. En escritorio esa acción está en la X de la esquina. El movimiento se puede deshacer. Mientras siga colocada en algún binder, no vuelve a salir como libre.",
         side: "top",
         clickBefore: "[data-tour='binder-slot']",
         wait: 400,

@@ -3032,6 +3032,7 @@ onClick={(e) => {
  </button>
  <button
    type="button"
+   className="pcUnslotMobile"
    title={t("binders.actions.remove_from_slot")}
    aria-label={t("binders.actions.remove_from_slot")}
    data-tour="binder-unslot"
@@ -3051,6 +3052,7 @@ onClick={(e) => {
     <div className="pcDeleteCorner pcControlsOpen" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 950 }}>
       <button
         type="button"
+        data-tour="binder-unslot"
         onClick={async (e) => {
           e.stopPropagation();
           const ok = await showConfirm(t("common.confirm"), t("binders.actions.remove_from_slot_confirm"));
@@ -13499,6 +13501,12 @@ bottom: 8px;
     position: absolute;
     bottom: 10px;
     right: 10px;
+  }
+
+  @media (min-width: 768px) {
+    .pcUnslotMobile {
+      display: none !important;
+    }
   }
 
   .pcQtyBadgeCentered {
