@@ -6,6 +6,7 @@ import { GlobalProvider } from "./context/GlobalContext";
 import Header from "./components/header";
 import UserTourHost from "./components/UserTourHost";
 import { THEME_BOOT_SCRIPT, THEME_COOKIE, themeIdFromUnknown } from "@/lib/theme-persist";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,6 +64,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             
           </div>
         </GlobalProvider>
+        <Analytics />
       </body>
     </html>
   );
