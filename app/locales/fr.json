@@ -430,6 +430,8 @@
       "redo": "Rétablir",
       "view_detail": "Voir le détail",
       "go_to_slot": "Voir dans le classeur",
+      "remove_from_slot": "Retirer de l'emplacement",
+      "remove_from_slot_confirm": "Retirer cette photocard de l'emplacement et la remettre au stock ?",
       "flip": "Retourner",
       "back_side": "Verso",
       "preview": "Prévisualiser",
@@ -609,6 +611,9 @@
     "allowed_count": "Quantité autorisée",
     "btn_view": "Voir",
     "btn_create": "Créer",
+    "search_placeholder": "Chercher un classeur",
+    "jump_placeholder": "Aller à un classeur",
+    "search_empty": "Aucun classeur ne correspond à cette recherche",
     "limit_reached": "Limite atteinte",
     "usage_summary": "Résumé de l'utilisation"
   },

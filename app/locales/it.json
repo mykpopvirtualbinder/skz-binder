@@ -430,6 +430,8 @@
       "redo": "Ripeti",
       "view_detail": "Vedi dettaglio",
       "go_to_slot": "Apri nel raccoglitore",
+      "remove_from_slot": "Togli dallo slot",
+      "remove_from_slot_confirm": "Togliere questa photocard dallo slot e rimetterla nello stock?",
       "flip": "Gira",
       "back_side": "Retro",
       "preview": "Anteprima",
@@ -609,6 +611,9 @@
     "allowed_count": "Quantità consentita",
     "btn_view": "Vedi",
     "btn_create": "Crea",
+    "search_placeholder": "Cerca raccoglitore",
+    "jump_placeholder": "Vai a un raccoglitore",
+    "search_empty": "Nessun raccoglitore corrisponde a questa ricerca",
     "limit_reached": "Limite raggiunto",
     "usage_summary": "Riepilogo dell'utilizzo"
   },

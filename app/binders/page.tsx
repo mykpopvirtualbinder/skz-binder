@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 
 import Footer from "../components/footer";
-import { Plus, ShoppingBag, Loader2, BookText, Camera, ChevronLeft, Layers, BookOpen, Info } from "lucide-react";
+import { Plus, ShoppingBag, Loader2, BookText, Camera, ChevronLeft, Layers, BookOpen, Info, Search } from "lucide-react";
 import VirtualBinder from "../components/VirtualBinder";
 import BinderShelfThumb3D from "./BinderShelfThumb3D";
 import { useGlobal } from "../context/GlobalContext";
@@ -40,6 +40,8 @@ export default function BindersPage() {
   const [userId, setUserId] = useState<string | null>(null); 
   const [error, setError] = useState<string | null>(null);
   const [binders, setBinders] = useState<BinderRow[]>([]);
+  const [binderQuery, setBinderQuery] = useState("");
+  const [binderJump, setBinderJump] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [status, setStatus] = useState("");
   
@@ -460,6 +462,72 @@ export default function BindersPage() {
     extraBinders,
   });
   const maxB = quota.bindersLabel;
+  const binderSearch = binderQuery.trim().toLowerCase();
+  const shownBinders = binders.filter((b) => !binderSearch || (b.title || "").toLowerCase().includes(binderSearch));
+
+  const renderCreateBinderCard = (key: string) =>
+    userId && (isAdmin || binders.length < quota.maxBinders) ? (
+      <button
+        key={key}
+        data-tour={key === "start" ? "binders-create" : undefined}
+        onClick={createBinder}
+        disabled={isCheckingLimit || loading}
+        style={{
+          ...cardStyle,
+          borderStyle: "dashed",
+          background: "var(--bg-soft)",
+          cursor: isCheckingLimit || loading ? "not-allowed" : "pointer",
+          minHeight: "280px",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 80,
+            height: 110,
+            borderRadius: 12,
+            border: "2px dashed var(--color-primary)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {isCheckingLimit ? <Loader2 className="spinner" color="var(--color-primary)" size={40} /> : <Plus color="var(--color-primary)" size={40} />}
+        </div>
+        <div style={{ fontWeight: 900, color: "var(--color-primary)" }}>
+          {isCheckingLimit ? t("common.checking") : t("binders.btn_create")}
+        </div>
+      </button>
+    ) : (
+      <div
+        key={key}
+        onClick={() => router.push("/shop?item=binders")}
+        style={{
+          ...cardStyle,
+          background: "var(--bg-soft)",
+          borderColor: "var(--color-border)",
+          minHeight: "280px",
+          justifyContent: "center",
+          opacity: 0.8,
+          cursor: "pointer",
+        }}
+      >
+        <div
+          style={{
+            width: 80,
+            height: 110,
+            borderRadius: 12,
+            background: "var(--bg-main)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ShoppingBag color="var(--text-muted)" size={40} />
+        </div>
+        <div style={{ fontWeight: 900, color: "var(--text-muted)" }}>{t("binders.limit_reached")}</div>
+      </div>
+    );
 
   return (
     <div className="binders-page-shell">
@@ -522,6 +590,62 @@ export default function BindersPage() {
 
         {error && <div style={{ background: "var(--bg-soft)", color: "var(--state-danger-fg)", border: "1px solid var(--state-danger-fg)", padding: 12, borderRadius: 12, marginBottom: 20, fontWeight: 700 }}>Error: {error}</div>}
 
+        {userId && !loading && (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
+            <label style={{ position: "relative", flex: "1 1 220px", minWidth: 180 }}>
+              <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+              <input
+                value={binderQuery}
+                onChange={(e) => setBinderQuery(e.target.value)}
+                placeholder={t("binders.search_placeholder")}
+                aria-label={t("binders.search_placeholder")}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "12px 14px 12px 36px",
+                  borderRadius: 14,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--bg-card)",
+                  color: "var(--text-main)",
+                  fontWeight: 700,
+                }}
+              />
+            </label>
+            <select
+              value={binderJump}
+              aria-label={t("binders.jump_placeholder")}
+              onChange={(e) => {
+                const id = e.target.value;
+                setBinderJump(id);
+                if (!id) return;
+                setBinderQuery("");
+                window.setTimeout(() => {
+                  document.getElementById(`binder-card-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 60);
+              }}
+              style={{
+                flex: "1 1 220px",
+                minWidth: 180,
+                padding: "12px 14px",
+                borderRadius: 14,
+                border: "1px solid var(--color-border)",
+                background: "var(--bg-card)",
+                color: "var(--text-main)",
+                fontWeight: 700,
+              }}
+            >
+              <option value="">{t("binders.jump_placeholder")}</option>
+              {binders
+                .filter((b) => !binderSearch || (b.title || "").toLowerCase().includes(binderSearch))
+                .map((b) => (
+                  <option key={b.id} value={String(b.id)}>
+                    {b.title || `#${b.id}`}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
+
         {loading ? (
           <CatalogLoadingFun title={t("common.page_loading_title")} />
         ) : (
@@ -531,14 +655,22 @@ export default function BindersPage() {
           gap: 20,
           marginBottom: 50
         }}>
-          {binders.map((b, binderIndex) => (
+          {userId ? renderCreateBinderCard("start") : null}
+          {shownBinders.length === 0 && binderSearch ? (
+            <p style={{ gridColumn: "1 / -1", margin: 0, color: "var(--text-muted)", fontWeight: 700 }}>
+              {t("binders.search_empty")}
+            </p>
+          ) : null}
+          {shownBinders.map((b, binderIndex) => (
             <div 
               key={b.id}
               id={`binder-card-${b.id}`}
               style={{
                 ...cardStyle,
                 borderColor: b.color || "var(--color-primary)",
-                boxShadow: b.color ? `0 12px 35px ${b.color}55` : cardStyle.boxShadow,
+                boxShadow: binderJump === String(b.id)
+                  ? "0 0 0 2px var(--color-primary)"
+                  : (b.color ? `0 12px 35px ${b.color}55` : cardStyle.boxShadow),
                 paddingTop: 30,
               }}
             >
@@ -696,62 +828,7 @@ export default function BindersPage() {
             </div>
           ))}
 
-          {/* BOTÓN CREAR DINÁMICO */}
-          {userId && (isAdmin || binders.length < quota.maxBinders) ? (
-              <button
-                data-tour="binders-create"
-                onClick={createBinder}
-                disabled={isCheckingLimit || loading}
-                style={{ 
-                  ...cardStyle, borderStyle: "dashed", background: "var(--bg-soft)",
-                  cursor: (isCheckingLimit || loading) ? "not-allowed" : "pointer",
-                  minHeight: "280px", justifyContent: "center"
-                }}
-              >
-                <div style={{ 
-                  width: 80, 
-                  height: 110, 
-                  borderRadius: 12, 
-                  border: "2px dashed var(--color-primary)", 
-                  display: "flex", 
-                  alignItems: "center", 
-                  justifyContent: "center" 
-                }}>
-                  {isCheckingLimit ? 
-                    <Loader2 className="spinner" color="var(--color-primary)" size={40} /> : 
-                    <Plus color="var(--color-primary)" size={40} />
-                  }
-                </div>
-                <div style={{ fontWeight: 900, color: "var(--color-primary)" }}> 
-{isCheckingLimit ? t('common.checking') : t('binders.btn_create')}                </div>
-              </button>
-            ) : (
-              <div 
-                onClick={() => router.push("/shop?item=binders")}
-                style={{ 
-                  ...cardStyle, 
-                  background: "var(--bg-soft)", 
-                  borderColor: "var(--color-border)", 
-                  minHeight: "280px", 
-                  justifyContent: "center",
-                  opacity: 0.8 
-                }}
-              >
-                <div style={{ 
-                  width: 80, 
-                  height: 110, 
-                  borderRadius: 12, 
-                  background: "var(--bg-main)", 
-                  display: "flex", 
-                  alignItems: "center", 
-                  justifyContent: "center" 
-                }}>
-                  <ShoppingBag color="var(--text-muted)" size={40} />
-                </div>
-                <div style={{ fontWeight: 900, color: "var(--text-muted)" }}>
-{t('binders.limit_reached')}                </div>
-              </div>
-            )}
+          {userId ? renderCreateBinderCard("end") : null}
         </div>
         )}
 

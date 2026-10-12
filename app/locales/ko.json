@@ -289,6 +289,8 @@
       "redo": "다시 실행",
       "view_detail": "자세히 보기",
       "go_to_slot": "바인더에서 보기",
+      "remove_from_slot": "슬롯에서 빼기",
+      "remove_from_slot_confirm": "이 포토카드를 슬롯에서 빼고 재고로 되돌릴까요?",
       "flip": "뒤집기",
       "back_side": "뒷면",
       "preview": "미리보기",
@@ -414,6 +416,9 @@
     "allowed_count": "Cantidad permitida",
     "btn_view": "Ver",
     "btn_create": "Crear",
+    "search_placeholder": "바인더 검색",
+    "jump_placeholder": "바인더로 이동",
+    "search_empty": "검색과 일치하는 바인더가 없습니다",
     "limit_reached": "Límite alcanzado",
     "usage_summary": "Resumen de uso"
   },

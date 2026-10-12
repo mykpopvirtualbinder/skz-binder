@@ -289,6 +289,8 @@
       "redo": "Refazer",
       "view_detail": "Ver detalhe",
       "go_to_slot": "Ver no binder",
+      "remove_from_slot": "Tirar do slot",
+      "remove_from_slot_confirm": "Tirar esta photocard do slot e devolvê-la ao stock?",
       "flip": "Virar",
       "back_side": "Verso",
       "preview": "Pré-visualizar",
@@ -414,6 +416,9 @@
     "allowed_count": "Cantidad permitida",
     "btn_view": "Ver",
     "btn_create": "Crear",
+    "search_placeholder": "Buscar binder",
+    "jump_placeholder": "Ir para um binder",
+    "search_empty": "Nenhum binder corresponde a essa busca",
     "limit_reached": "Límite alcanzado",
     "usage_summary": "Resumen de uso"
   },

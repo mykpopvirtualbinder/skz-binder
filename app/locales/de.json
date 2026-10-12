@@ -430,6 +430,8 @@
       "redo": "Wiederholen",
       "view_detail": "Details anzeigen",
       "go_to_slot": "Im Binder öffnen",
+      "remove_from_slot": "Aus dem Fach nehmen",
+      "remove_from_slot_confirm": "Diese Photocard aus dem Fach nehmen und zurück in den Bestand legen?",
       "flip": "Umdrehen",
       "back_side": "Rückseite",
       "preview": "Vorschau",
@@ -609,6 +611,9 @@
     "allowed_count": "Erlaubte Anzahl",
     "btn_view": "Ansehen",
     "btn_create": "Erstellen",
+    "search_placeholder": "Binder suchen",
+    "jump_placeholder": "Zu einem Binder",
+    "search_empty": "Kein Binder passt zu dieser Suche",
     "limit_reached": "Limit erreicht",
     "usage_summary": "Nutzungszusammenfassung"
   },

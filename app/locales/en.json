@@ -492,6 +492,8 @@
       "redo": "Redo",
       "view_detail": "View detail",
       "go_to_slot": "Open in binder",
+      "remove_from_slot": "Remove from slot",
+      "remove_from_slot_confirm": "Remove this photocard from the slot and return it to stock?",
       "flip": "Flip",
       "back_side": "Back side",
       "preview": "Preview",
@@ -697,6 +699,9 @@
     "allowed_count": "Allowed amount",
     "btn_view": "View",
     "btn_create": "Create",
+    "search_placeholder": "Search binders",
+    "jump_placeholder": "Go to a binder",
+    "search_empty": "No binders match that search",
     "limit_reached": "Limit reached",
     "usage_summary": "Usage summary"
   },

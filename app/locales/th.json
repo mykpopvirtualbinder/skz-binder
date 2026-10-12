@@ -289,6 +289,8 @@
       "redo": "ทำซ้ำ",
       "view_detail": "ดูรายละเอียด",
       "go_to_slot": "ดูในไบน์เดอร์",
+      "remove_from_slot": "เอาออกจากช่อง",
+      "remove_from_slot_confirm": "เอาการ์ดออกจากช่องแล้วคืนเข้าสต็อก?",
       "flip": "พลิก",
       "back_side": "ด้านหลัง",
       "preview": "ดูตัวอย่าง",
@@ -414,6 +416,9 @@
     "allowed_count": "Cantidad permitida",
     "btn_view": "Ver",
     "btn_create": "Crear",
+    "search_placeholder": "ค้นหาไบน์เดอร์",
+    "jump_placeholder": "ไปที่ไบน์เดอร์",
+    "search_empty": "ไม่พบไบน์เดอร์ที่ตรงกับการค้นหา",
     "limit_reached": "Límite alcanzado",
     "usage_summary": "Resumen de uso"
   },

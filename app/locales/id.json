@@ -430,6 +430,8 @@
       "redo": "Ulangi",
       "view_detail": "Lihat detail",
       "go_to_slot": "Lihat di binder",
+      "remove_from_slot": "Lepas dari slot",
+      "remove_from_slot_confirm": "Lepas photocard ini dari slot dan kembalikan ke stok?",
       "flip": "Balik",
       "back_side": "Sisi belakang",
       "preview": "Pratinjau",
@@ -609,6 +611,9 @@
     "allowed_count": "Jumlah yang diizinkan",
     "btn_view": "Lihat",
     "btn_create": "Buat",
+    "search_placeholder": "Cari binder",
+    "jump_placeholder": "Ke sebuah binder",
+    "search_empty": "Tidak ada binder yang cocok dengan pencarian ini",
     "limit_reached": "Batas tercapai",
     "usage_summary": "Ringkasan penggunaan"
   },

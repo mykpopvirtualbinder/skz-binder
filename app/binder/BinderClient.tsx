@@ -198,6 +198,52 @@ const unitTypeFromMember = (memberRaw: string | null | undefined): "single" | "u
   return "single";
 };
 
+const PICKER_MEMBER_ORDER = ["bang-chan", "lee-know", "changbin", "hyunjin", "han", "felix", "seungmin", "in"] as const;
+
+function pickerMemberRank(memberRaw: string | null | undefined): number {
+  const unit = unitTypeFromMember(memberRaw);
+  if (unit === "ot8") return 200;
+  const words = normWords(memberRaw);
+  const ranks = PICKER_MEMBER_ORDER.map((slug, index) => {
+    if (slug === "in") {
+      if (words.includes("in") || (words.includes("i") && words.includes("n"))) return index;
+      return -1;
+    }
+    return memberMatches(memberRaw, slug) ? index : -1;
+  }).filter((index) => index >= 0);
+  if (!ranks.length) return 300;
+  const first = Math.min(...ranks);
+  return unit === "unit" ? 100 + first : first;
+}
+
+function comparePickerCollections(
+  aName: string,
+  aRelease: string | null,
+  bName: string,
+  bRelease: string | null,
+): number {
+  const aSG = isSeasonsGreetings(aName);
+  const bSG = isSeasonsGreetings(bName);
+  if (aSG !== bSG) return aSG ? 1 : -1;
+  if (!aSG && !bSG) {
+    const ai = strayKidsAlbumOrderIndex(aName);
+    const bi = strayKidsAlbumOrderIndex(bName);
+    if (ai != null && bi != null && ai !== bi) return ai - bi;
+    if (ai != null && bi == null) return -1;
+    if (ai == null && bi != null) return 1;
+  }
+  if (aSG && bSG) {
+    const ay = extractCollectionYear(aName, aRelease);
+    const by = extractCollectionYear(bName, bRelease);
+    if (ay != null && by != null && ay !== by) return ay - by;
+    if (ay != null && by == null) return -1;
+    if (ay == null && by != null) return 1;
+  }
+  const ad = aRelease ? new Date(aRelease).getTime() : Number.POSITIVE_INFINITY;
+  const bd = bRelease ? new Date(bRelease).getTime() : Number.POSITIVE_INFINITY;
+  if (ad !== bd) return ad - bd;
+  return aName.localeCompare(bName, "es", { sensitivity: "base", numeric: true });
+}
 type FilterOption = { id: number; name: string };
 type AlbumOption = { id: number; name: string; release_date: string | null };
 
@@ -1009,6 +1055,20 @@ const albumOptions = useMemo(() => {
 
       // 6. BUSQUEDA POR TEXTO (Nombre o ID)
       return matchesQuery(it, q);
+    }).sort((a, b) => {
+      const aName = a.album_name ?? "";
+      const bName = b.album_name ?? "";
+      const aRelease = a.album_id != null ? (albums.find((row) => row.id === a.album_id)?.release_date ?? null) : null;
+      const bRelease = b.album_id != null ? (albums.find((row) => row.id === b.album_id)?.release_date ?? null) : null;
+      const collectionCmp = comparePickerCollections(aName, aRelease, bName, bRelease);
+      if (collectionCmp) return collectionCmp;
+      const aVersion = (a.version_name_display ?? a.version_name ?? a.version ?? "").trim();
+      const bVersion = (b.version_name_display ?? b.version_name ?? b.version ?? "").trim();
+      const versionCmp = aVersion.localeCompare(bVersion, "es", { sensitivity: "base", numeric: true });
+      if (versionCmp) return versionCmp;
+      const memberCmp = pickerMemberRank(a.member ?? a.member_name) - pickerMemberRank(b.member ?? b.member_name);
+      if (memberCmp) return memberCmp;
+      return a.id - b.id;
     });
   }, [
     items,
@@ -1025,6 +1085,7 @@ const albumOptions = useMemo(() => {
     userBiases,
     biasSlugById,
     localInv,
+    albums,
   ]);
  const pickBtnStyle: CSSProperties = {
  marginTop: 14,
@@ -8254,6 +8315,7 @@ const saved = await saveCustomToDb(
 const clearSlot = useCallback(
   async (slotIndex: number) => {
     if (!pageId) return;
+    await pushUndoSnapshot();
 
     const assigned = slotItems[slotIndex];
     const nextItems = { ...slotItems };
@@ -8322,6 +8384,7 @@ const clearSlot = useCallback(
     rebuildThumbsForPage,
     modalSlotIndex,
     closeItemModal,
+    pushUndoSnapshot,
   ]
 );
  
@@ -9339,6 +9402,21 @@ onClick={(e) => {
  >
    <Eye size={13} strokeWidth={2.4} />
  </button>
+ <button
+   type="button"
+   title={t("binders.actions.remove_from_slot")}
+   aria-label={t("binders.actions.remove_from_slot")}
+   onClick={async (e) => {
+     e.stopPropagation();
+     const ok = await showConfirm(t("common.confirm"), t("binders.actions.remove_from_slot_confirm"));
+     if (!ok) return;
+     setSlotToolsIndex(null);
+     await clearSlot(slotIndex);
+   }}
+   style={iconBtnStyle}
+ >
+   <Trash2 size={13} strokeWidth={2.4} />
+ </button>
 </div>
 
     <div className="pcDeleteCorner pcControlsOpen" onMouseDown={(e) => e.stopPropagation()} style={{ zIndex: 950 }}>
@@ -9346,8 +9424,10 @@ onClick={(e) => {
         type="button"
         onClick={async (e) => {
           e.stopPropagation();
-          const ok = await showConfirm(t("common.confirm"), "¿Eliminar esta photocard?");
-          if (ok) await clearSlot(slotIndex);
+          const ok = await showConfirm(t("common.confirm"), t("binders.actions.remove_from_slot_confirm"));
+          if (!ok) return;
+          setSlotToolsIndex(null);
+          await clearSlot(slotIndex);
         }}
         className="iconDangerHover modalCloseBtn"
         style={{ ...iconBtnStyle, width: 24, height: 24, background: 'color-mix(in srgb, var(--bg-card) 90%, transparent)' }}
@@ -10640,7 +10720,7 @@ const headerTitle = (() => {
           <button
             type="button"
             onClick={async () => {
-              const ok = await showConfirm(t("common.confirm"), "¿Eliminar esta photocard del slot?");
+              const ok = await showConfirm(t("common.confirm"), t("binders.actions.remove_from_slot_confirm"));
               if (!ok) return;
               onRemoveItem();
             }}
@@ -13306,7 +13386,10 @@ bottom: 8px;
     left: 50%;
     transform: translateX(-50%) translateY(5px) !important;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 6px;
+    max-width: calc(100% - 8px);
   }
   
   .pcSlotWrap.is-tools-open .pcControls,

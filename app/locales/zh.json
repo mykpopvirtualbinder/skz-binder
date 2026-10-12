@@ -289,6 +289,8 @@
       "redo": "重做",
       "view_detail": "查看详情",
       "go_to_slot": "在卡册中查看",
+      "remove_from_slot": "从卡位移除",
+      "remove_from_slot_confirm": "把这张小卡从卡位移除并放回库存？",
       "flip": "翻转",
       "back_side": "背面",
       "preview": "预览",
@@ -414,6 +416,9 @@
     "allowed_count": "Cantidad permitida",
     "btn_view": "Ver",
     "btn_create": "Crear",
+    "search_placeholder": "搜索卡册",
+    "jump_placeholder": "跳到卡册",
+    "search_empty": "没有符合搜索的卡册",
     "limit_reached": "Límite alcanzado",
     "usage_summary": "Resumen de uso"
   },

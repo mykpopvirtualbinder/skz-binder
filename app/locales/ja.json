@@ -430,6 +430,8 @@
       "redo": "やり直す",
       "view_detail": "詳細を見る",
       "go_to_slot": "バインダーで見る",
+      "remove_from_slot": "スロットから外す",
+      "remove_from_slot_confirm": "このフォトカードをスロットから外して在庫に戻しますか？",
       "flip": "裏返す",
       "back_side": "裏面",
       "preview": "プレビュー",
@@ -609,6 +611,9 @@
     "allowed_count": "許可された数",
     "btn_view": "見る",
     "btn_create": "作成",
+    "search_placeholder": "バインダーを検索",
+    "jump_placeholder": "バインダーへ移動",
+    "search_empty": "一致するバインダーがありません",
     "limit_reached": "上限に達しました",
     "usage_summary": "使用状況の概要"
   },
