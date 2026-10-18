@@ -205,14 +205,17 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
        {/* ✨ PESTAÑAS EXTERNAS ✨ */}
         <div style={{
           position: "absolute",
-          right: "-35px",
-          top: "10%",
-          height: "80%",
-          width: "35px",
+          right: "-42px",
+          top: "6%",
+          height: "88%",
+          width: "42px",
           zIndex: 10000,
           display: "flex",
           flexDirection: "column",
-          gap: "8px"
+          gap: "4px",
+          overflowY: "auto",
+          overflowX: "hidden",
+          paddingRight: 2,
         }}>
           {pagesData.map((pageData, index) => {
            if (pageData.layoutType === 'separator') {
@@ -245,8 +248,9 @@ export default function VirtualBinder({ binderName, binderColor = "var(--color-p
                  display: "flex",
                  alignItems: "center",
                  justifyContent: "center", 
-                 flex: 1,
-                 maxHeight: "15%", 
+                 flex: "0 0 auto",
+                 minHeight: 28,
+                 maxHeight: 44, 
                  padding: "8px 4px",
                  overflow: "hidden",
                  gap: "4px", 

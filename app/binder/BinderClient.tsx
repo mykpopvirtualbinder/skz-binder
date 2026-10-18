@@ -272,6 +272,25 @@ type PickerItem = {
 
 const SUPABASE_PAGE = 1000;
 const IN_QUERY_CHUNK = 80;
+
+async function fetchBinderPages(binderId: number) {
+  const all: Array<{ id: number; page_index: number | null; layout_type: unknown }> = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("binder_pages")
+      .select("id, page_index, layout_type")
+      .eq("binder_id", binderId)
+      .order("page_index", { ascending: true })
+      .range(from, from + SUPABASE_PAGE - 1);
+    if (error) return { data: null as typeof all | null, error };
+    const batch = data ?? [];
+    all.push(...batch);
+    if (batch.length < SUPABASE_PAGE) break;
+    from += SUPABASE_PAGE;
+  }
+  return { data: all, error: null };
+}
 const PICKER_ITEM_COLS =
   "id, name, image_url, back_image_url, group_id, album_id, version_id, version, member_id, member";
 
@@ -5171,18 +5190,28 @@ const loadPageThumbs = useCallback(async () => {
     const pageIds = binderPages.map((p) => p.id).filter((x) => Number.isFinite(x));
     if (pageIds.length === 0) return;
 
-    // ✅ SEGURO: Solo pedimos columnas que existen físicamente en la tabla 'page_slots'
-   const slotsRes = await supabase
-  .from("page_slots")
-  // 👇 AÑADE custom_back_image_url AQUÍ:
-.select("page_id, slot_index, item_id, is_wanted, is_custom, custom_text, custom_image_url, custom_back_image_url, rot, flip_h, custom_color")  .in("page_id", pageIds);
-
-    if (slotsRes.error) {
-      console.error("Error cargando carrusel:", slotsRes.error.message || slotsRes.error);
-      return;
+    const slotRows: any[] = [];
+    for (let i = 0; i < pageIds.length; i += IN_QUERY_CHUNK) {
+      const chunk = pageIds.slice(i, i + IN_QUERY_CHUNK);
+      let from = 0;
+      while (true) {
+        const slotsRes = await supabase
+          .from("page_slots")
+          .select("page_id, slot_index, item_id, is_wanted, is_custom, custom_text, custom_image_url, custom_back_image_url, rot, flip_h, custom_color")
+          .in("page_id", chunk)
+          .order("page_id", { ascending: true })
+          .order("slot_index", { ascending: true })
+          .range(from, from + SUPABASE_PAGE - 1);
+        if (slotsRes.error) {
+          console.error("Error cargando carrusel:", slotsRes.error.message || slotsRes.error);
+          return;
+        }
+        const batch = slotsRes.data ?? [];
+        slotRows.push(...batch);
+        if (batch.length < SUPABASE_PAGE) break;
+        from += SUPABASE_PAGE;
+      }
     }
-    // ... resto de la lógica de procesamiento
-    const slotRows = (slotsRes.data ?? []) as any[];
 
     // 2. Pedimos los datos de las PCs
     const itemIds = Array.from(new Set(slotRows.map((r) => r.item_id).filter(id => id != null)));
@@ -6817,11 +6846,7 @@ if (loading || pageReorderBusy) return;
   }
 
   // 3. Recargamos las páginas que quedan y las reordenamos
-  const fresh = await supabase
-    .from("binder_pages")
-    .select("id, page_index, layout_type")
-    .eq("binder_id", binderId)
-    .order("page_index", { ascending: true });
+  const fresh = await fetchBinderPages(binderId);
 
   if (fresh.error) {
     setError(fresh.error.message);
@@ -7310,11 +7335,7 @@ if (bInfo) {
 }
   }
       /* Asegurar que exista al menos una página */ 
-      const pagesCheck = await supabase 
-        .from("binder_pages") 
-        .select("id, page_index, layout_type") 
-        .eq("binder_id", bld) 
-        .order("page_index", { ascending: true }); 
+      const pagesCheck = await fetchBinderPages(bld); 
       
       if (pagesCheck.error) { 
         if (!cancelled) { 
@@ -7403,11 +7424,7 @@ if (pageError || !pageData) {
     const run = async () => {
       if (!binderId) return;
 
-      const res = await supabase
-        .from("binder_pages")
-        .select("id, page_index, layout_type")
-        .eq("binder_id", binderId)
-        .order("page_index", { ascending: true });
+      const res = await fetchBinderPages(binderId);
 
       if (res.error || cancelled || gen !== binderPagesFetchGen.current) return;
 
@@ -9710,11 +9727,22 @@ const rawPlan = (profileData?.plan_type || "free").toLowerCase().trim();
 }, [binderId, layout, binderPages, MAX_ALLOWED_PAGES, MAX_ALLOWED_SEPARATORS,loading, pageReorderBusy]);
 
 const commitSeparatorImages = async (picks: CoverImagePick[], mode: "create" | "fill") => {
-  if (!binderId || !userId || separatorCommitBusy.current) return;
+  if (!binderId || separatorCommitBusy.current) return;
   separatorCommitBusy.current = true;
   setError(null);
   let locked = false;
   try {
+    let uid = userId;
+    if (!uid) {
+      const { data: authData } = await supabase.auth.getUser();
+      uid = authData.user?.id ?? null;
+    }
+    if (!uid) {
+      setError("No se pudo guardar el separador");
+      setStatus("Error guardando separador");
+      return;
+    }
+
     const hasFiles = picks.some((pick) => "file" in pick);
     if (hasFiles) setStatus("Subiendo imagen...");
     const urls: string[] = [];
@@ -9726,7 +9754,7 @@ const commitSeparatorImages = async (picks: CoverImagePick[], mode: "create" | "
       }
       const ext = (pick.file.name.split(".").pop() || "jpg").toLowerCase();
       const safeExt = ext.match(/^(png|jpg|jpeg|webp)$/) ? ext : "jpg";
-      const path = `${userId}/binder_${binderId}/separator_${Date.now()}_${fileIndex}.${safeExt}`;
+      const path = `${uid}/binder_${binderId}/separator_${Date.now()}_${fileIndex}.${safeExt}`;
       fileIndex += 1;
       const up = await supabase.storage.from(CUSTOM_BUCKET).upload(path, pick.file, {
         upsert: true,
@@ -9748,7 +9776,7 @@ const commitSeparatorImages = async (picks: CoverImagePick[], mode: "create" | "
     const { data: profileData } = await supabase
       .from("profiles")
       .select("plan_type, extra_pages, extra_separators")
-      .eq("user_id", userId)
+      .eq("user_id", uid)
       .single();
     const liveQuota = resolveBinderQuota({
       planType: (profileData?.plan_type || "free").toLowerCase().trim(),
@@ -9764,18 +9792,7 @@ const commitSeparatorImages = async (picks: CoverImagePick[], mode: "create" | "
     const fillCurrent = mode === "fill" && layout === "separator" && pageId != null;
     const capacity = room + (fillCurrent ? 1 : 0);
     const overflow = urls.length > capacity;
-    let urlsToUse = overflow ? urls.slice(0, capacity) : urls;
-    const adding = fillCurrent ? Math.max(0, urlsToUse.length - 1) : urlsToUse.length;
-    if (!overflow && adding > (fillCurrent ? 0 : 1)) {
-      const ok = await showConfirm(
-        t("binders.picker.extra_separators_title"),
-        t("binders.picker.extra_separators_msg", { n: adding }),
-      );
-      if (!ok) {
-        if (fillCurrent) urlsToUse = urlsToUse.slice(0, 1);
-        else return;
-      }
-    }
+    const urlsToUse = overflow ? urls.slice(0, capacity) : urls;
 
     if (!urlsToUse.length) {
       setSeparatorLimitNotice({ free: capacity, selected: urls.length });
@@ -9808,7 +9825,7 @@ const commitSeparatorImages = async (picks: CoverImagePick[], mode: "create" | "
       }
     }
 
-    const created: Array<{ id: number; page_index: number; layout_type: LayoutType }> = [];
+    let firstNewId: number | null = null;
     if (newUrls.length > 0) {
       const lastRes = await supabase
         .from("binder_pages")
@@ -9816,48 +9833,90 @@ const commitSeparatorImages = async (picks: CoverImagePick[], mode: "create" | "
         .eq("binder_id", binderId)
         .order("page_index", { ascending: false })
         .limit(1);
-      let nextIndex = (lastRes.data?.[0]?.page_index ?? -1) + 1;
-      for (const url of newUrls) {
-        const ins = await supabase
-          .from("binder_pages")
-          .insert({ binder_id: binderId, page_index: nextIndex, layout_type: "separator" })
-          .select("id")
-          .single();
-        if (ins.error || !ins.data) {
-          setError(ins.error?.message || "No se pudo crear el separador");
-          setStatus("Error creando separador");
-          break;
-        }
-        const slot = await supabase.from("page_slots").upsert(
-          {
-            page_id: ins.data.id,
-            slot_index: 1,
-            item_id: null,
-            rot: 0,
-            flip_h: false,
-            is_custom: true,
-            custom_text: "",
-            custom_image_url: url,
-            custom_color: null,
-          },
-          { onConflict: "page_id,slot_index" },
-        );
-        if (slot.error) setError(slot.error.message);
-        created.push({ id: ins.data.id, page_index: nextIndex, layout_type: "separator" });
-        nextIndex += 1;
+      if (lastRes.error) {
+        setError(lastRes.error.message);
+        setStatus("Error creando separador");
+        return;
       }
-      if (created.length > 0) {
-        setBinderPages((prev) => [...prev, ...created].sort((a, b) => a.page_index - b.page_index));
-        setPagesCount((prev) => prev + created.length);
-        setCurrentPageIndex(binderPages.length + created.length - 1);
-        setRefreshTick((tick: number) => tick + 1);
+      const nextIndex = (lastRes.data?.[0]?.page_index ?? -1) + 1;
+      const ins = await supabase
+        .from("binder_pages")
+        .insert(newUrls.map((_, index) => ({
+          binder_id: binderId,
+          page_index: nextIndex + index,
+          layout_type: "separator",
+        })))
+        .select("id, page_index");
+      if (ins.error || !ins.data?.length) {
+        setError(ins.error?.message || "No se pudo crear el separador");
+        setStatus("Error creando separador");
+        return;
       }
+      const idByIndex = new Map(ins.data.map((row) => [Number(row.page_index), Number(row.id)]));
+      const slotRows = newUrls.flatMap((url, index) => {
+        const pageIdNew = idByIndex.get(nextIndex + index);
+        if (!pageIdNew) return [];
+        return [{
+          page_id: pageIdNew,
+          slot_index: 1,
+          item_id: null,
+          rot: 0,
+          flip_h: false,
+          is_custom: true,
+          custom_text: "",
+          custom_image_url: url,
+          custom_color: null,
+        }];
+      });
+      if (slotRows.length !== newUrls.length) {
+        setError("No se pudieron guardar todas las imágenes");
+        setStatus("Error guardando separador");
+        return;
+      }
+      const slot = await supabase.from("page_slots").insert(slotRows);
+      if (slot.error) {
+        await supabase.from("binder_pages").delete().in("id", slotRows.map((row) => row.page_id));
+        setError(slot.error.message);
+        setStatus("Error guardando separador");
+        return;
+      }
+      firstNewId = idByIndex.get(nextIndex) ?? null;
     }
 
-    if (created.length > 1) setStatus(t("binders.alerts.separators_added", { n: created.length }));
-    else if (created.length === 1) setStatus(t("binders.alerts.separator_added"));
+    const fresh = await fetchBinderPages(binderId);
+    if (fresh.error || !fresh.data) {
+      setError(fresh.error?.message || "Error leyendo separadores");
+      setStatus("Error leyendo separadores");
+      return;
+    }
+    const list = fresh.data
+      .map((row) => ({
+        id: Number(row.id),
+        page_index: typeof row.page_index === "number" ? row.page_index : 0,
+        layout_type: isLayoutType(row.layout_type) ? row.layout_type : ("3x3" as LayoutType),
+      }))
+      .sort((a, b) => a.page_index - b.page_index);
+    setBinderPages(list);
+    setPagesCount(list.length);
+    const focusId = firstNewId;
+    const focusIndex = focusId != null ? list.findIndex((page) => page.id === focusId) : -1;
+    if (focusIndex >= 0) setCurrentPageIndex(focusIndex);
+    setRefreshTick((tick: number) => tick + 1);
+    window.setTimeout(() => {
+      const cards = document.querySelectorAll("#pagesCarouselContainer [data-binder-strip-card]");
+      const card = cards[focusIndex] as HTMLElement | undefined;
+      card?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    }, 80);
+
+    const added = newUrls.length;
+    if (added > 1) setStatus(t("binders.alerts.separators_added", { n: added }));
+    else if (added === 1) setStatus(t("binders.alerts.separator_added"));
     else if (currentUrl) setStatus("Imagen actualizada ✨");
     if (overflow) setSeparatorLimitNotice({ free: capacity, selected: urls.length });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error guardando separador";
+    setError(message);
+    setStatus("Error guardando separador");
   } finally {
     separatorCommitBusy.current = false;
     if (locked) setLoading(false);
@@ -9902,11 +9961,7 @@ const deletePageById = useCallback(
    return;
   }
 
-  const fresh = await supabase
-   .from("binder_pages")
-   .select("id, page_index, layout_type")
-   .eq("binder_id", binderId)
-   .order("page_index", { ascending: true });
+  const fresh = await fetchBinderPages(binderId);
 
   if (fresh.error) {
    setError(fresh.error.message);
@@ -15507,7 +15562,8 @@ Stock al cerrar/guardar */}
       if (arrayIdx < 0 || arrayIdx >= capacity) return;
       slotsForPage[arrayIdx] = {
         id: String(meta.itemId ?? `${page.id}-${slotIdx}`),
-        image_url: cleanPreviewUrl(meta.url),
+            image_url: cleanPreviewUrl(meta.url),
+            custom_image_url: cleanPreviewUrl(meta.url),
         back_image_url: meta.back_image_url,
         rotation: meta.rot || 0,
         flip: meta.flipH || false,
@@ -15528,6 +15584,7 @@ Stock al cerrar/guardar */}
           slotsForPage[arrayIdx] = {
             id: String(item.id),
             image_url: cleanPreviewUrl(item.is_custom ? item.custom_image_url : item.image_url),
+            custom_image_url: cleanPreviewUrl(item.is_custom ? item.custom_image_url : item.image_url),
             back_image_url: item.is_custom ? (item as any).custom_back_image_url : item.back_image_url,
             rotation: slotRot[slotIdx] || 0,
             flip: slotFace[slotIdx] === "back",
