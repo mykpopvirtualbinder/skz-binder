@@ -232,29 +232,35 @@ function normText(s: string) {
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
-function matchesQuery(it: ItemRow, query: string) {
+function matchesQuery(it: ItemRow, query: string, extra = "") {
   const tokens = normText(query).split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return true;
 
-  const memberWords = normText(it.member ?? "").split(/\s+/).filter(Boolean);
-  const nameWords = normText(it.name ?? "").split(/\s+/).filter(Boolean);
-  const versionWords = normText(it.version ?? "").split(/\s+/).filter(Boolean);
-
-  if (tokens.length === 1 && tokens[0].length === 1) {
-    const t = tokens[0];
-    return memberWords.some((w) => w.includes(t)) || nameWords.some((w) => w.includes(t));
-  }
-
   // "I.N" / "i.n" / "in" / "jeongin": no usar .includes() (hyunjin, seungmin, changbin contienen "in").
   if (queryLooksLikeIn(query)) {
-    return memberIsIn(it.member) || memberIsIn(it.name);
+    return memberIsIn(it.member) || memberIsIn(it.name) || memberIsIn(formatMemberLabel(it.member));
   }
 
-  const words = [...nameWords, ...memberWords, ...versionWords];
+  const hay = normText(
+    [
+      it.name,
+      it.member,
+      formatMemberLabel(it.member),
+      it.version,
+      it.type,
+      it.image_url,
+      String(it.id),
+      extra,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  const words = hay.split(/\s+/).filter(Boolean);
+  const squish = words.join("");
 
-  return tokens.every((t) => {
-    if (/^\d+$/.test(t)) return String(it.id).includes(t);
-    return words.some((w) => w.includes(t));
+  return tokens.every((token) => {
+    if (token === "in") return memberIsIn(it.member) || memberIsIn(it.name) || words.includes("in");
+    return hay.includes(token) || squish.includes(token);
   });
 }
 function memberSlugSquish(raw: string | null | undefined): string {
@@ -3210,6 +3216,24 @@ const memberOptions = useMemo(() => {
 }, [memberOptionsFixed, availableMemberSet]);
 
 
+function itemSearchExtra(it: ItemRow) {
+  const albumName = it.album_id != null ? albumById[it.album_id]?.name ?? "" : "";
+  const groupName = it.group_id != null ? groupNameById[it.group_id] ?? "" : "";
+  const kind = collectionKindForItem(it, albumName);
+  const kindWords: Record<Exclude<LibraryCollectionKind, "all">, string> = {
+    albums: "album albums",
+    "seasons-greetings": "seasons greetings season greeting",
+    tours: "tour tours gira",
+    merch: "merch merchandise",
+    "pop-ups": "pop up popup popups",
+    memberships: "membership memberships membresia",
+    collabs: "collab collabs colaboracion",
+    events: "event events evento eventos",
+    other: "other otros",
+  };
+  return [groupName, albumName, prettyAlbumDisplay(albumName), kind.replace(/-/g, " "), collectionKindLabel(kind, t), kindWords[kind]].join(" ");
+}
+
 // ✅ BÚSQUEDA DESDE 1 CARÁCTER (sin exigir 4)
 function matchesAllExcept(
   it: ItemRow,
@@ -3260,7 +3284,7 @@ if (skip !== "pobKind" && opts.fPobKind !== "all") {
   if (skip !== "q") {
     const tokens = normText(opts.q).split(/\s+/).filter(Boolean);
     if (tokens.length > 0) {
-      if (!matchesQuery(it, opts.q)) return false;
+      if (!matchesQuery(it, opts.q, itemSearchExtra(it))) return false;
     }
   }
 
@@ -3295,7 +3319,7 @@ const filtered = useMemo(() => {
       if (pobKindFromItem(it) !== fPobKind) return false;
     }
 
-    return matchesQuery(it, q);
+    return matchesQuery(it, q, itemSearchExtra(it));
   });
   if (catalogSort === "default") return list;
   const copy = [...list];
@@ -3319,7 +3343,7 @@ const filtered = useMemo(() => {
     return (priceScoreByItem[b.id] ?? 0) - (priceScoreByItem[a.id] ?? 0);
   });
   return copy;
-}, [items, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, folderTree, albumById, catalogSort, stockDateByItem, priceScoreByItem]);
+}, [items, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, folderTree, albumById, groupNameById, catalogSort, stockDateByItem, priceScoreByItem]);
 
   const showContributeEmpty = useMemo(() => {
     if (filtered.length > 0) return false;
@@ -4028,7 +4052,7 @@ const commitStockForItem = useCallback(
                 type="search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder={t("library.search_placeholder") || "Buscar por nombre, miembro o versión..."}
+                placeholder={t("library.search_placeholder") || "Buscar miembro, grupo, álbum, colección..."}
                 style={{ padding: "8px 10px 8px 32px", borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", width: "100%", height: 42, boxShadow: "0 4px 12px var(--shadow-card)" }}
               />
             </div>

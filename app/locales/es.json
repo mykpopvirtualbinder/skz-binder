@@ -118,7 +118,7 @@
     "contribute_empty_subject": "Carpeta vacía: {{folder}}"
   },
   "library": {
-    "search_placeholder": "Buscar por nombre, miembro o versión...",
+    "search_placeholder": "Buscar miembro, grupo, álbum, colección...",
     "modal": {
       "notas": "Notas",
       "placeholder_notas": "Escribe tus notas aquí...",

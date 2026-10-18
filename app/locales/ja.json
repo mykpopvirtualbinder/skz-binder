@@ -117,7 +117,7 @@
     "contribute_empty_subject": "空のフォルダ: {{folder}}"
   },
   "library": {
-    "search_placeholder": "名前、メンバー、またはバージョンで検索...",
+    "search_placeholder": "メンバー、グループ、アルバム、コレクションを検索...",
     "modal": {
       "notas": "メモ",
       "placeholder_notas": "ここにメモを書く...",

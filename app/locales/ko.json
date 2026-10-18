@@ -880,7 +880,7 @@
     "mode_catalog": "카탈로그 모드: 재고를 관리하려면 로그인하세요",
     "status_ready": "인벤토리 준비 완료 ✓",
     "status_catalog_ready": "카탈로그 준비 완료 ✓",
-    "search_placeholder": "이름, 멤버, 버전 또는 ID...",
+    "search_placeholder": "멤버, 그룹, 앨범, 컬렉션 검색...",
     "btn_flip": "뒤집기",
     "btn_contribute": "그룹 정보 추가하기!",
     "btn_go_binders": "내 바인더로 가기",

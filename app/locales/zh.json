@@ -880,7 +880,7 @@
     "mode_catalog": "图鉴模式：登录以管理您的库存",
     "status_ready": "库存就绪 ✓",
     "status_catalog_ready": "图鉴就绪 ✓",
-    "search_placeholder": "姓名、成员、版本或 ID...",
+    "search_placeholder": "搜索成员、组合、专辑、收藏...",
     "btn_flip": "翻面",
     "btn_contribute": "提交团体现有数据！",
     "btn_go_binders": "去我的卡册",

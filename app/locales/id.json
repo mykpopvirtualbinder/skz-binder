@@ -117,7 +117,7 @@
     "contribute_empty_subject": "Folder kosong: {{folder}}"
   },
   "library": {
-    "search_placeholder": "Cari berdasarkan nama, anggota, atau versi...",
+    "search_placeholder": "Cari member, grup, album, koleksi...",
     "modal": {
       "notas": "Catatan",
       "placeholder_notas": "Tulis catatanmu di sini...",

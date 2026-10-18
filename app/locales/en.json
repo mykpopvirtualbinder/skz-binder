@@ -118,7 +118,7 @@
     "contribute_empty_subject": "Empty folder: {{folder}}"
   },
   "library": {
-    "search_placeholder": "Search by name, member or version...",
+    "search_placeholder": "Search member, group, album, collection...",
     "modal": {
       "notas": "Notes",
       "placeholder_notas": "Write your notes here...",

@@ -117,7 +117,7 @@
     "contribute_empty_subject": "Dossier vide : {{folder}}"
   },
   "library": {
-    "search_placeholder": "Recherche par nom, membre ou version...",
+    "search_placeholder": "Chercher membre, groupe, album, collection...",
     "modal": {
       "notas": "Notes",
       "placeholder_notas": "Écris tes notes ici...",

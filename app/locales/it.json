@@ -117,7 +117,7 @@
     "contribute_empty_subject": "Cartella vuota: {{folder}}"
   },
   "library": {
-    "search_placeholder": "Cerca per nome, membro o versione...",
+    "search_placeholder": "Cerca membro, gruppo, album, collezione...",
     "modal": {
       "notas": "Note",
       "placeholder_notas": "Scrivi qui le tue note...",
