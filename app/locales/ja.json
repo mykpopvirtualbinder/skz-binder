@@ -558,7 +558,8 @@
       "page_added": "ページを追加しました ✅",
       "separator_added": "セパレーターを追加しました ✨",
       "page_deleted": "ページを削除しました ✅",
-      "separators_added": "セパレーターを{n}枚追加しました ✨"
+      "separators_added": "セパレーターを{n}枚追加しました ✨",
+      "creating_pages": "ページを作成しています..."
     },
     "view_all": "すべて見る",
     "change_format": "フォーマットを変更",

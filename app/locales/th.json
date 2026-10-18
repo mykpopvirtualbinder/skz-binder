@@ -417,7 +417,8 @@
       "page_added": "เพิ่มหน้าแล้ว ✅",
       "separator_added": "เพิ่มที่คั่นแล้ว ✨",
       "page_deleted": "ลบหน้าแล้ว ✅",
-      "separators_added": "เพิ่มที่คั่น {n} อันแล้ว ✨"
+      "separators_added": "เพิ่มที่คั่น {n} อันแล้ว ✨",
+      "creating_pages": "กำลังสร้างหน้า..."
     },
     "undo": {
       "pages_restoring": "กำลังเลิกทำการเปลี่ยนแปลงหน้า..."

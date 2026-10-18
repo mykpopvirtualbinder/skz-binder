@@ -558,7 +558,8 @@
       "page_added": "Halaman ditambahkan ✅",
       "separator_added": "Pembatas ditambahkan ✨",
       "page_deleted": "Halaman dihapus ✅",
-      "separators_added": "{n} pembatas ditambahkan ✨"
+      "separators_added": "{n} pembatas ditambahkan ✨",
+      "creating_pages": "Membuat halaman..."
     },
     "view_all": "Lihat semua",
     "change_format": "Ubah format",

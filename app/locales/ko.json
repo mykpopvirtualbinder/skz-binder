@@ -417,7 +417,8 @@
       "page_added": "페이지 추가됨 ✅",
       "separator_added": "구분선 추가됨 ✨",
       "page_deleted": "페이지 삭제됨 ✅",
-      "separators_added": "구분선 {n}개 추가됨 ✨"
+      "separators_added": "구분선 {n}개 추가됨 ✨",
+      "creating_pages": "페이지를 만드는 중..."
     },
     "undo": {
       "pages_restoring": "페이지 변경 사항을 되돌리는 중..."

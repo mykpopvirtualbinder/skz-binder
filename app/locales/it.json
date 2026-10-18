@@ -558,7 +558,8 @@
       "page_added": "Pagina aggiunta ✅",
       "separator_added": "Separatore aggiunto ✨",
       "page_deleted": "Pagina eliminata ✅",
-      "separators_added": "{n} separatori aggiunti ✨"
+      "separators_added": "{n} separatori aggiunti ✨",
+      "creating_pages": "Creazione delle pagine..."
     },
     "view_all": "Vedi tutte",
     "change_format": "Cambia formato",

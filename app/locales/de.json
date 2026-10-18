@@ -558,7 +558,8 @@
       "page_added": "Seite hinzugefügt ✅",
       "separator_added": "Trennblatt hinzugefügt ✨",
       "page_deleted": "Seite gelöscht ✅",
-      "separators_added": "{n} Trennblätter hinzugefügt ✨"
+      "separators_added": "{n} Trennblätter hinzugefügt ✨",
+      "creating_pages": "Seiten werden erstellt..."
     },
     "view_all": "Alle ansehen",
     "change_format": "Format ändern",

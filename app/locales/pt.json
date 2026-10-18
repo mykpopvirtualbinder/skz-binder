@@ -417,7 +417,8 @@
       "page_added": "Página adicionada ✅",
       "separator_added": "Separador adicionado ✨",
       "page_deleted": "Página excluída ✅",
-      "separators_added": "{n} separadores adicionados ✨"
+      "separators_added": "{n} separadores adicionados ✨",
+      "creating_pages": "A criar páginas..."
     },
     "undo": {
       "pages_restoring": "A desfazer mudança de páginas..."

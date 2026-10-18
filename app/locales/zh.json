@@ -417,7 +417,8 @@
       "page_added": "页面已添加 ✅",
       "separator_added": "分隔页已添加 ✨",
       "page_deleted": "页面已删除 ✅",
-      "separators_added": "已添加 {n} 个分隔页 ✨"
+      "separators_added": "已添加 {n} 个分隔页 ✨",
+      "creating_pages": "正在创建页面..."
     },
     "undo": {
       "pages_restoring": "正在撤销页面更改..."
