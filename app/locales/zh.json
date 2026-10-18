@@ -41,7 +41,7 @@
     "sort_album": "By album",
     "sort_stock_date": "Date added to stock",
     "sort_status": "By status",
-    "back": "Back",
+    "back": "Volver",
     "sort_price": "By price",
     "library_loading_title": "Building your library…",
     "library_loading_hint": "Fetching photocards. One moment — there are a lot of them ✨",
@@ -89,7 +89,6 @@
     "report": "Reportar",
     "checking": "Comprobando",
     "contact_admin": "Contactar con admin",
-    "back": "Volver",
     "understood": "Entendido",
     "login_required": "Inicia sesión",
     "deleted": "Eliminado",
@@ -202,7 +201,11 @@
       "empty": "没有符合搜索的图片",
       "loading": "加载中…",
       "choose": "📷 选择图片",
-      "artist": "画师"
+      "artist": "画师",
+      "create_many": "创建 {n} 个分隔页",
+      "use_many": "使用 {n} 张图片",
+      "create_empty": "不带图片创建",
+      "multi_hint": "可以多选。每张图片会变成一个分隔页。"
     },
     "info": {
       "title": "卡册信息",
@@ -338,7 +341,11 @@
       "available": "可用",
       "filters_button": "筛选",
       "apply_filters": "应用",
-      "error_msg": "加载选择器出错"
+      "error_msg": "加载选择器出错",
+      "extra_separators_title": "额外分隔页",
+      "extra_separators_msg": "将添加 {n} 个分隔页。",
+      "no_room_separators_msg": "你还有 {free} 个名额，选了 {selected} 张图片。",
+      "buy_separators": "购买分隔页"
     },
     "item_info": {
       "info_title": "信息",
@@ -407,7 +414,8 @@
       "slot_cleared": "卡槽已清空 ✅",
       "page_added": "页面已添加 ✅",
       "separator_added": "分隔页已添加 ✨",
-      "page_deleted": "页面已删除 ✅"
+      "page_deleted": "页面已删除 ✅",
+      "separators_added": "已添加 {n} 个分隔页 ✨"
     },
     "undo": {
       "pages_restoring": "正在撤销页面更改..."

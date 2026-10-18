@@ -48,7 +48,7 @@
     "sort_album": "By album",
     "sort_stock_date": "Date added to stock",
     "sort_status": "By status",
-    "back": "Back",
+    "back": "Kembali",
     "sort_price": "By price",
     "library_loading_title": "Building your library…",
     "library_loading_hint": "Fetching photocards. One moment — there are a lot of them ✨",
@@ -89,7 +89,6 @@
     "info": "Info",
     "checking": "Memeriksa",
     "contact_admin": "Hubungi admin",
-    "back": "Kembali",
     "understood": "Mengerti",
     "login_required": "Harap masuk",
     "deleted": "Dihapus",
@@ -397,7 +396,11 @@
       "empty": "Tidak ada gambar untuk pencarian ini",
       "loading": "Memuat…",
       "choose": "📷 Pilih gambar",
-      "artist": "Artis"
+      "artist": "Artis",
+      "create_many": "Buat {n} pembatas",
+      "use_many": "Pakai {n} gambar",
+      "create_empty": "Buat tanpa gambar",
+      "multi_hint": "Kamu bisa memilih lebih dari satu. Setiap gambar menjadi satu pembatas."
     },
     "info": {
       "title": "Info binder",
@@ -479,7 +482,11 @@
       "available": "Tersedia",
       "filters_button": "Filter",
       "apply_filters": "Terapkan",
-      "error_msg": "Kesalahan memuat pemilih"
+      "error_msg": "Kesalahan memuat pemilih",
+      "extra_separators_title": "Pembatas tambahan",
+      "extra_separators_msg": "{n} pembatas akan ditambahkan.",
+      "no_room_separators_msg": "Kamu punya tempat untuk {free} dan memilih {selected} gambar.",
+      "buy_separators": "Beli pembatas"
     },
     "item_info": {
       "info_title": "Info",
@@ -548,7 +555,8 @@
       "slot_cleared": "Slot dikosongkan ✅",
       "page_added": "Halaman ditambahkan ✅",
       "separator_added": "Pembatas ditambahkan ✨",
-      "page_deleted": "Halaman dihapus ✅"
+      "page_deleted": "Halaman dihapus ✅",
+      "separators_added": "{n} pembatas ditambahkan ✨"
     },
     "view_all": "Lihat semua",
     "change_format": "Ubah format",

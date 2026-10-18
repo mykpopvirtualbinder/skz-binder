@@ -37,7 +37,7 @@ import { resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { formatQuota, packSeparatorColors, resolveBinderQuota, unpackSeparatorColors } from "@/lib/binder-quotas";
 import { mergeBinderFaces, writeBinderFacesLocal, emptyCoverStyles, urlColumnForCoverFace, type CoverFaceKey, type CoverFaceStyle } from "@/lib/binder-faces";
 import BinderCoverFaceEditor from "./BinderCoverFaceEditor";
-import CoverImageSourceModal from "./CoverImageSourceModal";
+import CoverImageSourceModal, { type CoverImagePick } from "./CoverImageSourceModal";
 import BinderInfoModal from "../binders/BinderInfoModal";
 import { touchBinderActivity } from "@/lib/binder-activity";
 
@@ -3120,7 +3120,9 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const isAdmin = isAdminTeamEmail((profile as { email?: string | null } | null)?.email);
   const [isMobile, setIsMobile] = useState(false); // ✅ Única declaración
   const [viewportW, setViewportW] = useState(0);
-  const [separatorSourceOpen, setSeparatorSourceOpen] = useState(false);
+  const [separatorSourceMode, setSeparatorSourceMode] = useState<null | "create" | "fill">(null);
+  const [separatorLimitNotice, setSeparatorLimitNotice] = useState<{ free: number; selected: number } | null>(null);
+  const separatorCommitBusy = useRef(false);
   const [status, setStatus] = useState("");         // ✅ Única declaración
   const [error, setError] = useState<string | null>(null);
   const [needsAuth, setNeedsAuth] = useState(false);
@@ -9707,6 +9709,161 @@ const rawPlan = (profileData?.plan_type || "free").toLowerCase().trim();
   setLoading(false);
 }, [binderId, layout, binderPages, MAX_ALLOWED_PAGES, MAX_ALLOWED_SEPARATORS,loading, pageReorderBusy]);
 
+const commitSeparatorImages = async (picks: CoverImagePick[], mode: "create" | "fill") => {
+  if (!binderId || !userId || separatorCommitBusy.current) return;
+  separatorCommitBusy.current = true;
+  setError(null);
+  let locked = false;
+  try {
+    const hasFiles = picks.some((pick) => "file" in pick);
+    if (hasFiles) setStatus("Subiendo imagen...");
+    const urls: string[] = [];
+    let fileIndex = 0;
+    for (const pick of picks) {
+      if ("url" in pick) {
+        if (pick.url) urls.push(pick.url);
+        continue;
+      }
+      const ext = (pick.file.name.split(".").pop() || "jpg").toLowerCase();
+      const safeExt = ext.match(/^(png|jpg|jpeg|webp)$/) ? ext : "jpg";
+      const path = `${userId}/binder_${binderId}/separator_${Date.now()}_${fileIndex}.${safeExt}`;
+      fileIndex += 1;
+      const up = await supabase.storage.from(CUSTOM_BUCKET).upload(path, pick.file, {
+        upsert: true,
+        contentType: pick.file.type || "image/jpeg",
+        cacheControl: "3600",
+      });
+      if (up.error) {
+        setError(up.error.message);
+        continue;
+      }
+      const publicUrl = supabase.storage.from(CUSTOM_BUCKET).getPublicUrl(path).data.publicUrl;
+      if (publicUrl) urls.push(publicUrl);
+    }
+    if (!urls.length) {
+      setStatus("Error subiendo imagen");
+      return;
+    }
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("plan_type, extra_pages, extra_separators")
+      .eq("user_id", userId)
+      .single();
+    const liveQuota = resolveBinderQuota({
+      planType: (profileData?.plan_type || "free").toLowerCase().trim(),
+      isPremium: profile?.is_premium,
+      isAdmin: isAdmin || isAdminTeamEmail(email),
+      extraPages: profileData?.extra_pages || 0,
+      extraSeparators: profileData?.extra_separators || 0,
+    });
+    const sepCount = binderPages.filter((p) => p.layout_type === "separator").length;
+    const room = Number.isFinite(liveQuota.maxSeparators)
+      ? Math.max(0, liveQuota.maxSeparators - sepCount)
+      : urls.length;
+    const fillCurrent = mode === "fill" && layout === "separator" && pageId != null;
+    const capacity = room + (fillCurrent ? 1 : 0);
+    const overflow = urls.length > capacity;
+    let urlsToUse = overflow ? urls.slice(0, capacity) : urls;
+    const adding = fillCurrent ? Math.max(0, urlsToUse.length - 1) : urlsToUse.length;
+    if (!overflow && adding > (fillCurrent ? 0 : 1)) {
+      const ok = await showConfirm(
+        t("binders.picker.extra_separators_title"),
+        t("binders.picker.extra_separators_msg", { n: adding }),
+      );
+      if (!ok) {
+        if (fillCurrent) urlsToUse = urlsToUse.slice(0, 1);
+        else return;
+      }
+    }
+
+    if (!urlsToUse.length) {
+      setSeparatorLimitNotice({ free: capacity, selected: urls.length });
+      setStatus("");
+      return;
+    }
+
+    locked = true;
+    setLoading(true);
+    setStatus("Creando...");
+
+    const currentUrl = fillCurrent ? urlsToUse[0] : null;
+    const newUrls = fillCurrent ? urlsToUse.slice(1) : urlsToUse;
+
+    if (currentUrl && pageId) {
+      setSlotItems((prev) => ({
+        ...prev,
+        1: { ...(prev[1] || {}), id: 999999, is_custom: true, custom_image_url: currentUrl } as any,
+      }));
+      const saved = await persistSlotState(1, {
+        kind: "custom",
+        custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "",
+        custom_image_url: currentUrl,
+        custom_color: slotItems[1]?.custom_color,
+      } as any, 0, false);
+      if (!saved.ok) {
+        setError(saved.error || "Error guardando separador");
+        setStatus("Error guardando separador");
+        return;
+      }
+    }
+
+    const created: Array<{ id: number; page_index: number; layout_type: LayoutType }> = [];
+    if (newUrls.length > 0) {
+      const lastRes = await supabase
+        .from("binder_pages")
+        .select("page_index")
+        .eq("binder_id", binderId)
+        .order("page_index", { ascending: false })
+        .limit(1);
+      let nextIndex = (lastRes.data?.[0]?.page_index ?? -1) + 1;
+      for (const url of newUrls) {
+        const ins = await supabase
+          .from("binder_pages")
+          .insert({ binder_id: binderId, page_index: nextIndex, layout_type: "separator" })
+          .select("id")
+          .single();
+        if (ins.error || !ins.data) {
+          setError(ins.error?.message || "No se pudo crear el separador");
+          setStatus("Error creando separador");
+          break;
+        }
+        const slot = await supabase.from("page_slots").upsert(
+          {
+            page_id: ins.data.id,
+            slot_index: 1,
+            item_id: null,
+            rot: 0,
+            flip_h: false,
+            is_custom: true,
+            custom_text: "",
+            custom_image_url: url,
+            custom_color: null,
+          },
+          { onConflict: "page_id,slot_index" },
+        );
+        if (slot.error) setError(slot.error.message);
+        created.push({ id: ins.data.id, page_index: nextIndex, layout_type: "separator" });
+        nextIndex += 1;
+      }
+      if (created.length > 0) {
+        setBinderPages((prev) => [...prev, ...created].sort((a, b) => a.page_index - b.page_index));
+        setPagesCount((prev) => prev + created.length);
+        setCurrentPageIndex(binderPages.length + created.length - 1);
+        setRefreshTick((tick: number) => tick + 1);
+      }
+    }
+
+    if (created.length > 1) setStatus(t("binders.alerts.separators_added", { n: created.length }));
+    else if (created.length === 1) setStatus(t("binders.alerts.separator_added"));
+    else if (currentUrl) setStatus("Imagen actualizada ✨");
+    if (overflow) setSeparatorLimitNotice({ free: capacity, selected: urls.length });
+  } finally {
+    separatorCommitBusy.current = false;
+    if (locked) setLoading(false);
+  }
+};
+
 const deletePageById = useCallback(
  async (targetPageId: number) => {
   if (!binderId) return;
@@ -14401,7 +14558,13 @@ const isDraggingMe = pageDragFromId === p.id;
       </button>
       <button
         type="button"
-        onClick={() => createNewPage("separator")}
+        onClick={() => {
+          if (!isAdmin && !isAdminTeamEmail(email) && separatorsCount >= quota.maxSeparators) {
+            setBuySeparatorsOpen(true);
+            return;
+          }
+          setSeparatorSourceMode("create");
+        }}
         title={`${t("binders.actions.add_separator")} (${formatQuota(separatorsCount, quota.maxSeparators)})`}
         aria-label={`${t("binders.actions.add_separator")} (${formatQuota(separatorsCount, quota.maxSeparators)})`}
         style={{
@@ -14776,13 +14939,7 @@ const isDraggingMe = pageDragFromId === p.id;
           </p>
           <button
             type="button"
-            onClick={() => {
-              if (!profile?.is_premium && !isAdmin) {
-                showAlert("Ventaja VIP 👑", "Poner fondos personalizados en los separadores es exclusivo para Premium.");
-                return;
-              }
-              setSeparatorSourceOpen(true);
-            }}
+            onClick={() => setSeparatorSourceMode("fill")}
             style={{
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               background: "var(--bg-soft)", border: "1px solid var(--color-primary)", color: "var(--color-primary)",
@@ -14792,39 +14949,6 @@ const isDraggingMe = pageDragFromId === p.id;
           >
             {slotItems[1]?.custom_image_url ? t("binders.cover_faces.change_image") : t("binders.cover_source.choose")}
           </button>
-          <CoverImageSourceModal
-            open={separatorSourceOpen}
-            onClose={() => setSeparatorSourceOpen(false)}
-            t={t}
-            onPickUrl={async (url) => {
-              setSlotItems(prev => ({
-                ...prev,
-                1: { ...(prev[1] || {}), id: 999999, is_custom: true, custom_image_url: url } as any
-              }));
-              await persistSlotState(1, {
-                kind: "custom",
-                custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "",
-                custom_image_url: url,
-                custom_color: slotItems[1]?.custom_color,
-              } as any, 0, false);
-              setStatus("Imagen actualizada ✨");
-            }}
-            onPickFile={async (file) => {
-              setStatus("Subiendo imagen...");
-              const up = await uploadCustomImage(file, 1);
-              if (up.ok && up.publicUrl) {
-                setSlotItems(prev => ({
-                  ...prev,
-                  1: { ...(prev[1] || {}), id: 999999, is_custom: true, custom_image_url: up.publicUrl } as any
-                }));
-                await persistSlotState(1, { kind: "custom", custom_text: slotItems[1]?.custom_text || slotItems[1]?.name || "", custom_image_url: up.publicUrl, custom_color: slotItems[1]?.custom_color } as any, 0, false);
-                setStatus("Imagen actualizada ✨");
-              } else {
-                setError(up.error || "Error al subir");
-                setStatus("Error subiendo imagen");
-              }
-            }}
-          />
         </div>
       </div>
     </div>
@@ -15230,6 +15354,89 @@ onRotateLeft={() => {
         </div>
       )}
       {buySeparatorsOpen && <BuySeparatorsModal />}
+      <CoverImageSourceModal
+        open={separatorSourceMode != null}
+        multiple
+        purpose={separatorSourceMode === "create" ? "create" : "fill"}
+        onClose={() => setSeparatorSourceMode(null)}
+        t={t}
+        onCreateEmpty={separatorSourceMode === "create" ? () => { void createNewPage("separator"); } : undefined}
+        onPickUrl={() => {}}
+        onPickFile={() => {}}
+        onPickMany={(picks) => {
+          const mode = separatorSourceMode === "create" ? "create" : "fill";
+          void commitSeparatorImages(picks, mode);
+        }}
+      />
+      {separatorLimitNotice && (
+        <div
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setSeparatorLimitNotice(null);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "var(--overlay-medium)",
+            zIndex: 1000001,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 18,
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div style={{
+            width: "min(420px, 92vw)",
+            background: "var(--bg-main)",
+            borderRadius: 18,
+            border: "1px solid var(--color-primary)",
+            padding: 18,
+          }}>
+            <div style={{ fontWeight: 950, color: "var(--color-primary)", fontSize: 18, marginBottom: 10 }}>
+              {t("binders.picker.no_room_title")}
+            </div>
+            <p style={{ margin: "0 0 16px", color: "var(--text-main)", fontWeight: 700, lineHeight: 1.45 }}>
+              {t("binders.picker.no_room_separators_msg", { free: separatorLimitNotice.free, selected: separatorLimitNotice.selected })}
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => setSeparatorLimitNotice(null)}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--bg-soft)",
+                  color: "var(--text-main)",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                {t("binders.actions.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSeparatorLimitNotice(null);
+                  router.push("/shop?item=separadores");
+                }}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  border: "none",
+                  background: "var(--color-primary)",
+                  color: "var(--bg-main)",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                {t("binders.picker.buy_separators")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showOnboarding && userId && (
         <OnboardingForm

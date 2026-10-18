@@ -48,7 +48,7 @@
     "sort_album": "By album",
     "sort_stock_date": "Date added to stock",
     "sort_status": "By status",
-    "back": "Back",
+    "back": "戻る",
     "sort_price": "By price",
     "library_loading_title": "Building your library…",
     "library_loading_hint": "Fetching photocards. One moment — there are a lot of them ✨",
@@ -89,7 +89,6 @@
     "info": "情報",
     "checking": "確認中",
     "contact_admin": "管理者に連絡",
-    "back": "戻る",
     "understood": "了解",
     "login_required": "ログインしてください",
     "deleted": "削除しました",
@@ -397,7 +396,11 @@
       "empty": "その検索に合う画像はありません",
       "loading": "読み込み中…",
       "choose": "📷 画像を選ぶ",
-      "artist": "アーティスト"
+      "artist": "アーティスト",
+      "create_many": "セパレーターを{n}枚作成",
+      "use_many": "画像を{n}枚使う",
+      "create_empty": "画像なしで作成",
+      "multi_hint": "複数選べます。画像1枚につきセパレーターが1枚できます。"
     },
     "info": {
       "title": "バインダー情報",
@@ -479,7 +482,11 @@
       "available": "利用可能",
       "filters_button": "フィルター",
       "apply_filters": "適用",
-      "error_msg": "ピッカーの読み込みエラー"
+      "error_msg": "ピッカーの読み込みエラー",
+      "extra_separators_title": "追加セパレーター",
+      "extra_separators_msg": "セパレーターを{n}枚追加します。",
+      "no_room_separators_msg": "空きは{free}枚で、画像を{selected}枚選んでいます。",
+      "buy_separators": "セパレーターを購入"
     },
     "item_info": {
       "info_title": "情報",
@@ -548,7 +555,8 @@
       "slot_cleared": "スロットをクリアしました ✅",
       "page_added": "ページを追加しました ✅",
       "separator_added": "セパレーターを追加しました ✨",
-      "page_deleted": "ページを削除しました ✅"
+      "page_deleted": "ページを削除しました ✅",
+      "separators_added": "セパレーターを{n}枚追加しました ✨"
     },
     "view_all": "すべて見る",
     "change_format": "フォーマットを変更",

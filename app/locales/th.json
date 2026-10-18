@@ -41,7 +41,7 @@
     "sort_album": "By album",
     "sort_stock_date": "Date added to stock",
     "sort_status": "By status",
-    "back": "Back",
+    "back": "Volver",
     "sort_price": "By price",
     "library_loading_title": "Building your library…",
     "library_loading_hint": "Fetching photocards. One moment — there are a lot of them ✨",
@@ -89,7 +89,6 @@
     "report": "Reportar",
     "checking": "Comprobando",
     "contact_admin": "Contactar con admin",
-    "back": "Volver",
     "understood": "Entendido",
     "login_required": "Inicia sesión",
     "deleted": "Eliminado",
@@ -202,7 +201,11 @@
       "empty": "ไม่มีรูปที่ตรงกับการค้นหา",
       "loading": "กำลังโหลด…",
       "choose": "📷 เลือกรูป",
-      "artist": "ศิลปิน"
+      "artist": "ศิลปิน",
+      "create_many": "สร้างที่คั่น {n} อัน",
+      "use_many": "ใช้ {n} รูป",
+      "create_empty": "สร้างโดยไม่มีรูป",
+      "multi_hint": "เลือกได้หลายรูป แต่ละรูปจะกลายเป็นที่คั่นหนึ่งอัน"
     },
     "info": {
       "title": "ข้อมูลไบน์เดอร์",
@@ -338,7 +341,11 @@
       "available": "มีอยู่",
       "filters_button": "ตัวกรอง",
       "apply_filters": "ใช้",
-      "error_msg": "เกิดข้อผิดพลาดในการโหลด"
+      "error_msg": "เกิดข้อผิดพลาดในการโหลด",
+      "extra_separators_title": "ที่คั่นเพิ่ม",
+      "extra_separators_msg": "จะเพิ่มที่คั่น {n} อัน",
+      "no_room_separators_msg": "ว่าง {free} อัน แต่เลือกไว้ {selected} รูป",
+      "buy_separators": "ซื้อที่คั่น"
     },
     "item_info": {
       "info_title": "ข้อมูล",
@@ -407,7 +414,8 @@
       "slot_cleared": "นำการ์ดออกแล้ว ✅",
       "page_added": "เพิ่มหน้าแล้ว ✅",
       "separator_added": "เพิ่มที่คั่นแล้ว ✨",
-      "page_deleted": "ลบหน้าแล้ว ✅"
+      "page_deleted": "ลบหน้าแล้ว ✅",
+      "separators_added": "เพิ่มที่คั่น {n} อันแล้ว ✨"
     },
     "undo": {
       "pages_restoring": "กำลังเลิกทำการเปลี่ยนแปลงหน้า..."

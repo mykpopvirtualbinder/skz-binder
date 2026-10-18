@@ -48,7 +48,7 @@
     "sort_album": "By album",
     "sort_stock_date": "Date added to stock",
     "sort_status": "By status",
-    "back": "Back",
+    "back": "Indietro",
     "sort_price": "By price",
     "library_loading_title": "Building your library…",
     "library_loading_hint": "Fetching photocards. One moment — there are a lot of them ✨",
@@ -89,7 +89,6 @@
     "info": "Info",
     "checking": "Verifica in corso",
     "contact_admin": "Contatta admin",
-    "back": "Indietro",
     "understood": "Capito",
     "login_required": "Accedi",
     "deleted": "Eliminato",
@@ -397,7 +396,11 @@
       "empty": "Nessuna immagine per questa ricerca",
       "loading": "Caricamento…",
       "choose": "📷 Scegli immagine",
-      "artist": "Artista"
+      "artist": "Artista",
+      "create_many": "Crea {n} separatori",
+      "use_many": "Usa {n} immagini",
+      "create_empty": "Crea senza immagine",
+      "multi_hint": "Puoi sceglierne più di una. Ogni immagine diventa un separatore."
     },
     "info": {
       "title": "Info del binder",
@@ -479,7 +482,11 @@
       "available": "Disponibile",
       "filters_button": "Filtri",
       "apply_filters": "Applica",
-      "error_msg": "Errore durante il caricamento del selettore"
+      "error_msg": "Errore durante il caricamento del selettore",
+      "extra_separators_title": "Separatori extra",
+      "extra_separators_msg": "Verranno aggiunti {n} separatori.",
+      "no_room_separators_msg": "Hai posto per {free} e ne hai selezionate {selected}.",
+      "buy_separators": "Compra separatori"
     },
     "item_info": {
       "info_title": "Info",
@@ -548,7 +555,8 @@
       "slot_cleared": "Slot liberato ✅",
       "page_added": "Pagina aggiunta ✅",
       "separator_added": "Separatore aggiunto ✨",
-      "page_deleted": "Pagina eliminata ✅"
+      "page_deleted": "Pagina eliminata ✅",
+      "separators_added": "{n} separatori aggiunti ✨"
     },
     "view_all": "Vedi tutte",
     "change_format": "Cambia formato",

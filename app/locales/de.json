@@ -48,7 +48,7 @@
     "sort_album": "By album",
     "sort_stock_date": "Date added to stock",
     "sort_status": "By status",
-    "back": "Back",
+    "back": "Zurück",
     "sort_price": "By price",
     "library_loading_title": "Building your library…",
     "library_loading_hint": "Fetching photocards. One moment — there are a lot of them ✨",
@@ -89,7 +89,6 @@
     "info": "Info",
     "checking": "Wird überprüft",
     "contact_admin": "Admin kontaktieren",
-    "back": "Zurück",
     "understood": "Verstanden",
     "login_required": "Bitte einloggen",
     "deleted": "Gelöscht",
@@ -397,7 +396,11 @@
       "empty": "Keine Bilder zu dieser Suche",
       "loading": "Lädt…",
       "choose": "📷 Bild wählen",
-      "artist": "Künstler"
+      "artist": "Künstler",
+      "create_many": "{n} Trennblätter erstellen",
+      "use_many": "{n} Bilder verwenden",
+      "create_empty": "Ohne Bild erstellen",
+      "multi_hint": "Du kannst mehrere wählen. Jedes Bild wird ein Trennblatt."
     },
     "info": {
       "title": "Binder-Info",
@@ -479,7 +482,11 @@
       "available": "Verfügbar",
       "filters_button": "Filter",
       "apply_filters": "Anwenden",
-      "error_msg": "Fehler beim Laden der Auswahl"
+      "error_msg": "Fehler beim Laden der Auswahl",
+      "extra_separators_title": "Zusätzliche Trennblätter",
+      "extra_separators_msg": "Es werden {n} Trennblätter hinzugefügt.",
+      "no_room_separators_msg": "Du hast Platz für {free} und hast {selected} Bilder ausgewählt.",
+      "buy_separators": "Trennblätter kaufen"
     },
     "item_info": {
       "info_title": "Info",
@@ -548,7 +555,8 @@
       "slot_cleared": "Slot freigegeben ✅",
       "page_added": "Seite hinzugefügt ✅",
       "separator_added": "Trennblatt hinzugefügt ✨",
-      "page_deleted": "Seite gelöscht ✅"
+      "page_deleted": "Seite gelöscht ✅",
+      "separators_added": "{n} Trennblätter hinzugefügt ✨"
     },
     "view_all": "Alle ansehen",
     "change_format": "Format ändern",

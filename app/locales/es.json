@@ -90,7 +90,6 @@
     "info": "Info",
     "checking": "Comprobando",
     "contact_admin": "Contactar con admin",
-    "back": "Volver",
     "understood": "Entendido",
     "login_required": "Inicia sesión",
     "deleted": "Eliminado",
@@ -457,7 +456,11 @@
       "empty": "No hay imágenes con esa búsqueda",
       "loading": "Cargando…",
       "choose": "📷 Elegir imagen",
-      "artist": "Artista"
+      "artist": "Artista",
+      "create_many": "Crear {n} separadores",
+      "use_many": "Usar {n} imágenes",
+      "create_empty": "Crear sin imagen",
+      "multi_hint": "Puedes elegir varias. Cada imagen será un separador."
     },
     "info": {
       "title": "Info del binder",
@@ -506,8 +509,7 @@
       "edit_stock": "Editar stock",
       "update_stock": "Actualizar stock",
       "add_decoration": "Añadir decoración",
-      "remove_image": "Quitar imagen",
-      "whole_page": "toda la página"
+      "remove_image": "Quitar imagen"
     },
     "picker": {
       "search_placeholder": "Buscar por nombre o id...",
@@ -543,7 +545,11 @@
       "available": "Disponible",
       "filters_button": "Filtros",
       "apply_filters": "Aplicar",
-      "error_msg": "Error al cargar el selector"
+      "error_msg": "Error al cargar el selector",
+      "extra_separators_title": "Separadores extra",
+      "extra_separators_msg": "Se van a añadir {n} separadores.",
+      "no_room_separators_msg": "Tienes sitio para {free} y has seleccionado {selected} imágenes.",
+      "buy_separators": "Comprar separadores"
     },
     "item_info": {
       "info_title": "Info",
@@ -617,7 +623,8 @@
       "slot_cleared": "Slot liberado ✅",
       "page_added": "Página añadida ✅",
       "separator_added": "Separador añadido ✨",
-      "page_deleted": "Página borrada ✅"
+      "page_deleted": "Página borrada ✅",
+      "separators_added": "{n} separadores añadidos ✨"
     },
     "view_all": "Ver todas",
     "change_format": "Cambiar formato",

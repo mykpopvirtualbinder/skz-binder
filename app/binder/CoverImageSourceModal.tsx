@@ -29,12 +29,22 @@ type PcFacets = {
   members: { id: string; name: string; groupId: string }[];
 };
 
+export type CoverImagePick = { url: string } | { file: File };
+
+type SelectedPick =
+  | { key: string; kind: "url"; url: string }
+  | { key: string; kind: "file"; file: File; preview: string };
+
 type Props = {
   open: boolean;
   onClose: () => void;
   onPickUrl: (url: string) => void;
   onPickFile: (file: File) => void;
-  t: (key: string) => string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  multiple?: boolean;
+  purpose?: "create" | "fill";
+  onPickMany?: (picks: CoverImagePick[]) => void;
+  onCreateEmpty?: () => void;
 };
 
 const EMPTY_FILTERS: Filters = { group: "", collection: "", version: "", member: "", category: "" };
@@ -220,7 +230,17 @@ function uniqueValues(items: PickItem[], key: FacetKey): string[] {
   return [...values].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base", numeric: true }));
 }
 
-export default function CoverImageSourceModal({ open, onClose, onPickUrl, onPickFile, t }: Props) {
+export default function CoverImageSourceModal({
+  open,
+  onClose,
+  onPickUrl,
+  onPickFile,
+  t,
+  multiple = false,
+  purpose = "fill",
+  onPickMany,
+  onCreateEmpty,
+}: Props) {
   const [source, setSource] = useState<Source | null>(null);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -229,6 +249,7 @@ export default function CoverImageSourceModal({ open, onClose, onPickUrl, onPick
   const [pcFacets, setPcFacets] = useState<PcFacets | null>(pcFacetCache);
   const [pcVersions, setPcVersions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [picks, setPicks] = useState<SelectedPick[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -243,12 +264,22 @@ export default function CoverImageSourceModal({ open, onClose, onPickUrl, onPick
     setPcVersions([]);
   }, []);
 
+  const clearPicks = useCallback(() => {
+    setPicks((prev) => {
+      for (const pick of prev) {
+        if (pick.kind === "file") URL.revokeObjectURL(pick.preview);
+      }
+      return [];
+    });
+  }, []);
+
   useEffect(() => {
     if (!open) {
       setSource(null);
       resetBrowse();
+      clearPicks();
     }
-  }, [open, resetBrowse]);
+  }, [open, resetBrowse, clearPicks]);
 
   useEffect(() => {
     if (!open || !source || source === "pc") return;
@@ -339,6 +370,41 @@ export default function CoverImageSourceModal({ open, onClose, onPickUrl, onPick
 
   const choose = (url: string) => {
     onPickUrl(url);
+    close();
+  };
+
+  const toggleUrl = (url: string) => {
+    setPicks((prev) => {
+      const index = prev.findIndex((pick) => pick.kind === "url" && pick.url === url);
+      if (index >= 0) return prev.filter((_, i) => i !== index);
+      return [...prev, { key: url, kind: "url", url }];
+    });
+  };
+
+  const addFiles = (files: File[]) => {
+    if (!files.length) return;
+    setPicks((prev) => [
+      ...prev,
+      ...files.map((file, index) => ({
+        key: `file-${file.name}-${file.size}-${file.lastModified}-${index}-${Date.now()}`,
+        kind: "file" as const,
+        file,
+        preview: URL.createObjectURL(file),
+      })),
+    ]);
+  };
+
+  const removePick = (key: string) => {
+    setPicks((prev) => {
+      const target = prev.find((pick) => pick.key === key);
+      if (target?.kind === "file") URL.revokeObjectURL(target.preview);
+      return prev.filter((pick) => pick.key !== key);
+    });
+  };
+
+  const confirmMany = () => {
+    if (!picks.length || !onPickMany) return;
+    onPickMany(picks.map((pick) => (pick.kind === "url" ? { url: pick.url } : { file: pick.file })));
     close();
   };
 
@@ -459,6 +525,12 @@ export default function CoverImageSourceModal({ open, onClose, onPickUrl, onPick
           </button>
         </div>
 
+        {multiple ? (
+          <p style={{ margin: "0 0 10px", textAlign: "center", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", lineHeight: 1.4 }}>
+            {t("binders.cover_source.multi_hint")}
+          </p>
+        ) : null}
+
         {!source ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {(["album", "pc", "merch", "fanart"] as Source[]).map((id) => (
@@ -469,16 +541,26 @@ export default function CoverImageSourceModal({ open, onClose, onPickUrl, onPick
             <button type="button" onClick={() => fileRef.current?.click()} style={{ ...optionStyle, borderColor: "var(--color-primary)", color: "var(--color-primary)" }}>
               {t("binders.cover_source.file")}
             </button>
+            {onCreateEmpty ? (
+              <button type="button" onClick={() => { onCreateEmpty(); close(); }} style={optionStyle}>
+                {t("binders.cover_source.create_empty")}
+              </button>
+            ) : null}
             <input
               ref={fileRef}
               type="file"
               accept="image/*"
+              multiple={multiple}
               style={{ display: "none" }}
               onChange={(e) => {
-                const file = e.target.files?.[0];
+                const files = Array.from(e.target.files || []);
                 e.target.value = "";
-                if (!file) return;
-                onPickFile(file);
+                if (!files.length) return;
+                if (multiple) {
+                  addFiles(files);
+                  return;
+                }
+                onPickFile(files[0]);
                 close();
               }}
             />
@@ -578,28 +660,125 @@ export default function CoverImageSourceModal({ open, onClose, onPickUrl, onPick
               <p style={{ textAlign: "center", fontWeight: 800, color: "var(--text-muted)" }}>{t("binders.cover_source.empty")}</p>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-                {shown.map((row) => (
+                {shown.map((row) => {
+                  const order = multiple ? picks.findIndex((pick) => pick.kind === "url" && pick.url === row.url) : -1;
+                  const selected = order >= 0;
+                  return (
                   <button
                     key={row.id}
                     type="button"
-                    onClick={() => choose(row.url)}
+                    onClick={() => (multiple ? toggleUrl(row.url) : choose(row.url))}
                     title={row.label}
+                    aria-pressed={multiple ? selected : undefined}
                     style={{
+                      position: "relative",
                       padding: 0,
                       borderRadius: 12,
                       overflow: "hidden",
-                      border: "1px solid var(--color-border)",
+                      border: selected ? "3px solid var(--color-primary)" : "1px solid var(--color-border)",
                       background: "var(--bg-soft)",
                       cursor: "pointer",
                     }}
                   >
                     <img src={row.url} alt={row.label} style={{ width: "100%", aspectRatio: "3 / 4", objectFit: "cover", display: "block" }} />
+                    {selected ? (
+                      <span style={{
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                        minWidth: 22,
+                        height: 22,
+                        borderRadius: 999,
+                        background: "var(--color-primary)",
+                        color: "var(--bg-main)",
+                        fontSize: 12,
+                        fontWeight: 900,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "0 6px",
+                      }}
+                      >
+                        {order + 1}
+                      </span>
+                    ) : null}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             ))}
           </div>
         )}
+
+        {multiple ? (
+          <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+            {picks.length > 0 ? (
+              <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+                {picks.map((pick, index) => (
+                  <button
+                    key={pick.key}
+                    type="button"
+                    onClick={() => removePick(pick.key)}
+                    title={t("binders.actions.cancel")}
+                    style={{
+                      position: "relative",
+                      width: 48,
+                      height: 64,
+                      padding: 0,
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      border: "1px solid var(--color-primary)",
+                      background: "var(--bg-soft)",
+                      cursor: "pointer",
+                      flex: "0 0 auto",
+                    }}
+                  >
+                    <img
+                      src={pick.kind === "url" ? pick.url : pick.preview}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                    <span style={{
+                      position: "absolute",
+                      left: 3,
+                      top: 3,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 999,
+                      background: "var(--color-primary)",
+                      color: "var(--bg-main)",
+                      fontSize: 10,
+                      fontWeight: 900,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    >
+                      {index + 1}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              disabled={picks.length === 0}
+              onClick={confirmMany}
+              style={{
+                width: "100%",
+                minHeight: 48,
+                borderRadius: 14,
+                border: "none",
+                background: picks.length ? "var(--color-primary)" : "var(--state-disabled-bg)",
+                color: picks.length ? "var(--bg-main)" : "var(--state-disabled-fg)",
+                fontWeight: 900,
+                cursor: picks.length ? "pointer" : "not-allowed",
+              }}
+            >
+              {t(purpose === "create" ? "binders.cover_source.create_many" : "binders.cover_source.use_many", { n: picks.length })}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>,
     document.body,

@@ -90,7 +90,6 @@
     "info": "Info",
     "checking": "Checking",
     "contact_admin": "Contact admin",
-    "back": "Back",
     "understood": "Understood",
     "login_required": "Log in",
     "deleted": "Deleted",
@@ -458,7 +457,11 @@
       "empty": "No images match that search",
       "loading": "Loading…",
       "choose": "📷 Choose image",
-      "artist": "Artist"
+      "artist": "Artist",
+      "create_many": "Create {n} separators",
+      "use_many": "Use {n} images",
+      "create_empty": "Create without an image",
+      "multi_hint": "You can pick more than one. Each image becomes a separator."
     },
     "info": {
       "title": "Binder info",
@@ -542,7 +545,11 @@
       "available": "Available",
       "filters_button": "Filters",
       "apply_filters": "Apply",
-      "error_msg": "Error loading picker"
+      "error_msg": "Error loading picker",
+      "extra_separators_title": "Extra separators",
+      "extra_separators_msg": "{n} separators will be added.",
+      "no_room_separators_msg": "You have room for {free} and selected {selected} images.",
+      "buy_separators": "Buy separators"
     },
     "item_info": {
       "info_title": "Info",
@@ -616,7 +623,8 @@
       "slot_cleared": "Slot cleared ✅",
       "page_added": "Page added ✅",
       "separator_added": "Separator added ✨",
-      "page_deleted": "Page deleted ✅"
+      "page_deleted": "Page deleted ✅",
+      "separators_added": "{n} separators added ✨"
     },
     "view_all": "View all",
     "change_format": "Change format",

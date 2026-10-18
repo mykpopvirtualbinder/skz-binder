@@ -41,7 +41,7 @@
     "sort_album": "By album",
     "sort_stock_date": "Date added to stock",
     "sort_status": "By status",
-    "back": "Back",
+    "back": "Volver",
     "sort_price": "By price",
     "library_loading_title": "Building your library…",
     "library_loading_hint": "Fetching photocards. One moment — there are a lot of them ✨",
@@ -89,7 +89,6 @@
     "report": "Reportar",
     "checking": "Comprobando",
     "contact_admin": "Contactar con admin",
-    "back": "Volver",
     "understood": "Entendido",
     "login_required": "Inicia sesión",
     "deleted": "Eliminado",
@@ -202,7 +201,11 @@
       "empty": "검색과 맞는 이미지가 없어요",
       "loading": "불러오는 중…",
       "choose": "📷 이미지 선택",
-      "artist": "아티스트"
+      "artist": "아티스트",
+      "create_many": "구분선 {n}개 만들기",
+      "use_many": "이미지 {n}장 사용",
+      "create_empty": "이미지 없이 만들기",
+      "multi_hint": "여러 장을 고를 수 있어요. 이미지마다 구분선이 하나 만들어져요."
     },
     "info": {
       "title": "바인더 정보",
@@ -338,7 +341,11 @@
       "available": "선택 가능",
       "filters_button": "필터",
       "apply_filters": "적용",
-      "error_msg": "목록을 불러오는 중 오류 발생"
+      "error_msg": "목록을 불러오는 중 오류 발생",
+      "extra_separators_title": "추가 구분선",
+      "extra_separators_msg": "구분선 {n}개가 추가됩니다.",
+      "no_room_separators_msg": "여유는 {free}개인데 이미지를 {selected}장 선택했어요.",
+      "buy_separators": "구분선 구매"
     },
     "item_info": {
       "info_title": "정보",
@@ -407,7 +414,8 @@
       "slot_cleared": "슬롯 비우기 완료 ✅",
       "page_added": "페이지 추가됨 ✅",
       "separator_added": "구분선 추가됨 ✨",
-      "page_deleted": "페이지 삭제됨 ✅"
+      "page_deleted": "페이지 삭제됨 ✅",
+      "separators_added": "구분선 {n}개 추가됨 ✨"
     },
     "undo": {
       "pages_restoring": "페이지 변경 사항을 되돌리는 중..."
