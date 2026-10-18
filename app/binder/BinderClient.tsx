@@ -8432,11 +8432,20 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
     
    {/* BOTONERA DE BORRADO MÚLTIPLE EN CARRUSEL */}
         {deleteMode ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button 
               onClick={() => { setDeleteMode(false); setSelectedForDeletion([]); }}
               style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--color-primary)", fontWeight: 800, fontSize: 12, cursor: "pointer" }}
             >{t('common.cancel')}</button>
+            <button
+              type="button"
+              onClick={() => {
+                const ids = ordered.map((page) => page.id);
+                const every = ids.length > 0 && ids.every((id) => selectedForDeletion.includes(id));
+                setSelectedForDeletion(every ? [] : ids);
+              }}
+              style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid var(--color-primary)", background: "var(--bg-card)", color: "var(--color-primary)", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+            >{t('binders.actions.select_all')}</button>
             <button 
               onClick={deleteMultiplePages}
               disabled={selectedForDeletion.length === 0}
@@ -8509,10 +8518,10 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
     <div
       key={p.id}
       data-binder-page-card=""
-      draggable={!isMobile} 
+      draggable={!isMobile && !deleteMode} 
       // 1. TODOS LOS EVENTOS EN LA CAJA EXTERIOR
       onDragStart={(e) => {
-        if (isMobile) return;
+        if (isMobile || deleteMode) return;
         pageDraggingRef.current = true;
         setPageDragFromId(p.id);
         setModalPageDragFromId(p.id);
@@ -8560,7 +8569,14 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
         setModalPageDragOverId(null);
       }}
       // El clic de navegación también lo pasamos aquí
-      onClick={() => {
+      onClick={(e) => {
+        if (deleteMode) {
+          if ((e.target as HTMLElement).closest(".pageThumb")) return;
+          setSelectedForDeletion((prev) =>
+            prev.includes(p.id) ? prev.filter((id) => id !== p.id) : [...prev, p.id]
+          );
+          return;
+        }
         if (!pageDragFromId && !modalPageDragFromId) {
           setCurrentPageIndex(idx);
         }
@@ -8634,6 +8650,12 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
           pageHeight={1100}
           title={`Ir a página ${idx + 1}`}
           onClick={() => {
+            if (deleteMode) {
+              setSelectedForDeletion((prev) =>
+                prev.includes(p.id) ? prev.filter((id) => id !== p.id) : [...prev, p.id]
+              );
+              return;
+            }
             if (!pageDragFromId && !modalPageDragFromId) {
               setCurrentPageIndex(idx);
             }

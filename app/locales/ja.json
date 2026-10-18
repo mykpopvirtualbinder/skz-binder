@@ -428,6 +428,7 @@
     "actions": {
       "add_separator": "セパレーターを追加",
       "delete": "削除",
+      "select_all": "すべて選択",
       "cancel": "キャンセル",
       "undo": "元に戻す",
       "redo": "やり直す",

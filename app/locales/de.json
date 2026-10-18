@@ -428,6 +428,7 @@
     "actions": {
       "add_separator": "Trennblatt hinzufügen",
       "delete": "Löschen",
+      "select_all": "Alle auswählen",
       "cancel": "Abbrechen",
       "undo": "Rückgängig",
       "redo": "Wiederholen",

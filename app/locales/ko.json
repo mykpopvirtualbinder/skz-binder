@@ -287,6 +287,7 @@
     "actions": {
       "add_separator": "구분선 추가",
       "delete": "삭제",
+      "select_all": "모두 선택",
       "cancel": "취소",
       "undo": "실행 취소",
       "redo": "다시 실행",

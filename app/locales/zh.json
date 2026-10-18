@@ -287,6 +287,7 @@
     "actions": {
       "add_separator": "添加分隔页",
       "delete": "删除",
+      "select_all": "全选",
       "cancel": "取消",
       "undo": "撤销",
       "redo": "重做",

@@ -490,6 +490,7 @@
       "add_separator": "Add Separator",
       "add_page": "Add page",
       "delete": "Delete",
+      "select_all": "Select all",
       "cancel": "Cancel",
       "undo": "Undo",
       "redo": "Redo",

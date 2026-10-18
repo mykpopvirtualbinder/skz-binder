@@ -428,6 +428,7 @@
     "actions": {
       "add_separator": "Tambah Pembatas",
       "delete": "Hapus",
+      "select_all": "Pilih semua",
       "cancel": "Batal",
       "undo": "Batal (Undo)",
       "redo": "Ulangi",

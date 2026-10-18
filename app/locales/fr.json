@@ -428,6 +428,7 @@
     "actions": {
       "add_separator": "Ajouter un Séparateur",
       "delete": "Supprimer",
+      "select_all": "Tout sélectionner",
       "cancel": "Annuler",
       "undo": "Annuler l'action",
       "redo": "Rétablir",
