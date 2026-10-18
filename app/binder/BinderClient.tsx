@@ -7334,7 +7334,11 @@ if (bInfo) {
   setCoverStyles({ ...emptyCoverStyles(), ...(faces.styles || {}) });
 }
   }
-      /* Asegurar que exista al menos una página */ 
+      /* Asegurar que exista al menos una página */
+      if (bld == null || !Number.isFinite(bld)) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
       const pagesCheck = await fetchBinderPages(bld); 
       
       if (pagesCheck.error) { 
@@ -9869,6 +9873,7 @@ const commitSeparatorImages = async (picks: CoverImagePick[], mode: "create" | "
         }];
       });
       if (slotRows.length !== newUrls.length) {
+        await supabase.from("binder_pages").delete().in("id", ins.data.map((row) => Number(row.id)));
         setError("No se pudieron guardar todas las imágenes");
         setStatus("Error guardando separador");
         return;
