@@ -4014,6 +4014,7 @@ async function doModalUndo(): Promise<void> {
 
 
   const [deleteMode, setDeleteMode] = useState(false);
+  const [pageSelectMenuOpen, setPageSelectMenuOpen] = useState(false);
   const [selectedForDeletion, setSelectedForDeletion] = useState<number[]>([]);
   const [draggingPageId, setDraggingPageId] = useState<number | null>(null);
 const [dragOverPageId, setDragOverPageId] = useState<number | null>(null);
@@ -8251,7 +8252,10 @@ const placeSelectedItems = async (rawIds: number[]) => {
     [pageId, slotItems]
   );
 
-  const closePagesModal = useCallback(() => setPagesOpen(false), []);
+  const closePagesModal = useCallback(() => {
+    setPagesOpen(false);
+    setPageSelectMenuOpen(false);
+  }, []);
 
   useEffect(() => {
     if (!pagesOpen) return;
@@ -8371,7 +8375,9 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
             justifyContent: "space-between", 
             padding: isMobile ? "10px 14px" : "12px 18px", 
             borderBottom: "1px solid var(--color-border)", 
-            background: "var(--bg-soft)", 
+            background: "var(--bg-soft)",
+            position: "relative",
+            zIndex: 5,
           }} 
         > 
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, minWidth: 0 }}> 
@@ -8453,14 +8459,67 @@ const ordered = binderPages.slice().sort((a, b) => a.page_index - b.page_index);
             >{t('binders.actions.delete')} ({selectedForDeletion.length})</button>
           </div>
         ) : (
-          <button 
-            type="button" 
-            onClick={() => setDeleteMode(true)}
-            title={t('binders.select_multiple_delete')} 
-            style={{ padding: "8px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--color-primary)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginLeft: "10px" }}
-          >
-            <Trash2 size={18} strokeWidth={2.5} />
-          </button>
+          <div style={{ position: "relative", marginLeft: 10 }}>
+            <button
+              type="button"
+              onClick={() => setPageSelectMenuOpen((open) => !open)}
+              title={t("binders.actions.select")}
+              aria-expanded={pageSelectMenuOpen}
+              style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--color-primary)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontWeight: 800, fontSize: 12, whiteSpace: "nowrap" }}
+            >
+              <Trash2 size={16} strokeWidth={2.5} />
+              {t("binders.actions.select")}
+            </button>
+            {pageSelectMenuOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label={t("common.close")}
+                  onClick={() => setPageSelectMenuOpen(false)}
+                  style={{ position: "fixed", inset: 0, zIndex: 40, border: 0, background: "transparent", cursor: "default" }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 6px)",
+                    right: 0,
+                    zIndex: 41,
+                    minWidth: 210,
+                    padding: 6,
+                    borderRadius: 12,
+                    border: "1px solid var(--color-primary)",
+                    background: "var(--bg-card)",
+                    boxShadow: "0 12px 30px color-mix(in srgb, var(--text-main) 18%, transparent)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedForDeletion(ordered.map((page) => page.id));
+                      setDeleteMode(true);
+                      setPageSelectMenuOpen(false);
+                    }}
+                    style={{ padding: "10px 12px", borderRadius: 8, border: 0, background: "transparent", color: "var(--color-primary)", fontWeight: 800, fontSize: 13, textAlign: "left", cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    {t("binders.actions.select_all")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteMode(true);
+                      setPageSelectMenuOpen(false);
+                    }}
+                    style={{ padding: "10px 12px", borderRadius: 8, border: 0, background: "transparent", color: "var(--color-primary)", fontWeight: 800, fontSize: 13, textAlign: "left", cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    {t("binders.select_multiple_delete")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
 
     {/* Los botones que ya tenías */}

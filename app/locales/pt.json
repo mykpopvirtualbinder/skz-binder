@@ -288,6 +288,7 @@
       "add_separator": "Adicionar Separador",
       "delete": "Excluir",
       "select_all": "Selecionar todas",
+      "select": "Selecionar",
       "cancel": "Cancelar",
       "undo": "Desfazer",
       "redo": "Refazer",

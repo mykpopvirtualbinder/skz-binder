@@ -429,6 +429,7 @@
       "add_separator": "Ajouter un Séparateur",
       "delete": "Supprimer",
       "select_all": "Tout sélectionner",
+      "select": "Sélectionner",
       "cancel": "Annuler",
       "undo": "Annuler l'action",
       "redo": "Rétablir",
