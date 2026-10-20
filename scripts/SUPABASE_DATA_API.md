@@ -2,7 +2,7 @@
 
 ## Qué avisa Supabase
 
-Desde **octubre 2026**, las tablas **nuevas** en `public` no se exponen solas a PostgREST / `supabase-js`. Hace falta un **`GRANT` explícito**.  
+Desde el **30 de octubre de 2026**, las tablas **nuevas** en `public` no se exponen solas a PostgREST / `supabase-js` / GraphQL. Hace falta un **`GRANT` explícito** en la misma migración. Las tablas que ya existen no cambian. También afecta a un `supabase db reset`, una preview branch o un proyecto nuevo.  
 **RLS** sigue controlando **qué filas** ve cada usuario; sin `GRANT`, la petición ni llega a RLS.
 
 ## Comprobar el proyecto (una vez)
@@ -22,9 +22,10 @@ CREATE TABLE public.mi_tabla ( ... );
 ALTER TABLE public.mi_tabla ENABLE ROW LEVEL SECURITY;
 -- políticas RLS aquí ...
 
--- Data API (obligatorio desde oct 2026 para tablas nuevas)
-GRANT SELECT ON TABLE public.mi_tabla TO anon, authenticated;  -- solo si debe leerse sin login
+-- Data API (obligatorio desde el 30 oct 2026 para tablas nuevas)
+GRANT SELECT ON TABLE public.mi_tabla TO anon;  -- quitar si no es pública
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.mi_tabla TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.mi_tabla TO service_role;
 ```
 
 Ajusta según uso:

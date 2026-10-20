@@ -1,23 +1,31 @@
 ---
-description: Al crear o migrar tablas Supabase en public — GRANT Data API + RLS
-globs: scripts/**/*.sql
-alwaysApply: false
+description: Desde el 30 oct 2026, cada tabla nueva en public necesita GRANT en la misma migración
+alwaysApply: true
 ---
 
 # Tablas Supabase nuevas
 
-Cuando añadas `CREATE TABLE` en `scripts/` o migraciones:
+A partir del **30 de octubre de 2026**, en este proyecto y en cualquier otro, una tabla nueva de `public` no se expone sola a la Data API. Hay que poner los `GRANT` en la misma migración que el `CREATE TABLE`. Sin ellos, `supabase-js`, PostgREST y GraphQL responden `permission denied`.
 
-1. Activa **RLS** y políticas en la misma migración.
-2. Añade **GRANT** explícitos para `anon` / `authenticated` según `scripts/SUPABASE_DATA_API.md`.
-3. Registra la tabla en `scripts/supabase-data-api-grants.sql` y en la lista de `scripts/supabase-verify-data-api-grants.sql`.
-4. No uses solo `GRANT ALL` a `anon` salvo tablas de catálogo público.
+Las tablas que ya existen no cambian. No reescribas sus grants por este aviso. También aplica si la migración recrea el esquema: proyecto nuevo, preview branch o `supabase db reset`.
 
-Plantilla mínima:
+1. Activa **RLS** y las políticas en esa misma migración.
+2. Añade los **GRANT**. Ajusta privilegios al uso real: `anon` solo `SELECT` si la tabla es pública; no des escritura a `anon` ni a `authenticated` si no deben escribir.
+3. Registra la tabla en `scripts/supabase-data-api-grants.sql` y en `scripts/supabase-verify-data-api-grants.sql`.
+4. No uses `GRANT ALL` a `anon` salvo catálogo público.
 
 ```sql
-GRANT SELECT ON TABLE public.<tabla> TO anon, authenticated;  -- quitar anon si no es público
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.<tabla> TO authenticated;
+grant select
+on public.your_table
+to anon;
+
+grant select, insert, update, delete
+on public.your_table
+to authenticated;
+
+grant select, insert, update, delete
+on public.your_table
+to service_role;
 ```
 
-`service_role` en rutas API admin/webhook no sustituye GRANTs del cliente si la app usa `supabase.from()` en el navegador.
+Los `GRANT` solo exponen la tabla a la API. RLS sigue decidiendo las filas. `service_role` en una ruta de servidor no sustituye estos grants si el navegador usa `supabase.from()`.
