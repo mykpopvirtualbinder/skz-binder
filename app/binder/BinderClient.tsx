@@ -3155,6 +3155,28 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
 
   // 3. ESTADOS DEL BINDER Y PÁGINAS
   const [binderId, setBinderId] = useState<number | null>(null);
+  const [myBinders, setMyBinders] = useState<Array<{ id: number; title: string }>>([]);
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    void (async () => {
+      const res = await supabase
+        .from("binders")
+        .select("id, title")
+        .eq("user_id", userId)
+        .order("id", { ascending: true });
+      if (cancelled || res.error) return;
+      setMyBinders(
+        (res.data ?? []).map((row: { id: number; title: string | null }) => ({
+          id: Number(row.id),
+          title: String(row.title || "").trim() || `Binder ${row.id}`,
+        })),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
   const [pageId, setPageId] = useState<number | null>(null);
   const [slotToolsIndex, setSlotToolsIndex] = useState<number | null>(null);
   const pendingSlotFocus = useRef<number | null>(null);
@@ -3198,6 +3220,7 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   }, [slotToolsIndex, pageId, binderPages.length]);
   const binderPagesFetchGen = useRef(0);
   const binderListEpoch = useRef(0);
+  const binderSwitchTarget = useRef<{ id: number; page: number } | null>(null);
   const [binderInfoOpen, setBinderInfoOpen] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -7405,12 +7428,16 @@ if (knownPages.length === 0) {
 }
 publishBinderPages(knownPages);
 
+const pageIndex =
+  binderSwitchTarget.current?.id === bld ? binderSwitchTarget.current.page : currentPageIndex;
+if (binderSwitchTarget.current?.id === bld) binderSwitchTarget.current = null;
+
 const { data: pageData, error: pageError } = await supabase
  .from("binder_pages")
  .select("id, layout_type, page_index")
  .eq("binder_id", bld)
  .order("page_index", { ascending: true })
- .range(currentPageIndex, currentPageIndex)
+ .range(pageIndex, pageIndex)
  .single();
 
 if (pageError || !pageData) {
@@ -13999,9 +14026,9 @@ bottom: 8px;
       alignItems: "center",
       justifyContent: "space-between"
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: "1 1 auto" }}>
         <div style={{ width: 4, height: 24, background: binderColor || "var(--color-primary)", borderRadius: 2, flex: "0 0 auto" }} />
-        <h2 style={{ margin: 0, fontSize: isMobile ? 22 : 32, fontWeight: 950, color: "var(--text-main)", letterSpacing: "-0.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <h2 style={{ margin: 0, minWidth: 0, flex: "1 1 auto", fontSize: isMobile ? 22 : 32, fontWeight: 950, color: "var(--text-main)", letterSpacing: "-0.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {binderTitle}
         </h2>
         <button
@@ -14027,7 +14054,46 @@ bottom: 8px;
         </button>
       </div>
 
-      <button 
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
+        {myBinders.length > 1 && (
+          <select
+            aria-label={t("binders.switch_binder")}
+            value={binderId == null ? "" : String(binderId)}
+            onChange={(e) => {
+              const nextId = Number(e.target.value);
+              if (!Number.isFinite(nextId) || nextId === binderId) return;
+              binderListEpoch.current += 1;
+              binderSwitchTarget.current = { id: nextId, page: 0 };
+              setCurrentPageIndex(0);
+              setPageId(null);
+              router.replace(`/binder?binderId=${nextId}`);
+            }}
+            style={{
+              maxWidth: isMobile ? 148 : 220,
+              minWidth: 0,
+              height: 36,
+              padding: "0 8px",
+              borderRadius: 10,
+              border: "1px solid var(--color-border)",
+              background: "var(--bg-card)",
+              color: "var(--text-main)",
+              fontWeight: 800,
+              fontSize: 12,
+            }}
+          >
+            {binderId != null && !myBinders.some((binder) => binder.id === binderId) ? (
+              <option value={String(binderId)}>{binderTitle}</option>
+            ) : null}
+            {myBinders.map((binder) => (
+              <option key={binder.id} value={String(binder.id)}>
+                {binder.title}
+              </option>
+            ))}
+          </select>
+        )}
+      <button
+        type="button"
+        aria-label={t("binders.my_binders")}
         onClick={() => router.push('/binders')}
         style={{
           ...topBtnStyle,
@@ -14036,11 +14102,13 @@ bottom: 8px;
           background: "var(--bg-card)",
           display: "flex",
           alignItems: "center",
-          gap: 6
+          gap: 6,
+          flex: "0 0 auto",
         }}
       >
-        <Undo2 size={14} /> {isMobile ? "" : "Mis Binders"}
+        <Undo2 size={14} /> {isMobile ? "" : t("binders.my_binders")}
       </button>
+      </div>
     </div>
 
   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", marginTop: 10 }}>
