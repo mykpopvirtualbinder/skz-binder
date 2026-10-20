@@ -904,7 +904,8 @@
       "type_ot8": "완전체 (OT8)",
       "ot8": "Ot8",
       "unit": "Unit",
-      "single": "Single"
+      "single": "Single",
+      "placed_in_binders": "바인더에 있음"
     },
     "card": {
       "no_image_front": "이미지 없음 (앞면)",

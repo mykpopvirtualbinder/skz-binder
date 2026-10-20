@@ -2438,6 +2438,7 @@ function LibraryContent() {
         const [fMember, setFMember] = useState<string | "all">("all");
         const [fUnit, setFUnit] = useState<UnitFilter>("all");
         const [fPobKind, setFPobKind] = useState<"all" | "regular" | "pob">("all");
+        const [fInBinder, setFInBinder] = useState(false);
         const [q, setQ] = useState("");
         const librarySearchParams = useSearchParams();
         useEffect(() => {
@@ -2469,6 +2470,7 @@ function LibraryContent() {
     // --- TIPOS Y ESTADOS FALTANTES PARA SCOPE ---
     type UnitFilter = "all" | "single" | "unit" | "ot8";
     const [placedByItem, setPlacedByItem] = useState<Record<number, number>>({});
+    const [placedReady, setPlacedReady] = useState(false);
     const [invByItem, setInvByItem] = useState<Record<number, StatusCounts>>({});
     const [colabData, setColabData] = useState({ asunto: "", email: "", mensaje: "", adjunto: "", originKind: "albums", originTitle: "", originGroup: "", originMember: "" });
     const [sendingColab, setSendingColab] = useState(false);
@@ -2547,37 +2549,58 @@ const [wttOfferMember, setWttOfferMember] = useState<string>("");
 const [wttOfferUnit, setWttOfferUnit] = useState<UnitFilter>("all");
 
 const loadPlacedAcrossBinder = useCallback(async (uid: string) => {
-  const binderRes = await supabase
-    .from("binders")
-    .select("id")
-    .eq("user_id", uid)
-    .order("id", { ascending: false })
-    .limit(1);
-  if (binderRes.error) return;
+  const pageSize = 1000;
+  const chunkSize = 80;
 
-  const binderId = binderRes.data?.[0]?.id;
-  if (!binderId) return;
+  const fetchAll = async <T,>(
+    run: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message?: string } | null }>,
+  ) => {
+    const rows: T[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const res = await run(from, from + pageSize - 1);
+      if (res.error) return null;
+      const batch = res.data ?? [];
+      rows.push(...batch);
+      if (batch.length < pageSize) break;
+    }
+    return rows;
+  };
 
-  const pagesRes = await supabase.from("binder_pages").select("id").eq("binder_id", binderId);
-  if (pagesRes.error) return;
+  const binders = await fetchAll<{ id: number }>((from, to) =>
+    supabase.from("binders").select("id").eq("user_id", uid).order("id", { ascending: true }).range(from, to),
+  );
+  if (!binders) return;
 
-  const pageIds = (pagesRes.data ?? [])
-    .map((r: { id: number }) => r.id)
-    .filter(Boolean);
-
-  if (pageIds.length === 0) return;
-
-  const slotsRes = await supabase.from("page_slots").select("item_id").in("page_id", pageIds);
-  if (slotsRes.error) return;
+  const binderIds = binders.map((row) => Number(row.id)).filter((id) => Number.isFinite(id));
+  const pageIds: number[] = [];
+  for (let i = 0; i < binderIds.length; i += chunkSize) {
+    const chunk = binderIds.slice(i, i + chunkSize);
+    const pages = await fetchAll<{ id: number }>((from, to) =>
+      supabase.from("binder_pages").select("id").in("binder_id", chunk).range(from, to),
+    );
+    if (!pages) return;
+    for (const row of pages) {
+      const id = Number(row.id);
+      if (Number.isFinite(id)) pageIds.push(id);
+    }
+  }
 
   const counts: Record<number, number> = {};
-  for (const r of slotsRes.data ?? []) {
-    const itemId = r.item_id as number | null;
-    if (!itemId) continue;
-    counts[itemId] = (counts[itemId] ?? 0) + 1;
+  for (let i = 0; i < pageIds.length; i += chunkSize) {
+    const chunk = pageIds.slice(i, i + chunkSize);
+    const slots = await fetchAll<{ item_id: number | null }>((from, to) =>
+      supabase.from("page_slots").select("item_id").in("page_id", chunk).range(from, to),
+    );
+    if (!slots) return;
+    for (const row of slots) {
+      const itemId = Number(row.item_id);
+      if (!Number.isFinite(itemId) || itemId <= 0) continue;
+      counts[itemId] = (counts[itemId] ?? 0) + 1;
+    }
   }
 
   setPlacedByItem(counts);
+  setPlacedReady(true);
 }, []);
 
 const rebuildInvMap = useCallback((rows: UserItemStatusRow[]) => {
@@ -3319,6 +3342,8 @@ const filtered = useMemo(() => {
       if (pobKindFromItem(it) !== fPobKind) return false;
     }
 
+    if (fInBinder && placedReady && !(placedByItem[it.id] > 0)) return false;
+
     return matchesQuery(it, q, itemSearchExtra(it));
   });
   if (catalogSort === "default") return list;
@@ -3343,16 +3368,16 @@ const filtered = useMemo(() => {
     return (priceScoreByItem[b.id] ?? 0) - (priceScoreByItem[a.id] ?? 0);
   });
   return copy;
-}, [items, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, folderTree, albumById, groupNameById, catalogSort, stockDateByItem, priceScoreByItem]);
+}, [items, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, fInBinder, placedByItem, placedReady, folderTree, albumById, groupNameById, catalogSort, stockDateByItem, priceScoreByItem]);
 
   const showContributeEmpty = useMemo(() => {
     if (filtered.length > 0) return false;
     if (q.trim()) return false;
-    if (fStatus !== "all") return false;
+    if (fStatus !== "all" || fInBinder) return false;
     if (fMember !== "all" || fUnit !== "all") return false;
     if (fAlbum === "all" && fCollectionKind === "all") return false;
     return true;
-  }, [filtered.length, q, fStatus, fMember, fUnit, fAlbum, fCollectionKind]);
+  }, [filtered.length, q, fStatus, fInBinder, fMember, fUnit, fAlbum, fCollectionKind]);
 
   const contributeFolderLabel = useMemo(() => {
     const folderHit = typeof fAlbum === "string" ? findFolderAlbumByFilterKey(folderTree, fAlbum) : undefined;
@@ -3391,7 +3416,7 @@ const filtered = useMemo(() => {
  // Resetea a la página 1 cada vez que cambias un filtro o buscas algo
   useEffect(() => {
     setCurrentPage(1);
-  }, [fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, fPobKind, q]);
+  }, [fStatus, fGroup, fAlbum, fVersion, fMember, fUnit, fPobKind, fInBinder, q]);
 useEffect(() => {
   if (typeof window === "undefined") return;
   const syncViewport = () => {
@@ -4032,6 +4057,20 @@ const commitStockForItem = useCallback(
                 <option value="ot8">OT8</option>
               </select>
             </div>
+
+            {userId && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "flex-end" }}>
+              <label style={{ ...filterLabelStyle, minHeight: 38, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={fInBinder}
+                  onChange={(e) => setFInBinder(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: "var(--color-primary)" }}
+                />
+                {t("library.filters.placed_in_binders")}
+              </label>
+            </div>
+            )}
           </div>
 
           <div

@@ -220,7 +220,8 @@
       "type_ot8": "OT8",
       "ot8": "OT8",
       "unit": "Unit",
-      "single": "Single"
+      "single": "Single",
+      "placed_in_binders": "In Bindern"
     },
     "filters.all": "Alle",
     "filters.status": "Status",

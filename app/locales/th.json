@@ -904,7 +904,8 @@
       "type_ot8": "OT8 (ทั้งวง)",
       "ot8": "Ot8",
       "unit": "Unit",
-      "single": "Single"
+      "single": "Single",
+      "placed_in_binders": "อยู่ในแฟ้ม"
     },
     "card": {
       "no_image_front": "ไม่มีรูป (ด้านหน้า)",

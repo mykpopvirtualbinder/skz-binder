@@ -7296,9 +7296,12 @@ useEffect(() => {
     const run = async () => { 
       setLoading(true); 
       setError(null); 
-      
+
+      const switchingTo = binderSwitchTarget.current?.id ?? null;
+      if (switchingTo == null || !userId) {
       // 1. Obtenemos los datos del usuario desde Supabase
       const { data: userData, error: userErr } = await supabase.auth.getUser(); 
+      if (cancelled) return;
       
       if (userErr || !userData.user) { 
         if (!cancelled) { 
@@ -7320,13 +7323,16 @@ useEffect(() => {
     setExtraPages(profileData?.extra_pages || 0);
     setExtraSeparators(profileData?.extra_separators || 0);
   }
+      }
+      if (cancelled) return;
 
-     
-     // 1. Extraemos el ID real de la URL (?binderId=XX)
+     // El desplegable fija el binder al momento; la URL puede llegar un instante después.
   const realIdFromUrl = searchParams.get("binderId");
-  const bld = realIdFromUrl ? Number(realIdFromUrl) : null;
+  const urlId = realIdFromUrl ? Number(realIdFromUrl) : null;
+  const bld = switchingTo ?? (urlId != null && Number.isFinite(urlId) ? urlId : null);
 
   if (bld) {
+    if (cancelled) return;
     setBinderId(bld);
    // Cambia el select para pedir también la portada (asegúrate de poner el nombre de tu columna real, yo asumo que es cover_url)
 let bInfo: any = null;
@@ -7347,6 +7353,7 @@ let bInfo: any = null;
     bInfo = withFaces.data;
   }
 }
+if (cancelled) return;
 
 if (bInfo) {
   setBinderTitle(bInfo.title || "Sin título");
@@ -7427,40 +7434,37 @@ if (knownPages.length === 0) {
  knownPages = [createdFirstPage.data];
 }
 publishBinderPages(knownPages);
+if (cancelled) return;
 
-const pageIndex =
+const orderedPages = [...knownPages].sort(
+  (a, b) => (Number(a.page_index) || 0) - (Number(b.page_index) || 0),
+);
+const wantedPage =
   binderSwitchTarget.current?.id === bld ? binderSwitchTarget.current.page : currentPageIndex;
-if (binderSwitchTarget.current?.id === bld) binderSwitchTarget.current = null;
+const safeIndex = Math.min(Math.max(wantedPage, 0), Math.max(orderedPages.length - 1, 0));
+const pageData = orderedPages[safeIndex];
 
-const { data: pageData, error: pageError } = await supabase
- .from("binder_pages")
- .select("id, layout_type, page_index")
- .eq("binder_id", bld)
- .order("page_index", { ascending: true })
- .range(pageIndex, pageIndex)
- .single();
-
-if (pageError || !pageData) {
+if (!pageData) {
  if (!cancelled) {
-  setError(pageError?.message || "No se encontró la página actual");
+  setError("No se encontró la página actual");
   setLoading(false);
  }
  return;
 }
 
       setPageId(pageData.id);
+      if (safeIndex !== currentPageIndex) setCurrentPageIndex(safeIndex);
       if (pageData.layout_type) {
         setLayout(pageData.layout_type as any);
       }
+      if (binderSwitchTarget.current?.id === bld) binderSwitchTarget.current = null;
 
-   
-      
       if (!cancelled) setLoading(false);
     };
 
     void run();
     return () => { cancelled = true; };
-  }, [binderFromUrlNum, currentPageIndex, refreshTick]);
+  }, [binderFromUrlNum, binderId, currentPageIndex, refreshTick, userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -14062,11 +14066,21 @@ bottom: 8px;
             onChange={(e) => {
               const nextId = Number(e.target.value);
               if (!Number.isFinite(nextId) || nextId === binderId) return;
+              const next = myBinders.find((binder) => binder.id === nextId);
               binderListEpoch.current += 1;
               binderSwitchTarget.current = { id: nextId, page: 0 };
+              setBinderId(nextId);
+              if (next?.title) setBinderTitle(next.title);
               setCurrentPageIndex(0);
               setPageId(null);
-              router.replace(`/binder?binderId=${nextId}`);
+              setSlotItems({});
+              setSlotRot({});
+              setSlotFlipH({});
+              setSlotFace({});
+              setPageFace("front");
+              setError(null);
+              setLoading(true);
+              router.replace(`/binder?binderId=${nextId}`, { scroll: false });
             }}
             style={{
               maxWidth: isMobile ? 148 : 220,

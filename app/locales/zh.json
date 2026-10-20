@@ -904,7 +904,8 @@
       "type_ot8": "全员",
       "ot8": "Ot8",
       "unit": "Unit",
-      "single": "Single"
+      "single": "Single",
+      "placed_in_binders": "已放入卡册"
     },
     "card": {
       "no_image_front": "暂无图片 (正面)",
