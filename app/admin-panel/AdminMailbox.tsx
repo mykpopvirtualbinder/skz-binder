@@ -57,10 +57,8 @@ const ZOHO_MAIL_URL = "https://mail.zoho.eu/";
 function openZohoMail() {
   const width = Math.min(1180, Math.max(520, window.screen.availWidth - 48));
   const height = Math.min(900, Math.max(640, window.screen.availHeight - 48));
-  const availLeft = window.screen.availLeft || 0;
-  const availTop = window.screen.availTop || 0;
-  const left = Math.max(availLeft, Math.min(window.screenX + window.outerWidth + 16, availLeft + window.screen.availWidth - width));
-  const top = Math.max(availTop, window.screenY + 24);
+  const left = Math.max(0, Math.min(window.screenX + window.outerWidth + 16, window.screen.availWidth - width));
+  const top = Math.max(0, window.screenY + 24);
   const popup = window.open(
     ZOHO_MAIL_URL,
     "mkb-zoho-mail",
