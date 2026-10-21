@@ -474,6 +474,13 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
       tab: "correo",
     },
     {
+      selector: "[data-tour='mail-zoho']",
+      title: tr("Zoho Mail"),
+      text: tr("Abre el buzón de Zoho en una ventana al lado. Ahí se lee el correo que ya está en Zoho. Esta bandeja de dentro sigue siendo Arsys."),
+      side: "bottom",
+      tab: "correo",
+    },
+    {
       selector: "[data-tour='mail-new']",
       title: tr("Escribir"),
       text: tr("Nuevo abre un mensaje en blanco y lo manda desde info@. Responder y reenviar salen dentro del mensaje abierto."),

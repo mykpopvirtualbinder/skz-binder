@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Archive, FolderPlus, Forward, Loader2, Mail, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
+import { Archive, ExternalLink, FolderPlus, Forward, Loader2, Mail, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
 import { bindAdminLang, tr } from "@/lib/admin-i18n";
@@ -50,6 +50,28 @@ function formatWhen(iso: string | null) {
 
 function addressOnly(value: string) {
   return value.match(/<([^>]+)>/)?.[1] || value;
+}
+
+const ZOHO_MAIL_URL = "https://mail.zoho.eu/";
+
+function openZohoMail() {
+  const width = Math.min(1180, Math.max(520, window.screen.availWidth - 48));
+  const height = Math.min(900, Math.max(640, window.screen.availHeight - 48));
+  const availLeft = window.screen.availLeft || 0;
+  const availTop = window.screen.availTop || 0;
+  const left = Math.max(availLeft, Math.min(window.screenX + window.outerWidth + 16, availLeft + window.screen.availWidth - width));
+  const top = Math.max(availTop, window.screenY + 24);
+  const popup = window.open(
+    ZOHO_MAIL_URL,
+    "mkb-zoho-mail",
+    `popup=yes,width=${Math.round(width)},height=${Math.round(height)},left=${Math.round(left)},top=${Math.round(top)},resizable=yes,scrollbars=yes`,
+  );
+  if (!popup) {
+    window.open(ZOHO_MAIL_URL, "_blank", "noopener,noreferrer");
+    return;
+  }
+  popup.opener = null;
+  popup.focus();
 }
 
 function plainBody(message: MailMessage) {
@@ -366,6 +388,9 @@ export default function AdminMailbox() {
         <p style={{ color: "var(--text-muted)", maxWidth: 560, lineHeight: 1.5 }}>
           {tr("La bandeja de {account} está lista, pero el servidor todavía no tiene la contraseña del buzón. Añade ARSYS_MAIL_PASSWORD en Vercel, en los ajustes del proyecto, y vuelve a desplegar.", { account })}
         </p>
+        <button type="button" onClick={openZohoMail} style={{ ...btnStyle, marginTop: 12 }} title={tr("Se abre en una ventana al lado")}>
+          <ExternalLink size={14} />{tr("Abrir Zoho Mail")}
+        </button>
       </div>
     );
   }
@@ -402,7 +427,10 @@ export default function AdminMailbox() {
           </h2>
           <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700 }}>{account}</p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" data-tour="mail-zoho" onClick={openZohoMail} style={btnStyle} title={tr("Se abre en una ventana al lado")}>
+            <ExternalLink size={14} />{tr("Abrir Zoho Mail")}
+          </button>
           <button type="button" onClick={() => void loadList(box, true)} style={btnStyle}>
             <RefreshCw size={14} />{tr("Actualizar")}</button>
           <button
