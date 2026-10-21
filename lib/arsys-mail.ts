@@ -2,11 +2,9 @@ import { ImapFlow, type FetchMessageObject, type ListResponse } from "imapflow";
 import { simpleParser } from "mailparser";
 import nodemailer from "nodemailer";
 
-// Zoho Mail (organización, dominio propio, centro de datos Europa).
-// Si en Zoho → Ajustes → Cuentas de correo → IMAP sale zoho.com, cambia estos hosts.
-const IMAP_HOST = process.env.MAIL_IMAP_HOST || "imappro.zoho.eu";
+const IMAP_HOST = "imap.serviciodecorreo.es";
 const IMAP_PORT = 993;
-const SMTP_HOST = process.env.MAIL_SMTP_HOST || "smtppro.zoho.eu";
+const SMTP_HOST = "smtp.serviciodecorreo.es";
 const SMTP_PORT = 465;
 const DEFAULT_USER = "info@mykpopbinder.com";
 const LIST_LIMIT = 30;
@@ -465,12 +463,12 @@ export function publicMailError(err: unknown): { status: number; error: string }
   if (message === "BAD_NAME") return { status: 400, error: "El nombre de la carpeta no es válido." };
   if (message === "PROTECTED_FOLDER") return { status: 400, error: "Esa carpeta del buzón no se puede borrar." };
   if (message === "FOLDER_HAS_CHILDREN") return { status: 400, error: "Borra primero las subcarpetas." };
-  if (message === "NO_ARCHIVE") return { status: 502, error: "Zoho no tiene una carpeta de archivo." };
+  if (message === "NO_ARCHIVE") return { status: 502, error: "Arsys no tiene una carpeta de archivo." };
   if (code === "EAUTH" || /auth|authentication|invalid credentials/i.test(message)) {
-    return { status: 502, error: "Zoho ha rechazado el acceso. Revisa ARSYS_MAIL_PASSWORD." };
+    return { status: 502, error: "Arsys ha rechazado el acceso. Revisa ARSYS_MAIL_PASSWORD." };
   }
   if (code === "CONNECT_TIMEOUT" || /timeout|ETIMEDOUT|ENOTFOUND/i.test(message)) {
-    return { status: 504, error: "Zoho no ha respondido a tiempo." };
+    return { status: 504, error: "Arsys no ha respondido a tiempo." };
   }
-  return { status: 502, error: "No se ha podido conectar con el correo de Zoho." };
+  return { status: 502, error: "No se ha podido conectar con el correo de Arsys." };
 }

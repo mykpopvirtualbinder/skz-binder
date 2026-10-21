@@ -455,7 +455,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='nav-correo']",
       title: tr("El correo de info@"),
-      text: tr("Esta bandeja es el buzón de Zoho, dentro del admin. La bolita rosa es el correo que todavía no se ha abierto."),
+      text: tr("Esta bandeja es el buzón de Arsys, dentro del admin. La bolita rosa es el correo que todavía no se ha abierto."),
       side: "right",
       tab: "correo",
     },
