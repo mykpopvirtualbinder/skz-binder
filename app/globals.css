@@ -3361,7 +3361,7 @@ html.intro-flying .intro-overlay {
   padding: 0.7rem 0.2rem;
   border: 0;
   background: none;
-  color: var(--text-muted);
+  color: var(--text-main);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -3392,6 +3392,7 @@ html.intro-flying .intro-skip {
 .intro-logo-wrap {
   width: min(72vw, 280px);
   transform-origin: center center;
+  opacity: 1;
 }
 
 .intro-logo {

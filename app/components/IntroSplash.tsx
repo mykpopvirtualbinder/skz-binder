@@ -145,7 +145,7 @@ export default function IntroSplash() {
       ) : (
         <div className="intro-stage">
           {showLogo ? (
-            <div key={`logo-${index}`} ref={logoRef} className="intro-beat intro-logo-wrap">
+            <div key={`logo-${index}`} ref={logoRef} className="intro-logo-wrap">
               <Image
                 className="intro-logo"
                 src="/branding/logo.png"
