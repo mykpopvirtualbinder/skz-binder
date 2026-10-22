@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "My Kpop Binder | Tu colección al día",
+  title: "My Kpop Binder · Collect · Trade · Connect",
   description: "Organiza, compra y vende tus photocards favoritas.",
   icons: {
     icon: '/favicon.ico',
