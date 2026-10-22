@@ -9,10 +9,11 @@ import {
   listMailbox,
   mailAccount,
   moveMessage,
+  normalizeBox,
   publicMailError,
   readMessage,
   sendMail,
-} from "@/lib/arsys-mail";
+} from "@/lib/site-mail";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -32,13 +33,6 @@ export async function GET(req: Request) {
   if (gate instanceof NextResponse) return gate;
 
   const account = mailAccount();
-  if (!account.configured) {
-    return NextResponse.json(
-      { configured: false, account: account.user, error: "Falta ARSYS_MAIL_PASSWORD en el servidor." },
-      { status: 503 },
-    );
-  }
-
   const url = new URL(req.url);
   if (url.searchParams.get("unseen") === "1") {
     try {
@@ -50,16 +44,15 @@ export async function GET(req: Request) {
     }
   }
 
-  const box = textFrom(url.searchParams.get("box"), 200) || "INBOX";
-  const fresh = url.searchParams.get("fresh") === "1";
+  const box = normalizeBox(textFrom(url.searchParams.get("box"), 200));
   const uid = uidFrom(url.searchParams.get("uid"));
   try {
     if (uid) {
-      const message = await readMessage(uid, box);
+      const message = await readMessage(uid);
       if (!message) return NextResponse.json({ error: "Ese mensaje ya no está en la carpeta." }, { status: 404 });
       return NextResponse.json({ configured: true, account: account.user, message });
     }
-    const listed = await listMailbox(box, fresh);
+    const listed = await listMailbox(box);
     return NextResponse.json({
       configured: true,
       account: listed.user,
@@ -76,11 +69,6 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const gate = await requireAdminFromRequest(req);
   if (gate instanceof NextResponse) return gate;
-
-  const account = mailAccount();
-  if (!account.configured) {
-    return NextResponse.json({ configured: false, error: "Falta ARSYS_MAIL_PASSWORD en el servidor." }, { status: 503 });
-  }
 
   let body: {
     action?: string;
@@ -101,13 +89,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Petición no válida." }, { status: 400 });
   }
 
-  const box = textFrom(body.box, 200) || "INBOX";
+  const box = normalizeBox(textFrom(body.box, 200));
   try {
     if (body.action === "delete" || body.action === "archive" || body.action === "move") {
       const uid = uidFrom(body.uid);
       if (!uid) return NextResponse.json({ error: "Mensaje no válido." }, { status: 400 });
-      if (body.action === "archive") await archiveMessage(uid, box);
-      else if (body.action === "move") await moveMessage(uid, box, textFrom(body.destination, 200));
+      if (body.action === "archive") await archiveMessage(uid);
+      else if (body.action === "move") await moveMessage(uid, textFrom(body.destination, 200));
       else await deleteMessage(uid, box);
       return NextResponse.json({ ok: true });
     }

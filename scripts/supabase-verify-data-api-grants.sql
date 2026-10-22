@@ -19,7 +19,8 @@ WITH app_tables AS (
     'fanzone_posts', 'fanzone_likes', 'fanzone_comments', 'fanzone_comment_likes',
     'fanarts', 'fanart_likes', 'fanart_comments', 'fanart_comment_likes',
     'obras', 'capitulos', 'traducciones', 'solicitudes_artistas',
-    'ad_campaigns', 'market_ads', 'follows', 'stripe_fulfillments'
+    'ad_campaigns', 'market_ads', 'follows', 'stripe_fulfillments',
+    'emails', 'email_folders'
   ]) AS table_name
 ),
 existing AS (
@@ -74,7 +75,8 @@ WHERE t.table_schema = 'public'
     'fanzone_posts', 'fanzone_likes', 'fanzone_comments', 'fanzone_comment_likes',
     'fanarts', 'fanart_likes', 'fanart_comments', 'fanart_comment_likes',
     'obras', 'capitulos', 'traducciones', 'solicitudes_artistas',
-    'ad_campaigns', 'market_ads', 'follows', 'stripe_fulfillments'
+    'ad_campaigns', 'market_ads', 'follows', 'stripe_fulfillments',
+    'emails', 'email_folders'
   )
 ORDER BY t.table_name;
 

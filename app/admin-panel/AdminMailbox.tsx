@@ -189,7 +189,7 @@ export default function AdminMailbox() {
 
   const tree = useMemo(() => buildTree(folders), [folders]);
   const current = folders.find((folder) => folder.path === box);
-  const unseen = box.toUpperCase() === "INBOX" ? messages.filter((item) => !item.seen).length : 0;
+  const unseen = box === "inbox" || box.toUpperCase() === "INBOX" ? messages.filter((item) => !item.seen).length : 0;
 
   const loadList = useCallback(async (nextBox = box, fresh = false) => {
     setLoading(true);

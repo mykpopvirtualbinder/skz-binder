@@ -455,7 +455,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='nav-correo']",
       title: tr("El correo de info@"),
-      text: tr("Esta bandeja es el buzón de Arsys, dentro del admin. La bolita rosa es el correo que todavía no se ha abierto."),
+      text: tr("Esta bandeja es el correo de info@, dentro del admin. La bolita rosa es el correo que todavía no se ha abierto."),
       side: "right",
       tab: "correo",
     },
@@ -476,7 +476,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='mail-zoho']",
       title: tr("Zoho Mail"),
-      text: tr("Abre el buzón de Zoho en una ventana al lado. Ahí se lee el correo que ya está en Zoho. Esta bandeja de dentro sigue siendo Arsys."),
+      text: tr("El correo anterior sigue en Zoho, en una ventana al lado. Lo que llega ahora se lee en esta bandeja."),
       side: "bottom",
       tab: "correo",
     },

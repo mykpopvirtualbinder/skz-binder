@@ -61,7 +61,7 @@ export async function fetchAdminPendingByArea(): Promise<AdminPendingByArea> {
   };
 }
 
-/** Correo de info@ sin leer en Arsys. 0 si la sesión no es de admin o el buzón no responde. */
+/** Correo de info@ sin leer. 0 si la sesión no es de admin o el buzón no responde. */
 export async function fetchArsysUnseen(): Promise<number> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;

@@ -88,7 +88,11 @@ DECLARE
     'ad_campaigns|SELECT,INSERT,UPDATE,DELETE|authenticated',
     'market_ads|SELECT|anon,authenticated',
     'market_ads|SELECT,INSERT,UPDATE,DELETE|authenticated',
-    'follows|SELECT,INSERT,DELETE|authenticated'
+    'follows|SELECT,INSERT,DELETE|authenticated',
+
+    -- Correo del admin: solo el servidor
+    'emails|SELECT,INSERT,UPDATE,DELETE|service_role',
+    'email_folders|SELECT,INSERT,UPDATE,DELETE|service_role'
   ];
   row text;
   parts text[];
