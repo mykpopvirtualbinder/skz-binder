@@ -56,8 +56,27 @@ alter table public.email_folders enable row level security;
 revoke all on table public.emails from public, anon, authenticated;
 revoke all on table public.email_folders from public, anon, authenticated;
 
+create table if not exists public.email_attachments (
+  id uuid primary key default gen_random_uuid(),
+  email_id uuid not null references public.emails (id) on delete cascade,
+  filename text not null default 'adjunto',
+  content_type text not null default 'application/octet-stream',
+  size_bytes integer not null default 0,
+  content_base64 text not null,
+  cid text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists email_attachments_email_id_idx
+  on public.email_attachments (email_id);
+
+alter table public.email_attachments enable row level security;
+
+revoke all on table public.email_attachments from public, anon, authenticated;
+
 grant select, insert, update, delete on table public.emails to service_role;
 grant select, insert, update, delete on table public.email_folders to service_role;
+grant select, insert, update, delete on table public.email_attachments to service_role;
 
 do $$
 begin

@@ -39,12 +39,22 @@ export type MailSummary = {
   to: string;
   date: string | null;
   seen: boolean;
+  files: number;
+};
+
+export type MailFile = {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  base64: string;
 };
 
 export type MailMessage = MailSummary & {
   text: string;
   html: string;
   messageId: string;
+  attachments: MailFile[];
 };
 
 export type MailFolder = {
@@ -69,7 +79,20 @@ type EmailRow = {
   in_reply_to: string | null;
   seen: boolean;
   created_at: string;
+  email_attachments?: { id: string }[] | null;
 };
+
+type AttachmentRow = {
+  id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  content_base64: string;
+  cid: string;
+};
+
+const MAX_STORED_FILES = 12;
+const MAX_STORED_BYTES = 3_500_000;
 
 const SYSTEM: MailFolder[] = [
   { path: "inbox", name: "inbox", parentPath: "", specialUse: "\\Inbox", delimiter: "/", selectable: true },
@@ -102,7 +125,61 @@ function summary(row: EmailRow): MailSummary {
     to: row.recipient || "",
     date: row.created_at || null,
     seen: Boolean(row.seen),
+    files: Array.isArray(row.email_attachments) ? row.email_attachments.length : 0,
   };
+}
+
+function missingAttachmentsTable(message: string) {
+  return /email_attachments|schema cache|relationship/i.test(message);
+}
+
+function attachmentName(filename: string, contentType: string, index: number) {
+  const raw = filename.split(/[/\\]/).pop()?.replace(/[\r\n\0"]/g, "").trim() || "";
+  if (raw) return raw.slice(0, 120);
+  const ext = contentType.split("/")[1]?.split(";")[0]?.replace(/[^a-z0-9]/gi, "").slice(0, 8) || "bin";
+  return `adjunto-${index + 1}.${ext}`;
+}
+
+async function persistAttachments(
+  emailId: string,
+  files: { filename?: string; contentType?: string; content: Buffer; cid?: string }[],
+) {
+  let total = 0;
+  const rows: Array<{
+    email_id: string;
+    filename: string;
+    content_type: string;
+    size_bytes: number;
+    content_base64: string;
+    cid: string;
+  }> = [];
+  for (const file of files) {
+    if (!file.content?.length || rows.length >= MAX_STORED_FILES) continue;
+    if (total + file.content.length > MAX_STORED_BYTES) break;
+    total += file.content.length;
+    const contentType = (file.contentType || "application/octet-stream").slice(0, 160);
+    rows.push({
+      email_id: emailId,
+      filename: attachmentName(file.filename || "", contentType, rows.length),
+      content_type: contentType,
+      size_bytes: file.content.length,
+      content_base64: file.content.toString("base64"),
+      cid: (file.cid || "").replace(/^<|>$/g, "").slice(0, 300),
+    });
+  }
+  if (!rows.length) return;
+  const { error } = await db().from("email_attachments").insert(rows);
+  if (error && !missingAttachmentsTable(error.message)) throw new Error(error.message);
+}
+
+function embedCid(html: string, files: AttachmentRow[]) {
+  let next = html;
+  for (const file of files) {
+    if (!file.cid || !file.content_base64) continue;
+    const data = `data:${file.content_type || "application/octet-stream"};base64,${file.content_base64}`;
+    next = next.split(`cid:${file.cid}`).join(data);
+  }
+  return next;
 }
 
 function sanitizeMailHtml(html: string) {
@@ -153,18 +230,22 @@ async function assertFolder(path: string) {
 export async function listMailbox(boxInput: string) {
   const box = normalizeBox(boxInput);
   const folders = await listFolders();
-  const { data, error } = await db()
+  const columns = "id, direction, folder, sender, recipient, subject, seen, created_at";
+  const withFiles = await db()
     .from("emails")
-    .select("id, direction, folder, sender, recipient, subject, seen, created_at")
+    .select(`${columns}, email_attachments(id)`)
     .eq("folder", box)
     .order("created_at", { ascending: false })
     .limit(LIST_LIMIT);
-  if (error) throw new Error(error.message);
+  const listed = withFiles.error && missingAttachmentsTable(withFiles.error.message)
+    ? await db().from("emails").select(columns).eq("folder", box).order("created_at", { ascending: false }).limit(LIST_LIMIT)
+    : withFiles;
+  if (listed.error) throw new Error(listed.error.message);
   return {
     user: ACCOUNT,
     box,
     folders,
-    messages: ((data || []) as EmailRow[]).map(summary),
+    messages: ((listed.data || []) as EmailRow[]).map(summary),
   };
 }
 
@@ -186,11 +267,26 @@ export async function readMessage(uid: string): Promise<MailMessage | null> {
   if (!row.seen) {
     await db().from("emails").update({ seen: true }).eq("id", uid);
   }
+  const filesQuery = await db()
+    .from("email_attachments")
+    .select("id, filename, content_type, size_bytes, content_base64, cid")
+    .eq("email_id", uid);
+  if (filesQuery.error && !missingAttachmentsTable(filesQuery.error.message)) throw new Error(filesQuery.error.message);
+  const fileRows = (filesQuery.error ? [] : filesQuery.data || []) as AttachmentRow[];
+  const html = row.html_body ? embedCid(sanitizeMailHtml(row.html_body), fileRows) : "";
   return {
     ...summary({ ...row, seen: true }),
+    files: fileRows.length,
     text: row.body_text || "",
-    html: row.html_body ? sanitizeMailHtml(row.html_body) : "",
+    html,
     messageId: row.message_id || "",
+    attachments: fileRows.map((file) => ({
+      id: file.id,
+      filename: file.filename,
+      contentType: file.content_type,
+      size: file.size_bytes,
+      base64: file.content_base64,
+    })),
   };
 }
 
@@ -316,8 +412,13 @@ export async function sendMail(input: {
     message_id: data?.id ? `<${data.id}@resend>` : null,
     in_reply_to: inReplyTo || null,
     seen: true,
-  });
-  if (saved.error) throw new Error("SENT_NOT_SAVED");
+  }).select("id").maybeSingle();
+  if (saved.error || !saved.data) throw new Error("SENT_NOT_SAVED");
+  await persistAttachments(saved.data.id, files.map((file) => ({
+    filename: file.filename,
+    contentType: file.contentType,
+    content: file.content,
+  })));
 }
 
 export function inboundAuthorized(header: string | null, secret: string) {
@@ -339,6 +440,15 @@ export async function storeIncoming(raw: Buffer, envelopeTo: string, truncated: 
   if (truncated) {
     text = `${text}\n\n[Este mensaje era demasiado grande y se ha guardado incompleto.]`.trim();
   }
+  const parsedFiles = (mail.attachments || []).map((file) => ({
+    filename: file.filename || "",
+    contentType: file.contentType || "application/octet-stream",
+    content: file.content,
+    cid: file.cid,
+  })).filter((file) => file.content?.length);
+  if (!text.trim() && parsedFiles.length) {
+    text = `Adjuntos: ${parsedFiles.map((file, index) => attachmentName(file.filename, file.contentType, index)).join(", ")}`;
+  }
   const html = typeof mail.html === "string" ? sanitizeMailHtml(mail.html) : "";
   const createdAt = mail.date && !Number.isNaN(mail.date.getTime()) ? mail.date.toISOString() : new Date().toISOString();
   const inserted = await db().from("emails").insert({
@@ -353,8 +463,18 @@ export async function storeIncoming(raw: Buffer, envelopeTo: string, truncated: 
     in_reply_to: (typeof mail.inReplyTo === "string" ? mail.inReplyTo : "").slice(0, 500) || null,
     seen: false,
     created_at: createdAt,
-  });
-  if (inserted.error && inserted.error.code !== "23505") throw new Error(inserted.error.message);
+  }).select("id").maybeSingle();
+  if (inserted.error?.code === "23505") {
+    if (!messageId || !parsedFiles.length) return;
+    const existing = await db().from("emails").select("id").eq("message_id", messageId).eq("direction", "incoming").maybeSingle();
+    if (!existing.data?.id) return;
+    const already = await db().from("email_attachments").select("id").eq("email_id", existing.data.id).limit(1);
+    if (already.error || already.data?.length) return;
+    await persistAttachments(existing.data.id, parsedFiles);
+    return;
+  }
+  if (inserted.error || !inserted.data) throw new Error(inserted.error?.message || "No se ha podido guardar el correo.");
+  if (parsedFiles.length) await persistAttachments(inserted.data.id, parsedFiles);
 }
 
 export function publicMailError(err: unknown): { status: number; error: string } {

@@ -92,7 +92,8 @@ DECLARE
 
     -- Correo del admin: solo el servidor
     'emails|SELECT,INSERT,UPDATE,DELETE|service_role',
-    'email_folders|SELECT,INSERT,UPDATE,DELETE|service_role'
+    'email_folders|SELECT,INSERT,UPDATE,DELETE|service_role',
+    'email_attachments|SELECT,INSERT,UPDATE,DELETE|service_role'
   ];
   row text;
   parts text[];

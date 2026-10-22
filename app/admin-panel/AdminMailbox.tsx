@@ -13,12 +13,22 @@ type MailSummary = {
   to: string;
   date: string | null;
   seen: boolean;
+  files: number;
 };
 
 type MailMessage = MailSummary & {
   text: string;
   html: string;
   messageId: string;
+  attachments: MailFile[];
+};
+
+type MailFile = {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  base64: string;
 };
 
 type MailFolder = {
@@ -53,6 +63,24 @@ function formatWhen(iso: string | null) {
 
 function addressOnly(value: string) {
   return value.match(/<([^>]+)>/)?.[1] || value;
+}
+
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function saveMailFile(file: MailFile) {
+  const binary = atob(file.base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: file.contentType || "application/octet-stream" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.filename || "adjunto";
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function plainBody(message: MailMessage) {
@@ -529,7 +557,10 @@ export default function AdminMailbox() {
                   <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: item.seen ? "transparent" : "var(--accent-vibe-pink)" }} />
                   <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
                     <span style={ellipsis}>{current?.specialUse === "\\Sent" ? item.to || item.from || account : item.from || account}</span>
-                    <span style={{ ...ellipsis, fontSize: 14 }}>{item.subject}</span>
+                    <span style={{ ...ellipsis, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={ellipsis}>{item.subject}</span>
+                    {item.files > 0 ? <Paperclip size={13} aria-label={tr("Adjuntos")} /> : null}
+                  </span>
                   </span>
                   <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{formatWhen(item.date)}</span>
                 </button>
@@ -597,6 +628,23 @@ export default function AdminMailbox() {
             </div>
 
             <div data-mail-scroll style={messageScroll}>
+              {selected?.attachments?.length ? (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                  {selected.attachments.map((file) => (
+                    <button
+                      key={file.id}
+                      type="button"
+                      onClick={() => saveMailFile(file)}
+                      style={{ ...btnStyle, maxWidth: "100%" }}
+                      title={tr("Descargar {name}", { name: file.filename })}
+                    >
+                      <Paperclip size={14} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{file.filename}</span>
+                      <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>{formatSize(file.size)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               {reading ? (
                 <p style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 8 }}>
                   <Loader2 size={16} className="spinner" /> {tr("Leyendo el mensaje…")}

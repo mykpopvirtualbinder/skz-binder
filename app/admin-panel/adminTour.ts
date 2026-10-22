@@ -469,7 +469,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='mail-list']",
       title: tr("La bandeja"),
-      text: tr("Los últimos mensajes. El punto rosa y la negrita son los no leídos. Al pinchar uno se abre una ventana y solo se desplaza el texto. Arriba, fijos: responder, reenviar, archivar, eliminar y mover a otra carpeta."),
+      text: tr("Los últimos mensajes. El punto rosa y la negrita son los no leídos. Al pinchar uno se abre una ventana y solo se desplaza el texto. Si trae archivos, salen arriba para descargarlos. Arriba, fijos: responder, reenviar, archivar, eliminar y mover a otra carpeta."),
       side: "top",
       tab: "correo",
     },
