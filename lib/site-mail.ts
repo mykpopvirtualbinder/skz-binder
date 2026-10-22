@@ -1,4 +1,6 @@
 import { timingSafeEqual } from "crypto";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { simpleParser, type AddressObject } from "mailparser";
 import { Resend } from "resend";
 import { SITE_ADMIN_EMAIL } from "@/lib/admin-emails";
@@ -21,10 +23,13 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function withSignature(text: string) {
-  const plain = `${text}${SIGNATURE_TEXT}`;
-  const html = `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${escapeHtml(text)}</div><p style="margin:28px 0 0;"><img src="${SIGNATURE_URL}" alt="STAFF M.K.B. Collect · Trade · Connect" width="280" style="width:280px;max-width:100%;height:auto;border:0;display:block;" /></p>`;
-  return { plain, html };
+function mailHtml(text: string, imageSrc: string) {
+  const img = `<img src="${imageSrc}" alt="STAFF M.K.B. Collect · Trade · Connect" width="280" style="width:280px;max-width:100%;height:auto;border:0;display:block;" />`;
+  return `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${escapeHtml(text)}</div><p style="margin:28px 0 0;">${img}</p>`;
+}
+
+function signatureFile() {
+  return readFileSync(join(process.cwd(), "public/branding/mailing/signature.jpg"));
 }
 
 export type MailSummary = {
@@ -255,14 +260,24 @@ export async function sendMail(input: { to: string; subject: string; text: strin
 
   const key = (process.env.RESEND_API_KEY || "").trim();
   if (!key) throw new Error("MISSING_RESEND");
-  const signed = withSignature(text);
+  const plain = `${text}${SIGNATURE_TEXT}`;
+  let image: Buffer | null = null;
+  try {
+    image = signatureFile();
+  } catch {
+    image = null;
+  }
+  const html = mailHtml(text, image ? "cid:staff-signature" : SIGNATURE_URL);
   const resend = new Resend(key);
   const { data, error } = await resend.emails.send({
     from: `MyKpopBinder <${ACCOUNT}>`,
     to,
     subject,
-    text: signed.plain,
-    html: signed.html,
+    text: plain,
+    html,
+    attachments: image
+      ? [{ filename: "signature.jpg", content: image, contentType: "image/jpeg", contentId: "staff-signature" }]
+      : undefined,
     headers: inReplyTo ? { "In-Reply-To": inReplyTo, References: inReplyTo } : undefined,
   });
   if (error) throw new Error(`RESEND:${error.message || "rejected"}`);
@@ -273,8 +288,8 @@ export async function sendMail(input: { to: string; subject: string; text: strin
     sender: `My K-pop Binder <${ACCOUNT}>`,
     recipient: to.join(", "),
     subject,
-    body_text: signed.plain,
-    html_body: signed.html,
+    body_text: plain,
+    html_body: mailHtml(text, SIGNATURE_URL),
     message_id: data?.id ? `<${data.id}@resend>` : null,
     in_reply_to: inReplyTo || null,
     seen: true,

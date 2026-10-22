@@ -112,6 +112,9 @@ function albumSidecarMockPcRewrites() {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["imapflow", "mailparser", "nodemailer"],
+  outputFileTracingIncludes: {
+    "/api/admin/mailbox": ["./public/branding/mailing/signature.jpg"],
+  },
   async rewrites() {
     return {
       afterFiles: [
