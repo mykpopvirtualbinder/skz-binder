@@ -251,23 +251,32 @@ function recipients(value: string) {
   return to;
 }
 
-export async function sendMail(input: { to: string; subject: string; text: string; inReplyTo?: string }) {
+export async function sendMail(input: {
+  to: string;
+  subject: string;
+  text: string;
+  inReplyTo?: string;
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
+}) {
   const to = recipients(input.to);
   const subject = input.subject.replace(/[\r\n\0]/g, "").trim().slice(0, 200) || "(sin asunto)";
   const text = input.text.replace(/\0/g, "").trim().slice(0, 20_000);
-  if (!text) throw new Error("EMPTY_BODY");
+  const files = (input.attachments || []).slice(0, 8);
+  if (!text && !files.length) throw new Error("EMPTY_BODY");
+  const message = text || "Te envío los archivos adjuntos.";
   const inReplyTo = input.inReplyTo?.replace(/[\r\n\0]/g, "").trim().slice(0, 500) || "";
+  const attached = files.length ? `\n\nAdjuntos: ${files.map((file) => file.filename).join(", ")}` : "";
 
   const key = (process.env.RESEND_API_KEY || "").trim();
   if (!key) throw new Error("MISSING_RESEND");
-  const plain = `${text}${SIGNATURE_TEXT}`;
+  const plain = `${message}${attached}${SIGNATURE_TEXT}`;
   let image: Buffer | null = null;
   try {
     image = signatureFile();
   } catch {
     image = null;
   }
-  const html = mailHtml(text, image ? "cid:staff-signature" : SIGNATURE_URL);
+  const html = mailHtml(`${message}${attached}`, image ? "cid:staff-signature" : SIGNATURE_URL);
   const resend = new Resend(key);
   const { data, error } = await resend.emails.send({
     from: `MyKpopBinder <${ACCOUNT}>`,
@@ -275,9 +284,10 @@ export async function sendMail(input: { to: string; subject: string; text: strin
     subject,
     text: plain,
     html,
-    attachments: image
-      ? [{ filename: "signature.jpg", content: image, contentType: "image/jpeg", contentId: "staff-signature" }]
-      : undefined,
+    attachments: [
+      ...(image ? [{ filename: "signature.jpg", content: image, contentType: "image/jpeg", contentId: "staff-signature" }] : []),
+      ...files.map((file) => ({ filename: file.filename, content: file.content, contentType: file.contentType })),
+    ],
     headers: inReplyTo ? { "In-Reply-To": inReplyTo, References: inReplyTo } : undefined,
   });
   if (error) throw new Error(`RESEND:${error.message || "rejected"}`);
@@ -289,7 +299,7 @@ export async function sendMail(input: { to: string; subject: string; text: strin
     recipient: to.join(", "),
     subject,
     body_text: plain,
-    html_body: mailHtml(text, SIGNATURE_URL),
+    html_body: mailHtml(`${message}${attached}`, SIGNATURE_URL),
     message_id: data?.id ? `<${data.id}@resend>` : null,
     in_reply_to: inReplyTo || null,
     seen: true,
@@ -338,6 +348,8 @@ export function publicMailError(err: unknown): { status: number; error: string }
   const message = err instanceof Error ? err.message : "";
   if (message === "BAD_RECIPIENT") return { status: 400, error: "El destinatario no es un correo válido." };
   if (message === "EMPTY_BODY") return { status: 400, error: "Escribe el mensaje antes de enviarlo." };
+  if (message === "TOO_BIG") return { status: 400, error: "Los adjuntos pesan demasiado. El máximo es 3 MB." };
+  if (message === "TOO_MANY") return { status: 400, error: "Puedes adjuntar hasta 8 archivos." };
   if (message === "BAD_FOLDER") return { status: 400, error: "Esa carpeta no existe." };
   if (message === "BAD_NAME") return { status: 400, error: "El nombre de la carpeta no es válido." };
   if (message === "PROTECTED_FOLDER") return { status: 400, error: "Esa carpeta del buzón no se puede borrar." };

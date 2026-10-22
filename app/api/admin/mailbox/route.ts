@@ -66,9 +66,52 @@ export async function GET(req: Request) {
   }
 }
 
+function safeFilename(name: string) {
+  const base = name.split(/[/\\]/).pop()?.replace(/[\r\n\0]/g, "").trim() || "adjunto";
+  return base.slice(0, 120) || "adjunto";
+}
+
+async function sendWithFiles(req: Request) {
+  try {
+    const form = await req.formData();
+    if (String(form.get("action") || "") !== "send") {
+      return NextResponse.json({ error: "Acción no válida." }, { status: 400 });
+    }
+    const picked = form.getAll("file").filter((item): item is File => item instanceof File && item.size > 0);
+    if (picked.length > 8) return NextResponse.json({ error: "Puedes adjuntar hasta 8 archivos." }, { status: 400 });
+    let total = 0;
+    const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
+    for (const file of picked) {
+      total += file.size;
+      if (total > 3_500_000) return NextResponse.json({ error: "Los adjuntos pesan demasiado. El máximo es 3 MB." }, { status: 400 });
+      attachments.push({
+        filename: safeFilename(file.name),
+        content: Buffer.from(await file.arrayBuffer()),
+        contentType: file.type || "application/octet-stream",
+      });
+    }
+    await sendMail({
+      to: String(form.get("to") || ""),
+      subject: String(form.get("subject") || ""),
+      text: String(form.get("text") || ""),
+      inReplyTo: form.get("inReplyTo") ? String(form.get("inReplyTo")) : undefined,
+      attachments,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const pub = publicMailError(err);
+    return NextResponse.json({ error: pub.error }, { status: pub.status });
+  }
+}
+
 export async function POST(req: Request) {
   const gate = await requireAdminFromRequest(req);
   if (gate instanceof NextResponse) return gate;
+
+  const contentType = req.headers.get("content-type") || "";
+  if (contentType.includes("multipart/form-data")) {
+    return sendWithFiles(req);
+  }
 
   let body: {
     action?: string;

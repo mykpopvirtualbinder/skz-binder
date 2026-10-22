@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Archive, ExternalLink, FolderPlus, Forward, Loader2, Mail, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Archive, ExternalLink, FolderPlus, Forward, Loader2, Mail, Paperclip, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
 import { bindAdminLang, tr } from "@/lib/admin-i18n";
@@ -32,7 +32,10 @@ type MailFolder = {
 
 type MailFolderNode = MailFolder & { children: MailFolderNode[] };
 
-type ComposeDraft = { to: string; subject: string; text: string; inReplyTo: string };
+type ComposeDraft = { to: string; subject: string; text: string; inReplyTo: string; files: File[] };
+
+const MAX_ATTACHMENTS = 8;
+const MAX_ATTACHMENT_BYTES = 3_500_000;
 
 async function authHeaders(): Promise<HeadersInit> {
   const { data } = await supabase.auth.getSession();
@@ -312,9 +315,28 @@ export default function AdminMailbox() {
 
   const submitCompose = async () => {
     if (!compose) return;
+    const total = compose.files.reduce((sum, file) => sum + file.size, 0);
+    if (compose.files.length > MAX_ATTACHMENTS) {
+      showAlert(tr("Correo"), tr("Puedes adjuntar hasta 8 archivos."));
+      return;
+    }
+    if (total > MAX_ATTACHMENT_BYTES) {
+      showAlert(tr("Correo"), tr("Los adjuntos pesan demasiado. El máximo es 3 MB."));
+      return;
+    }
     setSending(true);
     try {
-      await postAction({ action: "send", ...compose });
+      const headers = await authHeaders();
+      const form = new FormData();
+      form.set("action", "send");
+      form.set("to", compose.to);
+      form.set("subject", compose.subject);
+      form.set("text", compose.text);
+      form.set("inReplyTo", compose.inReplyTo);
+      compose.files.forEach((file) => form.append("file", file, file.name));
+      const res = await fetch("/api/admin/mailbox", { method: "POST", headers, body: form });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error || tr("No se ha podido enviar."));
       setCompose(null);
       showAlert(tr("Correo"), tr("Mensaje enviado."));
     } catch (err) {
@@ -333,6 +355,7 @@ export default function AdminMailbox() {
       subject,
       text: `\n\n${quoted}`,
       inReplyTo: selected.messageId,
+      files: [],
     });
   };
 
@@ -349,7 +372,7 @@ export default function AdminMailbox() {
       "",
       plainBody(selected),
     ].join("\n");
-    setCompose({ to: "", subject, text: quoted, inReplyTo: "" });
+    setCompose({ to: "", subject, text: quoted, inReplyTo: "", files: [] });
   };
 
   const createSubfolder = async (atRoot: boolean) => {
@@ -436,7 +459,7 @@ export default function AdminMailbox() {
             data-tour="mail-new"
             onClick={() => {
               closeViewer();
-              setCompose({ to: "", subject: "", text: "", inReplyTo: "" });
+              setCompose({ to: "", subject: "", text: "", inReplyTo: "", files: [] });
             }}
             style={{ ...btnStyle, background: "var(--color-primary)", color: "#111", borderColor: "transparent" }}
           >
@@ -565,7 +588,7 @@ export default function AdminMailbox() {
 
             {compose && (
               <div style={{ flexShrink: 0, maxHeight: 240, overflow: "auto" }}>
-                <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} />
+                <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} onWarn={(message) => showAlert(tr("Correo"), message)} />
               </div>
             )}
           </div>
@@ -580,7 +603,7 @@ export default function AdminMailbox() {
               <button type="button" onClick={() => setCompose(null)} style={btnStyle} aria-label={tr("Cerrar")}><X size={14} /></button>
             </div>
             <div data-mail-scroll style={{ ...messageScroll, flex: "0 1 auto" }}>
-              <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} />
+              <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} onWarn={(message) => showAlert(tr("Correo"), message)} />
             </div>
           </div>
         </div>
@@ -595,13 +618,37 @@ function ComposeBox({
   sending,
   onSend,
   onCancel,
+  onWarn,
 }: {
   compose: ComposeDraft;
   setCompose: (next: ComposeDraft) => void;
   sending: boolean;
   onSend: () => void;
   onCancel: () => void;
+  onWarn: (message: string) => void;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const addFiles = (list: FileList | null) => {
+    if (!list?.length) return;
+    const next = [...compose.files];
+    for (const file of Array.from(list)) {
+      if (!file.size) continue;
+      if (next.some((item) => item.name === file.name && item.size === file.size)) continue;
+      next.push(file);
+    }
+    const total = next.reduce((sum, file) => sum + file.size, 0);
+    if (next.length > MAX_ATTACHMENTS) {
+      onWarn(tr("Puedes adjuntar hasta 8 archivos."));
+      return;
+    }
+    if (total > MAX_ATTACHMENT_BYTES) {
+      onWarn(tr("Los adjuntos pesan demasiado. El máximo es 3 MB."));
+      return;
+    }
+    setCompose({ ...compose, files: next });
+  };
+
   return (
     <div style={{ display: "grid", gap: 10 }}>
       <label style={labelStyle}>{tr("Para")}<input value={compose.to} onChange={(e) => setCompose({ ...compose, to: e.target.value })} style={inputStyle} />
@@ -609,6 +656,35 @@ function ComposeBox({
       <label style={labelStyle}>{tr("Asunto")}<input value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} style={inputStyle} />
       </label>
       <textarea value={compose.text} onChange={(e) => setCompose({ ...compose, text: e.target.value })} rows={8} style={{ ...inputStyle, resize: "vertical" }} />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          hidden
+          onChange={(event) => {
+            addFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
+        <button type="button" disabled={sending} onClick={() => fileRef.current?.click()} style={btnStyle}>
+          <Paperclip size={14} />{tr("Adjuntar")}
+        </button>
+        {compose.files.map((file) => (
+          <span key={`${file.name}-${file.size}`} style={fileChip}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{file.name}</span>
+            <button
+              type="button"
+              aria-label={tr("Quitar {name}", { name: file.name })}
+              disabled={sending}
+              onClick={() => setCompose({ ...compose, files: compose.files.filter((item) => item !== file) })}
+              style={{ border: "none", background: "transparent", color: "inherit", cursor: "pointer", padding: 0, display: "inline-flex" }}
+            >
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+      </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" disabled={sending} onClick={onSend} style={{ ...btnStyle, background: "var(--color-primary)", color: "#111", borderColor: "transparent" }}>
           {sending ? <Loader2 size={14} className="spinner" /> : <Send size={14} />}{tr("Enviar")}</button>
@@ -637,6 +713,20 @@ function rowStyle(seen: boolean): CSSProperties {
 }
 
 const ellipsis: CSSProperties = { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+
+const fileChip: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  maxWidth: "100%",
+  borderRadius: 999,
+  border: "1px solid var(--color-border)",
+  background: "var(--bg-soft)",
+  color: "var(--text-main)",
+  fontSize: 12,
+  fontWeight: 700,
+  padding: "6px 10px",
+};
 
 const btnStyle: CSSProperties = {
   display: "inline-flex",
