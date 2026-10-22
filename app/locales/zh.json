@@ -2151,7 +2151,13 @@
   },
   "metadata": {
     "title": "My Kpop Binder · Collect · Trade · Connect",
-    "description": "整理、买卖和交换你最爱的 K-pop 小卡。"
+    "description": "K-pop 小卡数字卡册。整理收藏、补齐专辑、用 WTS 和 WTT 交换，并和粉丝连在一起。粉丝为粉丝而做。"
+  },
+  "intro": {
+    "skip": "跳过",
+    "fans": "这个网站是粉丝为粉丝一点点做起来的。",
+    "groups": "我们正在把各个组合都补齐。",
+    "yours": "如果你的组合还不是目前最完整的那个，也别灰心。你可以自己建立组合；如果已经做成电子版，发给我们。"
   },
   "pagination": {
     "prev": "◀ 上一页",

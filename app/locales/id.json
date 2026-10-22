@@ -2187,7 +2187,13 @@
   },
   "metadata": {
     "title": "My Kpop Binder · Collect · Trade · Connect",
-    "description": "Atur, beli, dan jual photocard favoritmu."
+    "description": "Binder digital photocard K-pop. Rapikan koleksimu, lengkapi album, tukar dengan WTS dan WTT, dan terhubung dengan fans. Dibuat fans untuk fans."
+  },
+  "intro": {
+    "skip": "Lewati",
+    "fans": "Situs ini kami bangun dari fans untuk fans.",
+    "groups": "Saat ini kami sedang menambah semua grup.",
+    "yours": "Jangan kecil hati jika grupmu belum yang hampir lengkap. Kamu bisa membuat grup sendiri, dan jika sudah terdigitalisasi, kirimkan kepada kami."
   },
   "global_prompt": {
     "placeholder": "Placeholder",

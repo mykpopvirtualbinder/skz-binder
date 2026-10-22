@@ -4,8 +4,11 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { GlobalProvider } from "./context/GlobalContext";
 import Header from "./components/header";
+import IntroSplash from "./components/IntroSplash";
+import SiteJsonLd from "./components/SiteJsonLd";
 import UserTourHost from "./components/UserTourHost";
 import { THEME_BOOT_SCRIPT, THEME_COOKIE, themeIdFromUnknown } from "@/lib/theme-persist";
+import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site-seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,11 +21,43 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "My Kpop Binder · Collect · Trade · Connect",
-  description: "Organiza, compra y vende tus photocards favoritas.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: SITE_KEYWORDS,
+  category: "entertainment",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "es_ES",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   icons: {
-    icon: '/favicon.ico',
-    apple: '/favicon.ico',
+    icon: "/favicon.ico",
+    apple: "/favicon.ico",
   },
 };
 
@@ -49,11 +84,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         style={{ margin: 0 }}
       >
         <GlobalProvider>
-          {/* Contenedor principal para asegurar que el Header y el contenido no bailen */}
+          <SiteJsonLd />
           <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", minWidth: 0, backgroundColor: "var(--bg-main)" }}>
             
-            {/* El Header es fijo en la parte superior */}
             <Header />
+            <IntroSplash />
             <UserTourHost />
             
             {/* El contenido de las páginas carga aquí */}

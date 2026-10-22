@@ -2151,7 +2151,13 @@
   },
   "metadata": {
     "title": "My Kpop Binder · Collect · Trade · Connect",
-    "description": "Organiza, compra e vende as tuas photocards favoritas."
+    "description": "O binder digital de photocards K-pop. Organiza a coleção, completa álbuns, troca com WTS e WTT e liga-te a outros fãs. Feito de fãs para fãs."
+  },
+  "intro": {
+    "skip": "Saltar",
+    "fans": "Este site estamos a construí-lo de fãs para fãs.",
+    "groups": "Neste momento estamos a ampliar todos os grupos.",
+    "yours": "Não desanimes se o teu ainda não está quase completo. Podes criar os teus próprios grupos e, se já os tiveres digitalizados, envia-nos."
   },
   "pagination": {
     "prev": "◀ Anterior",

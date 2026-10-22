@@ -483,7 +483,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='mail-new']",
       title: tr("Escribir"),
-      text: tr("Nuevo abre un mensaje en blanco y lo manda desde info@. Responder y reenviar salen dentro del mensaje abierto."),
+      text: tr("Nuevo abre un mensaje en blanco y lo manda desde info@. Responder y reenviar salen dentro del mensaje abierto. Adjuntar mete archivos en ese mensaje, hasta 8."),
       side: "bottom",
       tab: "correo",
     },

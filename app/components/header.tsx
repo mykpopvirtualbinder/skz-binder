@@ -1040,6 +1040,7 @@ export default function Header() {
         <div className="mobile-header-row">
           <Link href="/" onPointerDown={closeAllMenus} className="mobile-header-logo-link">
             <img
+              id="site-header-logo"
               src="/branding/logo.png"
               alt={t('header.logo_alt')}
               className="mobile-header-logo"
@@ -1244,6 +1245,7 @@ export default function Header() {
           <div className="site-header__col-left">
             <Link href="/" onPointerDown={closeAllMenus}>
               <img
+                id="site-header-logo"
                 src="/branding/logo.png"
                 alt={t('header.logo_alt')}
                 style={{

@@ -2151,7 +2151,13 @@
   },
   "metadata": {
     "title": "My Kpop Binder · Collect · Trade · Connect",
-    "description": "최애 포카를 깔끔하게 정리하고, 마켓에서 사고팔거나 교환해보세요."
+    "description": "K-pop 포토카드 디지털 바인더. 컬렉션을 정리하고, 앨범을 채우고, WTS와 WTT로 교환하고, 팬과 연결해요. 팬이 팬을 위해."
+  },
+  "intro": {
+    "skip": "건너뛰기",
+    "fans": "이 웹은 팬이 팬을 위해 만들고 있어요.",
+    "groups": "지금은 모든 그룹을 늘리는 중이에요.",
+    "yours": "네가 좋아하는 그룹이 아직 거의 완성되지 않았어도 포기하지 마. 직접 그룹을 만들 수 있고, 디지털로 정리해 두었다면 보내 줘."
   },
   "pagination": {
     "prev": "◀ 이전",
