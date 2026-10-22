@@ -6,6 +6,7 @@ import {
   createFolder,
   deleteFolder,
   deleteMessage,
+  deleteMessages,
   listMailbox,
   mailAccount,
   moveMessage,
@@ -116,6 +117,7 @@ export async function POST(req: Request) {
   let body: {
     action?: string;
     uid?: string;
+    uids?: string[];
     box?: string;
     destination?: string;
     parent?: string;
@@ -134,6 +136,12 @@ export async function POST(req: Request) {
 
   const box = normalizeBox(textFrom(body.box, 200));
   try {
+    if (body.action === "delete-many") {
+      const uids = Array.isArray(body.uids) ? body.uids.map(uidFrom).filter((uid): uid is string => Boolean(uid)) : [];
+      if (!uids.length) return NextResponse.json({ error: "Mensaje no válido." }, { status: 400 });
+      await deleteMessages(uids, box);
+      return NextResponse.json({ ok: true });
+    }
     if (body.action === "delete" || body.action === "archive" || body.action === "move") {
       const uid = uidFrom(body.uid);
       if (!uid) return NextResponse.json({ error: "Mensaje no válido." }, { status: 400 });

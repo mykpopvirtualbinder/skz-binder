@@ -474,9 +474,9 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
       tab: "correo",
     },
     {
-      selector: "[data-tour='mail-zoho']",
-      title: tr("Zoho Mail"),
-      text: tr("El correo anterior sigue en Zoho, en una ventana al lado. Lo que llega ahora se lee en esta bandeja."),
+      selector: "[data-tour='mail-select']",
+      title: tr("Seleccionar"),
+      text: tr("Marca uno o varios correos. Seleccionar todo marca la carpeta. Eliminar los manda a Eliminados, y desde ahí los borra del todo."),
       side: "bottom",
       tab: "correo",
     },

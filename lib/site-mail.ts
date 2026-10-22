@@ -205,6 +205,19 @@ export async function archiveMessage(uid: string) {
   await moveMessage(uid, "archive");
 }
 
+export async function deleteMessages(uids: string[], boxInput: string) {
+  const ids = [...new Set(uids)].slice(0, 40);
+  if (!ids.length) return;
+  const box = normalizeBox(boxInput);
+  if (box === "trash") {
+    const { error } = await db().from("emails").delete().in("id", ids);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const { error } = await db().from("emails").update({ folder: "trash" }).in("id", ids);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteMessage(uid: string, boxInput: string) {
   const box = normalizeBox(boxInput);
   if (box === "trash") {

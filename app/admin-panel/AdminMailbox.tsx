@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Archive, ExternalLink, FolderPlus, Forward, Loader2, Mail, Paperclip, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
+import { Archive, FolderPlus, Forward, Loader2, Mail, Paperclip, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
 import { bindAdminLang, tr } from "@/lib/admin-i18n";
@@ -53,26 +53,6 @@ function formatWhen(iso: string | null) {
 
 function addressOnly(value: string) {
   return value.match(/<([^>]+)>/)?.[1] || value;
-}
-
-const ZOHO_MAIL_URL = "https://mail.zoho.eu/";
-
-function openZohoMail() {
-  const width = Math.min(1180, Math.max(520, window.screen.availWidth - 48));
-  const height = Math.min(900, Math.max(640, window.screen.availHeight - 48));
-  const left = Math.max(0, Math.min(window.screenX + window.outerWidth + 16, window.screen.availWidth - width));
-  const top = Math.max(0, window.screenY + 24);
-  const popup = window.open(
-    ZOHO_MAIL_URL,
-    "mkb-zoho-mail",
-    `popup=yes,width=${Math.round(width)},height=${Math.round(height)},left=${Math.round(left)},top=${Math.round(top)},resizable=yes,scrollbars=yes`,
-  );
-  if (!popup) {
-    window.open(ZOHO_MAIL_URL, "_blank", "noopener,noreferrer");
-    return;
-  }
-  popup.opener = null;
-  popup.focus();
 }
 
 function plainBody(message: MailMessage) {
@@ -189,6 +169,7 @@ export default function AdminMailbox() {
   const [folderName, setFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [moveTo, setMoveTo] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
 
   const tree = useMemo(() => buildTree(folders), [folders]);
   const current = folders.find((folder) => folder.path === box);
@@ -196,7 +177,10 @@ export default function AdminMailbox() {
 
   const loadList = useCallback(async (nextBox = box, fresh = false) => {
     setLoading(true);
-    if (nextBox !== box) setMessages([]);
+    if (nextBox !== box) {
+      setMessages([]);
+      setPicked([]);
+    }
     try {
       const headers = await authHeaders();
       const params = new URLSearchParams({ box: nextBox });
@@ -346,6 +330,28 @@ export default function AdminMailbox() {
     }
   };
 
+  const deletePicked = async () => {
+    if (!picked.length) {
+      showAlert(tr("Correo"), tr("Selecciona al menos un correo."));
+      return;
+    }
+    const ok = await showConfirm(
+      tr("Eliminar mensajes"),
+      box === "trash" ? tr("Se borrarán del todo.") : tr("Se moverán a Eliminados."),
+    );
+    if (!ok) return;
+    const gone = new Set(picked);
+    try {
+      await postAction({ action: "delete-many", uids: picked, box });
+      setMessages((prev) => prev.filter((item) => !gone.has(item.uid)));
+      setPicked([]);
+      if (selected && gone.has(selected.uid)) closeViewer();
+      refreshBadges();
+    } catch (err) {
+      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido mover el mensaje."));
+    }
+  };
+
   const startReply = () => {
     if (!selected) return;
     const subject = /^re:/i.test(selected.subject) ? selected.subject : `Re: ${selected.subject}`;
@@ -409,9 +415,6 @@ export default function AdminMailbox() {
         <p style={{ color: "var(--text-muted)", maxWidth: 560, lineHeight: 1.5 }}>
           {tr("La bandeja de {account} está lista, pero el servidor todavía no tiene la contraseña del buzón. Añade ARSYS_MAIL_PASSWORD en Vercel, en los ajustes del proyecto, y vuelve a desplegar.", { account })}
         </p>
-        <button type="button" onClick={openZohoMail} style={{ ...btnStyle, marginTop: 12 }} title={tr("Se abre en una ventana al lado")}>
-          <ExternalLink size={14} />{tr("Abrir Zoho Mail")}
-        </button>
       </div>
     );
   }
@@ -449,8 +452,19 @@ export default function AdminMailbox() {
           <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700 }}>{account}</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" data-tour="mail-zoho" onClick={openZohoMail} style={btnStyle} title={tr("Se abre en una ventana al lado")}>
-            <ExternalLink size={14} />{tr("Abrir Zoho Mail")}
+          <button
+            type="button"
+            data-tour="mail-select"
+            onClick={() => {
+              const all = messages.length > 0 && messages.every((item) => picked.includes(item.uid));
+              setPicked(all ? [] : messages.map((item) => item.uid));
+            }}
+            style={btnStyle}
+          >
+            {messages.length > 0 && messages.every((item) => picked.includes(item.uid)) ? tr("Quitar selección") : tr("Seleccionar todo")}
+          </button>
+          <button type="button" disabled={!picked.length} onClick={() => void deletePicked()} style={btnStyle}>
+            <Trash2 size={14} />{tr("Eliminar selección")}{picked.length > 0 ? ` (${picked.length})` : ""}
           </button>
           <button type="button" onClick={() => void loadList(box, true)} style={btnStyle}>
             <RefreshCw size={14} />{tr("Actualizar")}</button>
@@ -498,20 +512,28 @@ export default function AdminMailbox() {
             <p style={{ padding: 16, color: "var(--text-muted)" }}>{tr("Esta carpeta está vacía.")}</p>
           ) : (
             messages.map((item, index) => (
-              <button
-                key={item.uid}
-                type="button"
-                data-tour={index === 0 ? "mail-row" : undefined}
-                onClick={() => void openMessage(item.uid)}
-                style={rowStyle(item.seen)}
-              >
-                <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: item.seen ? "transparent" : "var(--accent-vibe-pink)" }} />
-                <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                  <span style={ellipsis}>{current?.specialUse === "\\Sent" ? item.to || item.from || account : item.from || account}</span>
-                  <span style={{ ...ellipsis, fontSize: 14 }}>{item.subject}</span>
-                </span>
-                <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{formatWhen(item.date)}</span>
-              </button>
+              <div key={item.uid} style={{ display: "grid", gridTemplateColumns: "36px minmax(0, 1fr)", alignItems: "center", borderBottom: "1px solid var(--color-border)" }}>
+                <input
+                  type="checkbox"
+                  checked={picked.includes(item.uid)}
+                  aria-label={tr("Seleccionar")}
+                  onChange={() => setPicked((prev) => prev.includes(item.uid) ? prev.filter((id) => id !== item.uid) : [...prev, item.uid])}
+                  style={{ justifySelf: "center", width: 16, height: 16 }}
+                />
+                <button
+                  type="button"
+                  data-tour={index === 0 ? "mail-row" : undefined}
+                  onClick={() => void openMessage(item.uid)}
+                  style={{ ...rowStyle(item.seen), borderBottom: "none" }}
+                >
+                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: item.seen ? "transparent" : "var(--accent-vibe-pink)" }} />
+                  <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                    <span style={ellipsis}>{current?.specialUse === "\\Sent" ? item.to || item.from || account : item.from || account}</span>
+                    <span style={{ ...ellipsis, fontSize: 14 }}>{item.subject}</span>
+                  </span>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{formatWhen(item.date)}</span>
+                </button>
+              </div>
             ))
           )}
         </div>
