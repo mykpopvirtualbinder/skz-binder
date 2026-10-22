@@ -6,6 +6,26 @@ import { createServiceRoleClient } from "@/lib/supabase-admin";
 
 const ACCOUNT = SITE_ADMIN_EMAIL;
 const LIST_LIMIT = 40;
+const SIGNATURE_URL = "https://www.mykpopbinder.com/branding/mailing/signature.jpg";
+const SIGNATURE_TEXT = [
+  "",
+  "--",
+  "STAFF M.K.B.",
+  "Collect · Trade · Connect",
+  "Instagram: @mykpopbinder",
+  "https://www.mykpopbinder.com",
+  ACCOUNT,
+].join("\n");
+
+function escapeHtml(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function withSignature(text: string) {
+  const plain = `${text}${SIGNATURE_TEXT}`;
+  const html = `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${escapeHtml(text)}</div><p style="margin:28px 0 0;"><img src="${SIGNATURE_URL}" alt="STAFF M.K.B. Collect · Trade · Connect" width="280" style="width:280px;max-width:100%;height:auto;border:0;display:block;" /></p>`;
+  return { plain, html };
+}
 
 export type MailSummary = {
   uid: string;
@@ -235,12 +255,14 @@ export async function sendMail(input: { to: string; subject: string; text: strin
 
   const key = (process.env.RESEND_API_KEY || "").trim();
   if (!key) throw new Error("MISSING_RESEND");
+  const signed = withSignature(text);
   const resend = new Resend(key);
   const { data, error } = await resend.emails.send({
     from: `MyKpopBinder <${ACCOUNT}>`,
     to,
     subject,
-    text,
+    text: signed.plain,
+    html: signed.html,
     headers: inReplyTo ? { "In-Reply-To": inReplyTo, References: inReplyTo } : undefined,
   });
   if (error) throw new Error(`RESEND:${error.message || "rejected"}`);
@@ -251,8 +273,8 @@ export async function sendMail(input: { to: string; subject: string; text: strin
     sender: `My K-pop Binder <${ACCOUNT}>`,
     recipient: to.join(", "),
     subject,
-    body_text: text,
-    html_body: "",
+    body_text: signed.plain,
+    html_body: signed.html,
     message_id: data?.id ? `<${data.id}@resend>` : null,
     in_reply_to: inReplyTo || null,
     seen: true,
