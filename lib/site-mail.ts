@@ -8,7 +8,7 @@ const ACCOUNT = SITE_ADMIN_EMAIL;
 const LIST_LIMIT = 40;
 
 export type MailSummary = {
-  uid: number;
+  uid: string;
   subject: string;
   from: string;
   to: string;
@@ -32,13 +32,13 @@ export type MailFolder = {
 };
 
 type EmailRow = {
-  id: number;
+  id: string;
   direction: string;
   folder: string;
-  from_address: string;
-  to_address: string;
+  sender: string;
+  recipient: string;
   subject: string;
-  text_body: string;
+  body_text: string;
   html_body: string;
   message_id: string | null;
   in_reply_to: string | null;
@@ -71,10 +71,10 @@ export function normalizeBox(value: string) {
 
 function summary(row: EmailRow): MailSummary {
   return {
-    uid: Number(row.id),
+    uid: String(row.id),
     subject: row.subject || "(sin asunto)",
-    from: row.from_address || "",
-    to: row.to_address || "",
+    from: row.sender || "",
+    to: row.recipient || "",
     date: row.created_at || null,
     seen: Boolean(row.seen),
   };
@@ -130,7 +130,7 @@ export async function listMailbox(boxInput: string) {
   const folders = await listFolders();
   const { data, error } = await db()
     .from("emails")
-    .select("id, direction, folder, from_address, to_address, subject, seen, created_at")
+    .select("id, direction, folder, sender, recipient, subject, seen, created_at")
     .eq("folder", box)
     .order("created_at", { ascending: false })
     .limit(LIST_LIMIT);
@@ -153,7 +153,7 @@ export async function countUnseen() {
   return count || 0;
 }
 
-export async function readMessage(uid: number): Promise<MailMessage | null> {
+export async function readMessage(uid: string): Promise<MailMessage | null> {
   const { data, error } = await db().from("emails").select("*").eq("id", uid).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
@@ -163,24 +163,24 @@ export async function readMessage(uid: number): Promise<MailMessage | null> {
   }
   return {
     ...summary({ ...row, seen: true }),
-    text: row.text_body || "",
+    text: row.body_text || "",
     html: row.html_body ? sanitizeMailHtml(row.html_body) : "",
     messageId: row.message_id || "",
   };
 }
 
-export async function moveMessage(uid: number, destinationInput: string) {
+export async function moveMessage(uid: string, destinationInput: string) {
   const destination = normalizeBox(destinationInput);
   await assertFolder(destination);
   const { error } = await db().from("emails").update({ folder: destination }).eq("id", uid);
   if (error) throw new Error(error.message);
 }
 
-export async function archiveMessage(uid: number) {
+export async function archiveMessage(uid: string) {
   await moveMessage(uid, "archive");
 }
 
-export async function deleteMessage(uid: number, boxInput: string) {
+export async function deleteMessage(uid: string, boxInput: string) {
   const box = normalizeBox(boxInput);
   if (box === "trash") {
     const { error } = await db().from("emails").delete().eq("id", uid);
@@ -248,10 +248,10 @@ export async function sendMail(input: { to: string; subject: string; text: strin
   const saved = await db().from("emails").insert({
     direction: "outgoing",
     folder: "sent",
-    from_address: `My K-pop Binder <${ACCOUNT}>`,
-    to_address: to.join(", "),
+    sender: `My K-pop Binder <${ACCOUNT}>`,
+    recipient: to.join(", "),
     subject,
-    text_body: text,
+    body_text: text,
     html_body: "",
     message_id: data?.id ? `<${data.id}@resend>` : null,
     in_reply_to: inReplyTo || null,
@@ -284,10 +284,10 @@ export async function storeIncoming(raw: Buffer, envelopeTo: string, truncated: 
   const inserted = await db().from("emails").insert({
     direction: "incoming",
     folder: "inbox",
-    from_address: (mail.from?.text || "").slice(0, 500),
-    to_address: to.slice(0, 500),
+    sender: (mail.from?.text || "").slice(0, 500),
+    recipient: to.slice(0, 500),
     subject: (mail.subject || "(sin asunto)").replace(/[\r\n\0]/g, "").trim().slice(0, 500) || "(sin asunto)",
-    text_body: text,
+    body_text: text,
     html_body: html,
     message_id: messageId || null,
     in_reply_to: (typeof mail.inReplyTo === "string" ? mail.inReplyTo : "").slice(0, 500) || null,

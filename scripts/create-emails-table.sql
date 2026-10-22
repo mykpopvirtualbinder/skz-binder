@@ -1,20 +1,41 @@
 -- Buzón de info@ dentro del admin. Cloudflare entrega lo que llega; Resend envía lo que sale.
+-- La tabla emails ya puede existir (id uuid, sender, recipient, body_text, direction).
+-- Este script añade lo que falta y se puede ejecutar otra vez.
 -- Solo el servidor (service_role) lee y escribe. Ni anon ni authenticated tienen acceso.
 
 create table if not exists public.emails (
-  id bigint generated always as identity primary key,
-  direction text not null check (direction in ('incoming', 'outgoing')),
-  folder text not null default 'inbox',
-  from_address text not null default '',
-  to_address text not null default '',
+  id uuid primary key default gen_random_uuid(),
+  sender text not null default '',
+  recipient text not null default '',
   subject text not null default '',
-  text_body text not null default '',
-  html_body text not null default '',
-  message_id text,
-  in_reply_to text,
-  seen boolean not null default false,
+  body_text text not null default '',
+  direction text not null default 'incoming',
   created_at timestamptz not null default now()
 );
+
+alter table public.emails alter column id set default gen_random_uuid();
+
+alter table public.emails add column if not exists folder text;
+alter table public.emails add column if not exists html_body text;
+alter table public.emails add column if not exists message_id text;
+alter table public.emails add column if not exists in_reply_to text;
+alter table public.emails add column if not exists seen boolean;
+
+update public.emails
+set folder = case when lower(coalesce(direction, '')) = 'outgoing' then 'sent' else 'inbox' end
+where folder is null or btrim(folder) = '';
+
+update public.emails set html_body = '' where html_body is null;
+update public.emails set seen = false where seen is null;
+update public.emails set direction = 'incoming' where direction is null or btrim(direction) = '';
+
+alter table public.emails alter column folder set default 'inbox';
+alter table public.emails alter column html_body set default '';
+alter table public.emails alter column seen set default false;
+alter table public.emails alter column direction set default 'incoming';
+alter table public.emails alter column folder set not null;
+alter table public.emails alter column html_body set not null;
+alter table public.emails alter column seen set not null;
 
 create table if not exists public.email_folders (
   path text primary key,
@@ -37,4 +58,10 @@ revoke all on table public.email_folders from public, anon, authenticated;
 
 grant select, insert, update, delete on table public.emails to service_role;
 grant select, insert, update, delete on table public.email_folders to service_role;
-grant usage, select on sequence public.emails_id_seq to service_role;
+
+do $$
+begin
+  if to_regclass('public.emails_id_seq') is not null then
+    execute 'grant usage, select on sequence public.emails_id_seq to service_role';
+  end if;
+end $$;

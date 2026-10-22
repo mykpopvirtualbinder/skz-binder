@@ -7,7 +7,7 @@ import { useGlobal } from "../context/GlobalContext";
 import { bindAdminLang, tr } from "@/lib/admin-i18n";
 
 type MailSummary = {
-  uid: number;
+  uid: string;
   subject: string;
   from: string;
   to: string;
@@ -253,7 +253,7 @@ export default function AdminMailbox() {
     setMoveTo("");
   };
 
-  const openMessage = async (uid: number) => {
+  const openMessage = async (uid: string) => {
     setViewerOpen(true);
     setReading(true);
     setCompose(null);
@@ -287,7 +287,7 @@ export default function AdminMailbox() {
     if (!res.ok) throw new Error(json.error || tr("No se ha podido completar la acción."));
   };
 
-  const moveMessage = async (uid: number, action: "delete" | "archive" | "move", destination = "") => {
+  const moveMessage = async (uid: string, action: "delete" | "archive" | "move", destination = "") => {
     const titles = { delete: tr("Eliminar mensaje"), archive: tr("Archivar mensaje"), move: tr("Mover mensaje") };
     const bodies = {
       delete: tr("Se moverá a Eliminados."),

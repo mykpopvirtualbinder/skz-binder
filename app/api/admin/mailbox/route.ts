@@ -18,9 +18,9 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-function uidFrom(value: unknown): number | null {
-  const uid = Number(value);
-  if (!Number.isInteger(uid) || uid <= 0 || uid > 2_147_483_647) return null;
+function uidFrom(value: unknown): string | null {
+  const uid = String(value || "").trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) return null;
   return uid;
 }
 
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
   let body: {
     action?: string;
-    uid?: number;
+    uid?: string;
     box?: string;
     destination?: string;
     parent?: string;
