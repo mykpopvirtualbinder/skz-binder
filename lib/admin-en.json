@@ -531,6 +531,7 @@
   "Asunto": "Subject",
   "Sesión no válida. Vuelve a iniciar sesión.": "Invalid session. Sign in again.",
   "No se ha podido abrir el mensaje.": "Couldn't open the message.",
+  "No se ha podido descargar el archivo.": "Couldn't download the file.",
   "No se ha podido abrir la carpeta.": "Couldn't open the folder.",
   "No se ha podido completar la acción.": "Couldn't complete the action.",
   "No se ha podido crear la carpeta.": "Couldn't create the folder.",

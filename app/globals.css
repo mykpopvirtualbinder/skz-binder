@@ -3441,6 +3441,18 @@ html.intro-active body {
   box-shadow: 0 8px 14px color-mix(in srgb, var(--text-main) 12%, transparent);
 }
 
+.intro-motif {
+  display: block;
+  width: 78px;
+  height: auto;
+  filter: drop-shadow(0 8px 12px color-mix(in srgb, var(--text-main) 18%, transparent));
+  transform: rotate(var(--rot));
+}
+
+.intro-motif--flag {
+  width: 92px;
+}
+
 .intro-key--lilac { --tone: #d7b4e8; }
 .intro-key--mint { --tone: #b7e3c7; }
 .intro-key--peach { --tone: #f3c3a5; }

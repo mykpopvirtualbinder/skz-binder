@@ -28,7 +28,6 @@ type MailFile = {
   filename: string;
   contentType: string;
   size: number;
-  base64: string;
 };
 
 type MailFolder = {
@@ -71,16 +70,56 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function saveMailFile(file: MailFile) {
-  const binary = atob(file.base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  const url = URL.createObjectURL(new Blob([bytes], { type: file.contentType || "application/octet-stream" }));
+async function saveMailFile(file: MailFile) {
+  const headers = await authHeaders();
+  const res = await fetch(`/api/admin/mailbox?file=${encodeURIComponent(file.id)}`, { headers, cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || tr("No se ha podido descargar el archivo."));
+  }
+  const url = URL.createObjectURL(await res.blob());
   const link = document.createElement("a");
   link.href = url;
   link.download = file.filename || "adjunto";
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function MailAttachment({ file, onSave }: { file: MailFile; onSave: (file: MailFile) => void }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const image = file.contentType.startsWith("image/");
+  useEffect(() => {
+    if (!image) return;
+    let dead = false;
+    let url = "";
+    void (async () => {
+      try {
+        const headers = await authHeaders();
+        const res = await fetch(`/api/admin/mailbox?file=${encodeURIComponent(file.id)}`, { headers, cache: "no-store" });
+        if (!res.ok || dead) return;
+        url = URL.createObjectURL(await res.blob());
+        if (!dead) setSrc(url);
+      } catch {
+        /* el botón de descarga sigue disponible */
+      }
+    })();
+    return () => {
+      dead = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [file.id, image]);
+  return (
+    <div style={{ display: "grid", gap: 6, justifyItems: "start", maxWidth: 240 }}>
+      {src ? <img src={src} alt="" style={{ width: 72, height: 96, objectFit: "cover", borderRadius: 8, border: "1px solid var(--color-border)" }} /> : null}
+      <button type="button" onClick={() => onSave(file)} style={{ ...btnStyle, maxWidth: "100%" }} title={tr("Descargar {name}", { name: file.filename })}>
+        <Paperclip size={14} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{file.filename}</span>
+        <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>{formatSize(file.size)}</span>
+      </button>
+    </div>
+  );
 }
 
 function plainBody(message: MailMessage) {
@@ -627,24 +666,23 @@ export default function AdminMailbox() {
               </label>
             </div>
 
+            {selected?.attachments?.length ? (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", flexShrink: 0, maxHeight: 168, overflow: "auto" }}>
+                {selected.attachments.map((file) => (
+                  <MailAttachment
+                    key={file.id}
+                    file={file}
+                    onSave={(item) => {
+                      void saveMailFile(item).catch((err) => {
+                        showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido descargar el archivo."));
+                      });
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
+
             <div data-mail-scroll style={messageScroll}>
-              {selected?.attachments?.length ? (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-                  {selected.attachments.map((file) => (
-                    <button
-                      key={file.id}
-                      type="button"
-                      onClick={() => saveMailFile(file)}
-                      style={{ ...btnStyle, maxWidth: "100%" }}
-                      title={tr("Descargar {name}", { name: file.filename })}
-                    >
-                      <Paperclip size={14} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{file.filename}</span>
-                      <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>{formatSize(file.size)}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
               {reading ? (
                 <p style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 8 }}>
                   <Loader2 size={16} className="spinner" /> {tr("Leyendo el mensaje…")}

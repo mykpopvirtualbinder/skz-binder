@@ -5,12 +5,15 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useGlobal } from "../context/GlobalContext";
 
-const SEEN_KEY = "mkb-intro-seen-2";
+const SEEN_KEY = "mkb-intro-seen-3";
 const PHRASES = ["intro.fans", "intro.groups", "intro.yours", "intro.send"] as const;
 
+type MotifName = "flag" | "hanbok" | "bibimbap" | "fan" | "lantern";
+
 const FLOATS: Array<{
-  kind: "pc" | "plush" | "key";
+  kind: "pc" | "plush" | "key" | "motif";
   src?: string;
+  motif?: MotifName;
   top: string;
   dur: string;
   delay: string;
@@ -30,7 +33,89 @@ const FLOATS: Array<{
   { kind: "key", top: "54%", dur: "13s", delay: "-8s", tone: "peach", dir: "ltr" },
   { kind: "pc", top: "34%", dur: "18s", delay: "-14s", rot: "-4deg", tone: "lilac", dir: "rtl" },
   { kind: "plush", src: "/ui/jiniret-cursor.png", top: "90%", dur: "11s", delay: "-2s", dir: "ltr" },
+  { kind: "motif", motif: "flag", top: "22%", dur: "16s", delay: "-5s", rot: "-6deg", dir: "rtl" },
+  { kind: "motif", motif: "hanbok", top: "40%", dur: "18s", delay: "-11s", rot: "4deg", dir: "ltr" },
+  { kind: "motif", motif: "bibimbap", top: "66%", dur: "14s", delay: "-3s", rot: "-3deg", dir: "rtl" },
+  { kind: "motif", motif: "fan", top: "50%", dur: "15s", delay: "-8s", rot: "8deg", dir: "ltr" },
+  { kind: "motif", motif: "lantern", top: "32%", dur: "17s", delay: "-13s", rot: "-4deg", dir: "rtl" },
 ];
+
+function Trigram({ x, y, rot, bars }: { x: number; y: number; rot: number; bars: Array<"solid" | "split"> }) {
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${rot})`} stroke="#111" strokeWidth="1.15" fill="none">
+      {bars.map((kind, i) => (
+        kind === "solid"
+          ? <path key={i} d={`M0 ${i * 3.2}h9`} />
+          : <path key={i} d={`M0 ${i * 3.2}h3.5M5.5 ${i * 3.2}h3.5`} />
+      ))}
+    </g>
+  );
+}
+
+function IntroMotif({ name }: { name: MotifName }) {
+  if (name === "flag") {
+    return (
+      <svg className="intro-motif intro-motif--flag" viewBox="0 0 72 48" aria-hidden>
+        <rect width="72" height="48" rx="2" fill="#fff" stroke="#1a1a1a" strokeWidth="1" />
+        <g transform="translate(36 24) rotate(-28)">
+          <path fill="#cd2e3a" d="M0-9a9 9 0 0 1 0 18 4.5 4.5 0 0 1 0-9 4.5 4.5 0 0 0 0-9" />
+          <path fill="#0047a0" d="M0-9a9 9 0 0 0 0 18 4.5 4.5 0 0 0 0-9 4.5 4.5 0 0 1 0-9" />
+        </g>
+        <Trigram x={14} y={9} rot={-50} bars={["solid", "solid", "solid"]} />
+        <Trigram x={50} y={8} rot={50} bars={["split", "solid", "split"]} />
+        <Trigram x={13} y={34} rot={50} bars={["solid", "split", "solid"]} />
+        <Trigram x={51} y={33} rot={-50} bars={["split", "split", "split"]} />
+      </svg>
+    );
+  }
+  if (name === "hanbok") {
+    return (
+      <svg className="intro-motif" viewBox="0 0 64 78" aria-hidden>
+        <path d="M16 34 L6 74 H58 L48 34 Z" fill="#c23b4a" />
+        <path d="M14 28 L2 38 L16 42 Z" fill="#f6ead2" />
+        <path d="M50 28 L62 38 L48 42 Z" fill="#f6ead2" />
+        <path d="M20 22 H44 L50 38 H14 Z" fill="#f6ead2" />
+        <path d="M28 22 L32 32 L36 22" fill="none" stroke="#c23b4a" strokeWidth="1.6" />
+        <path d="M32 26 C42 34 46 32 44 46" fill="none" stroke="#c23b4a" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (name === "bibimbap") {
+    return (
+      <svg className="intro-motif" viewBox="0 0 72 52" aria-hidden>
+        <ellipse cx="36" cy="40" rx="28" ry="8" fill="#c9844a" />
+        <path d="M10 28 Q10 46 36 48 Q62 46 62 28 L56 31 Q36 40 16 31 Z" fill="#efe6d6" />
+        <ellipse cx="36" cy="26" rx="22" ry="11" fill="#f7f1e3" />
+        <circle cx="27" cy="24" r="4.2" fill="#d23b3b" />
+        <circle cx="40" cy="21" r="3.6" fill="#3d8b4a" />
+        <circle cx="33" cy="29" r="3.2" fill="#e2b13c" />
+        <circle cx="45" cy="28" r="3.1" fill="#e07a2f" />
+        <ellipse cx="36" cy="24" rx="5" ry="3" fill="#fffaf2" />
+      </svg>
+    );
+  }
+  if (name === "fan") {
+    return (
+      <svg className="intro-motif" viewBox="0 0 72 50" aria-hidden>
+        <path d="M36 46 L8 20 A34 34 0 0 1 64 20 Z" fill="#f6efe2" stroke="#2b2118" strokeWidth="1.2" />
+        <path d="M36 46 L18 16 M36 46 L26 12 M36 46 L36 10 M36 46 L46 12 M36 46 L54 16" stroke="#2b2118" strokeWidth="0.8" />
+        <path d="M36 46 L36 12" stroke="#c23b4a" strokeWidth="1.3" />
+        <circle cx="36" cy="46" r="2.6" fill="#c9a227" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="intro-motif" viewBox="0 0 48 72" aria-hidden>
+      <path d="M16 8 H32" stroke="#7a1f1f" strokeWidth="2" />
+      <path d="M24 8 V14" stroke="#7a1f1f" strokeWidth="1.4" />
+      <ellipse cx="24" cy="34" rx="14" ry="18" fill="#e23b3b" />
+      <ellipse cx="24" cy="34" rx="8" ry="12" fill="#f7d56a" />
+      <path d="M12 22 H36 M12 46 H36" stroke="#f2c14e" strokeWidth="1.6" />
+      <path d="M24 52 V64" stroke="#7a1f1f" strokeWidth="1.3" />
+      <path d="M16 64 H32" stroke="#c9a227" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export default function IntroSplash() {
   const pathname = usePathname();
@@ -124,6 +209,7 @@ export default function IntroSplash() {
                 <span />
               </span>
             ) : null}
+            {item.kind === "motif" && item.motif ? <IntroMotif name={item.motif} /> : null}
           </span>
         ))}
       </div>

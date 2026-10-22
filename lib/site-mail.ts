@@ -47,7 +47,6 @@ export type MailFile = {
   filename: string;
   contentType: string;
   size: number;
-  base64: string;
 };
 
 export type MailMessage = MailSummary & {
@@ -80,15 +79,6 @@ type EmailRow = {
   seen: boolean;
   created_at: string;
   email_attachments?: { id: string }[] | null;
-};
-
-type AttachmentRow = {
-  id: string;
-  filename: string;
-  content_type: string;
-  size_bytes: number;
-  content_base64: string;
-  cid: string;
 };
 
 const MAX_STORED_FILES = 12;
@@ -130,7 +120,7 @@ function summary(row: EmailRow): MailSummary {
 }
 
 function missingAttachmentsTable(message: string) {
-  return /email_attachments|schema cache|relationship/i.test(message);
+  return /schema cache|does not exist|could not find the table/i.test(message);
 }
 
 function attachmentName(filename: string, contentType: string, index: number) {
@@ -170,16 +160,6 @@ async function persistAttachments(
   if (!rows.length) return;
   const { error } = await db().from("email_attachments").insert(rows);
   if (error && !missingAttachmentsTable(error.message)) throw new Error(error.message);
-}
-
-function embedCid(html: string, files: AttachmentRow[]) {
-  let next = html;
-  for (const file of files) {
-    if (!file.cid || !file.content_base64) continue;
-    const data = `data:${file.content_type || "application/octet-stream"};base64,${file.content_base64}`;
-    next = next.split(`cid:${file.cid}`).join(data);
-  }
-  return next;
 }
 
 function sanitizeMailHtml(html: string) {
@@ -269,11 +249,16 @@ export async function readMessage(uid: string): Promise<MailMessage | null> {
   }
   const filesQuery = await db()
     .from("email_attachments")
-    .select("id, filename, content_type, size_bytes, content_base64, cid")
+    .select("id, filename, content_type, size_bytes")
     .eq("email_id", uid);
   if (filesQuery.error && !missingAttachmentsTable(filesQuery.error.message)) throw new Error(filesQuery.error.message);
-  const fileRows = (filesQuery.error ? [] : filesQuery.data || []) as AttachmentRow[];
-  const html = row.html_body ? embedCid(sanitizeMailHtml(row.html_body), fileRows) : "";
+  const fileRows = (filesQuery.error ? [] : filesQuery.data || []) as Array<{
+    id: string;
+    filename: string;
+    content_type: string;
+    size_bytes: number;
+  }>;
+  const html = row.html_body ? sanitizeMailHtml(row.html_body) : "";
   return {
     ...summary({ ...row, seen: true }),
     files: fileRows.length,
@@ -285,8 +270,23 @@ export async function readMessage(uid: string): Promise<MailMessage | null> {
       filename: file.filename,
       contentType: file.content_type,
       size: file.size_bytes,
-      base64: file.content_base64,
     })),
+  };
+}
+
+export async function readAttachment(id: string) {
+  const { data, error } = await db()
+    .from("email_attachments")
+    .select("filename, content_type, content_base64")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  const row = data as { filename: string; content_type: string; content_base64: string };
+  return {
+    filename: row.filename || "adjunto",
+    contentType: row.content_type || "application/octet-stream",
+    bytes: Buffer.from(row.content_base64 || "", "base64"),
   };
 }
 

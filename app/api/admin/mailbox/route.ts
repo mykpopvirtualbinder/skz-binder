@@ -12,6 +12,7 @@ import {
   moveMessage,
   normalizeBox,
   publicMailError,
+  readAttachment,
   readMessage,
   sendMail,
 } from "@/lib/site-mail";
@@ -46,8 +47,21 @@ export async function GET(req: Request) {
   }
 
   const box = normalizeBox(textFrom(url.searchParams.get("box"), 200));
+  const fileId = uidFrom(url.searchParams.get("file"));
   const uid = uidFrom(url.searchParams.get("uid"));
   try {
+    if (fileId) {
+      const file = await readAttachment(fileId);
+      if (!file) return NextResponse.json({ error: "Ese archivo ya no está." }, { status: 404 });
+      const filename = encodeURIComponent(file.filename);
+      return new NextResponse(new Uint8Array(file.bytes), {
+        headers: {
+          "Content-Type": file.contentType,
+          "Content-Disposition": `attachment; filename*=UTF-8''${filename}`,
+          "Cache-Control": "private, no-store",
+        },
+      });
+    }
     if (uid) {
       const message = await readMessage(uid);
       if (!message) return NextResponse.json({ error: "Ese mensaje ya no está en la carpeta." }, { status: 404 });
