@@ -3330,33 +3330,25 @@ textarea:disabled {
   }
 }
 
-html.intro-active #site-header-logo,
-html.intro-flying #site-header-logo {
-  visibility: hidden;
+html.intro-active,
+html.intro-active body {
+  overflow: hidden;
 }
 
 .intro-overlay {
   position: fixed;
   inset: 0;
   z-index: 4000;
-  display: grid;
-  place-items: center;
   overflow: hidden;
   background: var(--bg-main);
   color: var(--text-main);
-}
-
-html.intro-flying .intro-overlay {
-  background: transparent;
-  transition: background 0.8s ease 0.55s;
-  pointer-events: none;
 }
 
 .intro-skip {
   position: absolute;
   top: max(0.75rem, env(safe-area-inset-top));
   right: max(0.85rem, env(safe-area-inset-right));
-  z-index: 2;
+  z-index: 3;
   min-height: 44px;
   padding: 0.7rem 0.2rem;
   border: 0;
@@ -3369,98 +3361,150 @@ html.intro-flying .intro-overlay {
   cursor: pointer;
 }
 
-html.intro-flying .intro-skip {
-  opacity: 0;
-}
-
-.intro-stage {
-  display: grid;
-  place-items: center;
-  width: min(920px, calc(100% - 2.5rem));
-  min-height: 42vh;
-  text-align: center;
-}
-
-.intro-beat {
-  grid-area: 1 / 1;
-  display: grid;
-  place-items: center;
-  width: 100%;
-  animation: intro-bloom 0.7s ease both;
-}
-
-.intro-logo-wrap {
-  width: min(72vw, 280px);
-  transform-origin: center center;
-  opacity: 1;
-}
-
-.intro-logo {
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-}
-
-html.intro-flying .intro-logo-wrap {
-  transition: transform 1.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-html.intro-flying .intro-beat {
-  animation: none;
-}
-
-.intro-sr {
+.intro-sky {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
+  inset: 0;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+  pointer-events: none;
+}
+
+.intro-float {
+  position: absolute;
+  top: var(--top);
+  left: 0;
+  animation: intro-drift var(--dur) linear infinite;
+  animation-delay: var(--delay);
+}
+
+.intro-float--rtl {
+  animation-name: intro-drift-back;
+}
+
+.intro-pc {
+  display: block;
+  width: 74px;
+  height: 104px;
+  border-radius: 8px;
+  background:
+    linear-gradient(var(--bg-main), var(--bg-main)) padding-box,
+    linear-gradient(160deg, #fff, #f3e7ea) border-box;
+  border: 7px solid transparent;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--text-main) 12%, transparent);
+  transform: rotate(var(--rot));
+}
+
+.intro-pc::after {
+  content: "";
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background:
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--tone) 80%, white), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--tone) 55%, white), color-mix(in srgb, var(--tone) 35%, #d9d0ea));
+}
+
+.intro-pc--pink { --tone: #e85d9a; }
+.intro-pc--blue { --tone: #7aa2e3; }
+.intro-pc--lilac { --tone: #b08cc8; }
+.intro-pc--cream { --tone: #e7c27a; }
+
+.intro-plush {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 10px color-mix(in srgb, var(--text-main) 18%, transparent));
+  transform: rotate(var(--rot));
+}
+
+.intro-key {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+  transform: rotate(var(--rot));
+}
+
+.intro-key::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 3px solid color-mix(in srgb, var(--tone) 70%, #6d5a78);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 3px var(--bg-main);
+}
+
+.intro-key span {
+  width: 34px;
+  height: 42px;
+  margin-top: 4px;
+  border-radius: 10px 10px 14px 14px;
+  background: linear-gradient(180deg, white, var(--tone));
+  box-shadow: 0 8px 14px color-mix(in srgb, var(--text-main) 12%, transparent);
+}
+
+.intro-key--lilac { --tone: #d7b4e8; }
+.intro-key--mint { --tone: #b7e3c7; }
+.intro-key--peach { --tone: #f3c3a5; }
+
+.intro-focus {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 14px;
+  min-height: 100%;
+  padding: 1.5rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.intro-mark {
+  width: 72px;
+  height: auto;
+  opacity: 0.92;
+}
+
+.intro-copy,
+.intro-still p {
+  margin: 0;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-main) 82%, transparent);
+  font-size: clamp(1.35rem, 4vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
 .intro-copy {
-  margin: 0;
-  max-width: 18em;
-  font-size: clamp(1.35rem, 3.6vw, 2.35rem);
-  font-weight: 800;
-  line-height: 1.28;
-  letter-spacing: -0.03em;
-  text-wrap: balance;
+  animation: intro-bloom 0.35s ease both;
 }
 
 .intro-still {
   display: grid;
-  justify-items: center;
-  gap: 1.25rem;
-  width: min(640px, calc(100% - 2.5rem));
-  text-align: center;
+  gap: 0.35rem;
 }
 
-.intro-still .intro-logo {
-  width: min(58vw, 200px);
+@keyframes intro-drift {
+  from { transform: translate3d(-18vw, 0, 0); }
+  to { transform: translate3d(108vw, 0, 0); }
 }
 
-.intro-still p {
-  margin: 0;
-  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
-  font-weight: 700;
-  line-height: 1.4;
+@keyframes intro-drift-back {
+  from { transform: translate3d(108vw, 0, 0); }
+  to { transform: translate3d(-18vw, 0, 0); }
 }
 
 @keyframes intro-bloom {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .intro-beat,
-  .intro-logo,
-  html.intro-flying .intro-overlay,
-  html.intro-flying .intro-logo {
+  .intro-float,
+  .intro-copy {
     animation: none;
-    transition: none;
   }
+  .intro-float { display: none; }
+  .intro-sky { display: none; }
 }

@@ -2191,9 +2191,10 @@
   },
   "intro": {
     "skip": "Überspringen",
-    "fans": "Diese Seite bauen wir von Fans für Fans.",
-    "groups": "Gerade erweitern wir alle Gruppen.",
-    "yours": "Lass dich nicht entmutigen, wenn deine noch nicht fast vollständig ist. Du kannst eigene Gruppen anlegen und sie uns schicken, wenn du sie schon digital hast."
+    "fans": "Von Fans, für Fans.",
+    "groups": "Mehr Gruppen.",
+    "yours": "Mach deine.",
+    "send": "Schick sie uns."
   },
   "global_prompt": {
     "placeholder": "Platzhalter",

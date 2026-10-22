@@ -5,18 +5,32 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useGlobal } from "../context/GlobalContext";
 
-const SEEN_KEY = "mkb-intro-seen";
+const SEEN_KEY = "mkb-intro-seen-2";
+const PHRASES = ["intro.fans", "intro.groups", "intro.yours", "intro.send"] as const;
 
-const STEPS: { kind: "logo" | "text"; key?: string; ms: number }[] = [
-  { kind: "logo", ms: 1500 },
-  { kind: "text", key: "intro.fans", ms: 3400 },
-  { kind: "logo", ms: 1300 },
-  { kind: "text", key: "intro.groups", ms: 3400 },
-  { kind: "logo", ms: 1300 },
-  { kind: "text", key: "intro.yours", ms: 4800 },
+const FLOATS: Array<{
+  kind: "pc" | "plush" | "key";
+  src?: string;
+  top: string;
+  dur: string;
+  delay: string;
+  rot?: string;
+  tone?: string;
+  dir: "ltr" | "rtl";
+}> = [
+  { kind: "pc", top: "8%", dur: "11s", delay: "-2s", rot: "-8deg", tone: "pink", dir: "ltr" },
+  { kind: "plush", src: "/ui/wolfchan-cursor.png", top: "18%", dur: "13s", delay: "-7s", dir: "rtl" },
+  { kind: "key", top: "72%", dur: "12s", delay: "-1s", tone: "lilac", dir: "ltr" },
+  { kind: "pc", top: "78%", dur: "15s", delay: "-9s", rot: "7deg", tone: "blue", dir: "rtl" },
+  { kind: "plush", src: "/ui/leebit-cursor.png", top: "62%", dur: "14s", delay: "-4s", dir: "ltr" },
+  { kind: "key", top: "28%", dur: "16s", delay: "-11s", tone: "mint", dir: "rtl" },
+  { kind: "pc", top: "46%", dur: "10s", delay: "-3s", rot: "5deg", tone: "cream", dir: "ltr" },
+  { kind: "plush", src: "/ui/dwaekki-cursor.png", top: "84%", dur: "12s", delay: "-6s", dir: "rtl" },
+  { kind: "plush", src: "/ui/bbokari-cursor.png", top: "4%", dur: "17s", delay: "-12s", dir: "ltr" },
+  { kind: "key", top: "54%", dur: "13s", delay: "-8s", tone: "peach", dir: "ltr" },
+  { kind: "pc", top: "34%", dur: "18s", delay: "-14s", rot: "-4deg", tone: "lilac", dir: "rtl" },
+  { kind: "plush", src: "/ui/jiniret-cursor.png", top: "90%", dur: "11s", delay: "-2s", dir: "ltr" },
 ];
-
-const COPY = ["intro.fans", "intro.groups", "intro.yours"] as const;
 
 export default function IntroSplash() {
   const pathname = usePathname();
@@ -25,7 +39,6 @@ export default function IntroSplash() {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const [still, setStill] = useState(false);
-  const logoRef = useRef<HTMLDivElement>(null);
   const timers = useRef<number[]>([]);
 
   const clearTimers = () => {
@@ -40,32 +53,9 @@ export default function IntroSplash() {
     } catch {
       /* private mode */
     }
-    document.documentElement.classList.remove("intro-active", "intro-flying");
+    document.documentElement.classList.remove("intro-active");
     setOpen(false);
   }, []);
-
-  const flyToHeader = useCallback(() => {
-    const source = logoRef.current;
-    const target = document.getElementById("site-header-logo");
-    if (!source || !target) {
-      close();
-      return;
-    }
-    const from = source.getBoundingClientRect();
-    const to = target.getBoundingClientRect();
-    if (!from.width || !to.width) {
-      close();
-      return;
-    }
-    const dx = to.left + to.width / 2 - (from.left + from.width / 2);
-    const dy = to.top + to.height / 2 - (from.top + from.height / 2);
-    const scale = to.width / from.width;
-    document.documentElement.classList.add("intro-flying");
-    window.requestAnimationFrame(() => {
-      source.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
-    });
-    timers.current.push(window.setTimeout(() => close(), 1750));
-  }, [close]);
 
   useLayoutEffect(() => {
     if (skipRoute) return;
@@ -80,7 +70,7 @@ export default function IntroSplash() {
     const id = window.setTimeout(() => setOpen(true), 0);
     return () => {
       window.clearTimeout(id);
-      document.documentElement.classList.remove("intro-active", "intro-flying");
+      document.documentElement.classList.remove("intro-active");
     };
   }, [skipRoute]);
 
@@ -95,16 +85,13 @@ export default function IntroSplash() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) {
       timers.current.push(window.setTimeout(() => setStill(true), 0));
-      timers.current.push(window.setTimeout(() => close(), 8000));
+      timers.current.push(window.setTimeout(() => close(), 7000));
     } else {
-      let delay = 280;
-      STEPS.forEach((_, i) => {
-        timers.current.push(window.setTimeout(() => setIndex(i), delay));
-        delay += STEPS[i].ms;
+      PHRASES.forEach((_, i) => {
+        timers.current.push(window.setTimeout(() => setIndex(i), i * 1600));
       });
-      timers.current.push(window.setTimeout(() => setIndex(STEPS.length), delay));
+      timers.current.push(window.setTimeout(() => close(), PHRASES.length * 1600 + 400));
     }
-
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
@@ -112,61 +99,46 @@ export default function IntroSplash() {
     };
   }, [open, close]);
 
-  useEffect(() => {
-    if (!open || still || index < STEPS.length) return;
-    const id = window.requestAnimationFrame(() => flyToHeader());
-    return () => window.cancelAnimationFrame(id);
-  }, [open, still, index, flyToHeader]);
-
   if (!open || skipRoute) return null;
 
-  const step = STEPS[index];
-  const showLogo = still || !step || step.kind === "logo";
-  const heading = still
-    ? t("intro.fans")
-    : step?.kind === "text" && step.key
-      ? t(step.key)
-      : "My K-pop Binder";
+  const phrase = t(PHRASES[index] || PHRASES[0]);
 
   return (
     <div className="intro-overlay" role="dialog" aria-modal="true" aria-labelledby="intro-heading">
       <button type="button" className="intro-skip" onClick={() => close()}>
         {t("intro.skip")}
       </button>
-      {still ? (
-        <div className="intro-still">
-          <Image className="intro-logo" src="/branding/logo.png" alt="" width={2938} height={2463} priority />
-          {COPY.map((key) => (
-            <p key={key} id={key === "intro.fans" ? "intro-heading" : undefined}>
-              {t(key)}
-            </p>
-          ))}
-        </div>
-      ) : (
-        <div className="intro-stage">
-          {showLogo ? (
-            <div key={`logo-${index}`} ref={logoRef} className="intro-logo-wrap">
-              <Image
-                className="intro-logo"
-                src="/branding/logo.png"
-                alt=""
-                width={2938}
-                height={2463}
-                priority
-              />
-            </div>
-          ) : (
-            <p key={step?.key || index} id="intro-heading" className="intro-beat intro-copy">
-              {heading}
-            </p>
-          )}
-          {showLogo ? (
-            <p id="intro-heading" className="intro-sr">
-              {heading}
-            </p>
-          ) : null}
-        </div>
-      )}
+      <div className="intro-sky" aria-hidden>
+        {FLOATS.map((item, i) => (
+          <span
+            key={`${item.kind}-${i}`}
+            className={`intro-float intro-float--${item.dir}`}
+            style={{ ["--top" as string]: item.top, ["--dur" as string]: item.dur, ["--delay" as string]: item.delay, ["--rot" as string]: item.rot || "0deg" }}
+          >
+            {item.kind === "pc" ? <span className={`intro-pc intro-pc--${item.tone || "pink"}`} /> : null}
+            {item.kind === "plush" && item.src ? (
+              <Image className="intro-plush" src={item.src} alt="" width={96} height={96} />
+            ) : null}
+            {item.kind === "key" ? (
+              <span className={`intro-key intro-key--${item.tone || "lilac"}`}>
+                <span />
+              </span>
+            ) : null}
+          </span>
+        ))}
+      </div>
+      <div className="intro-focus">
+        <Image className="intro-mark" src="/branding/logo.png" alt="" width={2938} height={2463} priority />
+        {still ? (
+          <div className="intro-still">
+            {PHRASES.map((key) => (
+              <p key={key} id={key === "intro.fans" ? "intro-heading" : undefined}>{t(key)}</p>
+            ))}
+          </div>
+        ) : (
+          <p key={PHRASES[index]} id="intro-heading" className="intro-copy">{phrase}</p>
+        )}
+      </div>
     </div>
   );
 }

@@ -2191,9 +2191,10 @@
   },
   "intro": {
     "skip": "Lewati",
-    "fans": "Situs ini kami bangun dari fans untuk fans.",
-    "groups": "Saat ini kami sedang menambah semua grup.",
-    "yours": "Jangan kecil hati jika grupmu belum yang hampir lengkap. Kamu bisa membuat grup sendiri, dan jika sudah terdigitalisasi, kirimkan kepada kami."
+    "fans": "Dari fans, untuk fans.",
+    "groups": "Lebih banyak grup.",
+    "yours": "Buat punyamu.",
+    "send": "Kirimkan."
   },
   "global_prompt": {
     "placeholder": "Placeholder",

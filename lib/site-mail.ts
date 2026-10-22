@@ -92,7 +92,7 @@ type AttachmentRow = {
 };
 
 const MAX_STORED_FILES = 12;
-const MAX_STORED_BYTES = 3_500_000;
+const MAX_STORED_BYTES = 16_000_000;
 
 const SYSTEM: MailFolder[] = [
   { path: "inbox", name: "inbox", parentPath: "", specialUse: "\\Inbox", delimiter: "/", selectable: true },
@@ -429,7 +429,7 @@ export function inboundAuthorized(header: string | null, secret: string) {
   return timingSafeEqual(left, right);
 }
 
-export async function storeIncoming(raw: Buffer, envelopeTo: string, truncated: boolean) {
+export async function storeIncoming(raw: Buffer, envelopeTo: string) {
   const mail = await simpleParser(raw);
   const messageId = (mail.messageId || "").replace(/[\r\n\0]/g, "").trim().slice(0, 500);
   const to = addressText(mail.to) || envelopeTo || ACCOUNT;
@@ -437,9 +437,6 @@ export async function storeIncoming(raw: Buffer, envelopeTo: string, truncated: 
   if (!recipient.includes("@mykpopbinder.com")) throw new Error("FOREIGN_RECIPIENT");
 
   let text = (mail.text || "").replace(/\0/g, "").slice(0, 200_000);
-  if (truncated) {
-    text = `${text}\n\n[Este mensaje era demasiado grande y se ha guardado incompleto.]`.trim();
-  }
   const parsedFiles = (mail.attachments || []).map((file) => ({
     filename: file.filename || "",
     contentType: file.contentType || "application/octet-stream",
@@ -477,11 +474,61 @@ export async function storeIncoming(raw: Buffer, envelopeTo: string, truncated: 
   if (parsedFiles.length) await persistAttachments(inserted.data.id, parsedFiles);
 }
 
+const MAX_INBOUND_BYTES = 18_000_000;
+
+export async function storeInboundChunk(input: {
+  uploadId: string;
+  seq: number;
+  parts: number;
+  totalBytes: number;
+  envelopeTo: string;
+  bytes: Buffer;
+}) {
+  if (
+    !/^[0-9a-f-]{36}$/i.test(input.uploadId) ||
+    input.parts < 2 ||
+    input.parts > 12 ||
+    input.seq < 0 ||
+    input.seq >= input.parts ||
+    input.totalBytes > MAX_INBOUND_BYTES ||
+    input.bytes.length > 3_000_000
+  ) {
+    throw new Error("TOO_BIG");
+  }
+  const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  await db().from("email_inbound_chunks").delete().lt("created_at", cutoff);
+  const saved = await db().from("email_inbound_chunks").upsert({
+    upload_id: input.uploadId,
+    seq: input.seq,
+    parts: input.parts,
+    total_bytes: input.totalBytes,
+    envelope_to: input.envelopeTo.slice(0, 500),
+    content_base64: input.bytes.toString("base64"),
+  }, { onConflict: "upload_id,seq" });
+  if (saved.error) {
+    if (missingAttachmentsTable(saved.error.message) || /email_inbound_chunks/i.test(saved.error.message)) {
+      throw new Error("MISSING_CHUNKS");
+    }
+    throw new Error(saved.error.message);
+  }
+  const listed = await db()
+    .from("email_inbound_chunks")
+    .select("seq, content_base64")
+    .eq("upload_id", input.uploadId);
+  if (listed.error) throw new Error(listed.error.message);
+  const rows = (listed.data || []) as Array<{ seq: number; content_base64: string }>;
+  if (rows.length < input.parts) return;
+  const raw = Buffer.concat(rows.sort((a, b) => a.seq - b.seq).map((row) => Buffer.from(row.content_base64, "base64")));
+  await db().from("email_inbound_chunks").delete().eq("upload_id", input.uploadId);
+  await storeIncoming(raw, input.envelopeTo);
+}
+
 export function publicMailError(err: unknown): { status: number; error: string } {
   const message = err instanceof Error ? err.message : "";
   if (message === "BAD_RECIPIENT") return { status: 400, error: "El destinatario no es un correo válido." };
   if (message === "EMPTY_BODY") return { status: 400, error: "Escribe el mensaje antes de enviarlo." };
-  if (message === "TOO_BIG") return { status: 400, error: "Los adjuntos pesan demasiado. El máximo es 3 MB." };
+  if (message === "TOO_BIG") return { status: 413, error: "Los adjuntos pesan demasiado." };
+  if (message === "MISSING_CHUNKS") return { status: 503, error: "Falta la tabla de adjuntos grandes en Supabase." };
   if (message === "TOO_MANY") return { status: 400, error: "Puedes adjuntar hasta 8 archivos." };
   if (message === "BAD_FOLDER") return { status: 400, error: "Esa carpeta no existe." };
   if (message === "BAD_NAME") return { status: 400, error: "El nombre de la carpeta no es válido." };

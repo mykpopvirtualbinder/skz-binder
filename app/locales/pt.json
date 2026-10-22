@@ -2155,9 +2155,10 @@
   },
   "intro": {
     "skip": "Saltar",
-    "fans": "Este site estamos a construí-lo de fãs para fãs.",
-    "groups": "Neste momento estamos a ampliar todos os grupos.",
-    "yours": "Não desanimes se o teu ainda não está quase completo. Podes criar os teus próprios grupos e, se já os tiveres digitalizados, envia-nos."
+    "fans": "De fãs, para fãs.",
+    "groups": "Mais grupos.",
+    "yours": "Cria o teu.",
+    "send": "Envia-no."
   },
   "pagination": {
     "prev": "◀ Anterior",

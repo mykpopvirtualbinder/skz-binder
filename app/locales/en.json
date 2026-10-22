@@ -2325,9 +2325,10 @@
   },
   "intro": {
     "skip": "Skip",
-    "fans": "This site is being built by fans, for fans.",
-    "groups": "Right now we are adding more of every group.",
-    "yours": "Don't hold back if yours is not the one we have nearly complete. You can create your own groups and, if you already have them digitised, send them to us."
+    "fans": "By fans, for fans.",
+    "groups": "More groups.",
+    "yours": "Make yours.",
+    "send": "Send it over."
   },
   "global_prompt": {
     "placeholder": "Placeholder",

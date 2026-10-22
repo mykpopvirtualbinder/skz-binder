@@ -2325,9 +2325,10 @@
   },
   "intro": {
     "skip": "Saltar",
-    "fans": "Esta web la estamos construyendo de fans para fans.",
-    "groups": "Ahora mismo estamos ampliando todos los grupos.",
-    "yours": "No te desanimes si el tuyo aún no está casi completo. Puedes crear tus propios grupos y, si lo tienes digitalizado, háznoslo llegar."
+    "fans": "De fans, para fans.",
+    "groups": "Más grupos.",
+    "yours": "Crea el tuyo.",
+    "send": "Y envíanoslo."
   },
   "global_prompt": {
     "placeholder": "Placeholder",

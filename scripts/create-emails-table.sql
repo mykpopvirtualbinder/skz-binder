@@ -78,6 +78,21 @@ grant select, insert, update, delete on table public.emails to service_role;
 grant select, insert, update, delete on table public.email_folders to service_role;
 grant select, insert, update, delete on table public.email_attachments to service_role;
 
+create table if not exists public.email_inbound_chunks (
+  upload_id uuid not null,
+  seq integer not null,
+  parts integer not null,
+  total_bytes integer not null,
+  envelope_to text not null default '',
+  content_base64 text not null,
+  created_at timestamptz not null default now(),
+  primary key (upload_id, seq)
+);
+
+alter table public.email_inbound_chunks enable row level security;
+revoke all on table public.email_inbound_chunks from public, anon, authenticated;
+grant select, insert, update, delete on table public.email_inbound_chunks to service_role;
+
 do $$
 begin
   if to_regclass('public.emails_id_seq') is not null then
