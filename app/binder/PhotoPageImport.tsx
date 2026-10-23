@@ -11,11 +11,22 @@ type CardRow = {
   id: number;
   name: string | null;
   image_url: string | null;
+  source_url: string | null;
   group_id: number | null;
   album_id: number | null;
   version: string | null;
   member: string | null;
   member_id: number | null;
+};
+
+type SlotOcc = {
+  item_id: number | null;
+  member_id: number | null;
+  rot: number;
+  flip_h: boolean;
+  is_custom: boolean;
+  custom_text: string | null;
+  custom_image_url: string | null;
 };
 
 type SlotChoice = {
@@ -46,11 +57,102 @@ const GRIDS = [
   { key: "2x3", cols: 2, rows: 3, slots: 6 },
 ];
 
-const fingerprintCache = new Map<string, Float32Array>();
-const UNCERTAIN = 16;
+const PAGE_LAYOUTS: Record<string, { cols: number; rows: number; slots: number }> = {
+  "3x3": { cols: 3, rows: 3, slots: 9 },
+  "4x3": { cols: 4, rows: 3, slots: 12 },
+  "3x4": { cols: 3, rows: 4, slots: 12 },
+  "4x4": { cols: 4, rows: 4, slots: 16 },
+  "2x2": { cols: 2, rows: 2, slots: 4 },
+  "2x3": { cols: 2, rows: 3, slots: 6 },
+  "2x4": { cols: 2, rows: 4, slots: 8 },
+  "1x2": { cols: 1, rows: 2, slots: 2 },
+  "1x3": { cols: 1, rows: 3, slots: 3 },
+  "1x4": { cols: 1, rows: 4, slots: 4 },
+  sp_2x2: { cols: 2, rows: 2, slots: 4 },
+  sp_1x2: { cols: 1, rows: 2, slots: 2 },
+  sp_1x3: { cols: 1, rows: 3, slots: 3 },
+  sp_1x4: { cols: 1, rows: 4, slots: 4 },
+  sp_1x1: { cols: 1, rows: 1, slots: 1 },
+};
+
+let hashIndexPromise: Promise<Record<string, string>> | null = null;
+
+function loadHashIndex() {
+  if (!hashIndexPromise) {
+    hashIndexPromise = fetch("/card-hashes.json").then(async (res) => {
+      if (!res.ok) throw new Error("card-hashes");
+      return (await res.json()) as Record<string, string>;
+    });
+  }
+  return hashIndexPromise;
+}
+
+function dhashCanvas(source: CanvasImageSource, sx: number, sy: number, sw: number, sh: number) {
+  if (sw < 2 || sh < 2) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 9;
+  canvas.height = 8;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, 9, 8);
+  const data = ctx.getImageData(0, 0, 9, 8).data;
+  let bits = "";
+  for (let y = 0; y < 8; y += 1) {
+    for (let x = 0; x < 8; x += 1) {
+      const left = (y * 9 + x) * 4;
+      const right = left + 4;
+      const a = data[left] + data[left + 1] + data[left + 2];
+      const b = data[right] + data[right + 1] + data[right + 2];
+      bits += a > b ? "1" : "0";
+    }
+  }
+  let hex = "";
+  for (let i = 0; i < 64; i += 4) hex += Number.parseInt(bits.slice(i, i + 4), 2).toString(16);
+  return hex;
+}
+
+function hamming(a: string, b: string) {
+  const weights = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
+  let count = 0;
+  const size = Math.min(a.length, b.length);
+  for (let i = 0; i < size; i += 1) {
+    const x = Number.parseInt(a[i], 16) ^ Number.parseInt(b[i], 16);
+    count += weights[x] ?? 0;
+  }
+  return count;
+}
+
+function hashFor(index: Record<string, string>, url: string | null | undefined) {
+  if (!url) return null;
+  const keys = new Set<string>();
+  const add = (value: string) => {
+    const clean = value.split("?")[0];
+    if (!clean) return;
+    keys.add(clean);
+    try {
+      keys.add(decodeURIComponent(clean));
+    } catch {
+      /* keep the raw path */
+    }
+  };
+  add(url);
+  try {
+    add(new URL(url, "https://local").pathname);
+  } catch {
+    /* relative paths stay as they are */
+  }
+  for (const key of keys) {
+    if (index[key]) return index[key];
+  }
+  return null;
+}
 
 function slotsFor(layout: string) {
-  return GRIDS.find((grid) => grid.key === layout)?.slots ?? 9;
+  return PAGE_LAYOUTS[layout]?.slots ?? 9;
+}
+
+function colsFor(layout: string) {
+  return PAGE_LAYOUTS[layout]?.cols ?? 3;
 }
 
 function prettyLabel(value: string | null | undefined) {
@@ -58,53 +160,6 @@ function prettyLabel(value: string | null | undefined) {
     .replace(/[-_]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function fingerprintRegion(source: CanvasImageSource, sx: number, sy: number, sw: number, sh: number) {
-  if (sw < 2 || sh < 2) return null;
-  const canvas = document.createElement("canvas");
-  canvas.width = 6;
-  canvas.height = 9;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return null;
-  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, 6, 9);
-  const data = ctx.getImageData(0, 0, 6, 9).data;
-  const out = new Float32Array(6 * 9 * 3);
-  for (let i = 0; i < 6 * 9; i += 1) {
-    out[i * 3] = data[i * 4] / 255;
-    out[i * 3 + 1] = data[i * 4 + 1] / 255;
-    out[i * 3 + 2] = data[i * 4 + 2] / 255;
-  }
-  return out;
-}
-
-function distance(a: Float32Array, b: Float32Array) {
-  let sum = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    const d = a[i] - b[i];
-    sum += d * d;
-  }
-  return sum;
-}
-
-function loadImage(url: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(url));
-    img.src = url;
-  });
-}
-
-async function fingerprintUrl(url: string) {
-  const cached = fingerprintCache.get(url);
-  if (cached) return cached;
-  const img = await loadImage(url);
-  const mx = img.naturalWidth * 0.08;
-  const my = img.naturalHeight * 0.08;
-  const fp = fingerprintRegion(img, mx, my, img.naturalWidth - mx * 2, img.naturalHeight - my * 2);
-  if (fp) fingerprintCache.set(url, fp);
-  return fp;
 }
 
 function mapCard(row: {
@@ -122,6 +177,7 @@ function mapCard(row: {
     id: Number(row.id),
     name: row.name ?? null,
     image_url: image,
+    source_url: typeof row.image_url === "string" ? row.image_url : null,
     group_id: row.group_id == null ? null : Number(row.group_id),
     album_id: row.album_id == null ? null : Number(row.album_id),
     version: row.version ?? null,
@@ -172,8 +228,10 @@ export default function PhotoPageImport({
   const { t, showConfirm } = useGlobal();
   const router = useRouter();
   const photoRef = useRef<HTMLImageElement | null>(null);
-  const cameraRef = useRef<HTMLInputElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraOn, setCameraOn] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [gridKey, setGridKey] = useState(GRIDS.some((grid) => grid.key === initialGrid) ? initialGrid : "3x3");
   const grid = GRIDS.find((item) => item.key === gridKey) ?? GRIDS[0];
@@ -195,6 +253,7 @@ export default function PhotoPageImport({
   const [pages, setPages] = useState<PageOption[]>([]);
   const [pageId, setPageId] = useState<number | "">("");
   const [previews, setPreviews] = useState<SlotPreview[]>([]);
+  const [pageThumbs, setPageThumbs] = useState<Record<number, Array<string | null>>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -210,6 +269,57 @@ export default function PhotoPageImport({
       if (photoUrl) URL.revokeObjectURL(photoUrl);
     };
   }, [photoUrl]);
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraOn(false);
+  }
+
+  useEffect(() => () => stopCamera(), []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!cameraOn || !video || !stream) return;
+    video.srcObject = stream;
+    void video.play().catch(() => undefined);
+  }, [cameraOn]);
+
+  async function openCamera() {
+    setNotice(null);
+    stopCamera();
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setNotice(t("binders.photo.camera_denied"));
+      return;
+    }
+    try {
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+      streamRef.current = stream;
+      setCameraOn(true);
+    } catch {
+      setNotice(t("binders.photo.camera_denied"));
+    }
+  }
+
+  function captureFrame() {
+    const video = videoRef.current;
+    if (!video?.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      stopCamera();
+      useFile(new File([blob], "scan.jpg", { type: "image/jpeg" }));
+    }, "image/jpeg", 0.92);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -297,24 +407,14 @@ export default function PhotoPageImport({
     if (!photo?.naturalWidth) return;
     setSearching(true);
     setNotice(null);
-    setProgress("");
+    setProgress(t("binders.photo.searching"));
     try {
-      const pool = await fetchPool();
-      const ranked: Array<{ card: CardRow; fp: Float32Array }> = [];
-      for (let i = 0; i < pool.length; i += 6) {
-        setProgress(t("binders.photo.progress", { n: Math.min(i + 6, pool.length), total: pool.length }));
-        const part = await Promise.all(
-          pool.slice(i, i + 6).map(async (card) => {
-            try {
-              const fp = card.image_url ? await fingerprintUrl(card.image_url) : null;
-              return fp ? { card, fp } : null;
-            } catch {
-              return null;
-            }
-          }),
-        );
-        for (const row of part) if (row) ranked.push(row);
-      }
+      const [pool, index] = await Promise.all([fetchPool(), loadHashIndex()]);
+      const known = pool.flatMap((card) => {
+        const hash = hashFor(index, card.source_url) || hashFor(index, card.image_url);
+        return hash ? [{ card, hash }] : [];
+      });
+      const cutoff = known.length > 80 ? 20 : 26;
       const width = photo.naturalWidth;
       const height = photo.naturalHeight;
       const x0 = (inset.left / 100) * width;
@@ -333,16 +433,17 @@ export default function PhotoPageImport({
           crop.width = 90;
           crop.height = 135;
           crop.getContext("2d")?.drawImage(photo, sx, sy, cellW, cellH, 0, 0, 90, 135);
-          const padX = cellW * 0.06;
-          const padY = cellH * 0.06;
-          const fp = fingerprintRegion(photo, sx + padX, sy + padY, cellW - padX * 2, cellH - padY * 2);
+          const padX = cellW * 0.08;
+          const padY = cellH * 0.08;
+          const fp = dhashCanvas(photo, sx + padX, sy + padY, Math.max(2, cellW - padX * 2), Math.max(2, cellH - padY * 2));
           const scored = fp
-            ? ranked
-                .map((entry) => ({ card: entry.card, score: distance(fp, entry.fp) }))
+            ? known
+                .map((entry) => ({ card: entry.card, score: hamming(fp, entry.hash) }))
+                .filter((entry) => entry.score <= cutoff)
                 .sort((a, b) => a.score - b.score)
-                .slice(0, 6)
+                .slice(0, 4)
             : [];
-          const unsure = !scored.length || scored[0].score > UNCERTAIN;
+          const unsure = !scored.length || scored[0].score > 14;
           next.push({
             slot,
             cropUrl: crop.toDataURL("image/jpeg", 0.72),
@@ -356,6 +457,7 @@ export default function PhotoPageImport({
         }
       }
       setChoices(next);
+      if (next.every((choice) => choice.picks.length === 0)) setNotice(t("binders.photo.no_close"));
       setProgress("");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
@@ -431,7 +533,37 @@ export default function PhotoPageImport({
       layout_type: String(row.layout_type || "3x3"),
     }));
     setPages(list);
+    void loadThumbs(list);
     return list;
+  }
+
+  async function loadThumbs(list: PageOption[]) {
+    const visible = list.filter((page) => page.layout_type !== "separator");
+    const ids = visible.map((page) => page.id);
+    if (!ids.length) {
+      setPageThumbs({});
+      return;
+    }
+    const slotRes = await supabase
+      .from("page_slots")
+      .select("page_id, slot_index, item_id, is_custom, custom_image_url")
+      .in("page_id", ids);
+    if (slotRes.error) return;
+    const itemIds = (slotRes.data ?? []).map((row) => Number(row.item_id)).filter((id) => Number.isFinite(id) && id > 0);
+    const images = new Map<number, string>();
+    if (itemIds.length) {
+      const itemRes = await supabase.from("items").select("id, image_url").in("id", [...new Set(itemIds)]);
+      for (const row of itemRes.data ?? []) images.set(Number(row.id), resolveMockPcImageUrl(row.image_url));
+    }
+    const thumbs: Record<number, Array<string | null>> = {};
+    for (const page of visible) thumbs[page.id] = Array.from({ length: slotsFor(page.layout_type) }, () => null);
+    for (const row of slotRes.data ?? []) {
+      const slots = thumbs[Number(row.page_id)];
+      const index = Number(row.slot_index) - 1;
+      if (!slots || index < 0 || index >= slots.length) continue;
+      slots[index] = row.is_custom ? row.custom_image_url || null : images.get(Number(row.item_id)) || null;
+    }
+    setPageThumbs(thumbs);
   }
 
   async function quotaFor(targetBinderId: number, pageRows: PageOption[]) {
@@ -539,40 +671,114 @@ export default function PhotoPageImport({
     setStep("slot");
   }
 
+  async function clearOwnPlacements(itemIds: number[]) {
+    if (!itemIds.length) return;
+    const binderRes = await supabase.from("binders").select("id").eq("user_id", userId);
+    if (binderRes.error) throw new Error(binderRes.error.message);
+    const binderIds = (binderRes.data ?? []).map((row) => Number(row.id));
+    if (!binderIds.length) return;
+    const pageRes = await supabase.from("binder_pages").select("id").in("binder_id", binderIds);
+    if (pageRes.error) throw new Error(pageRes.error.message);
+    const ownedPageIds = (pageRes.data ?? []).map((row) => Number(row.id));
+    for (let i = 0; i < ownedPageIds.length; i += 100) {
+      const chunk = ownedPageIds.slice(i, i + 100);
+      const gone = await supabase.from("page_slots").delete().in("item_id", itemIds).in("page_id", chunk);
+      if (gone.error) throw new Error(gone.error.message);
+    }
+  }
+
   async function placeAtSlot(startSlot: number) {
-    if (binderId === "" || pageId === "" || !pieces.length) return;
+    if (binderId === "" || pageId === "" || !pieces.length) {
+      setNotice(t("binders.photo.save_empty"));
+      return;
+    }
     setBusy(true);
     setNotice(null);
     try {
       const content = pages.filter((page) => page.layout_type !== "separator").sort((a, b) => a.page_index - b.page_index);
-      const start = content.find((page) => page.id === pageId);
-      if (!start) return;
-      let affected = content.filter((page) => page.page_index >= start.page_index);
-      const counts = affected.map((page) => slotsFor(page.layout_type));
-      const total = counts.reduce((sum, n) => sum + n, 0);
-      const pageIds = affected.map((page) => page.id);
+      const startAt = content.findIndex((page) => page.id === pageId);
+      if (startAt < 0) {
+        setNotice(t("binders.photo.save_empty"));
+        return;
+      }
+      let affected = content.slice(startAt);
+      const movingIds = new Set(pieces.flatMap((piece) => (piece.kind === "item" ? [piece.itemId] : [])));
       const rowsRes = await supabase
         .from("page_slots")
         .select("page_id, slot_index, item_id, member_id, rot, flip_h, is_custom, custom_text, custom_image_url")
-        .in("page_id", pageIds);
+        .in(
+          "page_id",
+          affected.map((page) => page.id),
+        );
       if (rowsRes.error) throw new Error(rowsRes.error.message);
-      const occ = new Map<number, (typeof rowsRes.data)[number]>();
-      for (const row of rowsRes.data ?? []) {
-        let acc = 0;
-        for (let i = 0; i < affected.length; i += 1) {
-          if (affected[i].id === Number(row.page_id)) {
-            occ.set(acc + Number(row.slot_index), row);
-            break;
-          }
-          acc += counts[i];
+      const byKey = new Map((rowsRes.data ?? []).map((row) => [`${row.page_id}:${row.slot_index}`, row]));
+      const cells: Array<{ pageId: number; slot: number; had: boolean }> = [];
+      const line: Array<SlotOcc | null> = [];
+      for (const page of affected) {
+        const count = slotsFor(page.layout_type);
+        for (let slot = 1; slot <= count; slot += 1) {
+          const row = byKey.get(`${page.id}:${slot}`);
+          const itemId = row?.item_id == null ? null : Number(row.item_id);
+          const moving = itemId != null && movingIds.has(itemId);
+          cells.push({ pageId: page.id, slot, had: Boolean(row) && !moving });
+          line.push(
+            row && !moving
+              ? {
+                  item_id: row.is_custom ? null : itemId,
+                  member_id: row.member_id == null ? null : Number(row.member_id),
+                  rot: Number(row.rot ?? 0),
+                  flip_h: Boolean(row.flip_h),
+                  is_custom: Boolean(row.is_custom),
+                  custom_text: row.is_custom ? row.custom_text ?? "" : null,
+                  custom_image_url: row.is_custom ? row.custom_image_url ?? null : null,
+                }
+              : null,
+          );
         }
       }
-      const steps = pieces.length;
-      let blocked = 0;
-      for (let g = Math.max(1, total - steps + 1); g <= total; g += 1) if (occ.get(g)) blocked += 1;
-      const perPage = slotsFor(gridKey);
-      const pagesNeeded = blocked > 0 ? Math.ceil(blocked / perPage) : 0;
-      if (pagesNeeded > 0) {
+      const origin = cells.findIndex((cell) => cell.pageId === pageId);
+      const localStart = origin + startSlot - 1;
+      if (origin < 0 || localStart < 0 || localStart >= cells.length) {
+        setNotice(t("binders.photo.save_empty"));
+        return;
+      }
+      const incoming: SlotOcc[] = [];
+      for (let i = 0; i < pieces.length; i += 1) {
+        const piece = pieces[i];
+        if (piece.kind === "item") {
+          incoming.push({
+            item_id: piece.itemId,
+            member_id: piece.memberId,
+            rot: 0,
+            flip_h: false,
+            is_custom: false,
+            custom_text: null,
+            custom_image_url: null,
+          });
+          continue;
+        }
+        const path = `${userId}/binder_${binderId}/scan/${Date.now()}_${i}.jpg`;
+        const up = await supabase.storage.from("binder_custom").upload(path, piece.blob, {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+        if (up.error) throw new Error(up.error.message);
+        incoming.push({
+          item_id: null,
+          member_id: null,
+          rot: 0,
+          flip_h: false,
+          is_custom: true,
+          custom_text: "",
+          custom_image_url: supabase.storage.from("binder_custom").getPublicUrl(path).data.publicUrl,
+        });
+      }
+      const merged = [...line.slice(0, localStart), ...incoming, ...line.slice(localStart)];
+      while (merged.length && merged[merged.length - 1] == null) merged.pop();
+      const overflow = Math.max(0, merged.length - cells.length);
+      if (overflow > 0) {
+        const perPage = slotsFor(gridKey);
+        const pagesNeeded = Math.ceil(overflow / perPage);
         const quota = await quotaFor(binderId, pages);
         if (quota.used + pagesNeeded > quota.maxPages) {
           setNotice(t("binders.photo.need_pages"));
@@ -583,55 +789,46 @@ export default function PhotoPageImport({
           t("binders.picker.extra_pages_title"),
           t("binders.picker.extra_pages_msg", { n: pagesNeeded }),
         );
-        if (!ok) return;
+        if (!ok) {
+          setNotice(t("binders.photo.need_confirm"));
+          return;
+        }
         const created = await createPages(binderId, pagesNeeded, gridKey);
         affected = [...affected, ...created];
+        for (const page of created) {
+          const count = slotsFor(page.layout_type);
+          for (let slot = 1; slot <= count; slot += 1) cells.push({ pageId: page.id, slot, had: false });
+        }
         setPages((prev) => [...prev, ...created].sort((a, b) => a.page_index - b.page_index));
       }
-      const pageSlotCounts = affected.map((page) => slotsFor(page.layout_type));
-      const totalSlots = pageSlotCounts.reduce((sum, n) => sum + n, 0);
-      const localOf = (g: number) => {
-        let acc = 0;
-        for (let i = 0; i < affected.length; i += 1) {
-          if (g <= acc + pageSlotCounts[i]) return { page_id: affected[i].id, slot_index: g - acc };
-          acc += pageSlotCounts[i];
+      while (merged.length < cells.length) merged.push(null);
+      if (movingIds.size) await clearOwnPlacements([...movingIds]);
+      const writes = [];
+      const clears = new Map<number, number[]>();
+      for (let i = 0; i < cells.length; i += 1) {
+        const occ = merged[i];
+        const cell = cells[i];
+        if (!cell) continue;
+        if (occ) {
+          writes.push({ page_id: cell.pageId, slot_index: cell.slot, ...occ });
+          continue;
         }
-        const last = affected[affected.length - 1];
-        return { page_id: last.id, slot_index: slotsFor(last.layout_type) };
-      };
-      for (let g = totalSlots; g >= startSlot; g -= 1) {
-        const from = g - steps;
-        if (from < startSlot) continue;
-        const moving = occ.get(from);
-        if (moving) {
-          occ.set(g, moving);
-          occ.delete(from);
+        if (cell.had) {
+          const slots = clears.get(cell.pageId) ?? [];
+          slots.push(cell.slot);
+          clears.set(cell.pageId, slots);
         }
       }
-      const del = await supabase.from("page_slots").delete().in(
-        "page_id",
-        affected.map((page) => page.id),
-      );
-      if (del.error) throw new Error(del.error.message);
-      const moved = [...occ.entries()].map(([g, row]) => {
-        const loc = localOf(g);
-        return {
-          page_id: loc.page_id,
-          slot_index: loc.slot_index,
-          item_id: row.is_custom ? null : row.item_id,
-          member_id: row.member_id ?? null,
-          rot: Number(row.rot ?? 0),
-          flip_h: Boolean(row.flip_h),
-          is_custom: Boolean(row.is_custom),
-          custom_text: row.is_custom ? row.custom_text ?? "" : null,
-          custom_image_url: row.is_custom ? row.custom_image_url ?? null : null,
-        };
-      });
-      if (moved.length) {
-        const ins = await supabase.from("page_slots").insert(moved);
-        if (ins.error) throw new Error(ins.error.message);
+      if (!writes.length) {
+        setNotice(t("binders.photo.save_empty"));
+        return;
       }
-      await writePieces(affected, startSlot, pieces);
+      const saved = await supabase.from("page_slots").upsert(writes, { onConflict: "page_id,slot_index" });
+      if (saved.error) throw new Error(saved.error.message);
+      for (const [targetPageId, slots] of clears) {
+        const cleared = await supabase.from("page_slots").delete().eq("page_id", targetPageId).in("slot_index", slots);
+        if (cleared.error) throw new Error(cleared.error.message);
+      }
       setNotice(t("binders.photo.placed_done"));
       onPlaced?.();
       onClose();
@@ -644,30 +841,21 @@ export default function PhotoPageImport({
 
   async function writePieces(targetPages: PageOption[], startSlot: number, list: Piece[]) {
     const locs: Array<{ page_id: number; slot_index: number }> = [];
-    let cursor = startSlot;
     for (const page of targetPages) {
       const count = slotsFor(page.layout_type);
-      const from = page === targetPages[0] ? cursor : 1;
+      const from = page === targetPages[0] ? startSlot : 1;
       for (let slot = from; slot <= count && locs.length < list.length; slot += 1) {
         locs.push({ page_id: page.id, slot_index: slot });
       }
       if (locs.length >= list.length) break;
-      cursor = 1;
     }
-    const already = await supabase
-      .from("page_slots")
-      .select("item_id")
-      .in(
-        "item_id",
-        list.flatMap((piece) => (piece.kind === "item" ? [piece.itemId] : [])),
-      );
-    const taken = new Set((already.data ?? []).map((row) => Number(row.item_id)));
+    const itemIds = list.flatMap((piece) => (piece.kind === "item" ? [piece.itemId] : []));
+    if (itemIds.length) await clearOwnPlacements(itemIds);
     const rows = [];
     for (let i = 0; i < list.length && i < locs.length; i += 1) {
       const piece = list[i];
       const loc = locs[i];
       if (piece.kind === "item") {
-        if (taken.has(piece.itemId)) continue;
         rows.push({
           page_id: loc.page_id,
           slot_index: loc.slot_index,
@@ -681,13 +869,12 @@ export default function PhotoPageImport({
         });
         continue;
       }
-      const path = `${userId}/scan/${Date.now()}_${i}.jpg`;
+      const path = `${userId}/binder_${binderId}/scan/${Date.now()}_${i}.jpg`;
       const up = await supabase.storage.from("binder_custom").upload(path, piece.blob, {
         contentType: "image/jpeg",
         upsert: true,
       });
       if (up.error) throw new Error(up.error.message);
-      const publicUrl = supabase.storage.from("binder_custom").getPublicUrl(path).data.publicUrl;
       rows.push({
         page_id: loc.page_id,
         slot_index: loc.slot_index,
@@ -697,13 +884,12 @@ export default function PhotoPageImport({
         flip_h: false,
         is_custom: true,
         custom_text: "",
-        custom_image_url: publicUrl,
+        custom_image_url: supabase.storage.from("binder_custom").getPublicUrl(path).data.publicUrl,
       });
     }
-    if (!rows.length) return;
+    if (!rows.length) throw new Error(t("binders.photo.save_empty"));
     const ins = await supabase.from("page_slots").upsert(rows, { onConflict: "page_id,slot_index" });
     if (ins.error) throw new Error(ins.error.message);
-    if (taken.size) setNotice(t("binders.photo.already"));
   }
 
   const fieldStyle = {
@@ -755,16 +941,29 @@ export default function PhotoPageImport({
         {step === "scan" && (
           <>
             <p style={{ lineHeight: 1.45 }}>{t("binders.photo.accuracy")}</p>
+            <p style={{ lineHeight: 1.45 }}>{t("binders.photo.camera_ask")}</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" style={{ ...fieldStyle, width: "auto", fontWeight: 800 }} onClick={() => cameraRef.current?.click()}>
+              <button type="button" style={{ ...fieldStyle, width: "auto", fontWeight: 800 }} onClick={() => void openCamera()}>
                 {t("binders.photo.camera")}
               </button>
               <button type="button" style={{ ...fieldStyle, width: "auto", fontWeight: 800 }} onClick={() => fileRef.current?.click()}>
                 {t("binders.photo.file")}
               </button>
-              <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={(event) => useFile(event.target.files?.[0])} />
               <input ref={fileRef} hidden type="file" accept="image/*" onChange={(event) => useFile(event.target.files?.[0])} />
             </div>
+            {cameraOn && (
+              <div style={{ marginTop: 12 }}>
+                <video ref={videoRef} playsInline muted autoPlay style={{ width: "100%", maxWidth: 520, display: "block", borderRadius: 12, background: "#111" }} />
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button type="button" style={{ ...fieldStyle, width: "auto", fontWeight: 800 }} onClick={captureFrame}>
+                    {t("binders.photo.camera_capture")}
+                  </button>
+                  <button type="button" style={{ ...fieldStyle, width: "auto" }} onClick={stopCamera}>
+                    {t("binders.photo.camera_stop")}
+                  </button>
+                </div>
+              </div>
+            )}
             {photoUrl && (
               <>
                 <label style={{ display: "block", marginTop: 12 }}>
@@ -1004,25 +1203,49 @@ export default function PhotoPageImport({
               </button>
             </div>
             <p>{t("binders.photo.page")}</p>
-            <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))", gap: 12 }}>
               {pages
                 .filter((page) => page.layout_type !== "separator")
-                .map((page, index) => (
-                  <button key={page.id} type="button" style={{ ...fieldStyle, textAlign: "left" }} onClick={() => void showPage(page.id)}>
-                    {t("binders.photo.page_n", { n: index + 1 })} · {page.layout_type}
-                  </button>
-                ))}
+                .map((page, index) => {
+                  const cols = colsFor(page.layout_type);
+                  const thumbs = pageThumbs[page.id] ?? Array.from({ length: slotsFor(page.layout_type) }, () => null);
+                  return (
+                    <button
+                      key={page.id}
+                      type="button"
+                      onClick={() => void showPage(page.id)}
+                      style={{ ...fieldStyle, textAlign: "left", padding: 8 }}
+                    >
+                      <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 2 }}>
+                        {thumbs.map((src, thumbIndex) => (
+                          <div key={thumbIndex} style={{ aspectRatio: "2 / 3", background: "var(--bg-main)", overflow: "hidden", borderRadius: 3 }}>
+                            {src ? <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                          </div>
+                        ))}
+                      </div>
+                      <span style={{ display: "block", marginTop: 6, fontWeight: 800 }}>{t("binders.photo.page_n", { n: index + 1 })}</span>
+                    </button>
+                  );
+                })}
             </div>
           </>
         )}
 
         {step === "slot" && (
           <>
+            <button type="button" onClick={() => setStep("page")} style={{ ...fieldStyle, width: "auto", margin: "12px 0" }}>
+              {t("binders.photo.back_pages")}
+            </button>
+            <p style={{ fontWeight: 800 }}>
+              {t("binders.photo.page_n", {
+                n: Math.max(1, pages.filter((page) => page.layout_type !== "separator").findIndex((page) => page.id === pageId) + 1),
+              })}
+            </p>
             <p>{t("binders.photo.slot_help")}</p>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: `repeat(${GRIDS.find((item) => item.key === pages.find((page) => page.id === pageId)?.layout_type)?.cols ?? 3}, minmax(0, 1fr))`,
+                gridTemplateColumns: `repeat(${colsFor(pages.find((page) => page.id === pageId)?.layout_type || "3x3")}, minmax(0, 1fr))`,
                 gap: 8,
               }}
             >

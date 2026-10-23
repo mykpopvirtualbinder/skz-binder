@@ -342,7 +342,7 @@
       "scan": "Digitaliza o binder",
       "camera": "Abrir câmara",
       "file": "Enviar imagem",
-      "accuracy": "Podes procurar sem filtros. Quantos mais dados deres (grupo, álbum, versão), mais afinada e rápida é a procura.",
+      "accuracy": "Comparamos o desenho da tua foto com as cartas do catálogo. Quanto mais dados deres (grupo, álbum, versão), mais certa e rápida fica. Se uma carta não for parecida o suficiente, não a propomos: marca como personalizada ou procura à mão.",
       "grid": "Grelha da foto",
       "confirm_stock": "Confirmar e somar ao stock",
       "custom": "Personalizada",
@@ -360,7 +360,15 @@
       "placed_done": "Colocadas no binder.",
       "unsure": "Não reconhecida com segurança",
       "progress": "A comparar {n} de {total}",
-      "already": "Algumas já estavam num binder e não foram duplicadas."
+      "already": "Algumas já estavam num binder e não foram duplicadas.",
+      "camera_ask": "Ao abrir a câmara, o navegador pede permissão.",
+      "camera_capture": "Capturar",
+      "camera_stop": "Fechar câmara",
+      "camera_denied": "Não foi possível usar a câmara. Revê a permissão ou envia uma imagem.",
+      "no_close": "Nenhuma carta do catálogo é parecida o suficiente. Marca como personalizada ou procura à mão.",
+      "back_pages": "Voltar às páginas",
+      "save_empty": "Nada foi guardado nesse espaço. Escolhe-o outra vez.",
+      "need_confirm": "Sem páginas novas não cabem. Escolhe outro espaço ou uma página nova."
     },
     "picker": {
       "search_placeholder": "Procurar por nome ou id...",

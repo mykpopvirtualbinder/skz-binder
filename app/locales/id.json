@@ -492,7 +492,7 @@
       "scan": "Pindai bindermu",
       "camera": "Buka kamera",
       "file": "Unggah gambar",
-      "accuracy": "Kamu bisa mencari tanpa filter. Makin banyak data (grup, album, versi), makin akurat dan cepat pencariannya.",
+      "accuracy": "Kami membandingkan pola fotomu dengan kartu katalog. Semakin banyak data (grup, album, versi), semakin tepat dan cepat. Kartu yang tidak cukup mirip tidak ditawarkan: tandai sebagai kustom atau cari manual.",
       "grid": "Kisi foto",
       "confirm_stock": "Konfirmasi dan tambah ke stok",
       "custom": "Kustom",
@@ -510,7 +510,15 @@
       "placed_done": "Diletakkan di binder.",
       "unsure": "Tidak yakin mengenali ini",
       "progress": "Membandingkan {n} dari {total}",
-      "already": "Beberapa sudah ada di binder dan tidak diduplikasi."
+      "already": "Beberapa sudah ada di binder dan tidak diduplikasi.",
+      "camera_ask": "Saat membuka kamera, browser meminta izin.",
+      "camera_capture": "Ambil",
+      "camera_stop": "Tutup kamera",
+      "camera_denied": "Kamera tidak bisa dipakai. Periksa izinnya atau unggah gambar.",
+      "no_close": "Tidak ada kartu katalog yang cukup mirip. Tandai sebagai kustom atau cari manual.",
+      "back_pages": "Kembali ke halaman",
+      "save_empty": "Tidak ada yang tersimpan di slot itu. Pilih lagi.",
+      "need_confirm": "Tanpa halaman baru tidak muat. Pilih slot lain atau halaman baru."
     },
     "picker": {
       "search_placeholder": "Cari berdasarkan nama atau id...",

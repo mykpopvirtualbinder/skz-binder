@@ -492,7 +492,7 @@
       "scan": "Scanner ton binder",
       "camera": "Ouvrir l'appareil",
       "file": "Envoyer une image",
-      "accuracy": "Tu peux chercher sans filtre. Plus tu précises (groupe, album, version), plus la recherche est fine et rapide.",
+      "accuracy": "On compare le motif de ta photo aux cartes du catalogue. Plus tu précises (groupe, album, version), plus c’est juste et rapide. Une carte trop différente n’est pas proposée : marque-la comme perso ou cherche-la à la main.",
       "grid": "Grille de la photo",
       "confirm_stock": "Confirmer et ajouter au stock",
       "custom": "Personnalisée",
@@ -510,7 +510,15 @@
       "placed_done": "Placées dans le binder.",
       "unsure": "Pas reconnue avec certitude",
       "progress": "Comparaison {n} sur {total}",
-      "already": "Certaines étaient déjà dans un binder et n'ont pas été dupliquées."
+      "already": "Certaines étaient déjà dans un binder et n'ont pas été dupliquées.",
+      "camera_ask": "En ouvrant la caméra, le navigateur demande l’autorisation.",
+      "camera_capture": "Capturer",
+      "camera_stop": "Fermer la caméra",
+      "camera_denied": "La caméra n’a pas pu être utilisée. Vérifie l’autorisation ou envoie une image.",
+      "no_close": "Aucune carte du catalogue n’est assez proche. Marque-la comme perso ou cherche-la à la main.",
+      "back_pages": "Retour aux pages",
+      "save_empty": "Rien n’a été enregistré dans cet emplacement. Choisis-le à nouveau.",
+      "need_confirm": "Sans nouvelles pages, elles ne rentrent pas. Choisis un autre emplacement ou une nouvelle page."
     },
     "picker": {
       "search_placeholder": "Chercher par nom ou id...",

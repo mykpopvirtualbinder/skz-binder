@@ -555,7 +555,7 @@
       "scan": "Scan your binder",
       "camera": "Open camera",
       "file": "Upload image",
-      "accuracy": "You can search without filters. The more you add (group, album, version), the sharper and faster the search.",
+      "accuracy": "We compare the pattern of your photo with the catalog cards. The more you tell us (group, album, version), the sharper and faster it is. A card that is not close enough is not offered: mark it as custom or search by hand.",
       "grid": "Photo grid",
       "confirm_stock": "Confirm and add to stock",
       "custom": "Custom",
@@ -573,7 +573,15 @@
       "placed_done": "Placed in the binder.",
       "unsure": "Not confident about this one",
       "progress": "Comparing {n} of {total}",
-      "already": "Some were already in a binder, so they were not duplicated."
+      "already": "Some were already in a binder, so they were not duplicated.",
+      "camera_ask": "Opening the camera asks the browser for permission.",
+      "camera_capture": "Capture",
+      "camera_stop": "Close camera",
+      "camera_denied": "The camera could not be used. Check the permission or upload an image.",
+      "no_close": "No catalog card is close enough. Mark it as custom or search by hand.",
+      "back_pages": "Back to pages",
+      "save_empty": "Nothing was saved in that slot. Choose it again.",
+      "need_confirm": "They do not fit without new pages. Choose another slot or a new page."
     },
     "picker": {
       "search_placeholder": "Search by name or id...",

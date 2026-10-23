@@ -492,7 +492,7 @@
       "scan": "Binder scannen",
       "camera": "Kamera öffnen",
       "file": "Bild hochladen",
-      "accuracy": "Du kannst ohne Filter suchen. Je mehr du angibst (Gruppe, Album, Version), desto genauer und schneller ist die Suche.",
+      "accuracy": "Wir vergleichen das Muster deines Fotos mit den Karten im Katalog. Je mehr du angibst (Gruppe, Album, Version), desto genauer und schneller. Eine Karte, die nicht nah genug ist, wird nicht vorgeschlagen: markiere sie als eigene oder suche von Hand.",
       "grid": "Raster des Fotos",
       "confirm_stock": "Bestätigen und zum Bestand",
       "custom": "Eigen",
@@ -510,7 +510,15 @@
       "placed_done": "Im Binder platziert.",
       "unsure": "Nicht sicher erkannt",
       "progress": "Vergleiche {n} von {total}",
-      "already": "Einige waren schon in einem Binder und wurden nicht doppelt gelegt."
+      "already": "Einige waren schon in einem Binder und wurden nicht doppelt gelegt.",
+      "camera_ask": "Beim Öffnen der Kamera fragt der Browser nach der Erlaubnis.",
+      "camera_capture": "Aufnehmen",
+      "camera_stop": "Kamera schließen",
+      "camera_denied": "Die Kamera konnte nicht verwendet werden. Prüfe die Erlaubnis oder lade ein Bild hoch.",
+      "no_close": "Keine Katalogkarte ist nah genug. Markiere sie als eigene oder suche von Hand.",
+      "back_pages": "Zurück zu den Seiten",
+      "save_empty": "In diesem Fach wurde nichts gespeichert. Wähle es erneut.",
+      "need_confirm": "Ohne neue Seiten passen sie nicht. Wähle ein anderes Fach oder eine neue Seite."
     },
     "picker": {
       "search_placeholder": "Suche nach Name oder ID...",
