@@ -14641,14 +14641,14 @@ const isDraggingMe = pageDragFromId === p.id;
     )} 
   </div> 
 
-  {layout !== "separator" && pageId != null && pickerUserId && (
+  {pickerUserId && (
     <button
       type="button"
       onClick={() => setPhotoImportOpen(true)}
       style={{ ...topBtnStyle, fontWeight: 900 }}
-      title={t("binders.photo.open")}
+      title={t("binders.photo.scan")}
     >
-      {t("binders.photo.open")}
+      {t("binders.photo.scan")}
     </button>
   )}
 
@@ -15929,42 +15929,13 @@ Stock al cerrar/guardar */}
         }}
       />
 
-      {photoImportOpen && pickerUserId && pageId != null && layout !== "separator" && (
+      {photoImportOpen && pickerUserId && (
         <PhotoPageImport
           userId={pickerUserId}
-          cols={Math.max(1, defFor(layout).cols)}
-          rows={Math.max(1, defFor(layout).rows ?? 1)}
-          occupiedSlots={slotItems}
+          isAdmin={isAdmin}
+          initialGrid={layout === "separator" ? "3x3" : layout}
           onClose={() => setPhotoImportOpen(false)}
-          onPlace={async (pairs) => {
-            const used = new Set<number>();
-            let placed = 0;
-            let skipped = 0;
-            const ids = [...new Set(pairs.map((pair) => pair.itemId))];
-            const counts: Record<number, StatusCounts> = {};
-            if (pickerUserId && ids.length) {
-              const statusRes = await supabase
-                .from("user_item_statuses")
-                .select("item_id, status, qty")
-                .eq("user_id", pickerUserId)
-                .in("item_id", ids);
-              if (statusRes.error) throw new Error(statusRes.error.message);
-              for (const id of ids) counts[id] = emptyCounts();
-              for (const row of statusRes.data ?? []) applyStatusRow(counts, row);
-              setInvByItem((prev) => ({ ...prev, ...counts }));
-            }
-            for (const pair of pairs) {
-              if (slotItems[pair.slot] || used.has(pair.itemId)) {
-                skipped += 1;
-                continue;
-              }
-              used.add(pair.itemId);
-              const ok = await assignItemToSlot(pair.slot, pair.itemId, counts[pair.itemId]);
-              if (ok === false) skipped += 1;
-              else placed += 1;
-            }
-            return { placed, skipped };
-          }}
+          onPlaced={() => setRefreshTick((tick) => tick + 1)}
         />
       )}
 

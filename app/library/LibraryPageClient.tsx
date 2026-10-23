@@ -8,6 +8,8 @@ import { isMockPcBackPath, resolveMockPcBackUrl, resolveMockPcImageUrl } from "@
 import { memberIsIn, prettyMemberLabel as formatMemberLabel, queryLooksLikeIn } from "@/lib/member-labels";
 import { dedupeCatalogTwins } from "@/lib/catalog-twins";
 
+import { isAdminTeamEmail } from "@/lib/admin-emails";
+import PhotoPageImport from "../binder/PhotoPageImport";
 import { useGlobal } from "../context/GlobalContext";
 import { requireLoggedIn } from "@/lib/auth-gate";
 import {
@@ -2508,6 +2510,7 @@ function LibraryContent() {
       const uParam = null;
       const [email, setEmail] = useState<string | null>(null);
       const [userId, setUserId] = useState<string | null>(null);
+      const [scanOpen, setScanOpen] = useState(false);
       const [myBiasIds, setMyBiasIds] = useState<number[]>([]);
       // viewingUserId debe estar disponible en el render
       const viewingUserId = userId;
@@ -4211,6 +4214,25 @@ const commitStockForItem = useCallback(
             {userId && !isViewingOtherUser && (
               <button
                 type="button"
+                onClick={() => setScanOpen(true)}
+                style={{
+                  height: 42,
+                  padding: "0 14px",
+                  borderRadius: 999,
+                  border: "1px solid var(--color-border)",
+                  background: "var(--bg-card)",
+                  color: "var(--text-main)",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {t("binders.photo.scan")}
+              </button>
+            )}
+            {userId && !isViewingOtherUser && (
+              <button
+                type="button"
                 onClick={() => {
                   if (selectMode) {
                     setSelectMode(false);
@@ -4880,6 +4902,13 @@ return (
         }
       `}</style>
       </AdRailLayout>
+      {scanOpen && userId && (
+        <PhotoPageImport
+          userId={userId}
+          isAdmin={isAdminTeamEmail(profile?.email)}
+          onClose={() => setScanOpen(false)}
+        />
+      )}
       {catalog !== "inclusions" && <Footer />}
     </div>
   );
