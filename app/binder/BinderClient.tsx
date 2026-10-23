@@ -21,6 +21,7 @@ import type { CSSProperties } from "react";
 import { OnboardingForm } from "../me/ui/OnboardingForm";
 import { useGlobal } from "../context/GlobalContext"
 import VirtualBinder from "../components/VirtualBinder";
+import PhotoPageImport from "./PhotoPageImport";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
 import { BINDER_ACCENT_SWATCHES } from "@/lib/binder-color-swatches";
 import { marketRefUsdStorageKey } from "@/lib/market-reference-keys";
@@ -5005,6 +5006,7 @@ const [pickingSlot, setPickingSlot] = useState<number | null>(null);
 const [pageLimitNotice, setPageLimitNotice] = useState<{ free: number; selected: number } | null>(null);
 const layoutBoxRef = useRef<HTMLDivElement | null>(null);
 const [layoutOpen, setLayoutOpen] = useState(false);
+const [photoImportOpen, setPhotoImportOpen] = useState(false);
 
 useEffect(() => {
   const loadLayoutUnlocks = async () => {
@@ -7870,8 +7872,8 @@ if (!itemsRes.error) {
     }
   };
 
- const assignItemToSlot = async (slotIndex: number, itemId: number) => {
-  if (!pageId) return;
+ const assignItemToSlot = async (slotIndex: number, itemId: number, knownCounts?: StatusCounts) => {
+  if (!pageId) return false;
 // ✅ guardar estado ANTES del cambio
     await pushUndoSnapshot();
 
@@ -7928,10 +7930,10 @@ if (itemId === -1) {
   if (alreadyPlaced && !isSame) {
     setError(`Esta photocard (ID ${itemId}) ya está colocada en un binder. Solo puede aparecer 1 vez.`);
     setStatus("No se pudo colocar");
-    return;
+    return false;
   }
 
-  const counts = invByItem[itemId] ?? emptyCounts();
+  const counts = knownCounts ?? invByItem[itemId] ?? emptyCounts();
   const have = Number(counts.have ?? 0);
 const wtt  = Number(counts.wtt ?? 0);
 const wts  = Number(counts.wts ?? 0);
@@ -7945,7 +7947,7 @@ const wishFlag = wish > 0;
   if (!(stockTotal > 0 || wishFlag)) {
     setError(`No tienes stock y tampoco está marcada en Wish (ID ${itemId}).`);
     setStatus("No se pudo colocar");
-    return;
+    return false;
   }
 
   setError(null);
@@ -7982,7 +7984,7 @@ const up = await supabase
 if (up.error) {
  setError(up.error.message);
  setStatus("Error guardando slot");
- return;
+ return false;
 }
 
 setSlotRot((prev: Record<number, number>) => ({ ...prev, [slotIndex]: 0 }));
@@ -8034,7 +8036,7 @@ if (!itRes.error && itRes.data) {
   setSlotFace((prev: Record<number, "front" | "back">) => ({ ...prev, [slotIndex]: pageFace }));
   setStatus("Slot guardado ✅");
   setRefreshTick((t: number) => t + 1);
-    return;
+    return true;
 };
 
 const placeSelectedItems = async (rawIds: number[]) => {
@@ -14639,6 +14641,17 @@ const isDraggingMe = pageDragFromId === p.id;
     )} 
   </div> 
 
+  {layout !== "separator" && pageId != null && pickerUserId && (
+    <button
+      type="button"
+      onClick={() => setPhotoImportOpen(true)}
+      style={{ ...topBtnStyle, fontWeight: 900 }}
+      title={t("binders.photo.open")}
+    >
+      {t("binders.photo.open")}
+    </button>
+  )}
+
   {/* Selector de Formato */}
   <div ref={layoutBoxRef} style={{ position: "relative", display: "inline-block" }}> 
     <button 
@@ -15915,6 +15928,45 @@ Stock al cerrar/guardar */}
           setBinderInfoOpen(false);
         }}
       />
+
+      {photoImportOpen && pickerUserId && pageId != null && layout !== "separator" && (
+        <PhotoPageImport
+          userId={pickerUserId}
+          cols={Math.max(1, defFor(layout).cols)}
+          rows={Math.max(1, defFor(layout).rows ?? 1)}
+          occupiedSlots={slotItems}
+          onClose={() => setPhotoImportOpen(false)}
+          onPlace={async (pairs) => {
+            const used = new Set<number>();
+            let placed = 0;
+            let skipped = 0;
+            const ids = [...new Set(pairs.map((pair) => pair.itemId))];
+            const counts: Record<number, StatusCounts> = {};
+            if (pickerUserId && ids.length) {
+              const statusRes = await supabase
+                .from("user_item_statuses")
+                .select("item_id, status, qty")
+                .eq("user_id", pickerUserId)
+                .in("item_id", ids);
+              if (statusRes.error) throw new Error(statusRes.error.message);
+              for (const id of ids) counts[id] = emptyCounts();
+              for (const row of statusRes.data ?? []) applyStatusRow(counts, row);
+              setInvByItem((prev) => ({ ...prev, ...counts }));
+            }
+            for (const pair of pairs) {
+              if (slotItems[pair.slot] || used.has(pair.itemId)) {
+                skipped += 1;
+                continue;
+              }
+              used.add(pair.itemId);
+              const ok = await assignItemToSlot(pair.slot, pair.itemId, counts[pair.itemId]);
+              if (ok === false) skipped += 1;
+              else placed += 1;
+            }
+            return { placed, skipped };
+          }}
+        />
+      )}
 
       {/* 👑 EL PICKER (Al final de todo para Z-INDEX máximo y efecto Boomerang) */} 
      {pickingSlot != null && pickerUserId != null &&
