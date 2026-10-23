@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Archive, FolderPlus, Forward, Loader2, Mail, Paperclip, RefreshCw, Reply, Send, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Archive, Check, Forward, Mail, MailOpen, Paperclip, PenLine, Reply, ReplyAll, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
 import { bindAdminLang, tr } from "@/lib/admin-i18n";
@@ -16,18 +16,13 @@ type MailSummary = {
   files: number;
 };
 
+type MailFile = { id: string; filename: string; contentType: string; size: number };
+
 type MailMessage = MailSummary & {
   text: string;
   html: string;
   messageId: string;
   attachments: MailFile[];
-};
-
-type MailFile = {
-  id: string;
-  filename: string;
-  contentType: string;
-  size: number;
 };
 
 type MailFolder = {
@@ -39,12 +34,21 @@ type MailFolder = {
   selectable: boolean;
 };
 
-type MailFolderNode = MailFolder & { children: MailFolderNode[] };
-
 type ComposeDraft = { to: string; subject: string; text: string; inReplyTo: string; files: File[] };
 
 const MAX_ATTACHMENTS = 8;
 const MAX_ATTACHMENT_BYTES = 3_500_000;
+const OWN = "info@mykpopbinder.com";
+const SYSTEM = [
+  { id: "inbox", label: "Entrada", icon: "inbox" },
+  { id: "sent", label: "Enviados", icon: "sent" },
+  { id: "archive", label: "Archivo", icon: "archive" },
+  { id: "trash", label: "Papelera", icon: "trash" },
+] as const;
+
+const ink = "#1a1613";
+const ash = "#8a8178";
+const porcelain = "#f4f1ea";
 
 async function authHeaders(): Promise<HeadersInit> {
   const { data } = await supabase.auth.getSession();
@@ -57,11 +61,10 @@ function formatWhen(iso: string | null) {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString("es-ES", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-}
-
-function addressOnly(value: string) {
-  return value.match(/<([^>]+)>/)?.[1] || value;
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  if (date.getFullYear() === now.getFullYear()) return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  return date.toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "2-digit" });
 }
 
 function formatSize(bytes: number) {
@@ -70,7 +73,512 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function saveMailFile(file: MailFile) {
+function addresses(value: string) {
+  return Array.from(value.matchAll(/[^\s<>,;"]+@[^\s<>,;"]+/g)).map((match) => match[0]);
+}
+
+function displayName(value: string) {
+  const name = value.replace(/<[^>]*>/g, "").replace(/"/g, "").trim();
+  return name || value || tr("(sin remitente)");
+}
+
+function plainBody(message: MailMessage) {
+  if (message.text.trim()) return message.text;
+  return message.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function isSystem(path: string) {
+  return SYSTEM.some((folder) => folder.id === path);
+}
+
+function refreshBadges() {
+  window.dispatchEvent(new Event("admin-pending-refresh"));
+}
+
+function Tool({ label, onClick, disabled, active, tour, children }: { label: string; onClick?: () => void; disabled?: boolean; active?: boolean; tour?: string; children: ReactNode }) {
+  return (
+    <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick} data-tour={tour} style={toolStyle(Boolean(active), Boolean(disabled))}>
+      {children}
+    </button>
+  );
+}
+
+export default function AdminMailbox() {
+  const { uiLanguage } = useGlobal();
+  bindAdminLang(uiLanguage);
+  const [loading, setLoading] = useState(true);
+  const [configured, setConfigured] = useState(true);
+  const [box, setBox] = useState("inbox");
+  const [folders, setFolders] = useState<MailFolder[]>([]);
+  const [messages, setMessages] = useState<MailSummary[]>([]);
+  const [selected, setSelected] = useState<MailMessage | null>(null);
+  const [compose, setCompose] = useState<ComposeDraft | null>(null);
+  const [sending, setSending] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [selecting, setSelecting] = useState(false);
+  const [unseen, setUnseen] = useState(0);
+  const [error, setError] = useState("");
+  const [folderName, setFolderName] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const boxRef = useRef(box);
+
+  useEffect(() => {
+    boxRef.current = box;
+  }, [box]);
+
+  const loadList = useCallback(async (nextBox = box, quiet = false) => {
+    if (!quiet) setLoading(true);
+    setError("");
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/admin/mailbox?${new URLSearchParams({ box: nextBox })}`, { headers, cache: "no-store" });
+      const json = (await res.json().catch(() => ({}))) as {
+        configured?: boolean;
+        box?: string;
+        folders?: MailFolder[];
+        messages?: MailSummary[];
+        error?: string;
+      };
+      if (json.configured === false) {
+        setConfigured(false);
+        setMessages([]);
+        return;
+      }
+      setConfigured(true);
+      if (!res.ok) throw new Error(json.error || tr("No se ha podido abrir la carpeta."));
+      if (json.folders) setFolders(json.folders);
+      if (json.box) setBox(json.box);
+      setMessages(json.messages || []);
+      refreshBadges();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tr("No se ha podido abrir la carpeta."));
+    } finally {
+      if (!quiet) setLoading(false);
+    }
+  }, [box]);
+
+  useEffect(() => {
+    void loadList("inbox");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let dead = false;
+    const known = { ids: null as Set<string> | null };
+    async function poll() {
+      try {
+        const headers = await authHeaders();
+        const res = await fetch("/api/admin/mailbox?unseen=1", { headers, cache: "no-store" });
+        const json = (await res.json().catch(() => ({}))) as { unseen?: number; items?: Array<{ id: string }> };
+        if (dead || !res.ok) return;
+        setUnseen(json.unseen || 0);
+        refreshBadges();
+        const ids = new Set((json.items || []).map((item) => item.id));
+        const arrived = known.ids ? [...ids].some((id) => !known.ids?.has(id)) : false;
+        const here = boxRef.current;
+        if (known.ids && arrived && (here === "inbox" || here.toUpperCase() === "INBOX")) {
+          const headers2 = await authHeaders();
+          const list = await fetch(`/api/admin/mailbox?${new URLSearchParams({ box: "inbox" })}`, { headers: headers2, cache: "no-store" });
+          const body = (await list.json().catch(() => ({}))) as { messages?: MailSummary[] };
+          if (!dead && list.ok) setMessages(body.messages || []);
+        }
+        known.ids = ids;
+      } catch {
+        /* el siguiente pase lo reintenta */
+      }
+    }
+    void poll();
+    const timer = window.setInterval(() => void poll(), 20000);
+    return () => {
+      dead = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  function openFolder(path: string) {
+    setSelected(null);
+    setCompose(null);
+    setPicked([]);
+    setSelecting(false);
+    void loadList(path);
+  }
+
+  async function openMessage(uid: string) {
+    setError("");
+    setCompose(null);
+    const wasUnseen = messages.some((item) => item.uid === uid && !item.seen);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/admin/mailbox?${new URLSearchParams({ uid, box })}`, { headers, cache: "no-store" });
+      const json = (await res.json().catch(() => ({}))) as { message?: MailMessage; error?: string };
+      if (!res.ok || !json.message) throw new Error(json.error || tr("No se ha podido abrir el mensaje."));
+      setSelected(json.message);
+      setMessages((prev) => prev.map((item) => (item.uid === uid ? { ...item, seen: true } : item)));
+      if (wasUnseen && (box === "inbox" || box.toUpperCase() === "INBOX")) setUnseen((count) => Math.max(0, count - 1));
+      refreshBadges();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tr("No se ha podido abrir el mensaje."));
+    }
+  }
+
+  async function postAction(payload: Record<string, unknown>) {
+    const headers = await authHeaders();
+    const res = await fetch("/api/admin/mailbox", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, box }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) throw new Error(json.error || tr("No se ha podido completar la acción."));
+  }
+
+  async function actOn(ids: string[], action: "delete" | "archive" | "seen" | "move", extra?: { seen?: boolean; destination?: string }) {
+    if (!ids.length) return;
+    setError("");
+    try {
+      if (action === "seen") await postAction({ action: "seen", uids: ids, seen: extra?.seen });
+      else if (action === "delete") await postAction({ action: "delete-many", uids: ids });
+      else {
+        for (const uid of ids) {
+          await postAction({ action, uid, destination: extra?.destination || (action === "archive" ? "archive" : "") });
+        }
+      }
+      refreshBadges();
+      if (action === "seen") {
+        const seen = Boolean(extra?.seen);
+        if (box === "inbox") {
+          const delta = seen
+            ? -messages.filter((item) => ids.includes(item.uid) && !item.seen).length
+            : messages.filter((item) => ids.includes(item.uid) && item.seen).length;
+          setUnseen((count) => Math.max(0, count + delta));
+        }
+        setMessages((prev) => prev.map((item) => (ids.includes(item.uid) ? { ...item, seen } : item)));
+        setSelected((current) => (current && ids.includes(current.uid) ? { ...current, seen } : current));
+        return;
+      }
+      setPicked([]);
+      setSelected((current) => (current && ids.includes(current.uid) ? null : current));
+      await loadList(box, true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tr("No se ha podido completar la acción."));
+    }
+  }
+
+  function startCompose(kind: "new" | "reply" | "reply-all" | "forward") {
+    if (kind === "new" || !selected) {
+      setSelected(null);
+      setCompose({ to: "", subject: "", text: "", inReplyTo: "", files: [] });
+      return;
+    }
+    if (kind === "forward") {
+      const subject = /^(fwd|rv):/i.test(selected.subject) ? selected.subject : `Fwd: ${selected.subject}`;
+      const quoted = ["", "", tr("---------- Mensaje reenviado ----------"), `De: ${selected.from}`, `Fecha: ${formatWhen(selected.date)}`, `Asunto: ${selected.subject}`, "", plainBody(selected)].join("\n");
+      setCompose({ to: "", subject, text: quoted, inReplyTo: "", files: [] });
+      return;
+    }
+    const replyTo = box === "sent" ? addresses(selected.to)[0] || selected.to : addresses(selected.from)[0] || selected.from;
+    const everyone = [...new Set([...addresses(selected.from), ...addresses(selected.to)].map((item) => item.toLowerCase()))].filter((item) => item !== OWN);
+    const subject = /^re:/i.test(selected.subject) ? selected.subject : `Re: ${selected.subject}`;
+    setCompose({
+      to: kind === "reply-all" && everyone.length ? everyone.join(", ") : replyTo,
+      subject,
+      text: "",
+      inReplyTo: selected.messageId,
+      files: [],
+    });
+  }
+
+  async function submitCompose() {
+    if (!compose || sending) return;
+    const total = compose.files.reduce((sum, file) => sum + file.size, 0);
+    if (compose.files.length > MAX_ATTACHMENTS) {
+      setError(tr("Puedes adjuntar hasta 8 archivos."));
+      return;
+    }
+    if (total > MAX_ATTACHMENT_BYTES) {
+      setError(tr("Los adjuntos pesan demasiado. El máximo es 3 MB."));
+      return;
+    }
+    setSending(true);
+    setError("");
+    try {
+      const headers = await authHeaders();
+      const form = new FormData();
+      form.set("action", "send");
+      form.set("to", compose.to);
+      form.set("subject", compose.subject);
+      form.set("text", compose.text);
+      form.set("inReplyTo", compose.inReplyTo);
+      compose.files.forEach((file) => form.append("file", file, file.name));
+      const res = await fetch("/api/admin/mailbox", { method: "POST", headers, body: form });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error || tr("No se ha podido enviar."));
+      setCompose(null);
+      setSelected(null);
+      openFolder("sent");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tr("No se ha podido enviar."));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function createFolder(atRoot: boolean) {
+    const name = folderName.trim();
+    if (!name) return;
+    setCreatingFolder(true);
+    setError("");
+    try {
+      await postAction({ action: "create-folder", parent: atRoot ? "" : box, name });
+      setFolderName("");
+      await loadList(box, true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tr("No se ha podido crear la carpeta."));
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
+
+  async function removeFolder(path: string) {
+    setError("");
+    try {
+      await postAction({ action: "delete-folder", path });
+      openFolder("inbox");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tr("No se ha podido eliminar la carpeta."));
+    }
+  }
+
+  if (!configured) {
+    return (
+      <div style={{ padding: 8 }}>
+        <h2 style={{ marginTop: 0 }}>{tr("Correo")}</h2>
+        <p style={{ color: ash, maxWidth: 560, lineHeight: 1.5 }}>{tr("La bandeja de {account} está lista, pero el servidor todavía no tiene la contraseña del buzón. Añade ARSYS_MAIL_PASSWORD en Vercel, en los ajustes del proyecto, y vuelve a desplegar.", { account: OWN })}</p>
+      </div>
+    );
+  }
+
+  const custom = folders.filter((folder) => folder.selectable && !isSystem(folder.path) && folder.path.toUpperCase() !== "INBOX");
+  const reading = Boolean(selected || compose);
+  const markAsRead = messages.some((item) => picked.includes(item.uid) && !item.seen);
+  const allPicked = messages.length > 0 && messages.every((item) => picked.includes(item.uid));
+  const sentView = box === "sent";
+
+  return (
+    <div className={reading ? "mkb-mail mkb-reading" : "mkb-mail"}>
+      <aside className="mkb-folders" data-tour="mail-folders">
+        <div style={{ display: "flex", gap: 4, padding: "12px 12px 4px" }}>
+          <Tool label={tr("Mensaje nuevo")} tour="mail-new" onClick={() => startCompose("new")}><PenLine size={18} strokeWidth={1.6} /></Tool>
+        </div>
+        <div style={{ display: "grid", padding: "4px 8px 16px" }}>
+          <p style={kicker}>STAFF My K-Pop Binder</p>
+          {SYSTEM.map((folder) => {
+            const active = box === folder.id && !compose;
+            const count = folder.id === "inbox" ? unseen : 0;
+            return (
+              <button key={folder.id} type="button" onClick={() => openFolder(folder.id)} style={folderBtn(active)}>
+                <FolderIcon name={folder.icon} />
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: count ? 650 : 500 }}>{tr(folder.label)}</span>
+                {count ? <span style={{ fontWeight: 750 }}>{count}</span> : null}
+              </button>
+            );
+          })}
+          {custom.map((folder) => (
+            <button key={folder.path} type="button" onClick={() => openFolder(folder.path)} style={folderBtn(box === folder.path)}>
+              <FolderIcon name="folder" />
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{folder.name}</span>
+            </button>
+          ))}
+          <div style={{ display: "grid", gap: 6, padding: "14px 8px 0" }}>
+            <input value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder={tr("Nombre de la carpeta")} aria-label={tr("Nombre de la carpeta")} style={fieldStyle} />
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createFolder(true)} style={tinyBtn}>{tr("Carpeta en la raíz")}</button>
+              <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createFolder(false)} style={tinyBtn}>{tr("Subcarpeta")}</button>
+              {!isSystem(box) ? <button type="button" onClick={() => void removeFolder(box)} style={tinyBtn}>{tr("Eliminar carpeta")}</button> : null}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <section className="mkb-main">
+        <div className="mkb-list" data-tour="mail-list">
+          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px", borderBottom: "1px solid rgba(26,22,19,.1)" }}>
+            <Tool label={selecting ? tr("Quitar selección") : tr("Seleccionar")} tour="mail-select" active={selecting} onClick={() => { setSelecting((value) => !value); setPicked([]); }}>
+              <Check size={18} strokeWidth={1.6} />
+            </Tool>
+            {selecting ? <input type="checkbox" checked={allPicked} aria-label={tr("Seleccionar todo")} onChange={() => setPicked(allPicked ? [] : messages.map((item) => item.uid))} style={{ width: 16, height: 16 }} /> : null}
+            <Tool label={box === "archive" ? tr("Mover a entrada") : tr("Archivar")} disabled={!picked.length} onClick={() => void actOn(picked, "move", { destination: box === "archive" ? "inbox" : "archive" })}>
+              {box === "archive" ? <Mail size={18} strokeWidth={1.6} /> : <Archive size={18} strokeWidth={1.6} />}
+            </Tool>
+            <Tool label={box === "trash" ? tr("Borrar") : tr("Papelera")} disabled={!picked.length} onClick={() => void actOn(picked, "delete")}>
+              <Trash2 size={18} strokeWidth={1.6} />
+            </Tool>
+            <Tool label={markAsRead ? tr("Marcar como leído") : tr("Marcar como no leído")} disabled={!picked.length} onClick={() => void actOn(picked, "seen", { seen: markAsRead })}>
+              {markAsRead ? <MailOpen size={18} strokeWidth={1.6} /> : <Mail size={18} strokeWidth={1.6} />}
+            </Tool>
+          </div>
+          {error ? <p style={{ margin: 0, padding: "8px 16px", color: ash, fontSize: 14 }}>{error}</p> : null}
+          <div style={{ overflow: "auto", minHeight: 0, flex: 1 }}>
+            {loading && !messages.length ? <p style={emptyStyle}>{tr("Abriendo…")}</p> : null}
+            {!loading && !messages.length ? <p style={emptyStyle}>{tr("Esta carpeta está vacía.")}</p> : null}
+            {messages.map((item, index) => (
+              <div key={item.uid} style={{ display: "flex", gap: 8, padding: "10px 12px", borderBottom: "1px solid rgba(26,22,19,.06)", background: selected?.uid === item.uid ? "rgba(26,22,19,.04)" : "transparent" }}>
+                {selecting ? (
+                  <input type="checkbox" checked={picked.includes(item.uid)} aria-label={tr("Seleccionar")} onChange={() => setPicked((prev) => prev.includes(item.uid) ? prev.filter((id) => id !== item.uid) : [...prev, item.uid])} style={{ marginTop: 4, width: 16, height: 16 }} />
+                ) : (
+                  <span style={{ width: 8, height: 8, marginTop: 8, borderRadius: 99, background: item.seen ? "transparent" : ink, flex: "0 0 auto" }} />
+                )}
+                <button type="button" data-tour={index === 0 ? "mail-row" : undefined} onClick={() => void openMessage(item.uid)} style={rowBtn}>
+                  <span style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: item.seen ? 500 : 700 }}>{sentView ? displayName(item.to) : displayName(item.from)}</span>
+                    <span style={{ color: ash, fontSize: 11, flex: "0 0 auto" }}>{formatWhen(item.date)}</span>
+                  </span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: item.seen ? ash : ink, fontSize: 14 }}>{item.subject || tr("(sin asunto)")}{item.files > 0 ? " · ✎" : ""}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mkb-read" data-tour="mail-modal" style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+          {compose ? (
+            <ComposePane compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onClose={() => setCompose(null)} />
+          ) : selected ? (
+            <article style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }}>
+              <div style={{ display: "flex", gap: 4, padding: 8, borderBottom: "1px solid rgba(26,22,19,.1)", flexWrap: "wrap" }}>
+                <span className="mkb-back"><Tool label={tr("Volver")} onClick={() => setSelected(null)}><X size={18} strokeWidth={1.6} /></Tool></span>
+                <Tool label={tr("Responder")} tour="mail-reply" onClick={() => startCompose("reply")}><Reply size={18} strokeWidth={1.6} /></Tool>
+                <Tool label={tr("Responder a todos")} onClick={() => startCompose("reply-all")}><ReplyAll size={18} strokeWidth={1.6} /></Tool>
+                <Tool label={tr("Reenviar")} onClick={() => startCompose("forward")}><Forward size={18} strokeWidth={1.6} /></Tool>
+                <Tool label={box === "archive" ? tr("Mover a entrada") : tr("Archivar")} onClick={() => void actOn([selected.uid], "move", { destination: box === "archive" ? "inbox" : "archive" })}>
+                  {box === "archive" ? <Mail size={18} strokeWidth={1.6} /> : <Archive size={18} strokeWidth={1.6} />}
+                </Tool>
+                <Tool label={box === "trash" ? tr("Borrar") : tr("Papelera")} onClick={() => void actOn([selected.uid], "delete")}><Trash2 size={18} strokeWidth={1.6} /></Tool>
+                <Tool label={selected.seen ? tr("Marcar como no leído") : tr("Marcar como leído")} onClick={() => void actOn([selected.uid], "seen", { seen: !selected.seen })}>
+                  {selected.seen ? <Mail size={18} strokeWidth={1.6} /> : <MailOpen size={18} strokeWidth={1.6} />}
+                </Tool>
+              </div>
+              <div style={{ overflow: "auto", padding: "20px 28px", minHeight: 0, flex: 1 }}>
+                <p style={{ ...kicker, color: ink }}>{tr("STAFF My K-Pop Binder")}</p>
+                <h2 style={{ margin: "8px 0 0", fontFamily: "Georgia, serif", fontWeight: 500, fontSize: 30, lineHeight: 1.15 }}>{selected.subject || tr("(sin asunto)")}</h2>
+                <p style={{ margin: "16px 0 0", fontWeight: 650 }}>{displayName(sentView ? selected.to : selected.from)}</p>
+                <p style={{ margin: 0, color: ash, fontSize: 14 }}>{sentView ? selected.to : selected.from}</p>
+                <p style={{ margin: "4px 0 0", color: ash, fontSize: 12 }}>{tr("Para")} {selected.to} · {formatWhen(selected.date)}</p>
+                {selected.html ? (
+                  <div className="mail-html" style={{ marginTop: 24, fontSize: 14, lineHeight: 1.55 }} dangerouslySetInnerHTML={{ __html: selected.html }} />
+                ) : (
+                  <pre style={{ marginTop: 24, whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 14, lineHeight: 1.55 }}>{selected.text || tr("(sin texto)")}</pre>
+                )}
+                {selected.attachments?.length ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(26,22,19,.1)" }}>
+                    {selected.attachments.map((file) => <MailAttachment key={file.id} file={file} onError={setError} />)}
+                  </div>
+                ) : null}
+              </div>
+            </article>
+          ) : (
+            <div style={{ display: "flex", flex: 1, alignItems: "center", justifyContent: "center", color: ash, fontSize: 14 }}>{OWN}</div>
+          )}
+        </div>
+      </section>
+      <style>{`
+        .mkb-mail { display: grid; grid-template-columns: 16rem minmax(0, 1fr); height: min(78vh, 860px); min-height: 520px; background: ${porcelain}; color: ${ink}; border: 1px solid rgba(26,22,19,.1); overflow: hidden; }
+        .mkb-folders, .mkb-list, .mkb-read { min-height: 0; min-width: 0; }
+        .mkb-folders { overflow: auto; border-right: 1px solid rgba(26,22,19,.1); }
+        .mkb-main { display: grid; grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); min-width: 0; min-height: 0; }
+        .mkb-list { display: flex; flex-direction: column; border-right: 1px solid rgba(26,22,19,.1); min-height: 0; }
+        .mkb-back { display: none; }
+        .mail-html img, .mail-html table { max-width: 100%; }
+        @media (max-width: 860px) {
+          .mkb-mail { grid-template-columns: 1fr; height: auto; min-height: 70vh; }
+          .mkb-main { grid-template-columns: 1fr; }
+          .mkb-mail.mkb-reading .mkb-folders, .mkb-mail.mkb-reading .mkb-list { display: none; }
+          .mkb-mail:not(.mkb-reading) .mkb-read { display: none; }
+          .mkb-back { display: inline-flex; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function FolderIcon({ name }: { name: string }) {
+  const common = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: ash, strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+  if (name === "inbox") return <svg {...common}><path d="M3 12h5l2 3h4l2-3h5" /><path d="M5 6h14l2 6v7H3v-7Z" /></svg>;
+  if (name === "sent") return <svg {...common}><path d="m4 12 16-8-6 16-2.5-6.5Z" /></svg>;
+  if (name === "archive") return <svg {...common}><path d="M3 6h18v4H3z" /><path d="M5 10v8h14v-8" /><path d="M10 14h4" /></svg>;
+  if (name === "trash") return <svg {...common}><path d="M4 7h16" /><path d="M9 7V5h6v2" /><path d="M7 7l1 13h8l1-13" /></svg>;
+  return <svg {...common}><path d="M3 7h6l2 2h10v10H3z" /></svg>;
+}
+
+function ComposePane({ compose, setCompose, sending, onSend, onClose }: { compose: ComposeDraft; setCompose: (next: ComposeDraft) => void; sending: boolean; onSend: () => void; onClose: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <form style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }} onSubmit={(event) => { event.preventDefault(); onSend(); }}>
+      <div style={{ display: "flex", gap: 4, alignItems: "center", padding: 8, borderBottom: "1px solid rgba(26,22,19,.1)" }}>
+        <Tool label={tr("Cerrar")} onClick={onClose}><X size={18} strokeWidth={1.6} /></Tool>
+        <Tool label={tr("Adjuntar")} onClick={() => fileRef.current?.click()}><Paperclip size={18} strokeWidth={1.6} /></Tool>
+        <button type="submit" aria-label={tr("Enviar")} title={tr("Enviar")} disabled={sending} style={{ ...toolStyle(false, sending), marginLeft: "auto" }}><Send size={18} strokeWidth={1.6} /></button>
+      </div>
+      <div style={{ overflow: "auto", padding: "16px 24px", flex: 1 }}>
+        <p style={{ margin: 0, fontWeight: 650 }}>STAFF My K-Pop Binder</p>
+        <p style={{ margin: "2px 0 0", color: ash, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase" }}>{OWN}</p>
+        <label style={labelStyle}>{tr("Para")}<input required value={compose.to} onChange={(event) => setCompose({ ...compose, to: event.target.value })} style={fieldStyle} /></label>
+        <label style={labelStyle}>{tr("Asunto")}<input value={compose.subject} onChange={(event) => setCompose({ ...compose, subject: event.target.value })} style={fieldStyle} /></label>
+        <textarea aria-label={tr("Mensaje")} value={compose.text} onChange={(event) => setCompose({ ...compose, text: event.target.value })} style={{ ...fieldStyle, minHeight: 180, resize: "vertical" }} />
+        <input ref={fileRef} hidden type="file" multiple onChange={(event) => {
+          const next = [...compose.files, ...Array.from(event.target.files || [])].slice(0, MAX_ATTACHMENTS);
+          setCompose({ ...compose, files: next });
+          event.target.value = "";
+        }} />
+        {compose.files.length ? (
+          <ul style={{ display: "grid", gap: 4, margin: "12px 0 0", padding: 0, listStyle: "none" }}>
+            {compose.files.map((file, index) => (
+              <li key={`${file.name}-${index}`} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+                <button type="button" aria-label={tr("Quitar {name}", { name: file.name })} onClick={() => setCompose({ ...compose, files: compose.files.filter((_, item) => item !== index) })} style={{ border: "none", background: "transparent", color: ash, cursor: "pointer" }}><X size={14} /></button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p style={{ color: ash, fontSize: 11 }}>{tr("Sale como STAFF My K-Pop Binder. Hasta 8 archivos y 3 MB.")}</p>
+      </div>
+    </form>
+  );
+}
+
+function MailAttachment({ file, onError }: { file: MailFile; onError: (message: string) => void }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const image = file.contentType.startsWith("image/");
+  useEffect(() => {
+    if (!image) return;
+    let dead = false;
+    let url = "";
+    void (async () => {
+      try {
+        const headers = await authHeaders();
+        const res = await fetch(`/api/admin/mailbox?file=${encodeURIComponent(file.id)}`, { headers, cache: "no-store" });
+        if (!res.ok || dead) return;
+        url = URL.createObjectURL(await res.blob());
+        if (!dead) setSrc(url);
+      } catch {
+        /* la descarga sigue disponible */
+      }
+    })();
+    return () => {
+      dead = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [file.id, image]);
+  return (
+    <button type="button" onClick={() => void downloadFile(file).catch((err) => onError(err instanceof Error ? err.message : tr("No se ha podido descargar el archivo.")))} style={{ width: 144, border: "1px solid rgba(26,22,19,.1)", background: "transparent", color: ink, textAlign: "left", padding: 10, cursor: "pointer" }}>
+      {src ? <img src={src} alt="" style={{ width: "100%", height: 80, objectFit: "cover", marginBottom: 8 }} /> : null}
+      <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 14 }}>{file.filename}</span>
+      <span style={{ display: "block", marginTop: 4, color: ash, fontSize: 11 }}>{formatSize(file.size)}</span>
+    </button>
+  );
+}
+
+async function downloadFile(file: MailFile) {
   const headers = await authHeaders();
   const res = await fetch(`/api/admin/mailbox?file=${encodeURIComponent(file.id)}`, { headers, cache: "no-store" });
   if (!res.ok) {
@@ -87,864 +595,42 @@ async function saveMailFile(file: MailFile) {
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-function MailAttachment({ file, onSave }: { file: MailFile; onSave: (file: MailFile) => void }) {
-  const [src, setSrc] = useState<string | null>(null);
-  const image = file.contentType.startsWith("image/");
-  useEffect(() => {
-    if (!image) return;
-    let dead = false;
-    let url = "";
-    void (async () => {
-      try {
-        const headers = await authHeaders();
-        const res = await fetch(`/api/admin/mailbox?file=${encodeURIComponent(file.id)}`, { headers, cache: "no-store" });
-        if (!res.ok || dead) return;
-        url = URL.createObjectURL(await res.blob());
-        if (!dead) setSrc(url);
-      } catch {
-        /* el botón de descarga sigue disponible */
-      }
-    })();
-    return () => {
-      dead = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [file.id, image]);
-  return (
-    <div style={{ display: "grid", gap: 6, justifyItems: "start", maxWidth: 240 }}>
-      {src ? <img src={src} alt="" style={{ width: 72, height: 96, objectFit: "cover", borderRadius: 8, border: "1px solid var(--color-border)" }} /> : null}
-      <button type="button" onClick={() => onSave(file)} style={{ ...btnStyle, maxWidth: "100%" }} title={tr("Descargar {name}", { name: file.filename })}>
-        <Paperclip size={14} />
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{file.filename}</span>
-        <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>{formatSize(file.size)}</span>
-      </button>
-    </div>
-  );
-}
-
-function plainBody(message: MailMessage) {
-  if (message.text.trim()) return message.text;
-  return message.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-const FOLDER_ES: Record<string, { es: string; rank: number }> = {
-  inbox: { es: "Bandeja de entrada", rank: 0 },
-  bandejadeentrada: { es: "Bandeja de entrada", rank: 0 },
-  sent: { es: "Enviados", rank: 1 },
-  sentitems: { es: "Enviados", rank: 1 },
-  sentmessages: { es: "Enviados", rank: 1 },
-  sentmail: { es: "Enviados", rank: 1 },
-  outbox: { es: "Enviados", rank: 1 },
-  enviados: { es: "Enviados", rank: 1 },
-  drafts: { es: "Borradores", rank: 2 },
-  draft: { es: "Borradores", rank: 2 },
-  borradores: { es: "Borradores", rank: 2 },
-  archive: { es: "Archivo", rank: 3 },
-  archives: { es: "Archivo", rank: 3 },
-  archivo: { es: "Archivo", rank: 3 },
-  junk: { es: "No deseado", rank: 4 },
-  spam: { es: "No deseado", rank: 4 },
-  junkemail: { es: "No deseado", rank: 4 },
-  bulkmail: { es: "No deseado", rank: 4 },
-  nodeseado: { es: "No deseado", rank: 4 },
-  correonodeseado: { es: "No deseado", rank: 4 },
-  trash: { es: "Eliminados", rank: 5 },
-  deleted: { es: "Eliminados", rank: 5 },
-  deleteditems: { es: "Eliminados", rank: 5 },
-  deletedmessages: { es: "Eliminados", rank: 5 },
-  bin: { es: "Eliminados", rank: 5 },
-  papelera: { es: "Eliminados", rank: 5 },
-  eliminados: { es: "Eliminados", rank: 5 },
-  notes: { es: "Notas", rank: 6 },
-  notas: { es: "Notas", rank: 6 },
-  templates: { es: "Plantillas", rank: 6 },
-  plantillas: { es: "Plantillas", rank: 6 },
-  important: { es: "Importantes", rank: 6 },
-  importantes: { es: "Importantes", rank: 6 },
-  flagged: { es: "Destacados", rank: 6 },
-  starred: { es: "Destacados", rank: 6 },
-  destacados: { es: "Destacados", rank: 6 },
-};
-
-function folderKey(folder: MailFolder) {
-  const leaf = folder.name || folder.path.split(/[./\\]/).pop() || folder.path;
-  return leaf.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-}
-
-function knownFolder(folder: MailFolder) {
-  if (folder.path.toUpperCase() === "INBOX" || folder.specialUse === "\\Inbox") return FOLDER_ES.inbox;
-  if (folder.specialUse === "\\Sent") return FOLDER_ES.sent;
-  if (folder.specialUse === "\\Drafts") return FOLDER_ES.drafts;
-  if (folder.specialUse === "\\Archive") return FOLDER_ES.archive;
-  if (folder.specialUse === "\\Junk") return FOLDER_ES.junk;
-  if (folder.specialUse === "\\Trash") return FOLDER_ES.trash;
-  return FOLDER_ES[folderKey(folder)] || null;
-}
-
-function folderEsName(folder: MailFolder) {
-  return knownFolder(folder)?.es || folder.name || folder.path;
-}
-
-function folderLabel(folder: MailFolder) {
-  return tr(folderEsName(folder));
-}
-
-function folderRank(folder: MailFolder) {
-  return knownFolder(folder)?.rank ?? 10;
-}
-
-function buildTree(folders: MailFolder[]): MailFolderNode[] {
-  const nodes = new Map<string, MailFolderNode>();
-  for (const folder of folders) nodes.set(folder.path, { ...folder, children: [] });
-  const roots: MailFolderNode[] = [];
-  for (const node of nodes.values()) {
-    const parent = node.parentPath ? nodes.get(node.parentPath) : undefined;
-    if (parent) parent.children.push(node);
-    else roots.push(node);
-  }
-  const sortNodes = (list: MailFolderNode[]) => {
-    list.sort((a, b) => folderRank(a) - folderRank(b) || folderLabel(a).localeCompare(folderLabel(b), "es"));
-    list.forEach((node) => sortNodes(node.children));
-  };
-  sortNodes(roots);
-  return roots;
-}
-
-function protectedFolder(folder: MailFolder | undefined) {
-  if (!folder) return true;
-  return Boolean(knownFolder(folder)) || Boolean(folder.specialUse) || folder.path.toUpperCase() === "INBOX";
-}
-
-function refreshBadges() {
-  window.dispatchEvent(new Event("admin-pending-refresh"));
-}
-
-export default function AdminMailbox() {
-  const { showAlert, showConfirm, uiLanguage } = useGlobal();
-  bindAdminLang(uiLanguage);
-  const [loading, setLoading] = useState(true);
-  const [configured, setConfigured] = useState(true);
-  const [account, setAccount] = useState("info@mykpopbinder.com");
-  const [box, setBox] = useState("INBOX");
-  const [folders, setFolders] = useState<MailFolder[]>([]);
-  const [messages, setMessages] = useState<MailSummary[]>([]);
-  const [selected, setSelected] = useState<MailMessage | null>(null);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [reading, setReading] = useState(false);
-  const [compose, setCompose] = useState<ComposeDraft | null>(null);
-  const [sending, setSending] = useState(false);
-  const [folderName, setFolderName] = useState("");
-  const [creatingFolder, setCreatingFolder] = useState(false);
-  const [moveTo, setMoveTo] = useState("");
-  const [picked, setPicked] = useState<string[]>([]);
-
-  const tree = useMemo(() => buildTree(folders), [folders]);
-  const current = folders.find((folder) => folder.path === box);
-  const unseen = box === "inbox" || box.toUpperCase() === "INBOX" ? messages.filter((item) => !item.seen).length : 0;
-
-  const loadList = useCallback(async (nextBox = box, fresh = false) => {
-    setLoading(true);
-    if (nextBox !== box) {
-      setMessages([]);
-      setPicked([]);
-    }
-    try {
-      const headers = await authHeaders();
-      const params = new URLSearchParams({ box: nextBox });
-      if (fresh) params.set("fresh", "1");
-      const res = await fetch(`/api/admin/mailbox?${params}`, { headers });
-      const json = (await res.json().catch(() => ({}))) as {
-        configured?: boolean;
-        account?: string;
-        box?: string;
-        folders?: MailFolder[];
-        messages?: MailSummary[];
-        error?: string;
-      };
-      if (json.account) setAccount(json.account);
-      if (json.configured === false) {
-        setConfigured(false);
-        setMessages([]);
-        return;
-      }
-      setConfigured(true);
-      if (!res.ok) throw new Error(json.error || tr("No se ha podido abrir la carpeta."));
-      if (json.folders) setFolders(json.folders);
-      if (json.box) setBox(json.box);
-      setMessages(json.messages || []);
-      refreshBadges();
-    } catch (err) {
-      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido abrir la carpeta."));
-    } finally {
-      setLoading(false);
-    }
-  }, [box, showAlert]);
-
-  useEffect(() => {
-    void loadList("INBOX", true);
-    // La primera carga abre la bandeja. Cambiar de carpeta llama a loadList aparte.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!viewerOpen && !compose) return;
-    const html = document.documentElement;
-    const prevBody = document.body.style.overflow;
-    const prevHtml = html.style.overflow;
-    document.body.style.overflow = "hidden";
-    html.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prevBody;
-      html.style.overflow = prevHtml;
-    };
-  }, [viewerOpen, compose]);
-
-  const closeViewer = () => {
-    setViewerOpen(false);
-    setSelected(null);
-    setCompose(null);
-    setReading(false);
-    setMoveTo("");
-  };
-
-  const openMessage = async (uid: string) => {
-    setViewerOpen(true);
-    setReading(true);
-    setCompose(null);
-    setSelected(null);
-    setMoveTo("");
-    try {
-      const headers = await authHeaders();
-      const params = new URLSearchParams({ uid: String(uid), box });
-      const res = await fetch(`/api/admin/mailbox?${params}`, { headers });
-      const json = (await res.json().catch(() => ({}))) as { message?: MailMessage; error?: string };
-      if (!res.ok || !json.message) throw new Error(json.error || tr("No se ha podido abrir el mensaje."));
-      setSelected(json.message);
-      setMessages((prev) => prev.map((item) => (item.uid === uid ? { ...item, seen: true } : item)));
-      refreshBadges();
-    } catch (err) {
-      closeViewer();
-      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido abrir el mensaje."));
-    } finally {
-      setReading(false);
-    }
-  };
-
-  const postAction = async (payload: Record<string, unknown>) => {
-    const headers = await authHeaders();
-    const res = await fetch("/api/admin/mailbox", {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) throw new Error(json.error || tr("No se ha podido completar la acción."));
-  };
-
-  const moveMessage = async (uid: string, action: "delete" | "archive" | "move", destination = "") => {
-    const titles = { delete: tr("Eliminar mensaje"), archive: tr("Archivar mensaje"), move: tr("Mover mensaje") };
-    const bodies = {
-      delete: tr("Se moverá a Eliminados."),
-      archive: tr("Se moverá a Archivo."),
-      move: tr("Se moverá a la carpeta elegida."),
-    };
-    const ok = await showConfirm(titles[action], bodies[action]);
-    if (!ok) {
-      setMoveTo("");
-      return;
-    }
-    try {
-      await postAction({ action, uid, box, destination });
-      setMessages((prev) => prev.filter((item) => item.uid !== uid));
-      closeViewer();
-      refreshBadges();
-    } catch (err) {
-      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido mover el mensaje."));
-      setMoveTo("");
-    }
-  };
-
-  const submitCompose = async () => {
-    if (!compose) return;
-    const total = compose.files.reduce((sum, file) => sum + file.size, 0);
-    if (compose.files.length > MAX_ATTACHMENTS) {
-      showAlert(tr("Correo"), tr("Puedes adjuntar hasta 8 archivos."));
-      return;
-    }
-    if (total > MAX_ATTACHMENT_BYTES) {
-      showAlert(tr("Correo"), tr("Los adjuntos pesan demasiado. El máximo es 3 MB."));
-      return;
-    }
-    setSending(true);
-    try {
-      const headers = await authHeaders();
-      const form = new FormData();
-      form.set("action", "send");
-      form.set("to", compose.to);
-      form.set("subject", compose.subject);
-      form.set("text", compose.text);
-      form.set("inReplyTo", compose.inReplyTo);
-      compose.files.forEach((file) => form.append("file", file, file.name));
-      const res = await fetch("/api/admin/mailbox", { method: "POST", headers, body: form });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(json.error || tr("No se ha podido enviar."));
-      setCompose(null);
-      showAlert(tr("Correo"), tr("Mensaje enviado."));
-    } catch (err) {
-      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido enviar."));
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const deletePicked = async () => {
-    if (!picked.length) {
-      showAlert(tr("Correo"), tr("Selecciona al menos un correo."));
-      return;
-    }
-    const ok = await showConfirm(
-      tr("Eliminar mensajes"),
-      box === "trash" ? tr("Se borrarán del todo.") : tr("Se moverán a Eliminados."),
-    );
-    if (!ok) return;
-    const gone = new Set(picked);
-    try {
-      await postAction({ action: "delete-many", uids: picked, box });
-      setMessages((prev) => prev.filter((item) => !gone.has(item.uid)));
-      setPicked([]);
-      if (selected && gone.has(selected.uid)) closeViewer();
-      refreshBadges();
-    } catch (err) {
-      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido mover el mensaje."));
-    }
-  };
-
-  const startReply = () => {
-    if (!selected) return;
-    const subject = /^re:/i.test(selected.subject) ? selected.subject : `Re: ${selected.subject}`;
-    const quoted = plainBody(selected).split("\n").map((line) => `> ${line}`).join("\n");
-    setCompose({
-      to: addressOnly(selected.from),
-      subject,
-      text: `\n\n${quoted}`,
-      inReplyTo: selected.messageId,
-      files: [],
-    });
-  };
-
-  const startForward = () => {
-    if (!selected) return;
-    const subject = /^(fwd|rv):/i.test(selected.subject) ? selected.subject : `Fwd: ${selected.subject}`;
-    const quoted = [
-      "",
-      "",
-      tr("---------- Mensaje reenviado ----------"),
-      `De: ${selected.from}`,
-      `Fecha: ${formatWhen(selected.date)}`,
-      `Asunto: ${selected.subject}`,
-      "",
-      plainBody(selected),
-    ].join("\n");
-    setCompose({ to: "", subject, text: quoted, inReplyTo: "", files: [] });
-  };
-
-  const createSubfolder = async (atRoot: boolean) => {
-    const name = folderName.trim();
-    if (!name) return;
-    setCreatingFolder(true);
-    try {
-      await postAction({ action: "create-folder", parent: atRoot ? "" : box, name });
-      setFolderName("");
-      await loadList(box, true);
-    } catch (err) {
-      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido crear la carpeta."));
-    } finally {
-      setCreatingFolder(false);
-    }
-  };
-
-  const removeFolder = async () => {
-    if (!current || protectedFolder(current)) return;
-    const ok = await showConfirm(tr("Eliminar carpeta"), `Se borrará «${folderLabel(current)}» y los mensajes que contenga.`);
-    if (!ok) return;
-    try {
-      await postAction({ action: "delete-folder", path: current.path });
-      await loadList("INBOX", true);
-    } catch (err) {
-      showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido eliminar la carpeta."));
-    }
-  };
-
-  if (!configured) {
-    return (
-      <div style={{ padding: 8 }}>
-        <h2 style={{ marginTop: 0 }}>{tr("Correo")}</h2>
-        <p style={{ color: "var(--text-muted)", maxWidth: 560, lineHeight: 1.5 }}>
-          {tr("La bandeja de {account} está lista, pero el servidor todavía no tiene la contraseña del buzón. Añade ARSYS_MAIL_PASSWORD en Vercel, en los ajustes del proyecto, y vuelve a desplegar.", { account })}
-        </p>
-      </div>
-    );
-  }
-
-  const renderBranch = (nodes: MailFolderNode[], depth: number) =>
-    nodes.map((node) => (
-      <div key={node.path}>
-        <button
-          type="button"
-          disabled={!node.selectable}
-          onClick={() => {
-            if (!node.selectable) return;
-            void loadList(node.path, false);
-          }}
-          style={{
-            ...folderBtn,
-            paddingLeft: 10 + depth * 14,
-            fontWeight: node.path === box ? 900 : 700,
-            background: node.path === box ? "var(--bg-soft)" : "transparent",
-            color: node.selectable ? "var(--text-main)" : "var(--text-muted)",
-          }}
-        >
-          <span style={{ minWidth: 0 }}>{folderLabel(node)}</span>
-        </button>
-        {node.children.length > 0 ? renderBranch(node.children, depth + 1) : null}
-      </div>
-    ));
-
-  return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div data-tour="mail-toolbar" style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <div>
-          <h2 style={{ margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>{tr("Correo")}{unseen > 0 && <span style={countStyle} title={tr("Sin leer")}>{unseen > 99 ? "99+" : unseen}</span>}
-          </h2>
-          <p style={{ margin: 0, fontWeight: 700 }}>STAFF My K-Pop Binder</p>
-          <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700 }}>{account}</p>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            data-tour="mail-select"
-            onClick={() => {
-              const all = messages.length > 0 && messages.every((item) => picked.includes(item.uid));
-              setPicked(all ? [] : messages.map((item) => item.uid));
-            }}
-            style={btnStyle}
-          >
-            {messages.length > 0 && messages.every((item) => picked.includes(item.uid)) ? tr("Quitar selección") : tr("Seleccionar todo")}
-          </button>
-          <button type="button" disabled={!picked.length} onClick={() => void deletePicked()} style={btnStyle}>
-            <Trash2 size={14} />{tr("Eliminar selección")}{picked.length > 0 ? ` (${picked.length})` : ""}
-          </button>
-          <button type="button" onClick={() => void loadList(box, true)} style={btnStyle}>
-            <RefreshCw size={14} />{tr("Actualizar")}</button>
-          <button
-            type="button"
-            data-tour="mail-new"
-            onClick={() => {
-              closeViewer();
-              setCompose({ to: "", subject: "", text: "", inReplyTo: "", files: [] });
-            }}
-            style={{ ...btnStyle, background: "var(--color-primary)", color: "#111", borderColor: "transparent" }}
-          >
-            <Mail size={14} />{tr("Nuevo")}</button>
-        </div>
-      </div>
-
-      <div className="mail-shell">
-        <aside data-tour="mail-folders" style={folderPane}>
-          <div style={{ overflow: "auto", minHeight: 0 }}>{renderBranch(tree, 0)}</div>
-          <div style={{ display: "grid", gap: 8, paddingTop: 10, borderTop: "1px solid var(--color-border)" }}>
-            <input
-              value={folderName}
-              onChange={(event) => setFolderName(event.target.value)}
-              placeholder={tr("Nombre de la carpeta")}
-              aria-label={tr("Nombre de la carpeta")}
-              style={inputStyle}
-            />
-            <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createSubfolder(false)} style={btnStyle}>
-              <FolderPlus size={14} /> {tr("Subcarpeta de {name}", { name: current ? folderLabel(current) : tr("esta carpeta") })}
-            </button>
-            <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createSubfolder(true)} style={btnStyle}>
-              <FolderPlus size={14} />{tr("Carpeta en la raíz")}</button>
-            {!protectedFolder(current) && (
-              <button type="button" onClick={() => void removeFolder()} style={btnStyle}>
-                <Trash2 size={14} /> {tr("Eliminar {name}", { name: folderLabel(current as MailFolder) })}
-              </button>
-            )}
-          </div>
-        </aside>
-
-        <div data-tour="mail-list" style={{ ...cardStyle, padding: 0, maxHeight: 640, overflow: "auto", minWidth: 0 }}>
-          {loading && messages.length === 0 ? (
-            <p style={{ padding: 16, color: "var(--text-muted)" }}>{tr("Abriendo la carpeta…")}</p>
-          ) : messages.length === 0 ? (
-            <p style={{ padding: 16, color: "var(--text-muted)" }}>{tr("Esta carpeta está vacía.")}</p>
-          ) : (
-            messages.map((item, index) => (
-              <div key={item.uid} style={{ display: "grid", gridTemplateColumns: "36px minmax(0, 1fr)", alignItems: "center", borderBottom: "1px solid var(--color-border)" }}>
-                <input
-                  type="checkbox"
-                  checked={picked.includes(item.uid)}
-                  aria-label={tr("Seleccionar")}
-                  onChange={() => setPicked((prev) => prev.includes(item.uid) ? prev.filter((id) => id !== item.uid) : [...prev, item.uid])}
-                  style={{ justifySelf: "center", width: 16, height: 16 }}
-                />
-                <button
-                  type="button"
-                  data-tour={index === 0 ? "mail-row" : undefined}
-                  onClick={() => void openMessage(item.uid)}
-                  style={{ ...rowStyle(item.seen), borderBottom: "none" }}
-                >
-                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: item.seen ? "transparent" : "var(--accent-vibe-pink)" }} />
-                  <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                    <span style={ellipsis}>{current?.specialUse === "\\Sent" ? item.to || item.from || account : item.from || account}</span>
-                    <span style={{ ...ellipsis, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span style={ellipsis}>{item.subject}</span>
-                    {item.files > 0 ? <Paperclip size={13} aria-label={tr("Adjuntos")} /> : null}
-                  </span>
-                  </span>
-                  <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{formatWhen(item.date)}</span>
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      <style>{`
-        .mail-shell { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 12px; align-items: start; }
-        .mail-html img, .mail-html table { max-width: 100%; }
-        @media (max-width: 860px) { .mail-shell { grid-template-columns: 1fr; } }
-        @keyframes mail-modal-in { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
-      `}</style>
-
-      {viewerOpen && (
-        <div role="presentation" onClick={closeViewer} style={overlayStyle}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={selected?.subject || tr("Mensaje")}
-            data-tour="mail-modal"
-            onClick={(event) => event.stopPropagation()}
-            style={dialogStyle}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexShrink: 0 }}>
-              <div style={{ minWidth: 0 }}>
-                <h3 style={{ margin: "0 0 6px" }}>{reading ? tr("Abriendo…") : selected?.subject || tr("(sin asunto)")}</h3>
-                {selected && (
-                  <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, lineHeight: 1.45 }}>
-                    {selected.from}
-                    {selected.to ? ` → ${selected.to}` : ""}
-                    {" · "}
-                    {formatWhen(selected.date)}
-                  </p>
-                )}
-              </div>
-              <button type="button" onClick={closeViewer} style={btnStyle} aria-label={tr("Cerrar")}><X size={14} /></button>
-            </div>
-
-            <div data-tour="mail-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0 }}>
-              <button type="button" data-tour="mail-reply" disabled={!selected} onClick={startReply} style={btnStyle}><Reply size={14} />{tr("Responder")}</button>
-              <button type="button" data-tour="mail-forward" disabled={!selected} onClick={startForward} style={btnStyle}><Forward size={14} />{tr("Reenviar")}</button>
-              <button type="button" data-tour="mail-archive" disabled={!selected} onClick={() => selected && void moveMessage(selected.uid, "archive")} style={btnStyle}><Archive size={14} />{tr("Archivar")}</button>
-              <button type="button" data-tour="mail-delete" disabled={!selected} onClick={() => selected && void moveMessage(selected.uid, "delete")} style={btnStyle}><Trash2 size={14} />{tr("Eliminar")}</button>
-              <label style={{ ...btnStyle, padding: "4px 10px" }}>{tr("Mover a")}<select
-                  value={moveTo}
-                  disabled={!selected}
-                  onChange={(event) => {
-                    const destination = event.target.value;
-                    setMoveTo(destination);
-                    if (selected && destination) void moveMessage(selected.uid, "move", destination);
-                  }}
-                  style={{ border: "none", background: "transparent", color: "inherit", font: "inherit", fontWeight: 800 }}
-                >
-                  <option value="">{tr("Elegir carpeta")}</option>
-                  {folders.filter((folder) => folder.selectable && folder.path !== box).map((folder) => (
-                    <option key={folder.path} value={folder.path}>
-                      {folderLabel(folder)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {selected?.attachments?.length ? (
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", flexShrink: 0, maxHeight: 168, overflow: "auto" }}>
-                {selected.attachments.map((file) => (
-                  <MailAttachment
-                    key={file.id}
-                    file={file}
-                    onSave={(item) => {
-                      void saveMailFile(item).catch((err) => {
-                        showAlert(tr("Correo"), err instanceof Error ? err.message : tr("No se ha podido descargar el archivo."));
-                      });
-                    }}
-                  />
-                ))}
-              </div>
-            ) : null}
-
-            <div data-mail-scroll style={messageScroll}>
-              {reading ? (
-                <p style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 8 }}>
-                  <Loader2 size={16} className="spinner" /> {tr("Leyendo el mensaje…")}
-                </p>
-              ) : selected?.html ? (
-                <div className="mail-html" dangerouslySetInnerHTML={{ __html: selected.html }} />
-              ) : (
-                <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0, lineHeight: 1.5 }}>{selected?.text || tr("(sin texto)")}</pre>
-              )}
-            </div>
-
-            {compose && (
-              <div style={{ flexShrink: 0, maxHeight: 240, overflow: "auto" }}>
-                <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} onWarn={(message) => showAlert(tr("Correo"), message)} />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {compose && !viewerOpen && (
-        <div role="presentation" onClick={() => setCompose(null)} style={overlayStyle}>
-          <div role="dialog" aria-modal="true" aria-label={tr("Nuevo mensaje")} data-tour="mail-compose" onClick={(event) => event.stopPropagation()} style={{ ...dialogStyle, height: "auto", maxHeight: "min(88vh, 720px)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-              <h3 style={{ margin: 0 }}>{tr("Nuevo mensaje")}</h3>
-              <button type="button" onClick={() => setCompose(null)} style={btnStyle} aria-label={tr("Cerrar")}><X size={14} /></button>
-            </div>
-            <div data-mail-scroll style={{ ...messageScroll, flex: "0 1 auto" }}>
-              <ComposeBox compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onCancel={() => setCompose(null)} onWarn={(message) => showAlert(tr("Correo"), message)} />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ComposeBox({
-  compose,
-  setCompose,
-  sending,
-  onSend,
-  onCancel,
-  onWarn,
-}: {
-  compose: ComposeDraft;
-  setCompose: (next: ComposeDraft) => void;
-  sending: boolean;
-  onSend: () => void;
-  onCancel: () => void;
-  onWarn: (message: string) => void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const addFiles = (list: FileList | null) => {
-    if (!list?.length) return;
-    const next = [...compose.files];
-    for (const file of Array.from(list)) {
-      if (!file.size) continue;
-      if (next.some((item) => item.name === file.name && item.size === file.size)) continue;
-      next.push(file);
-    }
-    const total = next.reduce((sum, file) => sum + file.size, 0);
-    if (next.length > MAX_ATTACHMENTS) {
-      onWarn(tr("Puedes adjuntar hasta 8 archivos."));
-      return;
-    }
-    if (total > MAX_ATTACHMENT_BYTES) {
-      onWarn(tr("Los adjuntos pesan demasiado. El máximo es 3 MB."));
-      return;
-    }
-    setCompose({ ...compose, files: next });
-  };
-
-  return (
-    <div style={{ display: "grid", gap: 10 }}>
-      <p style={{ margin: "0 0 8px", fontWeight: 700 }}>STAFF My K-Pop Binder</p>
-      <label style={labelStyle}>{tr("Para")}<input value={compose.to} onChange={(e) => setCompose({ ...compose, to: e.target.value })} style={inputStyle} />
-      </label>
-      <label style={labelStyle}>{tr("Asunto")}<input value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} style={inputStyle} />
-      </label>
-      <textarea value={compose.text} onChange={(e) => setCompose({ ...compose, text: e.target.value })} rows={8} style={{ ...inputStyle, resize: "vertical" }} />
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          hidden
-          onChange={(event) => {
-            addFiles(event.target.files);
-            event.target.value = "";
-          }}
-        />
-        <button type="button" disabled={sending} onClick={() => fileRef.current?.click()} style={btnStyle}>
-          <Paperclip size={14} />{tr("Adjuntar")}
-        </button>
-        {compose.files.map((file) => (
-          <span key={`${file.name}-${file.size}`} style={fileChip}>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{file.name}</span>
-            <button
-              type="button"
-              aria-label={tr("Quitar {name}", { name: file.name })}
-              disabled={sending}
-              onClick={() => setCompose({ ...compose, files: compose.files.filter((item) => item !== file) })}
-              style={{ border: "none", background: "transparent", color: "inherit", cursor: "pointer", padding: 0, display: "inline-flex" }}
-            >
-              <X size={12} />
-            </button>
-          </span>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button type="button" disabled={sending} onClick={onSend} style={{ ...btnStyle, background: "var(--color-primary)", color: "#111", borderColor: "transparent" }}>
-          {sending ? <Loader2 size={14} className="spinner" /> : <Send size={14} />}{tr("Enviar")}</button>
-        <button type="button" onClick={onCancel} style={btnStyle}>{tr("Cancelar")}</button>
-      </div>
-    </div>
-  );
-}
-
-function rowStyle(seen: boolean): CSSProperties {
+function toolStyle(active: boolean, disabled: boolean): CSSProperties {
   return {
+    width: 32,
+    height: 32,
     display: "grid",
-    gridTemplateColumns: "14px minmax(0, 1fr) auto",
-    gap: 10,
+    placeItems: "center",
+    border: "none",
+    borderRadius: 999,
+    background: active ? ink : "transparent",
+    color: active ? porcelain : ink,
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.3 : 1,
+  };
+}
+
+function folderBtn(active: boolean): CSSProperties {
+  return {
+    display: "flex",
     alignItems: "center",
+    gap: 8,
     width: "100%",
     textAlign: "left",
-    padding: "12px 14px",
     border: "none",
-    borderBottom: "1px solid var(--color-border)",
-    background: "transparent",
-    color: "var(--text-main)",
+    borderRadius: 8,
+    padding: "6px 8px",
+    background: active ? "rgba(26,22,19,.1)" : "transparent",
+    color: ink,
     cursor: "pointer",
-    fontWeight: seen ? 600 : 900,
+    font: "inherit",
+    fontSize: 14,
   };
 }
 
-const ellipsis: CSSProperties = { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
-
-const fileChip: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  maxWidth: "100%",
-  borderRadius: 999,
-  border: "1px solid var(--color-border)",
-  background: "var(--bg-soft)",
-  color: "var(--text-main)",
-  fontSize: 12,
-  fontWeight: 700,
-  padding: "6px 10px",
-};
-
-const btnStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  borderRadius: 999,
-  border: "1px solid var(--color-border)",
-  background: "var(--bg-card)",
-  color: "var(--text-main)",
-  fontWeight: 800,
-  padding: "8px 12px",
-  cursor: "pointer",
-};
-
-const folderBtn: CSSProperties = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  border: "none",
-  borderRadius: 10,
-  padding: "8px 10px",
-  cursor: "pointer",
-  fontSize: 13,
-};
-
-const folderPane: CSSProperties = {
-  display: "grid",
-  gridTemplateRows: "minmax(180px, 1fr) auto",
-  gap: 8,
-  maxHeight: 640,
-  padding: 10,
-  borderRadius: 16,
-  border: "1px solid var(--color-border)",
-  background: "var(--bg-card)",
-  minWidth: 0,
-};
-
-const cardStyle: CSSProperties = {
-  display: "grid",
-  gap: 10,
-  padding: 14,
-  borderRadius: 16,
-  border: "1px solid var(--color-border)",
-  background: "var(--bg-card)",
-};
-
-const labelStyle: CSSProperties = { display: "grid", gap: 4, fontSize: 12, fontWeight: 800, color: "var(--text-muted)" };
-
-const inputStyle: CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  borderRadius: 10,
-  border: "1px solid var(--color-border)",
-  background: "var(--bg-main)",
-  color: "var(--text-main)",
-  padding: "10px 12px",
-  font: "inherit",
-};
-
-const countStyle: CSSProperties = {
-  minWidth: 18,
-  height: 18,
-  padding: "0 5px",
-  boxSizing: "border-box",
-  borderRadius: 999,
-  background: "var(--accent-vibe-pink)",
-  color: "var(--modal-cta-fg)",
-  fontSize: 11,
-  fontWeight: 900,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const overlayStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 100000,
-  background: "var(--overlay-medium)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 16,
-  overflow: "hidden",
-};
-
-const dialogStyle: CSSProperties = {
-  width: "min(760px, 100%)",
-  height: "min(88vh, 860px)",
-  overflow: "hidden",
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-  padding: 18,
-  borderRadius: 20,
-  border: "1px solid var(--color-border)",
-  background: "var(--bg-card)",
-  boxShadow: "0 24px 60px var(--shadow-card)",
-  animation: "mail-modal-in 180ms ease-out",
-};
-
-const messageScroll: CSSProperties = {
-  flex: 1,
-  minHeight: 0,
-  overflow: "auto",
-  overscrollBehavior: "contain",
-  border: "1px solid var(--color-border)",
-  borderRadius: 12,
-  padding: 14,
-  background: "var(--bg-main)",
-};
+const kicker: CSSProperties = { margin: "8px 8px 4px", fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: ash };
+const emptyStyle: CSSProperties = { padding: "24px 16px", color: ash, fontSize: 14 };
+const rowBtn: CSSProperties = { flex: 1, minWidth: 0, display: "grid", gap: 2, border: "none", background: "transparent", color: ink, textAlign: "left", cursor: "pointer", font: "inherit", padding: 0 };
+const labelStyle: CSSProperties = { display: "grid", gap: 4, marginTop: 14, fontSize: 12, color: ash };
+const fieldStyle: CSSProperties = { width: "100%", boxSizing: "border-box", border: "1px solid rgba(26,22,19,.15)", background: porcelain, color: ink, padding: "8px 10px", font: "inherit" };
+const tinyBtn: CSSProperties = { border: "1px solid rgba(26,22,19,.15)", background: "transparent", color: ink, borderRadius: 999, padding: "4px 8px", fontSize: 11, cursor: "pointer" };

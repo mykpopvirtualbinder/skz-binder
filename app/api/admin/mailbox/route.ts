@@ -15,6 +15,7 @@ import {
   readAttachment,
   readMessage,
   sendMail,
+  setMessagesSeen,
 } from "@/lib/site-mail";
 
 export const runtime = "nodejs";
@@ -39,7 +40,9 @@ export async function GET(req: Request) {
   if (url.searchParams.get("unseen") === "1") {
     try {
       const unseen = await countUnseen();
-      return NextResponse.json({ configured: true, account: account.user, unseen });
+      const listed = await listMailbox("inbox");
+      const items = listed.messages.filter((row) => !row.seen).map((row) => ({ id: row.uid, from: row.from, subject: row.subject }));
+      return NextResponse.json({ configured: true, account: account.user, unseen, items });
     } catch (err) {
       const pub = publicMailError(err);
       return NextResponse.json({ configured: true, account: account.user, unseen: 0, error: pub.error }, { status: pub.status });
@@ -132,6 +135,7 @@ export async function POST(req: Request) {
     action?: string;
     uid?: string;
     uids?: string[];
+    seen?: boolean;
     box?: string;
     destination?: string;
     parent?: string;
@@ -150,6 +154,12 @@ export async function POST(req: Request) {
 
   const box = normalizeBox(textFrom(body.box, 200));
   try {
+    if (body.action === "seen") {
+      const uids = Array.isArray(body.uids) ? body.uids.map(uidFrom).filter((uid): uid is string => Boolean(uid)) : [];
+      if (!uids.length) return NextResponse.json({ error: "Mensaje no válido." }, { status: 400 });
+      await setMessagesSeen(uids, Boolean(body.seen));
+      return NextResponse.json({ ok: true });
+    }
     if (body.action === "delete-many") {
       const uids = Array.isArray(body.uids) ? body.uids.map(uidFrom).filter((uid): uid is string => Boolean(uid)) : [];
       if (!uids.length) return NextResponse.json({ error: "Mensaje no válido." }, { status: 400 });
