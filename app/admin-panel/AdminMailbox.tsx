@@ -460,10 +460,10 @@ export default function AdminMailbox() {
             <Tool label={markAsRead ? tr("Marcar como leído") : tr("Marcar como no leído")} disabled={!picked.length} onClick={() => void actOn(picked, "seen", { seen: markAsRead })}>
               {markAsRead ? <MailOpen size={18} strokeWidth={1.6} /> : <Mail size={18} strokeWidth={1.6} />}
             </Tool>
-            <Tool label={tr("Buscar")} active={searchOpen} onClick={() => setSearchOpen((value) => !value)}>
+            <Tool label={tr("Buscar")} tour="mail-search" active={searchOpen} onClick={() => setSearchOpen((value) => !value)}>
               <Search size={18} strokeWidth={1.6} />
             </Tool>
-            <Tool label={tr("Filtro")} active={readFilter !== "all"} onClick={() => setReadFilter((value) => (value === "all" ? "unread" : value === "unread" ? "read" : "all"))}>
+            <Tool label={tr("Filtro")} tour="mail-filter" active={readFilter !== "all"} onClick={() => setReadFilter((value) => (value === "all" ? "unread" : value === "unread" ? "read" : "all"))}>
               <Filter size={18} strokeWidth={1.6} />
             </Tool>
           </div>

@@ -469,8 +469,22 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='mail-list']",
       title: tr("La bandeja"),
-      text: tr("Los mensajes de esta carpeta, en horizontal. La negrita es lo no leído. Al abrirlo se lee debajo. Buscar y el filtro de leído están en la barra."),
+      text: tr("Los mensajes de esta carpeta, en horizontal. La negrita es lo no leído. Al abrirlo se lee debajo."),
       side: "top",
+      tab: "correo",
+    },
+    {
+      selector: "[data-tour='mail-search']",
+      title: tr("Buscar"),
+      text: tr("La lupa busca en el asunto, el remitente y el destinatario de los mensajes de esta carpeta."),
+      side: "bottom",
+      tab: "correo",
+    },
+    {
+      selector: "[data-tour='mail-filter']",
+      title: tr("Leído y no leído"),
+      text: tr("El filtro pasa de todos los mensajes a solo no leídos y después a solo leídos."),
+      side: "bottom",
       tab: "correo",
     },
     {
