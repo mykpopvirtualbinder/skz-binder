@@ -534,7 +534,7 @@
       "hint": "Upload a photo of a physical page. Line the grid up with the cards, pick the collection and confirm each pocket. Only the ones you choose are placed, and they already need to be in your stock or wishlist.",
       "choose": "Choose photo",
       "change": "Change photo",
-      "align": "Move the edges until each pocket sits on a card.",
+      "align": "Drag each line on its own. Near an end, only that side moves, so a tilted photo still lines up.",
       "top": "Top",
       "right": "Right",
       "bottom": "Bottom",

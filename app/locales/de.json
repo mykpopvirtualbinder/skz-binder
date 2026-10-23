@@ -471,7 +471,7 @@
       "hint": "Lade ein Foto einer physischen Seite hoch. Richte das Raster an den Karten aus, wähle die Kollektion und bestätige jedes Fach. Es werden nur die Karten gelegt, die du auswählst, und sie müssen schon im Bestand oder auf der Wunschliste sein.",
       "choose": "Foto wählen",
       "change": "Foto ändern",
-      "align": "Verschiebe die Ränder, bis jedes Fach auf einer Karte liegt.",
+      "align": "Ziehe jede Linie einzeln. Nahe an einem Ende bewegt sich nur diese Seite, wenn das Foto schief ist.",
       "top": "Oben",
       "right": "Rechts",
       "bottom": "Unten",

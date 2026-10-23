@@ -471,7 +471,7 @@
       "hint": "Carica la foto di una pagina fisica. Allinea la griglia alle carte, scegli la collezione e conferma ogni spazio. Vengono messe solo quelle che scegli, e devono essere già nello stock o nella wish.",
       "choose": "Scegli foto",
       "change": "Cambia foto",
-      "align": "Sposta i bordi finché ogni spazio cade su una carta.",
+      "align": "Trascina ogni linea da sola. Vicino a un'estremità si muove solo quel lato, se la foto è inclinata.",
       "top": "Alto",
       "right": "Destra",
       "bottom": "Basso",

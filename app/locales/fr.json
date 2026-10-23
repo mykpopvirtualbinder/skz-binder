@@ -471,7 +471,7 @@
       "hint": "Envoie la photo d'une page physique. Aligne la grille sur les cartes, choisis la collection et confirme chaque emplacement. Seules celles que tu choisis sont placées, et elles doivent déjà être dans ton stock ou en wish.",
       "choose": "Choisir une photo",
       "change": "Changer la photo",
-      "align": "Déplace les bords jusqu'à ce que chaque case tombe sur une carte.",
+      "align": "Fais glisser chaque ligne séparément. Près d'une extrémité, seul ce côté bouge pour suivre une photo penchée.",
       "top": "Haut",
       "right": "Droite",
       "bottom": "Bas",

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { resolveBinderQuota } from "@/lib/binder-quotas";
 import { formatCollectionOptionLabel, isStrayKidsGroupName, sortCollectionEntries } from "@/lib/collection-filters";
+import { affineFromTriangles, cellQuad, clampLine, evenLines, insetQuad, type LineEnds } from "@/lib/scan-grid";
 import { useGlobal } from "../context/GlobalContext";
 
 type CardRow = {
@@ -86,6 +87,224 @@ const SCAN_MEMBERS = [
   { value: "seungmin", label: "Seungmin" },
   { value: "in", label: "I.N" },
 ] as const;
+
+type GridPoint = { x: number; y: number };
+
+function drawTriangle(
+  ctx: CanvasRenderingContext2D,
+  image: CanvasImageSource,
+  s0: GridPoint,
+  s1: GridPoint,
+  s2: GridPoint,
+  d0: GridPoint,
+  d1: GridPoint,
+  d2: GridPoint,
+) {
+  const mapped = affineFromTriangles(s0, s1, s2, d0, d1, d2);
+  if (!mapped) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(d0.x, d0.y);
+  ctx.lineTo(d1.x, d1.y);
+  ctx.lineTo(d2.x, d2.y);
+  ctx.closePath();
+  ctx.clip();
+  ctx.setTransform(mapped.a, mapped.b, mapped.c, mapped.d, mapped.e, mapped.f);
+  ctx.drawImage(image, 0, 0);
+  ctx.restore();
+}
+
+function paintQuad(canvas: HTMLCanvasElement, image: CanvasImageSource, quad: [GridPoint, GridPoint, GridPoint, GridPoint]) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  const dest: [GridPoint, GridPoint, GridPoint, GridPoint] = [
+    { x: 0, y: 0 },
+    { x: w, y: 0 },
+    { x: w, y: h },
+    { x: 0, y: h },
+  ];
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  drawTriangle(ctx, image, quad[0], quad[1], quad[2], dest[0], dest[1], dest[2]);
+  drawTriangle(ctx, image, quad[0], quad[2], quad[3], dest[0], dest[2], dest[3]);
+}
+
+function distToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy || 1;
+  const t = Math.min(1, Math.max(0, ((px - ax) * dx + (py - ay) * dy) / len2));
+  return { d: Math.hypot(px - (ax + t * dx), py - (ay + t * dy)), t };
+}
+
+function ScanGridOverlay({
+  vLines,
+  hLines,
+  onMove,
+}: {
+  vLines: LineEnds[];
+  hLines: LineEnds[];
+  onMove: (kind: "v" | "h", index: number, line: LineEnds) => void;
+}) {
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const linesRef = useRef({ vLines, hLines });
+  linesRef.current = { vLines, hLines };
+  const dragRef = useRef<{
+    kind: "v" | "h";
+    index: number;
+    mode: "a" | "b" | "both";
+    origin: LineEnds;
+    startX: number;
+    startY: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [hot, setHot] = useState<{ kind: "v" | "h"; index: number } | null>(null);
+
+  function pick(clientX: number, clientY: number): { kind: "v" | "h"; index: number; mode: "a" | "b" | "both" } | null {
+    const frame = frameRef.current;
+    if (!frame) return null;
+    const rect = frame.getBoundingClientRect();
+    const hits: Array<{ kind: "v" | "h"; index: number; mode: "a" | "b" | "both"; d: number }> = [];
+    const consider = (kind: "v" | "h", index: number, line: LineEnds) => {
+      const seg =
+        kind === "v"
+          ? { ax: rect.left + (line.a / 100) * rect.width, ay: rect.top, bx: rect.left + (line.b / 100) * rect.width, by: rect.bottom }
+          : { ax: rect.left, ay: rect.top + (line.a / 100) * rect.height, bx: rect.right, by: rect.top + (line.b / 100) * rect.height };
+      const hit = distToSegment(clientX, clientY, seg.ax, seg.ay, seg.bx, seg.by);
+      if (hit.d > 22) return;
+      hits.push({ kind, index, d: hit.d, mode: hit.t < 0.22 ? "a" : hit.t > 0.78 ? "b" : "both" });
+    };
+    linesRef.current.vLines.forEach((line, index) => consider("v", index, line));
+    linesRef.current.hLines.forEach((line, index) => consider("h", index, line));
+    hits.sort((a, b) => a.d - b.d);
+    const best = hits[0];
+    return best ? { kind: best.kind, index: best.index, mode: best.mode } : null;
+  }
+
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    const hit = pick(event.clientX, event.clientY);
+    const frame = frameRef.current;
+    if (!hit || !frame) return;
+    const rect = frame.getBoundingClientRect();
+    const origin = (hit.kind === "v" ? linesRef.current.vLines : linesRef.current.hLines)[hit.index];
+    dragRef.current = {
+      kind: hit.kind,
+      index: hit.index,
+      mode: hit.mode,
+      origin: { ...origin },
+      startX: event.clientX,
+      startY: event.clientY,
+      width: rect.width,
+      height: rect.height,
+    };
+    setHot({ kind: hit.kind, index: hit.index });
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag) {
+      const hit = pick(event.clientX, event.clientY);
+      setHot(hit ? { kind: hit.kind, index: hit.index } : null);
+      return;
+    }
+    const delta =
+      drag.kind === "v"
+        ? ((event.clientX - drag.startX) / Math.max(1, drag.width)) * 100
+        : ((event.clientY - drag.startY) / Math.max(1, drag.height)) * 100;
+    const next =
+      drag.mode === "a"
+        ? { a: drag.origin.a + delta, b: drag.origin.b }
+        : drag.mode === "b"
+          ? { a: drag.origin.a, b: drag.origin.b + delta }
+          : { a: drag.origin.a + delta, b: drag.origin.b + delta };
+    const lines = drag.kind === "v" ? linesRef.current.vLines : linesRef.current.hLines;
+    onMove(drag.kind, drag.index, clampLine(lines, drag.index, next));
+  }
+
+  function onPointerUp() {
+    dragRef.current = null;
+  }
+
+  const cursor = hot?.kind === "v" ? "ew-resize" : hot?.kind === "h" ? "ns-resize" : "default";
+
+  return (
+    <div
+      ref={frameRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      style={{ position: "absolute", inset: 0, touchAction: "none", cursor }}
+    >
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible" }}>
+        {vLines.map((line, index) => {
+          const active = hot?.kind === "v" && hot.index === index;
+          return (
+            <line
+              key={`v-${index}`}
+              x1={line.a}
+              y1={0}
+              x2={line.b}
+              y2={100}
+              stroke={active ? "var(--color-primary)" : "white"}
+              strokeWidth={active ? 2.4 : 1.4}
+              vectorEffect="non-scaling-stroke"
+              style={{ filter: "drop-shadow(0 0 1px rgba(0,0,0,0.85))" }}
+            />
+          );
+        })}
+        {hLines.map((line, index) => {
+          const active = hot?.kind === "h" && hot.index === index;
+          return (
+            <line
+              key={`h-${index}`}
+              x1={0}
+              y1={line.a}
+              x2={100}
+              y2={line.b}
+              stroke={active ? "var(--color-primary)" : "white"}
+              strokeWidth={active ? 2.4 : 1.4}
+              vectorEffect="non-scaling-stroke"
+              style={{ filter: "drop-shadow(0 0 1px rgba(0,0,0,0.85))" }}
+            />
+          );
+        })}
+      </svg>
+      {vLines.map((line, index) => (
+        <span key={`vh-${index}`}>
+          <i style={handleStyle(line.a, 0)} />
+          <i style={handleStyle(line.b, 100)} />
+        </span>
+      ))}
+      {hLines.map((line, index) => (
+        <span key={`hh-${index}`}>
+          <i style={handleStyle(0, line.a)} />
+          <i style={handleStyle(100, line.b)} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function handleStyle(x: number, y: number): CSSProperties {
+  return {
+    position: "absolute",
+    left: `${x}%`,
+    top: `${y}%`,
+    width: 12,
+    height: 12,
+    transform: "translate(-50%, -50%)",
+    borderRadius: 99,
+    background: "var(--color-primary)",
+    border: "2px solid white",
+    boxShadow: "0 0 0 1px rgba(0,0,0,0.45)",
+    pointerEvents: "none",
+  };
+}
 
 function scanMemberMatches(raw: string | null, selected: string): boolean {
   const n = String(raw || "")
@@ -269,7 +488,8 @@ export default function PhotoPageImport({
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [gridKey, setGridKey] = useState(GRIDS.some((grid) => grid.key === initialGrid) ? initialGrid : "3x3");
   const grid = GRIDS.find((item) => item.key === gridKey) ?? GRIDS[0];
-  const [inset, setInset] = useState({ top: 8, right: 8, bottom: 8, left: 8 });
+  const [vLines, setVLines] = useState<LineEnds[]>(() => evenLines(grid.cols + 1));
+  const [hLines, setHLines] = useState<LineEnds[]>(() => evenLines(grid.rows + 1));
   const [groups, setGroups] = useState<Array<{ id: number; name: string }>>([]);
   const [albums, setAlbums] = useState<Array<{ id: number; name: string; group_id: number | null; release_date: string | null }>>([]);
   const [groupId, setGroupId] = useState<number | "">("");
@@ -486,30 +706,27 @@ export default function PhotoPageImport({
       });
       const width = photo.naturalWidth;
       const height = photo.naturalHeight;
-      const x0 = (inset.left / 100) * width;
-      const y0 = (inset.top / 100) * height;
-      const x1 = width - (inset.right / 100) * width;
-      const y1 = height - (inset.bottom / 100) * height;
-      const cellW = (x1 - x0) / grid.cols;
-      const cellH = (y1 - y0) / grid.rows;
+      const toPixels = (quad: [GridPoint, GridPoint, GridPoint, GridPoint]) =>
+        quad.map((point) => ({ x: (point.x / 100) * width, y: (point.y / 100) * height })) as [
+          GridPoint,
+          GridPoint,
+          GridPoint,
+          GridPoint,
+        ];
       const next: SlotChoice[] = [];
       for (let row = 0; row < grid.rows; row += 1) {
         for (let col = 0; col < grid.cols; col += 1) {
           const slot = row * grid.cols + col + 1;
-          const sx = x0 + col * cellW;
-          const sy = y0 + row * cellH;
+          const quad = toPixels(cellQuad(vLines, hLines, col, row));
           const crop = document.createElement("canvas");
           crop.width = 90;
           crop.height = 135;
-          crop.getContext("2d")?.drawImage(photo, sx, sy, cellW, cellH, 0, 0, 90, 135);
-          const padX = cellW * 0.08;
-          const padY = cellH * 0.08;
+          paintQuad(crop, photo, quad);
+          const tight = toPixels(insetQuad(cellQuad(vLines, hLines, col, row)));
           const sample = document.createElement("canvas");
           sample.width = 224;
-          sample.height = Math.max(224, Math.round(224 * (cellH / Math.max(1, cellW))));
-          sample
-            .getContext("2d")
-            ?.drawImage(photo, sx + padX, sy + padY, Math.max(2, cellW - padX * 2), Math.max(2, cellH - padY * 2), 0, 0, sample.width, sample.height);
+          sample.height = 336;
+          paintQuad(sample, photo, tight);
           const fp = await embed(sample);
           const scored = known
             .map((entry) => ({ card: entry.card, score: visionScore(index.vectors, entry.row, fp) }))
@@ -1107,7 +1324,11 @@ export default function PhotoPageImport({
                     value={gridKey}
                     style={fieldStyle}
                     onChange={(event) => {
-                      setGridKey(event.target.value);
+                      const nextKey = event.target.value;
+                      const next = GRIDS.find((item) => item.key === nextKey) ?? GRIDS[0];
+                      setGridKey(nextKey);
+                      setVLines(evenLines(next.cols + 1));
+                      setHLines(evenLines(next.rows + 1));
                       setChoices([]);
                     }}
                   >
@@ -1118,45 +1339,19 @@ export default function PhotoPageImport({
                     ))}
                   </select>
                 </label>
-                <div style={{ position: "relative", maxWidth: 520, margin: "12px auto" }}>
-                  <img ref={photoRef} src={photoUrl} alt="" style={{ width: "100%", display: "block", borderRadius: 12 }} />
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: `${inset.top}%`,
-                      right: `${inset.right}%`,
-                      bottom: `${inset.bottom}%`,
-                      left: `${inset.left}%`,
-                      display: "grid",
-                      gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
-                      gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
-                      pointerEvents: "none",
+                <div style={{ position: "relative", maxWidth: 520, margin: "12px auto", userSelect: "none" }}>
+                  <img ref={photoRef} src={photoUrl} alt="" draggable={false} style={{ width: "100%", display: "block", borderRadius: 12, pointerEvents: "none" }} />
+                  <ScanGridOverlay
+                    vLines={vLines}
+                    hLines={hLines}
+                    onMove={(kind, index, line) => {
+                      if (kind === "v") setVLines((prev) => prev.map((row, i) => (i === index ? line : row)));
+                      else setHLines((prev) => prev.map((row, i) => (i === index ? line : row)));
+                      setChoices((prev) => (prev.length ? [] : prev));
                     }}
-                  >
-                    {Array.from({ length: grid.cols * grid.rows }, (_, index) => (
-                      <div key={index} style={{ border: "1px solid rgba(255,255,255,0.85)", boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.35)" }} />
-                    ))}
-                  </div>
+                  />
                 </div>
                 <p>{t("binders.photo.align")}</p>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
-                  {(["top", "right", "bottom", "left"] as const).map((edge) => (
-                    <label key={edge} style={{ fontSize: 13 }}>
-                      {t(`binders.photo.${edge}`)}
-                      <input
-                        type="range"
-                        min={0}
-                        max={35}
-                        value={inset[edge]}
-                        onChange={(event) => {
-                          setInset((prev) => ({ ...prev, [edge]: Number(event.target.value) }));
-                          setChoices([]);
-                        }}
-                        style={{ width: "100%" }}
-                      />
-                    </label>
-                  ))}
-                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, marginTop: 12 }}>
                   <label>
                     {t("binders.photo.group")}

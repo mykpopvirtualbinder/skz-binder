@@ -471,7 +471,7 @@
       "hint": "Unggah foto halaman fisik. Sejajarkan kotak dengan kartu, pilih koleksi, lalu konfirmasi setiap slot. Hanya yang kamu pilih yang diletakkan, dan kartunya harus sudah ada di stok atau wish.",
       "choose": "Pilih foto",
       "change": "Ganti foto",
-      "align": "Geser tepi sampai setiap slot tepat di atas kartu.",
+      "align": "Geser tiap garis sendiri-sendiri. Dekat ujung, hanya sisi itu yang bergerak kalau fotonya miring.",
       "top": "Atas",
       "right": "Kanan",
       "bottom": "Bawah",

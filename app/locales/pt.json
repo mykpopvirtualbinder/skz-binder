@@ -317,7 +317,7 @@
       "hint": "Envia a foto de uma página física. Alinha a grelha às cartas, escolhe a coleção e confirma cada espaço. Só entram as que escolheres, e já têm de estar no stock ou na wish.",
       "choose": "Escolher foto",
       "change": "Mudar foto",
-      "align": "Move as bordas até cada espaço ficar em cima de uma carta.",
+      "align": "Arrasta cada linha à parte. Perto de uma ponta, só esse lado se move, para seguir uma foto inclinada.",
       "top": "Cima",
       "right": "Direita",
       "bottom": "Baixo",

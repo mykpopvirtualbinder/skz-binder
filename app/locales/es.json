@@ -533,7 +533,7 @@
       "hint": "Sube la foto de una página física. Ajusta la cuadrícula a las cartas, elige la colección y confirma cada hueco. Solo se colocan las que tú eliges, y tienen que estar ya en tu stock o en wish.",
       "choose": "Elegir foto",
       "change": "Cambiar foto",
-      "align": "Mueve los bordes hasta que cada hueco caiga sobre una carta.",
+      "align": "Arrastra cada línea. Cerca de un extremo solo se mueve ese lado, para seguir una foto inclinada.",
       "top": "Arriba",
       "right": "Derecha",
       "bottom": "Abajo",
