@@ -109,11 +109,38 @@ function albumSidecarMockPcRewrites() {
  * (`/album/<región>/…`, `photocards/korean-albums/<álbum>/…`) mientras que
  * en disco las cartas están en `albums/<región>/<álbum>/photocards/…`.
  */
+const ALT_SITE_HOSTS = [
+  "mykpopbinder.es",
+  "www.mykpopbinder.es",
+  "mykpopbinder.eu",
+  "www.mykpopbinder.eu",
+];
+
+function altHostRedirects() {
+  return ALT_SITE_HOSTS.flatMap((host) => [
+    {
+      source: "/",
+      has: [{ type: "host" as const, value: host }],
+      destination: "https://www.mykpopbinder.com",
+      permanent: true,
+    },
+    {
+      source: "/:path*",
+      has: [{ type: "host" as const, value: host }],
+      destination: "https://www.mykpopbinder.com/:path*",
+      permanent: true,
+    },
+  ]);
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["imapflow", "mailparser", "nodemailer"],
   outputFileTracingIncludes: {
     "/api/admin/mailbox": ["./public/branding/mailing/signature.jpg"],
+  },
+  async redirects() {
+    return altHostRedirects();
   },
   async rewrites() {
     return {
