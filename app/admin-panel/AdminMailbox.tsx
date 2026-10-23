@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Archive, Check, Forward, Mail, MailOpen, Paperclip, PenLine, Reply, ReplyAll, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
@@ -46,9 +47,10 @@ const SYSTEM = [
   { id: "trash", label: "Papelera", icon: "trash" },
 ] as const;
 
-const ink = "#1a1613";
-const ash = "#8a8178";
-const porcelain = "#f4f1ea";
+const ink = "var(--text-main)";
+const ash = "var(--text-muted)";
+const porcelain = "var(--bg-card)";
+const line = "var(--color-border)";
 
 async function authHeaders(): Promise<HeadersInit> {
   const { data } = await supabase.auth.getSession();
@@ -120,11 +122,28 @@ export default function AdminMailbox() {
   const [error, setError] = useState("");
   const [folderName, setFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; path: string | null } | null>(null);
   const boxRef = useRef(box);
 
   useEffect(() => {
     boxRef.current = box;
   }, [box]);
+
+  useEffect(() => {
+    if (!menu) return;
+    function close() {
+      setMenu(null);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenu(null);
+    }
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
 
   const loadList = useCallback(async (nextBox = box, quiet = false) => {
     if (!quiet) setLoading(true);
@@ -323,14 +342,28 @@ export default function AdminMailbox() {
     }
   }
 
-  async function createFolder(atRoot: boolean) {
+  function openFolderMenu(event: MouseEvent, path: string | null) {
+    event.preventDefault();
+    event.stopPropagation();
+    const width = 240;
+    const height = 160;
+    setFolderName("");
+    setMenu({
+      x: Math.max(8, Math.min(event.clientX, window.innerWidth - width - 8)),
+      y: Math.max(8, Math.min(event.clientY, window.innerHeight - height - 8)),
+      path,
+    });
+  }
+
+  async function createFolder() {
     const name = folderName.trim();
     if (!name) return;
     setCreatingFolder(true);
     setError("");
     try {
-      await postAction({ action: "create-folder", parent: atRoot ? "" : box, name });
+      await postAction({ action: "create-folder", parent: "", name });
       setFolderName("");
+      setMenu(null);
       await loadList(box, true);
     } catch (err) {
       setError(err instanceof Error ? err.message : tr("No se ha podido crear la carpeta."));
@@ -343,6 +376,7 @@ export default function AdminMailbox() {
     setError("");
     try {
       await postAction({ action: "delete-folder", path });
+      setMenu(null);
       openFolder("inbox");
     } catch (err) {
       setError(err instanceof Error ? err.message : tr("No se ha podido eliminar la carpeta."));
@@ -366,7 +400,7 @@ export default function AdminMailbox() {
 
   return (
     <div className={reading ? "mkb-mail mkb-reading" : "mkb-mail"}>
-      <aside className="mkb-folders" data-tour="mail-folders">
+      <aside className="mkb-folders" data-tour="mail-folders" onContextMenu={(event) => openFolderMenu(event, null)}>
         <div style={{ display: "flex", gap: 4, padding: "12px 12px 4px" }}>
           <Tool label={tr("Mensaje nuevo")} tour="mail-new" onClick={() => startCompose("new")}><PenLine size={18} strokeWidth={1.6} /></Tool>
         </div>
@@ -384,25 +418,17 @@ export default function AdminMailbox() {
             );
           })}
           {custom.map((folder) => (
-            <button key={folder.path} type="button" onClick={() => openFolder(folder.path)} style={folderBtn(box === folder.path)}>
+            <button key={folder.path} type="button" onClick={() => openFolder(folder.path)} onContextMenu={(event) => openFolderMenu(event, folder.path)} style={folderBtn(box === folder.path)}>
               <FolderIcon name="folder" />
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{folder.name}</span>
             </button>
           ))}
-          <div style={{ display: "grid", gap: 6, padding: "14px 8px 0" }}>
-            <input value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder={tr("Nombre de la carpeta")} aria-label={tr("Nombre de la carpeta")} style={fieldStyle} />
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createFolder(true)} style={tinyBtn}>{tr("Carpeta en la raíz")}</button>
-              <button type="button" disabled={creatingFolder || !folderName.trim()} onClick={() => void createFolder(false)} style={tinyBtn}>{tr("Subcarpeta")}</button>
-              {!isSystem(box) ? <button type="button" onClick={() => void removeFolder(box)} style={tinyBtn}>{tr("Eliminar carpeta")}</button> : null}
-            </div>
-          </div>
         </div>
       </aside>
 
       <section className="mkb-main">
         <div className="mkb-list" data-tour="mail-list">
-          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px", borderBottom: "1px solid rgba(26,22,19,.1)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px", borderBottom: `1px solid ${line}` }}>
             <Tool label={selecting ? tr("Quitar selección") : tr("Seleccionar")} tour="mail-select" active={selecting} onClick={() => { setSelecting((value) => !value); setPicked([]); }}>
               <Check size={18} strokeWidth={1.6} />
             </Tool>
@@ -422,11 +448,11 @@ export default function AdminMailbox() {
             {loading && !messages.length ? <p style={emptyStyle}>{tr("Abriendo…")}</p> : null}
             {!loading && !messages.length ? <p style={emptyStyle}>{tr("Esta carpeta está vacía.")}</p> : null}
             {messages.map((item, index) => (
-              <div key={item.uid} style={{ display: "flex", gap: 8, padding: "10px 12px", borderBottom: "1px solid rgba(26,22,19,.06)", background: selected?.uid === item.uid ? "rgba(26,22,19,.04)" : "transparent" }}>
+              <div key={item.uid} style={{ display: "flex", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${line}`, background: selected?.uid === item.uid ? "color-mix(in srgb, var(--color-primary) 14%, transparent)" : "transparent" }}>
                 {selecting ? (
                   <input type="checkbox" checked={picked.includes(item.uid)} aria-label={tr("Seleccionar")} onChange={() => setPicked((prev) => prev.includes(item.uid) ? prev.filter((id) => id !== item.uid) : [...prev, item.uid])} style={{ marginTop: 4, width: 16, height: 16 }} />
                 ) : (
-                  <span style={{ width: 8, height: 8, marginTop: 8, borderRadius: 99, background: item.seen ? "transparent" : ink, flex: "0 0 auto" }} />
+                  <span style={{ width: 8, height: 8, marginTop: 8, borderRadius: 99, background: item.seen ? "transparent" : "var(--color-primary)", flex: "0 0 auto" }} />
                 )}
                 <button type="button" data-tour={index === 0 ? "mail-row" : undefined} onClick={() => void openMessage(item.uid)} style={rowBtn}>
                   <span style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -445,7 +471,7 @@ export default function AdminMailbox() {
             <ComposePane compose={compose} setCompose={setCompose} sending={sending} onSend={() => void submitCompose()} onClose={() => setCompose(null)} />
           ) : selected ? (
             <article style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }}>
-              <div style={{ display: "flex", gap: 4, padding: 8, borderBottom: "1px solid rgba(26,22,19,.1)", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 4, padding: 8, borderBottom: `1px solid ${line}`, flexWrap: "wrap" }}>
                 <span className="mkb-back"><Tool label={tr("Volver")} onClick={() => setSelected(null)}><X size={18} strokeWidth={1.6} /></Tool></span>
                 <Tool label={tr("Responder")} tour="mail-reply" onClick={() => startCompose("reply")}><Reply size={18} strokeWidth={1.6} /></Tool>
                 <Tool label={tr("Responder a todos")} onClick={() => startCompose("reply-all")}><ReplyAll size={18} strokeWidth={1.6} /></Tool>
@@ -470,7 +496,7 @@ export default function AdminMailbox() {
                   <pre style={{ marginTop: 24, whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 14, lineHeight: 1.55 }}>{selected.text || tr("(sin texto)")}</pre>
                 )}
                 {selected.attachments?.length ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(26,22,19,.1)" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24, paddingTop: 16, borderTop: `1px solid ${line}` }}>
                     {selected.attachments.map((file) => <MailAttachment key={file.id} file={file} onError={setError} />)}
                   </div>
                 ) : null}
@@ -481,12 +507,29 @@ export default function AdminMailbox() {
           )}
         </div>
       </section>
+      {menu ? createPortal(
+        <div
+          role="menu"
+          onMouseDown={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+          style={{ position: "fixed", left: menu.x, top: menu.y, zIndex: 80, width: 240, background: porcelain, color: ink, border: `1px solid ${line}`, borderRadius: 12, padding: 10, boxShadow: "0 12px 32px var(--overlay-soft)" }}
+        >
+          <form onSubmit={(event) => { event.preventDefault(); void createFolder(); }} style={{ display: "grid", gap: 8 }}>
+            <input autoFocus value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder={tr("Nueva carpeta")} aria-label={tr("Nombre de la carpeta")} style={fieldStyle} />
+            <button type="submit" disabled={creatingFolder || !folderName.trim()} style={{ ...menuBtn, opacity: creatingFolder || !folderName.trim() ? 0.4 : 1 }}>{tr("Crear")}</button>
+          </form>
+          {menu.path && !isSystem(menu.path) ? (
+            <button type="button" onClick={() => void removeFolder(menu.path || "")} style={{ ...menuBtn, marginTop: 8, background: "transparent", color: "var(--state-danger-fg)" }}>{tr("Eliminar carpeta")}</button>
+          ) : null}
+        </div>,
+        document.body,
+      ) : null}
       <style>{`
-        .mkb-mail { display: grid; grid-template-columns: 16rem minmax(0, 1fr); height: min(78vh, 860px); min-height: 520px; background: ${porcelain}; color: ${ink}; border: 1px solid rgba(26,22,19,.1); overflow: hidden; }
+        .mkb-mail { display: grid; grid-template-columns: 16rem minmax(0, 1fr); height: min(78vh, 860px); min-height: 520px; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--color-border); overflow: hidden; }
         .mkb-folders, .mkb-list, .mkb-read { min-height: 0; min-width: 0; }
-        .mkb-folders { overflow: auto; border-right: 1px solid rgba(26,22,19,.1); }
+        .mkb-folders { overflow: auto; border-right: 1px solid var(--color-border); }
         .mkb-main { display: grid; grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); min-width: 0; min-height: 0; }
-        .mkb-list { display: flex; flex-direction: column; border-right: 1px solid rgba(26,22,19,.1); min-height: 0; }
+        .mkb-list { display: flex; flex-direction: column; border-right: 1px solid var(--color-border); min-height: 0; }
         .mkb-back { display: none; }
         .mail-html img, .mail-html table { max-width: 100%; }
         @media (max-width: 860px) {
@@ -514,7 +557,7 @@ function ComposePane({ compose, setCompose, sending, onSend, onClose }: { compos
   const fileRef = useRef<HTMLInputElement>(null);
   return (
     <form style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }} onSubmit={(event) => { event.preventDefault(); onSend(); }}>
-      <div style={{ display: "flex", gap: 4, alignItems: "center", padding: 8, borderBottom: "1px solid rgba(26,22,19,.1)" }}>
+      <div style={{ display: "flex", gap: 4, alignItems: "center", padding: 8, borderBottom: `1px solid ${line}` }}>
         <Tool label={tr("Cerrar")} onClick={onClose}><X size={18} strokeWidth={1.6} /></Tool>
         <Tool label={tr("Adjuntar")} onClick={() => fileRef.current?.click()}><Paperclip size={18} strokeWidth={1.6} /></Tool>
         <button type="submit" aria-label={tr("Enviar")} title={tr("Enviar")} disabled={sending} style={{ ...toolStyle(false, sending), marginLeft: "auto" }}><Send size={18} strokeWidth={1.6} /></button>
@@ -570,7 +613,7 @@ function MailAttachment({ file, onError }: { file: MailFile; onError: (message: 
     };
   }, [file.id, image]);
   return (
-    <button type="button" onClick={() => void downloadFile(file).catch((err) => onError(err instanceof Error ? err.message : tr("No se ha podido descargar el archivo.")))} style={{ width: 144, border: "1px solid rgba(26,22,19,.1)", background: "transparent", color: ink, textAlign: "left", padding: 10, cursor: "pointer" }}>
+    <button type="button" onClick={() => void downloadFile(file).catch((err) => onError(err instanceof Error ? err.message : tr("No se ha podido descargar el archivo.")))} style={{ width: 144, border: `1px solid ${line}`, background: "transparent", color: ink, textAlign: "left", padding: 10, cursor: "pointer" }}>
       {src ? <img src={src} alt="" style={{ width: "100%", height: 80, objectFit: "cover", marginBottom: 8 }} /> : null}
       <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 14 }}>{file.filename}</span>
       <span style={{ display: "block", marginTop: 4, color: ash, fontSize: 11 }}>{formatSize(file.size)}</span>
@@ -603,8 +646,8 @@ function toolStyle(active: boolean, disabled: boolean): CSSProperties {
     placeItems: "center",
     border: "none",
     borderRadius: 999,
-    background: active ? ink : "transparent",
-    color: active ? porcelain : ink,
+    background: active ? "var(--color-primary)" : "transparent",
+    color: active ? "var(--bg-card)" : ink,
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.3 : 1,
   };
@@ -620,7 +663,7 @@ function folderBtn(active: boolean): CSSProperties {
     border: "none",
     borderRadius: 8,
     padding: "6px 8px",
-    background: active ? "rgba(26,22,19,.1)" : "transparent",
+    background: active ? "color-mix(in srgb, var(--color-primary) 16%, transparent)" : "transparent",
     color: ink,
     cursor: "pointer",
     font: "inherit",
@@ -632,5 +675,5 @@ const kicker: CSSProperties = { margin: "8px 8px 4px", fontSize: 11, letterSpaci
 const emptyStyle: CSSProperties = { padding: "24px 16px", color: ash, fontSize: 14 };
 const rowBtn: CSSProperties = { flex: 1, minWidth: 0, display: "grid", gap: 2, border: "none", background: "transparent", color: ink, textAlign: "left", cursor: "pointer", font: "inherit", padding: 0 };
 const labelStyle: CSSProperties = { display: "grid", gap: 4, marginTop: 14, fontSize: 12, color: ash };
-const fieldStyle: CSSProperties = { width: "100%", boxSizing: "border-box", border: "1px solid rgba(26,22,19,.15)", background: porcelain, color: ink, padding: "8px 10px", font: "inherit" };
-const tinyBtn: CSSProperties = { border: "1px solid rgba(26,22,19,.15)", background: "transparent", color: ink, borderRadius: 999, padding: "4px 8px", fontSize: 11, cursor: "pointer" };
+const fieldStyle: CSSProperties = { width: "100%", boxSizing: "border-box", border: `1px solid ${line}`, background: porcelain, color: ink, padding: "8px 10px", font: "inherit" };
+const menuBtn: CSSProperties = { border: "none", borderRadius: 999, padding: "6px 10px", background: "var(--color-primary)", color: "var(--bg-card)", font: "inherit", fontSize: 13, cursor: "pointer" };

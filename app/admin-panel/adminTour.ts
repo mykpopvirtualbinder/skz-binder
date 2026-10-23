@@ -462,7 +462,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='mail-folders']",
       title: tr("Las carpetas"),
-      text: tr("Entrada, Enviados, Archivo y Papelera. Abajo puedes crear una carpeta tuya: en la raíz, o como subcarpeta de la que esté abierta. Eliminar solo borra las tuyas."),
+      text: tr("Entrada, Enviados, Archivo y Papelera. Con el botón derecho creas una carpeta. Sobre una tuya, el botón derecho también la elimina."),
       side: "right",
       tab: "correo",
     },
