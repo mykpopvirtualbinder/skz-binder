@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Archive, Check, Forward, Mail, MailOpen, Paperclip, PenLine, Reply, ReplyAll, Send, Trash2, X } from "lucide-react";
+import { Archive, Check, Filter, Forward, Mail, MailOpen, Paperclip, PenLine, Reply, ReplyAll, Search, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
 import { bindAdminLang, tr } from "@/lib/admin-i18n";
@@ -123,11 +123,19 @@ export default function AdminMailbox() {
   const [folderName, setFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; path: string | null } | null>(null);
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [readFilter, setReadFilter] = useState<"all" | "unread" | "read">("all");
   const boxRef = useRef(box);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     boxRef.current = box;
   }, [box]);
+
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
 
   useEffect(() => {
     if (!menu) return;
@@ -219,6 +227,9 @@ export default function AdminMailbox() {
     setCompose(null);
     setPicked([]);
     setSelecting(false);
+    setQuery("");
+    setSearchOpen(false);
+    setReadFilter("all");
     void loadList(path);
   }
 
@@ -395,7 +406,14 @@ export default function AdminMailbox() {
   const custom = folders.filter((folder) => folder.selectable && !isSystem(folder.path) && folder.path.toUpperCase() !== "INBOX");
   const reading = Boolean(selected || compose);
   const markAsRead = messages.some((item) => picked.includes(item.uid) && !item.seen);
-  const allPicked = messages.length > 0 && messages.every((item) => picked.includes(item.uid));
+  const needle = query.trim().toLowerCase();
+  const shown = messages.filter((item) => {
+    if (readFilter === "unread" && item.seen) return false;
+    if (readFilter === "read" && !item.seen) return false;
+    if (!needle) return true;
+    return `${item.subject} ${item.from} ${item.to}`.toLowerCase().includes(needle);
+  });
+  const allPicked = shown.length > 0 && shown.every((item) => picked.includes(item.uid));
   const sentView = box === "sent";
 
   return (
@@ -432,7 +450,7 @@ export default function AdminMailbox() {
             <Tool label={selecting ? tr("Quitar selección") : tr("Seleccionar")} tour="mail-select" active={selecting} onClick={() => { setSelecting((value) => !value); setPicked([]); }}>
               <Check size={18} strokeWidth={1.6} />
             </Tool>
-            {selecting ? <input type="checkbox" checked={allPicked} aria-label={tr("Seleccionar todo")} onChange={() => setPicked(allPicked ? [] : messages.map((item) => item.uid))} style={{ width: 16, height: 16 }} /> : null}
+            {selecting ? <input type="checkbox" checked={allPicked} aria-label={tr("Seleccionar todo")} onChange={() => setPicked(allPicked ? [] : shown.map((item) => item.uid))} style={{ width: 16, height: 16 }} /> : null}
             <Tool label={box === "archive" ? tr("Mover a entrada") : tr("Archivar")} disabled={!picked.length} onClick={() => void actOn(picked, "move", { destination: box === "archive" ? "inbox" : "archive" })}>
               {box === "archive" ? <Mail size={18} strokeWidth={1.6} /> : <Archive size={18} strokeWidth={1.6} />}
             </Tool>
@@ -442,12 +460,25 @@ export default function AdminMailbox() {
             <Tool label={markAsRead ? tr("Marcar como leído") : tr("Marcar como no leído")} disabled={!picked.length} onClick={() => void actOn(picked, "seen", { seen: markAsRead })}>
               {markAsRead ? <MailOpen size={18} strokeWidth={1.6} /> : <Mail size={18} strokeWidth={1.6} />}
             </Tool>
+            <Tool label={tr("Buscar")} active={searchOpen} onClick={() => setSearchOpen((value) => !value)}>
+              <Search size={18} strokeWidth={1.6} />
+            </Tool>
+            <Tool label={tr("Filtro")} active={readFilter !== "all"} onClick={() => setReadFilter((value) => (value === "all" ? "unread" : value === "unread" ? "read" : "all"))}>
+              <Filter size={18} strokeWidth={1.6} />
+            </Tool>
           </div>
+          {searchOpen ? (
+            <div style={{ padding: "8px 12px", borderBottom: `1px solid ${line}` }}>
+              <input ref={searchRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tr("Buscar en asunto, remitente o destinatario")} aria-label={tr("Buscar")} style={{ ...fieldStyle, border: "none", background: "transparent", padding: 0 }} />
+            </div>
+          ) : null}
+          {readFilter !== "all" ? <p style={{ margin: 0, padding: "4px 12px", borderBottom: `1px solid ${line}`, color: ash, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase" }}>{readFilter === "unread" ? tr("No leídos") : tr("Leídos")}</p> : null}
           {error ? <p style={{ margin: 0, padding: "8px 16px", color: ash, fontSize: 14 }}>{error}</p> : null}
           <div style={{ overflow: "auto", minHeight: 0, flex: 1 }}>
             {loading && !messages.length ? <p style={emptyStyle}>{tr("Abriendo…")}</p> : null}
             {!loading && !messages.length ? <p style={emptyStyle}>{tr("Esta carpeta está vacía.")}</p> : null}
-            {messages.map((item, index) => (
+            {!loading && messages.length > 0 && !shown.length ? <p style={emptyStyle}>{tr("Ningún mensaje coincide.")}</p> : null}
+            {shown.map((item, index) => (
               <div key={item.uid} style={{ display: "flex", gap: 8, padding: "10px 12px", borderBottom: `1px solid ${line}`, background: selected?.uid === item.uid ? "color-mix(in srgb, var(--color-primary) 14%, transparent)" : "transparent" }}>
                 {selecting ? (
                   <input type="checkbox" checked={picked.includes(item.uid)} aria-label={tr("Seleccionar")} onChange={() => setPicked((prev) => prev.includes(item.uid) ? prev.filter((id) => id !== item.uid) : [...prev, item.uid])} style={{ marginTop: 4, width: 16, height: 16 }} />
@@ -528,13 +559,13 @@ export default function AdminMailbox() {
         .mkb-mail { display: grid; grid-template-columns: 16rem minmax(0, 1fr); height: min(78vh, 860px); min-height: 520px; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--color-border); overflow: hidden; }
         .mkb-folders, .mkb-list, .mkb-read { min-height: 0; min-width: 0; }
         .mkb-folders { overflow: auto; border-right: 1px solid var(--color-border); }
-        .mkb-main { display: grid; grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); min-width: 0; min-height: 0; }
-        .mkb-list { display: flex; flex-direction: column; border-right: 1px solid var(--color-border); min-height: 0; }
+        .mkb-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(10rem, 32%) minmax(0, 1fr); min-width: 0; min-height: 0; }
+        .mkb-list { display: flex; flex-direction: column; border-bottom: 1px solid var(--color-border); min-height: 0; }
         .mkb-back { display: none; }
         .mail-html img, .mail-html table { max-width: 100%; }
         @media (max-width: 860px) {
           .mkb-mail { grid-template-columns: 1fr; height: auto; min-height: 70vh; }
-          .mkb-main { grid-template-columns: 1fr; }
+          .mkb-main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); }
           .mkb-mail.mkb-reading .mkb-folders, .mkb-mail.mkb-reading .mkb-list { display: none; }
           .mkb-mail:not(.mkb-reading) .mkb-read { display: none; }
           .mkb-back { display: inline-flex; }

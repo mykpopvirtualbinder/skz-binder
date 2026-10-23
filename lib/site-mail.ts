@@ -24,7 +24,7 @@ function escapeHtml(value: string) {
 }
 
 function mailHtml(text: string, imageSrc: string) {
-  const img = `<img src="${imageSrc}" alt="STAFF My K-Pop Binder · Collect · Trade · Connect" width="93" style="width:93px;max-width:100%;height:auto;border:0;display:block;" />`;
+  const img = `<img src="${imageSrc}" alt="STAFF My K-Pop Binder · Collect · Trade · Connect" width="193" height="352" style="width:193px;max-width:100%;height:auto;border:0;display:block;" />`;
   return `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${escapeHtml(text)}</div><p style="margin:28px 0 0;">${img}</p>`;
 }
 
