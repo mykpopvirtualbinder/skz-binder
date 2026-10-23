@@ -53,6 +53,7 @@ export type MailMessage = MailSummary & {
   text: string;
   html: string;
   messageId: string;
+  inReplyTo: string;
   attachments: MailFile[];
 };
 
@@ -265,6 +266,7 @@ export async function readMessage(uid: string): Promise<MailMessage | null> {
     text: row.body_text || "",
     html,
     messageId: row.message_id || "",
+    inReplyTo: row.in_reply_to || "",
     attachments: fileRows.map((file) => ({
       id: file.id,
       filename: file.filename,
@@ -311,6 +313,13 @@ export async function deleteMessages(uids: string[], boxInput: string) {
     return;
   }
   const { error } = await db().from("emails").update({ folder: "trash" }).in("id", ids);
+  if (error) throw new Error(error.message);
+}
+
+export async function setMessagesSeen(uids: string[], seen: boolean) {
+  const ids = [...new Set(uids)].slice(0, 40);
+  if (!ids.length) return;
+  const { error } = await db().from("emails").update({ seen }).in("id", ids);
   if (error) throw new Error(error.message);
 }
 
@@ -388,7 +397,7 @@ export async function sendMail(input: {
   const html = mailHtml(`${message}${attached}`, image ? "cid:staff-signature" : SIGNATURE_URL);
   const resend = new Resend(key);
   const { data, error } = await resend.emails.send({
-    from: `MyKpopBinder <${ACCOUNT}>`,
+    from: `STAFF M.K.B. <${ACCOUNT}>`,
     to,
     subject,
     text: plain,
@@ -404,7 +413,7 @@ export async function sendMail(input: {
   const saved = await db().from("emails").insert({
     direction: "outgoing",
     folder: "sent",
-    sender: `My K-pop Binder <${ACCOUNT}>`,
+    sender: `STAFF M.K.B. <${ACCOUNT}>`,
     recipient: to.join(", "),
     subject,
     body_text: plain,
