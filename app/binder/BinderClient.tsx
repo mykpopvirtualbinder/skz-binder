@@ -30,6 +30,8 @@ import {
   extractCollectionYear,
   formatCollectionOptionLabel,
   isSeasonsGreetings,
+  isStrayKidsGroupName,
+  sortCollectionEntries,
   strayKidsAlbumOrderIndex,
 } from "@/lib/collection-filters";
 import { prettyMemberLabel as canonicalMemberLabel } from "@/lib/member-labels";
@@ -922,39 +924,12 @@ const albumOptions = useMemo(() => {
       id,
       name,
       release_date: albums.find((a) => a.id === id)?.release_date ?? null,
+      releaseDate: albums.find((a) => a.id === id)?.release_date ?? null,
     }));
-    entries.sort((a, b) => {
-      const aName = a.name;
-      const bName = b.name;
-      const aRelease = a.release_date;
-      const bRelease = b.release_date;
-      const aSG = isSeasonsGreetings(aName);
-      const bSG = isSeasonsGreetings(bName);
-      if (aSG !== bSG) return aSG ? 1 : -1;
-
-      if (!aSG && !bSG) {
-        const ai = strayKidsAlbumOrderIndex(aName);
-        const bi = strayKidsAlbumOrderIndex(bName);
-        if (ai != null && bi != null && ai !== bi) return ai - bi;
-        if (ai != null && bi == null) return -1;
-        if (ai == null && bi != null) return 1;
-      }
-
-      if (aSG && bSG) {
-        const ay = extractCollectionYear(aName, aRelease);
-        const by = extractCollectionYear(bName, bRelease);
-        if (ay != null && by != null && ay !== by) return ay - by;
-        if (ay != null && by == null) return -1;
-        if (ay == null && by != null) return 1;
-      }
-
-      const ad = aRelease ? new Date(aRelease).getTime() : Number.POSITIVE_INFINITY;
-      const bd = bRelease ? new Date(bRelease).getTime() : Number.POSITIVE_INFINITY;
-      if (ad !== bd) return ad - bd;
-      return aName.localeCompare(bName, "es", { sensitivity: "base", numeric: true });
-    });
-    return entries;
-  }, [items, group, albums]);
+    const selectedGroupName = group === "" ? null : groups.find((row) => row.id === group)?.name ?? null;
+    const sortGroupName = !selectedGroupName || isStrayKidsGroupName(selectedGroupName) ? "Stray Kids" : selectedGroupName;
+    return sortCollectionEntries(entries, { groupName: sortGroupName });
+  }, [items, group, albums, groups]);
 
   const versionOptions = useMemo(() => {
     const set = new Set<string>();
@@ -12090,30 +12065,30 @@ if (resumeWttListingAfterLegacyPicker) {
                   style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)" }}
                 >
                   <option value="">{t('binders.picker.album')} {t('binders.picker.all_masculine')}</option>
-                  {Array.from(
-                    new Set(
-                      wttWantCatalog
-                        .filter((i) => (wttWantGroup === "" ? true : i.group_id === wttWantGroup))
-                        .map((i) => i.album_id)
-                        .filter((x): x is number => typeof x === "number")
-                    )
-                  )
-                    .map((id) => ({
+                  {sortCollectionEntries(
+                    Array.from(
+                      new Set(
+                        wttWantCatalog
+                          .filter((i) => (wttWantGroup === "" ? true : i.group_id === wttWantGroup))
+                          .map((i) => i.album_id)
+                          .filter((x): x is number => typeof x === "number")
+                      )
+                    ).map((id) => ({
                       id,
                       name: wttWantAlbumNames[id] ?? `#${id}`,
-                      release_date: wttWantAlbumRelease[id] ?? null,
-                    }))
-                    .sort((a, b) => {
-                      const da = a.release_date ? new Date(a.release_date).getTime() : Number.POSITIVE_INFINITY;
-                      const db = b.release_date ? new Date(b.release_date).getTime() : Number.POSITIVE_INFINITY;
-                      if (da !== db) return da - db;
-                      return a.name.localeCompare(b.name, "es");
-                    })
-                    .map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
+                      releaseDate: wttWantAlbumRelease[id] ?? null,
+                    })),
+                    {
+                      groupName: (() => {
+                        const selected = wttWantGroup === "" ? null : wttWantGroupNames[Number(wttWantGroup)] ?? null;
+                        return !selected || isStrayKidsGroupName(selected) ? "Stray Kids" : selected;
+                      })(),
+                    },
+                  ).map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {formatCollectionOptionLabel(a.name, a.releaseDate)}
+                    </option>
+                  ))}
                 </select>
 
                 <select
@@ -12452,8 +12427,20 @@ return hay.includes(q);
           style={{ padding: "10px", borderRadius: 8, border: "1px solid var(--color-border)", fontSize: 13, width: "100%", height: "42px", background: "var(--bg-card)" }}
         >
           <option value="">{t('binders.picker.album')} ({t('common.all')})</option>
-          {Array.from(new Set(wttWantCatalog.filter(i => !wttOfferGroup || i.group_id === wttOfferGroup).map(i => i.album_id).filter(Boolean))).map(id => (
-            <option key={String(id)} value={String(id)}>{wttWantAlbumNames[id as number] ?? `Álbum ${id}`}</option>
+          {sortCollectionEntries(
+            Array.from(new Set(wttWantCatalog.filter(i => !wttOfferGroup || i.group_id === wttOfferGroup).map(i => i.album_id).filter((id): id is number => typeof id === "number"))).map((id) => ({
+              id,
+              name: wttWantAlbumNames[id] ?? `Álbum ${id}`,
+              releaseDate: wttWantAlbumRelease[id] ?? null,
+            })),
+            {
+              groupName: (() => {
+                const selected = !wttOfferGroup ? null : wttWantGroupNames[Number(wttOfferGroup)] ?? null;
+                return !selected || isStrayKidsGroupName(selected) ? "Stray Kids" : selected;
+              })(),
+            },
+          ).map((album) => (
+            <option key={String(album.id)} value={String(album.id)}>{formatCollectionOptionLabel(album.name, album.releaseDate)}</option>
           ))}
         </select>
 

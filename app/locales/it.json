@@ -521,6 +521,8 @@
       "camera_denied": "Non è stato possibile usare la fotocamera. Controlla il permesso o carica un’immagine.",
       "no_close": "Nessuna carta del catalogo è abbastanza simile. Segnala come personalizzata o cercala a mano.",
       "back_pages": "Torna alle pagine",
+      "back": "Indietro",
+      "member": "Membro",
       "save_empty": "Non è stato salvato nulla in quello slot. Sceglilo di nuovo.",
       "need_confirm": "Senza pagine nuove non ci stanno. Scegli un altro slot o una pagina nuova.",
       "vision": "Preparazione del riconoscimento visivo…"

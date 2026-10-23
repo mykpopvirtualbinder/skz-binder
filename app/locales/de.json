@@ -521,6 +521,8 @@
       "camera_denied": "Die Kamera konnte nicht verwendet werden. Prüfe die Erlaubnis oder lade ein Bild hoch.",
       "no_close": "Keine Katalogkarte ist nah genug. Markiere sie als eigene oder suche von Hand.",
       "back_pages": "Zurück zu den Seiten",
+      "back": "Zurück",
+      "member": "Mitglied",
       "save_empty": "In diesem Fach wurde nichts gespeichert. Wähle es erneut.",
       "need_confirm": "Ohne neue Seiten passen sie nicht. Wähle ein anderes Fach oder eine neue Seite.",
       "vision": "Visuelle Erkennung wird vorbereitet…"

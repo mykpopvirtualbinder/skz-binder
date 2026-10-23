@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { resolveBinderQuota } from "@/lib/binder-quotas";
+import { formatCollectionOptionLabel, isStrayKidsGroupName, sortCollectionEntries } from "@/lib/collection-filters";
 import { useGlobal } from "../context/GlobalContext";
 
 type CardRow = {
@@ -74,6 +75,29 @@ const PAGE_LAYOUTS: Record<string, { cols: number; rows: number; slots: number }
   sp_1x4: { cols: 1, rows: 4, slots: 4 },
   sp_1x1: { cols: 1, rows: 1, slots: 1 },
 };
+
+const SCAN_MEMBERS = [
+  { value: "bang-chan", label: "Bang Chan" },
+  { value: "lee-know", label: "Lee Know" },
+  { value: "changbin", label: "Changbin" },
+  { value: "hyunjin", label: "Hyunjin" },
+  { value: "han", label: "Han" },
+  { value: "felix", label: "Felix" },
+  { value: "seungmin", label: "Seungmin" },
+  { value: "in", label: "I.N" },
+] as const;
+
+function scanMemberMatches(raw: string | null, selected: string): boolean {
+  const n = String(raw || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const squish = n.replace(/[^a-z0-9]+/g, "");
+  if (!squish) return false;
+  if (selected === "in") return /(^|[^a-z])i\.?\s*n([^a-z]|$)/i.test(n) || squish === "in" || squish.includes("jeongin");
+  if (selected === "han") return /(^|[^a-z])han([^a-z]|$)/i.test(n);
+  return squish.includes(selected.replace(/-/g, ""));
+}
 
 const VISION_DIM = 512;
 const VISION_SHOW = 0.84;
@@ -224,6 +248,7 @@ export default function PhotoPageImport({
   initialGrid = "3x3",
   initialPieces,
   onClose,
+  onBack,
   onPlaced,
 }: {
   userId: string;
@@ -231,6 +256,7 @@ export default function PhotoPageImport({
   initialGrid?: string;
   initialPieces?: Array<{ itemId: number; memberId: number | null }>;
   onClose: () => void;
+  onBack?: () => void;
   onPlaced?: () => void;
 }) {
   const { t, showConfirm } = useGlobal();
@@ -245,9 +271,10 @@ export default function PhotoPageImport({
   const grid = GRIDS.find((item) => item.key === gridKey) ?? GRIDS[0];
   const [inset, setInset] = useState({ top: 8, right: 8, bottom: 8, left: 8 });
   const [groups, setGroups] = useState<Array<{ id: number; name: string }>>([]);
-  const [albums, setAlbums] = useState<Array<{ id: number; name: string; group_id: number | null }>>([]);
+  const [albums, setAlbums] = useState<Array<{ id: number; name: string; group_id: number | null; release_date: string | null }>>([]);
   const [groupId, setGroupId] = useState<number | "">("");
   const [albumId, setAlbumId] = useState<number | "">("");
+  const [member, setMember] = useState("");
   const [version, setVersion] = useState("");
   const [versions, setVersions] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
@@ -358,7 +385,7 @@ export default function PhotoPageImport({
     void (async () => {
       const [groupRes, albumRes] = await Promise.all([
         supabase.from("groups").select("id, name").order("name"),
-        supabase.from("albums").select("id, name, group_id").order("name"),
+        supabase.from("albums").select("id, name, group_id, release_date").order("name"),
       ]);
       if (cancelled) return;
       setGroups((groupRes.data ?? []).map((row) => ({ id: Number(row.id), name: String(row.name ?? "") })));
@@ -367,6 +394,7 @@ export default function PhotoPageImport({
           id: Number(row.id),
           name: String(row.name ?? ""),
           group_id: row.group_id == null ? null : Number(row.group_id),
+          release_date: row.release_date == null ? null : String(row.release_date),
         })),
       );
     })();
@@ -396,10 +424,15 @@ export default function PhotoPageImport({
     };
   }, [albumId]);
 
-  const visibleAlbums = useMemo(
-    () => albums.filter((album) => groupId === "" || album.group_id === groupId),
-    [albums, groupId],
-  );
+  const visibleAlbums = useMemo(() => {
+    const rows = albums.filter((album) => groupId === "" || album.group_id === groupId);
+    const selectedGroupName = groupId === "" ? null : groups.find((group) => group.id === groupId)?.name ?? null;
+    const sortGroupName = !selectedGroupName || isStrayKidsGroupName(selectedGroupName) ? "Stray Kids" : selectedGroupName;
+    return sortCollectionEntries(
+      rows.map((album) => ({ ...album, releaseDate: album.release_date })),
+      { groupName: sortGroupName },
+    );
+  }, [albums, groupId, groups]);
 
   function useFile(file: File | undefined) {
     if (!file) return;
@@ -427,6 +460,7 @@ export default function PhotoPageImport({
         const card = mapCard(row);
         if (!card.image_url) continue;
         if (version && prettyLabel(card.version) !== version) continue;
+        if (member && !scanMemberMatches(card.member, member)) continue;
         cards.push(card);
       }
       if (batch.length < 1000) break;
@@ -959,6 +993,35 @@ export default function PhotoPageImport({
     if (ins.error) throw new Error(ins.error.message);
   }
 
+  function goBack() {
+    if (step === "slot") {
+      setStep("page");
+      return;
+    }
+    if (step === "page") {
+      setPageId("");
+      setStep("place");
+      return;
+    }
+    if (step === "place") {
+      if (initialPieces?.length && onBack) onBack();
+      else setStep("scan");
+      return;
+    }
+    if (choices.length) {
+      setChoices([]);
+      setNotice(null);
+      return;
+    }
+    if (photoUrl) {
+      URL.revokeObjectURL(photoUrl);
+      setPhotoUrl(null);
+      stopCamera();
+      return;
+    }
+    onClose();
+  }
+
   const fieldStyle = {
     width: "100%",
     padding: "8px 10px",
@@ -998,8 +1061,13 @@ export default function PhotoPageImport({
           padding: 16,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-          <strong>{step === "scan" ? t("binders.photo.scan") : t("library.bulk_binder_title")}</strong>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", position: "sticky", top: 0, zIndex: 2, background: "var(--bg-card)", paddingBottom: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+            <button type="button" onClick={goBack} style={{ ...fieldStyle, width: "auto", fontWeight: 800 }}>
+              {t("binders.photo.back")}
+            </button>
+            <strong>{step === "scan" ? t("binders.photo.scan") : t("library.bulk_binder_title")}</strong>
+          </div>
           <button type="button" onClick={onClose} style={{ ...fieldStyle, width: "auto", fontWeight: 800 }}>
             {t("binders.photo.close")}
           </button>
@@ -1099,6 +1167,7 @@ export default function PhotoPageImport({
                         setGroupId(event.target.value === "" ? "" : Number(event.target.value));
                         setAlbumId("");
                         setVersion("");
+                        setMember("");
                         setChoices([]);
                       }}
                     >
@@ -1118,13 +1187,32 @@ export default function PhotoPageImport({
                       onChange={(event) => {
                         setAlbumId(event.target.value === "" ? "" : Number(event.target.value));
                         setVersion("");
+                        setMember("");
                         setChoices([]);
                       }}
                     >
                       <option value="">{t("binders.photo.all")}</option>
                       {visibleAlbums.map((album) => (
                         <option key={album.id} value={album.id}>
-                          {album.name}
+                          {formatCollectionOptionLabel(album.name, album.release_date)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {t("binders.photo.member")}
+                    <select
+                      value={member}
+                      style={fieldStyle}
+                      onChange={(event) => {
+                        setMember(event.target.value);
+                        setChoices([]);
+                      }}
+                    >
+                      <option value="">{t("binders.photo.all")}</option>
+                      {SCAN_MEMBERS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>

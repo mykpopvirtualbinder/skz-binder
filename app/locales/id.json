@@ -521,6 +521,8 @@
       "camera_denied": "Kamera tidak bisa dipakai. Periksa izinnya atau unggah gambar.",
       "no_close": "Tidak ada kartu katalog yang cukup mirip. Tandai sebagai kustom atau cari manual.",
       "back_pages": "Kembali ke halaman",
+      "back": "Kembali",
+      "member": "Anggota",
       "save_empty": "Tidak ada yang tersimpan di slot itu. Pilih lagi.",
       "need_confirm": "Tanpa halaman baru tidak muat. Pilih slot lain atau halaman baru.",
       "vision": "Menyiapkan pengenalan visual…"

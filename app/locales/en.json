@@ -584,6 +584,8 @@
       "camera_denied": "The camera could not be used. Check the permission or upload an image.",
       "no_close": "No catalog card is close enough. Mark it as custom or search by hand.",
       "back_pages": "Back to pages",
+      "back": "Back",
+      "member": "Member",
       "save_empty": "Nothing was saved in that slot. Choose it again.",
       "need_confirm": "They do not fit without new pages. Choose another slot or a new page.",
       "vision": "Preparing visual recognition…"

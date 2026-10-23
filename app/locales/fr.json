@@ -521,6 +521,8 @@
       "camera_denied": "La caméra n’a pas pu être utilisée. Vérifie l’autorisation ou envoie une image.",
       "no_close": "Aucune carte du catalogue n’est assez proche. Marque-la comme perso ou cherche-la à la main.",
       "back_pages": "Retour aux pages",
+      "back": "Retour",
+      "member": "Membre",
       "save_empty": "Rien n’a été enregistré dans cet emplacement. Choisis-le à nouveau.",
       "need_confirm": "Sans nouvelles pages, elles ne rentrent pas. Choisis un autre emplacement ou une nouvelle page.",
       "vision": "Préparation de la reconnaissance visuelle…"

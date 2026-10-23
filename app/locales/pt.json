@@ -367,6 +367,8 @@
       "camera_denied": "Não foi possível usar a câmara. Revê a permissão ou envia uma imagem.",
       "no_close": "Nenhuma carta do catálogo é parecida o suficiente. Marca como personalizada ou procura à mão.",
       "back_pages": "Voltar às páginas",
+      "back": "Voltar",
+      "member": "Membro",
       "save_empty": "Nada foi guardado nesse espaço. Escolhe-o outra vez.",
       "need_confirm": "Sem páginas novas não cabem. Escolhe outro espaço ou uma página nova.",
       "vision": "A preparar o reconhecimento visual…"

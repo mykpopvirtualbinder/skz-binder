@@ -14,12 +14,12 @@ import { useGlobal } from "../context/GlobalContext";
 import { requireLoggedIn } from "@/lib/auth-gate";
 import {
   formatCollectionOptionLabel,
-  strayKidsAlbumOrderIndex,
-  isSeasonsGreetings,
-  extractCollectionYear,
   isNonAlbumCollectionTitle,
   collectionOptionDedupeKey,
   formatSeasonsGreetingsLabel,
+  isSeasonsGreetings,
+  isStrayKidsGroupName,
+  sortCollectionEntries,
 } from "@/lib/collection-filters";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { avisarFavoritos } from "@/lib/avisos";
@@ -3108,38 +3108,16 @@ const albumOptions = useMemo(() => {
       ? allKnownAlbumIds
       : allKnownAlbumIds.filter((id) => albumById[id]?.group_id === fGroup || idsFromItems.has(id));
 
-  const sortedIds = [...ids].sort((aId, bId) => {
-    const aName = albumById[aId]?.name ?? "";
-    const bName = albumById[bId]?.name ?? "";
-    const aRelease = albumById[aId]?.release_date ?? null;
-    const bRelease = albumById[bId]?.release_date ?? null;
-
-    const aSG = isSeasonsGreetings(aName);
-    const bSG = isSeasonsGreetings(bName);
-    if (aSG !== bSG) return aSG ? 1 : -1; // SG always at the end
-
-    if (!aSG && !bSG) {
-      const ai = strayKidsAlbumOrderIndex(aName);
-      const bi = strayKidsAlbumOrderIndex(bName);
-      if (ai != null && bi != null && ai !== bi) return ai - bi;
-      if (ai != null && bi == null) return -1;
-      if (ai == null && bi != null) return 1;
-    }
-
-    if (aSG && bSG) {
-      const ay = extractCollectionYear(aName, aRelease);
-      const by = extractCollectionYear(bName, bRelease);
-      if (ay != null && by != null && ay !== by) return ay - by;
-      if (ay != null && by == null) return -1;
-      if (ay == null && by != null) return 1;
-    }
-
-    const ad = aRelease ? new Date(aRelease).getTime() : Number.POSITIVE_INFINITY;
-    const bd = bRelease ? new Date(bRelease).getTime() : Number.POSITIVE_INFINITY;
-    if (ad !== bd) return ad - bd;
-
-    return String(aName).localeCompare(String(bName), "es", { sensitivity: "base", numeric: true });
-  });
+  const selectedGroupName = fGroup === "all" ? null : groupNameById[fGroup] ?? null;
+  const sortGroupName = !selectedGroupName || isStrayKidsGroupName(selectedGroupName) ? "Stray Kids" : selectedGroupName;
+  const sortedIds = sortCollectionEntries(
+    ids.map((id) => ({
+      id,
+      name: prettyAlbumDisplay(albumById[id]?.name ?? ""),
+      releaseDate: albumById[id]?.release_date ?? null,
+    })),
+    { groupName: sortGroupName },
+  ).map((row) => row.id);
 
   const seen = new Set<string>();
   return sortedIds.filter((id) => {
@@ -3186,14 +3164,29 @@ const folderAlbumOptions = useMemo(() => {
     }
     extra.push(f);
   }
-  extra.sort((a, b) => {
-    const ai = strayKidsAlbumOrderIndex(a.album_title);
-    const bi = strayKidsAlbumOrderIndex(b.album_title);
-    if (ai != null && bi != null && ai !== bi) return ai - bi;
-    return a.album_title.localeCompare(b.album_title, "es", { sensitivity: "base", numeric: true });
-  });
+  extra.sort((a, b) => a.album_title.localeCompare(b.album_title, "es", { sensitivity: "base", numeric: true }));
   return extra;
 }, [folderTree, albumOptions, albumById, fGroup, groupNameById, catalog, fCollectionKind]);
+
+const albumMenuOptions = useMemo(() => {
+  const selectedGroupName = fGroup === "all" ? null : groupNameById[fGroup] ?? null;
+  const sortGroupName = !selectedGroupName || isStrayKidsGroupName(selectedGroupName) ? "Stray Kids" : selectedGroupName;
+  const rows = [
+    ...albumOptions.map((id) => ({
+      value: String(id),
+      name: prettyAlbumDisplay(albumById[id]?.name ?? `Álbum ${id}`),
+      releaseDate: albumById[id]?.release_date ?? null,
+      region: null as FolderTreeAlbum["region"] | null,
+    })),
+    ...folderAlbumOptions.map((folder) => ({
+      value: folderAlbumFilterKey(folder),
+      name: prettyAlbumDisplay(folder.album_title, folder.region),
+      releaseDate: null as string | null,
+      region: folder.region,
+    })),
+  ];
+  return sortCollectionEntries(rows, { groupName: sortGroupName });
+}, [albumOptions, folderAlbumOptions, albumById, fGroup, groupNameById]);
 
 const collectionKindOptions = useMemo(() => {
   const present = new Set<Exclude<LibraryCollectionKind, "all">>();
@@ -4121,12 +4114,9 @@ const commitStockForItem = useCallback(
                 else setFAlbum(Number(v));
               }} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
                 <option value="all">{allLabel}</option>
-                {albumOptions.map((aid) => (
-                  <option key={aid} value={String(aid)}>{formatCollectionOptionLabel(prettyAlbumDisplay(albumById[aid]?.name ?? `Álbum ${aid}`), albumById[aid]?.release_date ?? null)}</option>
-                ))}
-                {folderAlbumOptions.map((f) => (
-                  <option key={folderAlbumFilterKey(f)} value={folderAlbumFilterKey(f)}>
-                    {formatCollectionOptionLabel(prettyAlbumDisplay(f.album_title, f.region), null, f.region)}
+                {albumMenuOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {formatCollectionOptionLabel(option.name, option.releaseDate, option.region ?? undefined)}
                   </option>
                 ))}
               </select>
@@ -4380,9 +4370,14 @@ const commitStockForItem = useCallback(
                 <h3 style={{ margin: 0 }}>{t("library.bulk_title")}</h3>
                 <p style={{ margin: 0, color: "var(--text-muted)", lineHeight: 1.45 }}>{t("library.bulk_hint")}</p>
                 <StockQtyRows draft={bulkDraft} disabled={bulkSaving} onDelta={(status, delta) => setBulkDraft((prev) => applyStockDelta(prev, status, delta))} t={t} />
-                <button type="button" disabled={bulkSaving} onClick={() => void applyBulkStock()} style={{ height: 42, borderRadius: 12, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: bulkSaving ? "wait" : "pointer" }}>
-                  {bulkSaving ? "…" : t("library.bulk_apply")}
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" disabled={bulkSaving} onClick={() => setBulkOpen(false)} style={{ height: 42, flex: "0 0 auto", padding: "0 14px", borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>
+                    {t("binders.photo.back")}
+                  </button>
+                  <button type="button" disabled={bulkSaving} onClick={() => void applyBulkStock()} style={{ height: 42, flex: 1, borderRadius: 12, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: bulkSaving ? "wait" : "pointer" }}>
+                    {bulkSaving ? "…" : t("library.bulk_apply")}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -4394,10 +4389,18 @@ const commitStockForItem = useCallback(
                 <button
                   type="button"
                   onClick={() => {
+                    setBinderAskOpen(false);
+                    setBulkOpen(true);
+                  }}
+                  style={{ height: 42, borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}
+                >
+                  {t("binders.photo.back")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     setPlacePieces(selectedIds.map((itemId) => ({ itemId, memberId: null })));
                     setBinderAskOpen(false);
-                    setSelectMode(false);
-                    setSelectedIds([]);
                     setPlaceOpen(true);
                   }}
                   style={{ height: 42, borderRadius: 12, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: "pointer" }}
@@ -4949,9 +4952,15 @@ return (
           userId={userId}
           isAdmin={isAdminTeamEmail(profile?.email)}
           initialPieces={placePieces}
+          onBack={() => {
+            setPlaceOpen(false);
+            setBinderAskOpen(true);
+          }}
           onClose={() => {
             setPlaceOpen(false);
             setPlacePieces([]);
+            setSelectMode(false);
+            setSelectedIds([]);
           }}
         />
       )}
