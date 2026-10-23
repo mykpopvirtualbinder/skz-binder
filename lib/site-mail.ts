@@ -12,7 +12,7 @@ const SIGNATURE_URL = "https://www.mykpopbinder.com/branding/mailing/signature.j
 const SIGNATURE_TEXT = [
   "",
   "--",
-  "STAFF M.K.B.",
+  "STAFF My K-Pop Binder",
   "Collect · Trade · Connect",
   "Instagram: @mykpopbinder",
   "https://www.mykpopbinder.com",
@@ -24,7 +24,7 @@ function escapeHtml(value: string) {
 }
 
 function mailHtml(text: string, imageSrc: string) {
-  const img = `<img src="${imageSrc}" alt="STAFF M.K.B. Collect · Trade · Connect" width="280" style="width:280px;max-width:100%;height:auto;border:0;display:block;" />`;
+  const img = `<img src="${imageSrc}" alt="STAFF My K-Pop Binder · Collect · Trade · Connect" width="280" style="width:280px;max-width:100%;height:auto;border:0;display:block;" />`;
   return `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${escapeHtml(text)}</div><p style="margin:28px 0 0;">${img}</p>`;
 }
 
@@ -397,7 +397,7 @@ export async function sendMail(input: {
   const html = mailHtml(`${message}${attached}`, image ? "cid:staff-signature" : SIGNATURE_URL);
   const resend = new Resend(key);
   const { data, error } = await resend.emails.send({
-    from: `STAFF M.K.B. <${ACCOUNT}>`,
+    from: `STAFF My K-Pop Binder <${ACCOUNT}>`,
     to,
     subject,
     text: plain,
@@ -413,7 +413,7 @@ export async function sendMail(input: {
   const saved = await db().from("emails").insert({
     direction: "outgoing",
     folder: "sent",
-    sender: `STAFF M.K.B. <${ACCOUNT}>`,
+    sender: `STAFF My K-Pop Binder <${ACCOUNT}>`,
     recipient: to.join(", "),
     subject,
     body_text: plain,

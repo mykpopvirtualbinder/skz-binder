@@ -516,6 +516,7 @@ export default function AdminMailbox() {
         <div>
           <h2 style={{ margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>{tr("Correo")}{unseen > 0 && <span style={countStyle} title={tr("Sin leer")}>{unseen > 99 ? "99+" : unseen}</span>}
           </h2>
+          <p style={{ margin: 0, fontWeight: 700 }}>STAFF My K-Pop Binder</p>
           <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700 }}>{account}</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -759,6 +760,7 @@ function ComposeBox({
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
+      <p style={{ margin: "0 0 8px", fontWeight: 700 }}>STAFF My K-Pop Binder</p>
       <label style={labelStyle}>{tr("Para")}<input value={compose.to} onChange={(e) => setCompose({ ...compose, to: e.target.value })} style={inputStyle} />
       </label>
       <label style={labelStyle}>{tr("Asunto")}<input value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} style={inputStyle} />
