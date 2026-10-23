@@ -2174,9 +2174,9 @@ textarea:disabled {
   .library-pc-preview.library-item-pc-preview {
     width: min(86vw, 340px) !important;
     max-width: min(86vw, 340px) !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
+    height: calc(min(86vw, 340px) * 1.5) !important;
+    min-height: calc(min(86vw, 340px) * 1.5) !important;
+    max-height: calc(min(86vw, 340px) * 1.5) !important;
     aspect-ratio: 2 / 3 !important;
     flex: 0 0 auto !important;
     align-self: center !important;
@@ -2956,9 +2956,9 @@ textarea:disabled {
   .library-pc-preview.library-item-pc-preview {
     width: min(86vw, 340px) !important;
     max-width: min(86vw, 340px) !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
+    height: calc(min(86vw, 340px) * 1.5) !important;
+    min-height: calc(min(86vw, 340px) * 1.5) !important;
+    max-height: calc(min(86vw, 340px) * 1.5) !important;
     aspect-ratio: 2 / 3 !important;
     margin-inline: auto !important;
     flex: 0 0 auto !important;
@@ -2994,6 +2994,12 @@ textarea:disabled {
     overflow: visible !important;
     height: auto !important;
     max-height: none !important;
+    min-height: max-content !important;
+  }
+
+  .library-item-modal-grid {
+    align-self: start !important;
+    grid-template-rows: max-content max-content !important;
   }
 
   .library-item-modal-more-hint {
@@ -3527,23 +3533,14 @@ html.intro-active body {
   .intro-sky { display: none; }
 }
 
-/* Pantallas bajas (Android): la carta conserva la proporción del iPhone y el botón del reverso queda dentro del modal. */
-@media (max-width: 1023px) and (max-height: 800px) {
-  .library-item-modal-header {
-    gap: 6px !important;
-    padding: 8px 10px !important;
-  }
-
-  .library-item-modal-chip {
-    padding: 4px 6px !important;
-  }
-
+/* Solo pantallas muy bajas. El iPhone conserva la carta grande. */
+@media (max-width: 1023px) and (max-height: 700px) {
   .library-pc-preview.library-item-pc-preview {
     width: min(82vw, 300px, calc((100dvh - 430px) / 1.5)) !important;
     max-width: min(82vw, 300px, calc((100dvh - 430px) / 1.5)) !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
+    height: calc(min(82vw, 300px, calc((100dvh - 430px) / 1.5)) * 1.5) !important;
+    min-height: calc(min(82vw, 300px, calc((100dvh - 430px) / 1.5)) * 1.5) !important;
+    max-height: calc(min(82vw, 300px, calc((100dvh - 430px) / 1.5)) * 1.5) !important;
     aspect-ratio: 2 / 3 !important;
   }
 }
