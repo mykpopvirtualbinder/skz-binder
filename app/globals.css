@@ -2172,15 +2172,14 @@ textarea:disabled {
   }
 
   .library-pc-preview.library-item-pc-preview {
-    max-width: 320px !important;
-    height: calc(min(320px, 72vw) * 1.5) !important;
-    min-height: calc(min(320px, 72vw) * 1.5) !important;
-    max-height: calc(min(320px, 72vw) * 1.5) !important;
+    max-width: min(72vw, 280px) !important;
+    height: min(42dvh, calc(min(72vw, 280px) * 1.5)) !important;
+    min-height: 0 !important;
+    max-height: 42dvh !important;
     aspect-ratio: 2 / 3 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     border-radius: 14px !important;
     isolation: isolate;
-    contain: paint;
   }
 
   .library-item-stock-grid {
@@ -2951,29 +2950,37 @@ textarea:disabled {
   }
 
   .library-pc-preview {
-    width: min(86vw, 340px) !important;
-    max-width: min(86vw, 340px) !important;
+    width: min(70vw, 260px) !important;
+    max-width: min(70vw, 260px) !important;
     height: auto !important;
     min-height: 0 !important;
+    max-height: 42dvh !important;
     aspect-ratio: 2 / 3 !important;
     margin-inline: auto !important;
   }
 
   .library-pc-preview.library-item-pc-preview {
-    width: min(86vw, 340px) !important;
-    max-width: min(86vw, 340px) !important;
-    height: calc(min(86vw, 340px) * 1.5) !important;
-    min-height: calc(min(86vw, 340px) * 1.5) !important;
-    max-height: calc(min(86vw, 340px) * 1.5) !important;
+    width: min(70vw, 260px) !important;
+    max-width: min(70vw, 260px) !important;
+    height: min(42dvh, calc(min(70vw, 260px) * 1.5)) !important;
+    min-height: 0 !important;
+    max-height: 42dvh !important;
     aspect-ratio: 2 / 3 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     border-radius: 14px !important;
     isolation: isolate;
-    contain: paint;
+  }
+
+  .library-pc-face-controls {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    padding: 8px 0 4px;
+    background: color-mix(in srgb, var(--bg-main) 92%, transparent);
   }
 
   .library-item-modal-grid > .library-item-modal-photo-col {
-    overflow: hidden !important;
+    overflow: visible !important;
     justify-content: flex-start !important;
   }
 

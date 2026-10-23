@@ -6,6 +6,7 @@ import AdRailLayout from "../components/AdRailLayout";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
 import { isMockPcBackPath, resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { memberIsIn, prettyMemberLabel as formatMemberLabel, queryLooksLikeIn } from "@/lib/member-labels";
+import { dedupeCatalogTwins } from "@/lib/catalog-twins";
 
 import { useGlobal } from "../context/GlobalContext";
 import { requireLoggedIn } from "@/lib/auth-gate";
@@ -273,10 +274,17 @@ function memberInCanon(squish: string): string | null {
   return null;
 }
 
+function memberSquishCanon(raw: string | null | undefined) {
+  const squish = memberSlugSquish(raw);
+  if (squish === "chan") return "bangchan";
+  if (squish === "jeongin") return "in";
+  return squish;
+}
+
 function memberMatches(memberRaw: string | null, selected: string | "all") {
   if (selected === "all") return true;
-  const mSquish = memberSlugSquish(memberRaw);
-  const tSquish = memberSlugSquish(selected);
+  const mSquish = memberSquishCanon(memberRaw);
+  const tSquish = memberSquishCanon(selected);
   if (mSquish && tSquish && mSquish === tSquish) return true;
   const cm = memberInCanon(mSquish);
   const ct = memberInCanon(tSquish);
@@ -1062,6 +1070,10 @@ function LibraryItemCard({
   disableEdits,
   hideBinder,
   markTour,
+  selectMode,
+  selected,
+  onToggleSelected,
+  onQuickHave,
   t,
 }: {
   item: ItemRow;
@@ -1078,6 +1090,10 @@ function LibraryItemCard({
   disableEdits?: boolean;
   hideBinder?: boolean;
   markTour?: boolean;
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelected?: () => void;
+  onQuickHave?: () => void;
   t: (k: string) => string;
 }) {
  
@@ -1122,7 +1138,10 @@ function LibraryItemCard({
   style={{ width: showInfo ? 140 : 120, transition: "width 0.2s ease", position: "relative" }}
 >      <div
         data-tour={markTour ? "lib-card" : undefined}
-        onClick={onOpen}
+        onClick={() => {
+          if (selectMode) onToggleSelected?.();
+          else onOpen();
+        }}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
       
@@ -1139,8 +1158,36 @@ function LibraryItemCard({
             frameColor !== "var(--state-disabled-border)"
               ? `0 0 0 2px ${frameColor}, 0 8px 24px color-mix(in srgb, var(--text-main) 6%, transparent)`
               : "0 8px 24px color-mix(in srgb, var(--text-main) 6%, transparent)",
+          outline: selectMode && selected ? "3px solid var(--color-primary)" : undefined,
+          outlineOffset: selectMode && selected ? -3 : undefined,
         }}
       >
+        {!disableEdits && !showInfo && (selectMode ? (
+          <button
+            type="button"
+            aria-pressed={selected}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleSelected?.();
+            }}
+            style={{ position: "absolute", top: 6, left: 6, zIndex: 6, width: 26, height: 26, borderRadius: 999, border: "2px solid var(--color-primary)", background: selected ? "var(--color-primary)" : "var(--bg-card)", color: "#111", fontWeight: 900, cursor: "pointer" }}
+          >
+            {selected ? "✓" : ""}
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={t("library.quick_have")}
+            title={t("library.quick_have")}
+            onClick={(event) => {
+              event.stopPropagation();
+              onQuickHave?.();
+            }}
+            style={{ position: "absolute", top: 6, left: 6, zIndex: 6, width: 26, height: 26, borderRadius: 999, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: "pointer", lineHeight: 1 }}
+          >
+            +
+          </button>
+        ))}
  {showInfo ? (
   <div
     data-info-panel="1"
@@ -1838,7 +1885,6 @@ function ItemModal({
                   borderRadius: 14,
                   border: "1px solid var(--state-disabled-border)",
                   background: "var(--bg-card)",
-                  overflow: "hidden",
                 }}
               >
                 {/* FRONT */}
@@ -1857,7 +1903,7 @@ function ItemModal({
                   )}
                 </div>
                 {/* BACK */}
-                <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14, overflow: "hidden" }}>
+                <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg) translateZ(1px)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14, overflow: "hidden" }}>
                   {(item.back_image_url ?? DEFAULT_BACK_URL) ? (
                     <ImageWithExtensionFallback
                       key={`lib-modal-b-${item.id}-${item.back_image_url ?? DEFAULT_BACK_URL}`}
@@ -1902,7 +1948,7 @@ function ItemModal({
             </div>
 
             {/* CONTROLES */}
-            <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", zIndex: 10 }}>
+            <div className="library-pc-face-controls" style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", zIndex: 10 }}>
               <button type="button" data-tour="pc-modal-face" onClick={() => setFace((p) => (p === "front" ? "back" : "front"))} style={{...headerIconBtn, width: "auto", padding: "10px 14px", gap: 8}}>
                 {face === "front" ? t('library.card.view_back') : t('library.card.view_front')}
               </button>
@@ -2439,6 +2485,11 @@ function LibraryContent() {
         const [fUnit, setFUnit] = useState<UnitFilter>("all");
         const [fPobKind, setFPobKind] = useState<"all" | "regular" | "pob">("all");
         const [fInBinder, setFInBinder] = useState(false);
+        const [selectMode, setSelectMode] = useState(false);
+        const [selectedIds, setSelectedIds] = useState<number[]>([]);
+        const [bulkOpen, setBulkOpen] = useState(false);
+        const [bulkSaving, setBulkSaving] = useState(false);
+        const [bulkDraft, setBulkDraft] = useState<Record<PersistStatus, number>>({ have: 1, wtt: 0, wts: 0, on_its_way: 0, wishlist: 0 });
         const [q, setQ] = useState("");
         const librarySearchParams = useSearchParams();
         useEffect(() => {
@@ -3346,8 +3397,12 @@ const filtered = useMemo(() => {
 
     return matchesQuery(it, q, itemSearchExtra(it));
   });
-  if (catalogSort === "default") return list;
-  const copy = [...list];
+  const unique = dedupeCatalogTwins(list, (id) => {
+    const counts = invByItem[id] ?? emptyCounts();
+    return counts.have + counts.wtt + counts.wts + counts.on_its_way + counts.wish;
+  });
+  if (catalogSort === "default") return unique;
+  const copy = [...unique];
   copy.sort((a, b) => {
     if (catalogSort === "album") {
       const an = a.album_id != null ? albumById[a.album_id]?.name ?? "" : "";
@@ -3713,7 +3768,65 @@ const commitStockForItem = useCallback(
     }
   },
   [userId, invByItem, readWttOffer, wttOfferByItem, writeWttOffer, setWtsListingItemId, setWtsListingModalOpen]
-); 
+);
+
+  const quickHave = useCallback((itemId: number) => {
+    const counts = invByItem[itemId] ?? emptyCounts();
+    void commitStockForItem(itemId, {
+      have: counts.have + 1,
+      wtt: counts.wtt,
+      wts: counts.wts,
+      on_its_way: counts.on_its_way,
+      wishlist: counts.wish,
+    });
+  }, [commitStockForItem, invByItem]);
+
+  const toggleSelected = useCallback((itemId: number) => {
+    setSelectedIds((prev) => (prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]));
+  }, []);
+
+  const applyBulkStock = useCallback(async () => {
+    if (!requireLoggedIn(userId, showAlert, t)) return;
+    const positive = (Object.keys(bulkDraft) as PersistStatus[]).filter((key) => bulkDraft[key] > 0);
+    if (!positive.length || !selectedIds.length) return;
+    setBulkSaving(true);
+    setError(null);
+    const rows = selectedIds.flatMap((itemId) =>
+      positive.map((status) => ({
+        user_id: userId,
+        item_id: itemId,
+        status,
+        qty: bulkDraft[status],
+      })),
+    );
+    for (let i = 0; i < rows.length; i += 200) {
+      const { error: upErr } = await supabase.from("user_item_statuses").upsert(rows.slice(i, i + 200), { onConflict: "user_id,item_id,status" });
+      if (upErr) {
+        setError(upErr.message);
+        setBulkSaving(false);
+        return;
+      }
+    }
+    setInvByItem((prev) => {
+      const nextMap = { ...prev };
+      for (const itemId of selectedIds) {
+        const current = nextMap[itemId] ?? emptyCounts();
+        nextMap[itemId] = {
+          ...current,
+          have: positive.includes("have") ? bulkDraft.have : current.have,
+          wtt: positive.includes("wtt") ? bulkDraft.wtt : current.wtt,
+          wts: positive.includes("wts") ? bulkDraft.wts : current.wts,
+          on_its_way: positive.includes("on_its_way") ? bulkDraft.on_its_way : current.on_its_way,
+          wish: positive.includes("wishlist") ? bulkDraft.wishlist : current.wish,
+        };
+      }
+      return nextMap;
+    });
+    setBulkSaving(false);
+    setBulkOpen(false);
+    setSelectMode(false);
+    setSelectedIds([]);
+  }, [bulkDraft, selectedIds, showAlert, t, userId]);
 // 👇 AÑADE ESTO (PASO 3) 👇
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginatedItems = filtered.slice(
@@ -4095,6 +4208,33 @@ const commitStockForItem = useCallback(
                 style={{ padding: "8px 10px 8px 32px", borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", width: "100%", height: 42, boxShadow: "0 4px 12px var(--shadow-card)" }}
               />
             </div>
+            {userId && !isViewingOtherUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectMode) {
+                    setSelectMode(false);
+                    setSelectedIds([]);
+                    setBulkOpen(false);
+                    return;
+                  }
+                  setSelectMode(true);
+                }}
+                style={{
+                  height: 42,
+                  padding: "0 14px",
+                  borderRadius: 999,
+                  border: "1px solid var(--color-border)",
+                  background: selectMode ? "var(--color-primary)" : "var(--bg-card)",
+                  color: selectMode ? "#111" : "var(--text-main)",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {selectMode ? t("library.select_cancel") : t("library.select_many")}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowFiltersPanel((v) => !v)}
@@ -4192,6 +4332,36 @@ const commitStockForItem = useCallback(
             </div>
           )}
 
+          {selectMode && (
+            <div style={{ position: "sticky", bottom: 12, zIndex: 20, marginTop: 12, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 12px", borderRadius: 16, border: "1px solid var(--color-border)", background: "var(--bg-card)", boxShadow: "0 10px 28px var(--shadow-card)" }}>
+              <span style={{ fontWeight: 900 }}>{t("library.selected_count", { count: selectedIds.length })}</span>
+              <button
+                type="button"
+                disabled={!selectedIds.length}
+                onClick={() => {
+                  setBulkDraft({ have: 1, wtt: 0, wts: 0, on_its_way: 0, wishlist: 0 });
+                  setBulkOpen(true);
+                }}
+                style={{ height: 40, padding: "0 14px", borderRadius: 999, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: selectedIds.length ? "pointer" : "not-allowed", opacity: selectedIds.length ? 1 : 0.5 }}
+              >
+                {t("library.select_done")}
+              </button>
+            </div>
+          )}
+
+          {bulkOpen && (
+            <div role="presentation" onClick={() => !bulkSaving && setBulkOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 100000, background: "var(--overlay-medium)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+              <div role="dialog" aria-modal="true" aria-label={t("library.bulk_title")} onClick={(event) => event.stopPropagation()} style={{ width: "min(420px, 100%)", borderRadius: 18, border: "1px solid var(--color-border)", background: "var(--bg-card)", padding: 16, display: "grid", gap: 12 }}>
+                <h3 style={{ margin: 0 }}>{t("library.bulk_title")}</h3>
+                <p style={{ margin: 0, color: "var(--text-muted)", lineHeight: 1.45 }}>{t("library.bulk_hint")}</p>
+                <StockQtyRows draft={bulkDraft} disabled={bulkSaving} onDelta={(status, delta) => setBulkDraft((prev) => applyStockDelta(prev, status, delta))} t={t} />
+                <button type="button" disabled={bulkSaving} onClick={() => void applyBulkStock()} style={{ height: 42, borderRadius: 12, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: bulkSaving ? "wait" : "pointer" }}>
+                  {bulkSaving ? "…" : t("library.bulk_apply")}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div
             key={`lib-grid-${fGroup}-${fAlbum}-${fVersion}-${fMember}-${fUnit}-${fPobKind}-${currentPage}`}
             className="library-cards-grid"
@@ -4240,6 +4410,10 @@ const commitStockForItem = useCallback(
 
                   <LibraryItemCard
                     disableEdits={isViewingOtherUser}
+                    selectMode={selectMode}
+                    selected={selectedIds.includes(it.id)}
+                    onToggleSelected={() => toggleSelected(it.id)}
+                    onQuickHave={() => quickHave(it.id)}
                     item={it}
                     counts={counts}
                     inBinder={inBinder}

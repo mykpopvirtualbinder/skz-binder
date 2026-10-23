@@ -470,6 +470,11 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     variant === "albums" ? "albumes" : "catalogo_merch",
   );
   const [search, setSearch] = useState("");
+  const [merchSelect, setMerchSelect] = useState(false);
+  const [merchSelected, setMerchSelected] = useState<string[]>([]);
+  const [merchBulkOpen, setMerchBulkOpen] = useState(false);
+  const [merchBulkSaving, setMerchBulkSaving] = useState(false);
+  const [merchBulk, setMerchBulk] = useState({ have: 1, wtt: 0, wts: 0, otw: 0, wishlist: 0 });
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeStatus, setActiveStatus] = useState("Todos");
   const [albumFilterGroup, setAlbumFilterGroup] = useState("Todos");
@@ -1932,6 +1937,23 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                 <X size={14} aria-hidden />
                 {t("merch.clear_filters")}
               </button>
+              {profile?.id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (merchSelect) {
+                      setMerchSelect(false);
+                      setMerchSelected([]);
+                      setMerchBulkOpen(false);
+                      return;
+                    }
+                    setMerchSelect(true);
+                  }}
+                  style={{ padding: "10px 14px", borderRadius: 99, border: "1px solid var(--color-border)", background: merchSelect ? "var(--color-primary)" : "var(--bg-main)", color: merchSelect ? "#111" : "var(--text-main)", fontWeight: 800, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  {merchSelect ? t("library.select_cancel") : t("library.select_many")}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1977,6 +1999,53 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             )}
           </div> 
         ) : (
+          <>
+          {merchSelect && (
+            <div style={{ position: "sticky", bottom: 12, zIndex: 20, marginBottom: 12, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", padding: "10px 12px", borderRadius: 16, border: "1px solid var(--color-border)", background: "var(--bg-card)" }}>
+              <span style={{ fontWeight: 900 }}>{t("library.selected_count", { count: merchSelected.length })}</span>
+              <button type="button" disabled={!merchSelected.length} onClick={() => { setMerchBulk({ have: 1, wtt: 0, wts: 0, otw: 0, wishlist: 0 }); setMerchBulkOpen(true); }} style={{ height: 40, padding: "0 14px", borderRadius: 999, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: merchSelected.length ? "pointer" : "not-allowed", opacity: merchSelected.length ? 1 : 0.5 }}>{t("library.select_done")}</button>
+            </div>
+          )}
+          {merchBulkOpen && (
+            <div role="presentation" onClick={() => !merchBulkSaving && setMerchBulkOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 100000, background: "var(--overlay-medium)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+              <div role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()} style={{ width: "min(420px, 100%)", borderRadius: 18, border: "1px solid var(--color-border)", background: "var(--bg-card)", padding: 16, display: "grid", gap: 10 }}>
+                <h3 style={{ margin: 0 }}>{t("library.bulk_title")}</h3>
+                <p style={{ margin: 0, color: "var(--text-muted)", lineHeight: 1.45 }}>{t("library.bulk_hint")}</p>
+                {(["have", "otw", "wtt", "wts", "wishlist"] as const).map((status) => (
+                  <div key={status} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 800 }}>{status === "have" ? t("library.status_have") : status === "otw" ? t("library.status_otw") : status === "wishlist" ? t("library.status_wish") : status.toUpperCase()}</span>
+                    <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                      <button type="button" onClick={() => setMerchBulk((prev) => ({ ...prev, [status]: Math.max(0, prev[status] - 1) }))} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--bg-main)", cursor: "pointer" }}>−</button>
+                      <b>{merchBulk[status]}</b>
+                      <button type="button" onClick={() => setMerchBulk((prev) => ({ ...prev, [status]: prev[status] + 1 }))} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--bg-main)", cursor: "pointer" }}>+</button>
+                    </span>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  disabled={merchBulkSaving}
+                  onClick={() => {
+                    void (async () => {
+                      setMerchBulkSaving(true);
+                      const statuses = (["have", "wtt", "wts", "otw", "wishlist"] as const).filter((status) => merchBulk[status] > 0);
+                      for (const id of merchSelected) {
+                        for (const status of statuses) {
+                          await updateMerchStatus(id, status, 0, { absoluteQty: merchBulk[status] });
+                        }
+                      }
+                      setMerchBulkSaving(false);
+                      setMerchBulkOpen(false);
+                      setMerchSelect(false);
+                      setMerchSelected([]);
+                    })();
+                  }}
+                  style={{ height: 42, borderRadius: 12, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: merchBulkSaving ? "wait" : "pointer" }}
+                >
+                  {merchBulkSaving ? "…" : t("library.bulk_apply")}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="merch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(195px, 1fr))", gap: "14px", paddingBottom: "80px" }}>
             {filteredMerch.map((item, cardIndex) => {
               const inv = myInventory[item.id] || { have: 0, wtt: 0, wts: 0, wishlist: 0, otw: 0 };
@@ -1989,8 +2058,14 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                 <div key={item.id} style={{ backgroundColor: "var(--bg-card)", borderRadius: "20px", overflow: "hidden", border: "1px solid var(--color-border)", display: "flex", flexDirection: "column", boxShadow: "0 8px 20px var(--shadow-card)", position: "relative" }}>
                   <div style={{ width: "100%", height: "200px", position: "relative", backgroundColor: "var(--bg-soft)", padding: "8px", overflow: "hidden" }}>
                     <div
-                      onClick={() => setInfoModal(item)}
-                      style={{ width: "100%", height: "100%", borderRadius: "12px", overflow: "hidden", position: "relative", cursor: "pointer" }}
+                      onClick={() => {
+                        if (!merchSelect) {
+                          setInfoModal(item);
+                          return;
+                        }
+                        setMerchSelected((prev) => (prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]));
+                      }}
+                      style={{ width: "100%", height: "100%", borderRadius: "12px", overflow: "hidden", position: "relative", cursor: "pointer", outline: merchSelect && merchSelected.includes(item.id) ? "3px solid var(--color-primary)" : undefined }}
                     >
                       {isWish && wishMeta[item.id]?.wantedPoster ? (
                         <MerchWesternWantedFrame name={posterTitle} variant="card">
@@ -2004,6 +2079,11 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                       )}
                     </div>
                     
+                    {profile?.id && (merchSelect ? (
+                      <button type="button" aria-pressed={merchSelected.includes(item.id)} onClick={() => setMerchSelected((prev) => (prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]))} style={{ position: "absolute", top: 15, left: 15, zIndex: 6, width: 28, height: 28, borderRadius: 999, border: "2px solid var(--color-primary)", background: merchSelected.includes(item.id) ? "var(--color-primary)" : "var(--bg-card)", fontWeight: 900, cursor: "pointer" }}>{merchSelected.includes(item.id) ? "✓" : ""}</button>
+                    ) : (
+                      <button type="button" aria-label={t("library.quick_have")} title={t("library.quick_have")} onClick={() => void updateMerchStatus(item.id, "have", 1)} style={{ position: "absolute", top: 15, left: 15, zIndex: 6, width: 28, height: 28, borderRadius: 999, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: "pointer" }}>+</button>
+                    ))}
                     <button data-tour={cardIndex === 0 ? "merch-info" : undefined} onClick={() => setInfoModal(item)} style={{ position: "absolute", top: "15px", right: "15px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "50%", padding: "6px", cursor: "pointer", boxShadow: "0 2px 5px var(--shadow-card)" }}><Info size={16} color="var(--accent-vibe-cyan)"/></button>
                     
                     <div style={{ position: "absolute", bottom: "15px", left: "15px", display: "flex", gap: "5px", flexWrap: "wrap" }}>
@@ -2038,6 +2118,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
               );
             })}
           </div>
+          </>
         )}
       </main>
       </AdRailLayout>

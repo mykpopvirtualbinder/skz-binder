@@ -32,6 +32,7 @@ import {
   strayKidsAlbumOrderIndex,
 } from "@/lib/collection-filters";
 import { prettyMemberLabel as canonicalMemberLabel } from "@/lib/member-labels";
+import { dedupeCatalogTwins } from "@/lib/catalog-twins";
 import { PC_IMAGE_FILENAME_EXT_RE } from "@/lib/pc-image-extensions";
 import { resolveMockPcBackUrl, resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { formatQuota, packSeparatorColors, resolveBinderQuota, unpackSeparatorColors } from "@/lib/binder-quotas";
@@ -162,10 +163,23 @@ const normWords = (s: string | null | undefined) =>
     .split(/\s+/)
     .filter(Boolean);
 
+/** Une compuestos (`chang-bin`, `bang chan`) para que el orden y el filtro no los pierdan. */
+function canonMemberTokens(raw: string | null | undefined): string[] {
+  const s = normText(raw)
+    .replace(/\bchang bin\b/g, "changbin")
+    .replace(/\bseung min\b/g, "seungmin")
+    .replace(/\blee know\b/g, "leeknow")
+    .replace(/\bbang chan\b/g, "bangchan")
+    .replace(/\bi n\b/g, "in")
+    .replace(/\bjeongin\b/g, "in");
+  return s.split(/\s+/).filter(Boolean).map((token) => (token === "chan" ? "bangchan" : token));
+}
+
 const memberMatches = (memberRaw: string | null | undefined, selected: string) => {
   if (!selected) return true;
-  const memberWords = normWords(memberRaw);
-  const targetWords = normWords(selected);
+  const memberWords = canonMemberTokens(memberRaw);
+  const targetWords = canonMemberTokens(selected);
+  if (targetWords.length === 1 && targetWords[0] === "in") return memberWords.includes("in");
   return targetWords.every((t) => memberWords.includes(t));
 };
 // ✅ Comprueba si una PC es de alguno de los bias seleccionados
@@ -191,6 +205,8 @@ const unitTypeFromMember = (memberRaw: string | null | undefined): "single" | "u
   // EL TRUCO MAGISTRAL: Unimos los nombres compuestos para que no cuenten como dos personas distintas
   lower = lower.replace(/\blee know\b/g, "leeknow");
   lower = lower.replace(/\bbang chan\b/g, "bangchan");
+  lower = lower.replace(/\bchang[- ]bin\b/g, "changbin");
+  lower = lower.replace(/\bseung[- ]min\b/g, "seungmin");
   lower = lower.replace(/\bi\.?n\b/g, "in"); // Cubre tanto "i n" como "i.n"
 
   // Ahora sí, si al separar por espacios hay más de 1 palabra, es Unit garantizado (ej: "hyunjin changbin")
@@ -204,13 +220,10 @@ const PICKER_MEMBER_ORDER = ["bang-chan", "lee-know", "changbin", "hyunjin", "ha
 function pickerMemberRank(memberRaw: string | null | undefined): number {
   const unit = unitTypeFromMember(memberRaw);
   if (unit === "ot8") return 200;
-  const words = normWords(memberRaw);
+  const words = canonMemberTokens(memberRaw);
   const ranks = PICKER_MEMBER_ORDER.map((slug, index) => {
-    if (slug === "in") {
-      if (words.includes("in") || (words.includes("i") && words.includes("n"))) return index;
-      return -1;
-    }
-    return memberMatches(memberRaw, slug) ? index : -1;
+    const key = slug.replace(/-/g, "");
+    return words.includes(key) ? index : -1;
   }).filter((index) => index >= 0);
   if (!ranks.length) return 300;
   const first = Math.min(...ranks);
@@ -456,7 +469,7 @@ const prettyMemberLabel = (raw: string | null | undefined, slugMap?: Record<stri
   if (!s || s === "—") return "";
   if (s.toLowerCase() === "ot8") return "OT8";
   const parts = s
-    .split(/\s*(?:\/|,|&|\+|x)\s*/i)
+    .split(/\s*(?:\/|,|&|\+|\bx\b)\s*/i)
     .map((p) => p.trim())
     .filter(Boolean);
   if (parts.some((p) => p.toLowerCase() === "ot8")) return "OT8";
@@ -1020,7 +1033,7 @@ const albumOptions = useMemo(() => {
     // Log para verificar que los datos llegan al filtro
     console.log("Picker Debug Total items:", items.length, "User Biases:", userBiases);
 
-    return items.filter((it) => {
+    const rows = items.filter((it) => {
       const counts = invByItem[it.id] ?? localInv[it.id] ?? emptyCounts();
 
       // 1. REGLA DE ORO: Si ya está en el binder, no la mostramos en el picker
@@ -1074,7 +1087,12 @@ const albumOptions = useMemo(() => {
 
       // 6. BUSQUEDA POR TEXTO (Nombre o ID)
       return matchesQuery(it, q);
-    }).sort((a, b) => {
+    });
+    const unique = dedupeCatalogTwins(rows, (id) => {
+      const counts = invByItem[id] ?? localInv[id] ?? emptyCounts();
+      return Number(counts.have ?? 0) + Number(counts.wtt ?? 0) + Number(counts.wts ?? 0) + Number(counts.on_its_way ?? 0) + Number(counts.wish ?? 0);
+    });
+    return unique.sort((a, b) => {
       const aName = a.album_name ?? "";
       const bName = b.album_name ?? "";
       const aRelease = a.album_id != null ? (albums.find((row) => row.id === a.album_id)?.release_date ?? null) : null;
@@ -3257,13 +3275,10 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   // 5. FUNCIONES AUXILIARES
   function memberMatches(rawMember: string, biasSlug: string): boolean {
     if (!rawMember || !biasSlug) return false;
-    const member = rawMember.toLowerCase().replace(/[.\-_]/g, " ").trim();
-    const bias = biasSlug.toLowerCase().replace(/[.\-_]/g, " ").trim();
-    if (bias === "in" || bias === "i n") {
-      return /\bin\b/i.test(member) || member.includes("jeongin");
-    }
-    const regex = new RegExp(`\\b${bias}\\b`, "i");
-    return regex.test(member);
+    const memberWords = canonMemberTokens(rawMember);
+    const targetWords = canonMemberTokens(biasSlug);
+    if (targetWords.length === 1 && targetWords[0] === "in") return memberWords.includes("in");
+    return targetWords.every((token) => memberWords.includes(token));
   }
 
   // 6. ESTILOS DE BOTONES
@@ -12975,7 +12990,7 @@ color: "var(--text-main)",
             <ImageWithExtensionFallback src={fImg || "/mock-pcs/groups/not-available.png"} style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", background: "var(--bg-card)", transform: `rotate(${sleeveRot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }} alt="" />
           )}
         </div>
-        <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg) translateZ(1px)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14, overflow: "hidden" }}>
           <ImageWithExtensionFallback
             src={bImg || DEFAULT_BACK_URL}
             frontSrcForBack={isCustom ? undefined : (meta?.image_url ?? assigned?.image_url) ?? undefined}

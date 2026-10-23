@@ -27,7 +27,7 @@ export function prettyMemberLabel(memberRaw: string | null | undefined): string 
 
   const map: Record<string, string> = {
     bang: "Bang",
-    chan: "Chan",
+    chan: "Bang Chan",
     bangchan: "Bang Chan",
     bangchanfelix: "Bang Chan · Felix",
     lee: "Lee",
