@@ -492,7 +492,7 @@
       "scan": "Scansiona il binder",
       "camera": "Apri la fotocamera",
       "file": "Carica un'immagine",
-      "accuracy": "Confrontiamo il disegno della tua foto con le carte del catalogo. Più dati dai (gruppo, album, versione), più è precisa e veloce. Se una carta non è abbastanza simile, non la proponiamo: segnala come personalizzata o cercala a mano.",
+      "accuracy": "Confrontiamo la tua foto con ogni carta del catalogo con un modello visivo, come una ricerca per immagine. La prima volta il browser prepara il modello e ci mette un momento. Se nessuna carta è chiaramente la stessa, non proponiamo somiglianze incerte.",
       "grid": "Griglia della foto",
       "confirm_stock": "Conferma e aggiungi allo stock",
       "custom": "Personalizzata",
@@ -503,7 +503,7 @@
       "fresh": "In una pagina nuova",
       "page": "Oppure scegli una pagina che hai già.",
       "page_n": "Pagina {n}",
-      "slot_help": "Tocca lo spazio di partenza. Le carte da lì in poi si spostano in avanti.",
+      "slot_help": "Tocca lo slot di partenza. Le carte di quella pagina avanzano. Se le nuove e quelle già presenti non ci stanno, viene creata una pagina subito dopo.",
       "need_pages": "Non puoi aggiungere altre pagine. Ti porto al negozio.",
       "no_binders": "Non hai ancora un binder.",
       "working": "Salvataggio…",
@@ -518,7 +518,8 @@
       "no_close": "Nessuna carta del catalogo è abbastanza simile. Segnala come personalizzata o cercala a mano.",
       "back_pages": "Torna alle pagine",
       "save_empty": "Non è stato salvato nulla in quello slot. Sceglilo di nuovo.",
-      "need_confirm": "Senza pagine nuove non ci stanno. Scegli un altro slot o una pagina nuova."
+      "need_confirm": "Senza pagine nuove non ci stanno. Scegli un altro slot o una pagina nuova.",
+      "vision": "Preparazione del riconoscimento visivo…"
     },
     "picker": {
       "search_placeholder": "Cerca per nome o id...",

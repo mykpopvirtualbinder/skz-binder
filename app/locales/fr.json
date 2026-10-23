@@ -492,7 +492,7 @@
       "scan": "Scanner ton binder",
       "camera": "Ouvrir l'appareil",
       "file": "Envoyer une image",
-      "accuracy": "On compare le motif de ta photo aux cartes du catalogue. Plus tu précises (groupe, album, version), plus c’est juste et rapide. Une carte trop différente n’est pas proposée : marque-la comme perso ou cherche-la à la main.",
+      "accuracy": "On compare ta photo à chaque carte du catalogue avec un modèle visuel, comme une recherche par image. La première fois, le navigateur prépare ce modèle et ça prend un moment. Si aucune carte n’est clairement la même, on ne propose pas de ressemblances douteuses.",
       "grid": "Grille de la photo",
       "confirm_stock": "Confirmer et ajouter au stock",
       "custom": "Personnalisée",
@@ -503,7 +503,7 @@
       "fresh": "Sur une nouvelle page",
       "page": "Ou choisis une page existante.",
       "page_n": "Page {n}",
-      "slot_help": "Touche la case de départ. Les cartes à partir de là avancent.",
+      "slot_help": "Touche l’emplacement de départ. Les cartes de cette page avancent. Si les nouvelles et celles déjà là ne rentrent pas, une page est créée juste après.",
       "need_pages": "Tu ne peux pas ajouter de pages. Direction la boutique.",
       "no_binders": "Tu n'as pas encore de binder.",
       "working": "Enregistrement…",
@@ -518,7 +518,8 @@
       "no_close": "Aucune carte du catalogue n’est assez proche. Marque-la comme perso ou cherche-la à la main.",
       "back_pages": "Retour aux pages",
       "save_empty": "Rien n’a été enregistré dans cet emplacement. Choisis-le à nouveau.",
-      "need_confirm": "Sans nouvelles pages, elles ne rentrent pas. Choisis un autre emplacement ou une nouvelle page."
+      "need_confirm": "Sans nouvelles pages, elles ne rentrent pas. Choisis un autre emplacement ou une nouvelle page.",
+      "vision": "Préparation de la reconnaissance visuelle…"
     },
     "picker": {
       "search_placeholder": "Chercher par nom ou id...",

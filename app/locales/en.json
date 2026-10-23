@@ -555,7 +555,7 @@
       "scan": "Scan your binder",
       "camera": "Open camera",
       "file": "Upload image",
-      "accuracy": "We compare the pattern of your photo with the catalog cards. The more you tell us (group, album, version), the sharper and faster it is. A card that is not close enough is not offered: mark it as custom or search by hand.",
+      "accuracy": "We compare your photo with every catalog card using a visual model, the same idea as an image search. The first time, the browser prepares that model and it takes a moment. If no card is clearly the same, we do not offer doubtful lookalikes.",
       "grid": "Photo grid",
       "confirm_stock": "Confirm and add to stock",
       "custom": "Custom",
@@ -566,7 +566,7 @@
       "fresh": "On a new page",
       "page": "Or pick a page you already have.",
       "page_n": "Page {n}",
-      "slot_help": "Tap the pocket where they should start. Cards from there move forward.",
+      "slot_help": "Tap the slot where it starts. Cards on that page shift forward. If the new cards and the ones already there do not fit, a page is created right after.",
       "need_pages": "You can't add more pages. Taking you to the shop.",
       "no_binders": "You don't have a binder yet.",
       "working": "Saving…",
@@ -581,7 +581,8 @@
       "no_close": "No catalog card is close enough. Mark it as custom or search by hand.",
       "back_pages": "Back to pages",
       "save_empty": "Nothing was saved in that slot. Choose it again.",
-      "need_confirm": "They do not fit without new pages. Choose another slot or a new page."
+      "need_confirm": "They do not fit without new pages. Choose another slot or a new page.",
+      "vision": "Preparing visual recognition…"
     },
     "picker": {
       "search_placeholder": "Search by name or id...",

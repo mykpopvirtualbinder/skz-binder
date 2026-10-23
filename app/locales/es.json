@@ -554,7 +554,7 @@
       "scan": "Escanea tu binder",
       "camera": "Abrir cámara",
       "file": "Subir imagen",
-      "accuracy": "Comparamos el dibujo de tu foto con las cartas del catálogo. Cuantos más datos des (grupo, álbum, versión), más afinada y rápida será. Si una carta no se parece lo bastante, no te la proponemos: márcala como personalizada o búscalo a mano.",
+      "accuracy": "Comparamos tu foto con cada carta del catálogo mediante un modelo visual, la misma idea que una búsqueda por imagen. La primera vez el navegador prepara ese modelo y tarda un poco. Si no hay una carta claramente igual, no te proponemos parecidos dudosos.",
       "grid": "Cuadrícula de la foto",
       "confirm_stock": "Confirmar y sumar al stock",
       "custom": "Personalizada",
@@ -565,7 +565,7 @@
       "fresh": "En una página nueva",
       "page": "O elige una página que ya tengas.",
       "page_n": "Página {n}",
-      "slot_help": "Toca el hueco donde empieza. Las cartas que haya desde ahí se desplazan hacia adelante.",
+      "slot_help": "Toca el hueco donde empieza. Las cartas de esa página se desplazan hacia adelante. Si no caben las nuevas y las que ya estaban, se crea una página a continuación.",
       "need_pages": "No puedes añadir más páginas. Te llevo a la tienda.",
       "no_binders": "Todavía no tienes binders.",
       "working": "Guardando…",
@@ -580,7 +580,8 @@
       "no_close": "Ninguna carta del catálogo se parece lo bastante. Márcala como personalizada o búscalo a mano.",
       "back_pages": "Volver a las páginas",
       "save_empty": "No se ha guardado nada en ese hueco. Vuelve a elegirlo.",
-      "need_confirm": "Sin páginas nuevas no caben. Elige otro hueco o una página nueva."
+      "need_confirm": "Sin páginas nuevas no caben. Elige otro hueco o una página nueva.",
+      "vision": "Preparando el reconocimiento visual…"
     },
     "picker": {
       "search_placeholder": "Buscar por nombre o id...",

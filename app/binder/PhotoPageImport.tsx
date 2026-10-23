@@ -75,56 +75,18 @@ const PAGE_LAYOUTS: Record<string, { cols: number; rows: number; slots: number }
   sp_1x1: { cols: 1, rows: 1, slots: 1 },
 };
 
-let hashIndexPromise: Promise<Record<string, string>> | null = null;
+const VISION_DIM = 512;
+const VISION_SHOW = 0.84;
+const VISION_AUTO = 0.88;
 
-function loadHashIndex() {
-  if (!hashIndexPromise) {
-    hashIndexPromise = fetch("/card-hashes.json").then(async (res) => {
-      if (!res.ok) throw new Error("card-hashes");
-      return (await res.json()) as Record<string, string>;
-    });
-  }
-  return hashIndexPromise;
-}
+type VisionIndex = { vectors: Float32Array; byPath: Map<string, number> };
 
-function dhashCanvas(source: CanvasImageSource, sx: number, sy: number, sw: number, sh: number) {
-  if (sw < 2 || sh < 2) return null;
-  const canvas = document.createElement("canvas");
-  canvas.width = 9;
-  canvas.height = 8;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return null;
-  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, 9, 8);
-  const data = ctx.getImageData(0, 0, 9, 8).data;
-  let bits = "";
-  for (let y = 0; y < 8; y += 1) {
-    for (let x = 0; x < 8; x += 1) {
-      const left = (y * 9 + x) * 4;
-      const right = left + 4;
-      const a = data[left] + data[left + 1] + data[left + 2];
-      const b = data[right] + data[right + 1] + data[right + 2];
-      bits += a > b ? "1" : "0";
-    }
-  }
-  let hex = "";
-  for (let i = 0; i < 64; i += 4) hex += Number.parseInt(bits.slice(i, i + 4), 2).toString(16);
-  return hex;
-}
+let visionPromise: Promise<VisionIndex> | null = null;
+let embedderPromise: Promise<(image: HTMLCanvasElement) => Promise<Float32Array>> | null = null;
 
-function hamming(a: string, b: string) {
-  const weights = [0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4];
-  let count = 0;
-  const size = Math.min(a.length, b.length);
-  for (let i = 0; i < size; i += 1) {
-    const x = Number.parseInt(a[i], 16) ^ Number.parseInt(b[i], 16);
-    count += weights[x] ?? 0;
-  }
-  return count;
-}
-
-function hashFor(index: Record<string, string>, url: string | null | undefined) {
-  if (!url) return null;
+function visionKeys(url: string | null | undefined) {
   const keys = new Set<string>();
+  if (!url) return keys;
   const add = (value: string) => {
     const clean = value.split("?")[0];
     if (!clean) return;
@@ -141,10 +103,54 @@ function hashFor(index: Record<string, string>, url: string | null | undefined) 
   } catch {
     /* relative paths stay as they are */
   }
-  for (const key of keys) {
-    if (index[key]) return index[key];
+  return keys;
+}
+
+function loadVisionIndex() {
+  if (!visionPromise) {
+    visionPromise = Promise.all([
+      fetch("/card-embedding-paths.json").then(async (res) => {
+        if (!res.ok) throw new Error("card-embeddings");
+        return (await res.json()) as string[];
+      }),
+      fetch("/card-embeddings.bin").then(async (res) => {
+        if (!res.ok) throw new Error("card-embeddings");
+        return res.arrayBuffer();
+      }),
+    ]).then(([paths, buffer]) => {
+      const byPath = new Map<string, number>();
+      paths.forEach((item, index) => byPath.set(item, index));
+      return { vectors: new Float32Array(buffer), byPath };
+    });
   }
-  return null;
+  return visionPromise;
+}
+
+function loadEmbedder() {
+  if (!embedderPromise) {
+    embedderPromise = import("@huggingface/transformers").then(async ({ pipeline }) => {
+      const extractor = await pipeline("image-feature-extraction", "Xenova/clip-vit-base-patch32", { dtype: "q8" });
+      return async (image: HTMLCanvasElement) => {
+        const out = await extractor(image);
+        const data = out.data;
+        const vec = new Float32Array(VISION_DIM);
+        let norm = 0;
+        const size = Math.min(VISION_DIM, data.length);
+        for (let i = 0; i < size; i += 1) norm += data[i] * data[i];
+        norm = Math.sqrt(norm) || 1;
+        for (let i = 0; i < size; i += 1) vec[i] = data[i] / norm;
+        return vec;
+      };
+    });
+  }
+  return embedderPromise;
+}
+
+function visionScore(vectors: Float32Array, index: number, query: Float32Array) {
+  const offset = index * VISION_DIM;
+  let sum = 0;
+  for (let i = 0; i < VISION_DIM; i += 1) sum += vectors[offset + i] * query[i];
+  return sum;
 }
 
 function slotsFor(layout: string) {
@@ -407,14 +413,17 @@ export default function PhotoPageImport({
     if (!photo?.naturalWidth) return;
     setSearching(true);
     setNotice(null);
-    setProgress(t("binders.photo.searching"));
+    setProgress(t("binders.photo.vision"));
     try {
-      const [pool, index] = await Promise.all([fetchPool(), loadHashIndex()]);
+      const [pool, index, embed] = await Promise.all([fetchPool(), loadVisionIndex(), loadEmbedder()]);
       const known = pool.flatMap((card) => {
-        const hash = hashFor(index, card.source_url) || hashFor(index, card.image_url);
-        return hash ? [{ card, hash }] : [];
+        const keys = new Set([...visionKeys(card.source_url), ...visionKeys(card.image_url)]);
+        for (const key of keys) {
+          const row = index.byPath.get(key);
+          if (row != null) return [{ card, row }];
+        }
+        return [];
       });
-      const cutoff = known.length > 80 ? 20 : 26;
       const width = photo.naturalWidth;
       const height = photo.naturalHeight;
       const x0 = (inset.left / 100) * width;
@@ -435,15 +444,21 @@ export default function PhotoPageImport({
           crop.getContext("2d")?.drawImage(photo, sx, sy, cellW, cellH, 0, 0, 90, 135);
           const padX = cellW * 0.08;
           const padY = cellH * 0.08;
-          const fp = dhashCanvas(photo, sx + padX, sy + padY, Math.max(2, cellW - padX * 2), Math.max(2, cellH - padY * 2));
-          const scored = fp
-            ? known
-                .map((entry) => ({ card: entry.card, score: hamming(fp, entry.hash) }))
-                .filter((entry) => entry.score <= cutoff)
-                .sort((a, b) => a.score - b.score)
-                .slice(0, 4)
-            : [];
-          const unsure = !scored.length || scored[0].score > 14;
+          const sample = document.createElement("canvas");
+          sample.width = 224;
+          sample.height = Math.max(224, Math.round(224 * (cellH / Math.max(1, cellW))));
+          sample
+            .getContext("2d")
+            ?.drawImage(photo, sx + padX, sy + padY, Math.max(2, cellW - padX * 2), Math.max(2, cellH - padY * 2), 0, 0, sample.width, sample.height);
+          const fp = await embed(sample);
+          const scored = known
+            .map((entry) => ({ card: entry.card, score: visionScore(index.vectors, entry.row, fp) }))
+            .filter((entry) => entry.score >= VISION_SHOW)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 3);
+          const best = scored[0]?.score ?? 0;
+          const second = scored[1]?.score ?? 0;
+          const unsure = !scored.length || best < VISION_AUTO || best - second < 0.04;
           next.push({
             slot,
             cropUrl: crop.toDataURL("image/jpeg", 0.72),
@@ -454,6 +469,7 @@ export default function PhotoPageImport({
             query: "",
             manual: [],
           });
+          setProgress(t("binders.photo.progress", { n: slot, total: grid.cols * grid.rows }));
         }
       }
       setChoices(next);
@@ -687,6 +703,37 @@ export default function PhotoPageImport({
     }
   }
 
+  async function insertPagesAfter(after: PageOption, count: number, layout: string) {
+    const following = pages
+      .filter((page) => page.page_index > after.page_index)
+      .sort((a, b) => b.page_index - a.page_index);
+    for (const page of following) {
+      const upd = await supabase.from("binder_pages").update({ page_index: page.page_index + count }).eq("id", page.id);
+      if (upd.error) throw new Error(upd.error.message);
+    }
+    const created: PageOption[] = [];
+    for (let i = 0; i < count; i += 1) {
+      const ins = await supabase
+        .from("binder_pages")
+        .insert({ binder_id: binderId, page_index: after.page_index + 1 + i, layout_type: layout })
+        .select("id, page_index, layout_type")
+        .single();
+      if (ins.error || !ins.data) throw new Error(ins.error?.message || "page");
+      created.push({
+        id: Number(ins.data.id),
+        page_index: Number(ins.data.page_index),
+        layout_type: String(ins.data.layout_type || layout),
+      });
+    }
+    setPages((prev) => {
+      const shifted = prev.map((page) =>
+        page.page_index > after.page_index ? { ...page, page_index: page.page_index + count } : page,
+      );
+      return [...shifted, ...created].sort((a, b) => a.page_index - b.page_index);
+    });
+    return created;
+  }
+
   async function placeAtSlot(startSlot: number) {
     if (binderId === "" || pageId === "" || !pieces.length) {
       setNotice(t("binders.photo.save_empty"));
@@ -695,52 +742,66 @@ export default function PhotoPageImport({
     setBusy(true);
     setNotice(null);
     try {
-      const content = pages.filter((page) => page.layout_type !== "separator").sort((a, b) => a.page_index - b.page_index);
-      const startAt = content.findIndex((page) => page.id === pageId);
-      if (startAt < 0) {
+      const selected = pages.find((page) => page.id === pageId && page.layout_type !== "separator");
+      if (!selected) {
         setNotice(t("binders.photo.save_empty"));
         return;
       }
-      let affected = content.slice(startAt);
+      const pageSlots = slotsFor(selected.layout_type);
+      const localStart = startSlot - 1;
+      if (localStart < 0 || localStart >= pageSlots) {
+        setNotice(t("binders.photo.save_empty"));
+        return;
+      }
       const movingIds = new Set(pieces.flatMap((piece) => (piece.kind === "item" ? [piece.itemId] : [])));
       const rowsRes = await supabase
         .from("page_slots")
         .select("page_id, slot_index, item_id, member_id, rot, flip_h, is_custom, custom_text, custom_image_url")
-        .in(
-          "page_id",
-          affected.map((page) => page.id),
-        );
+        .eq("page_id", selected.id);
       if (rowsRes.error) throw new Error(rowsRes.error.message);
-      const byKey = new Map((rowsRes.data ?? []).map((row) => [`${row.page_id}:${row.slot_index}`, row]));
-      const cells: Array<{ pageId: number; slot: number; had: boolean }> = [];
+      const bySlot = new Map((rowsRes.data ?? []).map((row) => [Number(row.slot_index), row]));
       const line: Array<SlotOcc | null> = [];
-      for (const page of affected) {
-        const count = slotsFor(page.layout_type);
-        for (let slot = 1; slot <= count; slot += 1) {
-          const row = byKey.get(`${page.id}:${slot}`);
-          const itemId = row?.item_id == null ? null : Number(row.item_id);
-          const moving = itemId != null && movingIds.has(itemId);
-          cells.push({ pageId: page.id, slot, had: Boolean(row) && !moving });
-          line.push(
-            row && !moving
-              ? {
-                  item_id: row.is_custom ? null : itemId,
-                  member_id: row.member_id == null ? null : Number(row.member_id),
-                  rot: Number(row.rot ?? 0),
-                  flip_h: Boolean(row.flip_h),
-                  is_custom: Boolean(row.is_custom),
-                  custom_text: row.is_custom ? row.custom_text ?? "" : null,
-                  custom_image_url: row.is_custom ? row.custom_image_url ?? null : null,
-                }
-              : null,
-          );
-        }
+      const had: boolean[] = [];
+      for (let slot = 1; slot <= pageSlots; slot += 1) {
+        const row = bySlot.get(slot);
+        const itemId = row?.item_id == null ? null : Number(row.item_id);
+        const moving = itemId != null && movingIds.has(itemId);
+        had.push(Boolean(row));
+        line.push(
+          row && !moving
+            ? {
+                item_id: row.is_custom ? null : itemId,
+                member_id: row.member_id == null ? null : Number(row.member_id),
+                rot: Number(row.rot ?? 0),
+                flip_h: Boolean(row.flip_h),
+                is_custom: Boolean(row.is_custom),
+                custom_text: row.is_custom ? row.custom_text ?? "" : null,
+                custom_image_url: row.is_custom ? row.custom_image_url ?? null : null,
+              }
+            : null,
+        );
       }
-      const origin = cells.findIndex((cell) => cell.pageId === pageId);
-      const localStart = origin + startSlot - 1;
-      if (origin < 0 || localStart < 0 || localStart >= cells.length) {
-        setNotice(t("binders.photo.save_empty"));
-        return;
+      const preview = [...line.slice(0, localStart), ...pieces.map(() => ({}) as SlotOcc), ...line.slice(localStart)];
+      while (preview.length && preview[preview.length - 1] == null) preview.pop();
+      const spill = Math.max(0, preview.length - pageSlots);
+      let created: PageOption[] = [];
+      if (spill > 0) {
+        const pagesNeeded = Math.ceil(spill / pageSlots);
+        const quota = await quotaFor(binderId, pages);
+        if (quota.used + pagesNeeded > quota.maxPages) {
+          setNotice(t("binders.photo.need_pages"));
+          router.push("/shop");
+          return;
+        }
+        const ok = await showConfirm(
+          t("binders.picker.extra_pages_title"),
+          t("binders.picker.extra_pages_msg", { n: pagesNeeded }),
+        );
+        if (!ok) {
+          setNotice(t("binders.photo.need_confirm"));
+          return;
+        }
+        created = await insertPagesAfter(selected, pagesNeeded, selected.layout_type);
       }
       const incoming: SlotOcc[] = [];
       for (let i = 0; i < pieces.length; i += 1) {
@@ -775,31 +836,11 @@ export default function PhotoPageImport({
       }
       const merged = [...line.slice(0, localStart), ...incoming, ...line.slice(localStart)];
       while (merged.length && merged[merged.length - 1] == null) merged.pop();
-      const overflow = Math.max(0, merged.length - cells.length);
-      if (overflow > 0) {
-        const perPage = slotsFor(gridKey);
-        const pagesNeeded = Math.ceil(overflow / perPage);
-        const quota = await quotaFor(binderId, pages);
-        if (quota.used + pagesNeeded > quota.maxPages) {
-          setNotice(t("binders.photo.need_pages"));
-          router.push("/shop");
-          return;
-        }
-        const ok = await showConfirm(
-          t("binders.picker.extra_pages_title"),
-          t("binders.picker.extra_pages_msg", { n: pagesNeeded }),
-        );
-        if (!ok) {
-          setNotice(t("binders.photo.need_confirm"));
-          return;
-        }
-        const created = await createPages(binderId, pagesNeeded, gridKey);
-        affected = [...affected, ...created];
-        for (const page of created) {
-          const count = slotsFor(page.layout_type);
-          for (let slot = 1; slot <= count; slot += 1) cells.push({ pageId: page.id, slot, had: false });
-        }
-        setPages((prev) => [...prev, ...created].sort((a, b) => a.page_index - b.page_index));
+      const cells: Array<{ pageId: number; slot: number; had: boolean }> = [];
+      for (let slot = 1; slot <= pageSlots; slot += 1) cells.push({ pageId: selected.id, slot, had: had[slot - 1] });
+      for (const page of created) {
+        const count = slotsFor(page.layout_type);
+        for (let slot = 1; slot <= count; slot += 1) cells.push({ pageId: page.id, slot, had: false });
       }
       while (merged.length < cells.length) merged.push(null);
       if (movingIds.size) await clearOwnPlacements([...movingIds]);

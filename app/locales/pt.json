@@ -342,7 +342,7 @@
       "scan": "Digitaliza o binder",
       "camera": "Abrir câmara",
       "file": "Enviar imagem",
-      "accuracy": "Comparamos o desenho da tua foto com as cartas do catálogo. Quanto mais dados deres (grupo, álbum, versão), mais certa e rápida fica. Se uma carta não for parecida o suficiente, não a propomos: marca como personalizada ou procura à mão.",
+      "accuracy": "Comparamos a tua foto com cada carta do catálogo com um modelo visual, como uma pesquisa por imagem. A primeira vez o navegador prepara o modelo e demora um pouco. Se nenhuma carta for claramente a mesma, não propomos parecidos duvidosos.",
       "grid": "Grelha da foto",
       "confirm_stock": "Confirmar e somar ao stock",
       "custom": "Personalizada",
@@ -353,7 +353,7 @@
       "fresh": "Numa página nova",
       "page": "Ou escolhe uma página que já tenhas.",
       "page_n": "Página {n}",
-      "slot_help": "Toca no espaço onde começa. As cartas a partir daí avançam.",
+      "slot_help": "Toca no espaço onde começa. As cartas dessa página avançam. Se as novas e as que já estavam não couberem, cria-se uma página a seguir.",
       "need_pages": "Não podes acrescentar mais páginas. Vamos à loja.",
       "no_binders": "Ainda não tens binders.",
       "working": "A guardar…",
@@ -368,7 +368,8 @@
       "no_close": "Nenhuma carta do catálogo é parecida o suficiente. Marca como personalizada ou procura à mão.",
       "back_pages": "Voltar às páginas",
       "save_empty": "Nada foi guardado nesse espaço. Escolhe-o outra vez.",
-      "need_confirm": "Sem páginas novas não cabem. Escolhe outro espaço ou uma página nova."
+      "need_confirm": "Sem páginas novas não cabem. Escolhe outro espaço ou uma página nova.",
+      "vision": "A preparar o reconhecimento visual…"
     },
     "picker": {
       "search_placeholder": "Procurar por nome ou id...",

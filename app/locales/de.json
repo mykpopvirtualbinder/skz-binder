@@ -492,7 +492,7 @@
       "scan": "Binder scannen",
       "camera": "Kamera öffnen",
       "file": "Bild hochladen",
-      "accuracy": "Wir vergleichen das Muster deines Fotos mit den Karten im Katalog. Je mehr du angibst (Gruppe, Album, Version), desto genauer und schneller. Eine Karte, die nicht nah genug ist, wird nicht vorgeschlagen: markiere sie als eigene oder suche von Hand.",
+      "accuracy": "Wir vergleichen dein Foto mit jeder Katalogkarte über ein visuelles Modell, wie bei einer Bildersuche. Beim ersten Mal bereitet der Browser das Modell vor und das dauert einen Moment. Wenn keine Karte klar dieselbe ist, schlagen wir keine unsicheren Ähnlichkeiten vor.",
       "grid": "Raster des Fotos",
       "confirm_stock": "Bestätigen und zum Bestand",
       "custom": "Eigen",
@@ -503,7 +503,7 @@
       "fresh": "Auf einer neuen Seite",
       "page": "Oder wähle eine vorhandene Seite.",
       "page_n": "Seite {n}",
-      "slot_help": "Tippe das Fach, an dem es anfängt. Die Karten ab dort rücken nach vorn.",
+      "slot_help": "Tippe das Fach, wo es anfängt. Die Karten dieser Seite rücken nach vorn. Passen die neuen und die vorhandenen nicht, wird direkt danach eine Seite erstellt.",
       "need_pages": "Du kannst keine weiteren Seiten hinzufügen. Weiter zum Shop.",
       "no_binders": "Du hast noch keinen Binder.",
       "working": "Speichern…",
@@ -518,7 +518,8 @@
       "no_close": "Keine Katalogkarte ist nah genug. Markiere sie als eigene oder suche von Hand.",
       "back_pages": "Zurück zu den Seiten",
       "save_empty": "In diesem Fach wurde nichts gespeichert. Wähle es erneut.",
-      "need_confirm": "Ohne neue Seiten passen sie nicht. Wähle ein anderes Fach oder eine neue Seite."
+      "need_confirm": "Ohne neue Seiten passen sie nicht. Wähle ein anderes Fach oder eine neue Seite.",
+      "vision": "Visuelle Erkennung wird vorbereitet…"
     },
     "picker": {
       "search_placeholder": "Suche nach Name oder ID...",
