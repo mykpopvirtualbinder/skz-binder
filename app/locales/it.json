@@ -281,7 +281,11 @@
       "quantity": "Quantity",
       "selected": "Selezionate",
       "clear_selection": "Cancella selezione"
-    }
+    },
+    "bulk_binder_title": "Metti nel binder",
+    "bulk_binder_q": "Stock salvato. Le mettiamo in un binder?",
+    "bulk_binder_yes": "Sì, scegli un binder",
+    "bulk_binder_no": "No, solo lo stock"
   },
   "pagination": {
     "prev": "◀ Precedente",

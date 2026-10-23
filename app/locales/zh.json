@@ -1101,7 +1101,11 @@
       "quantity": "Quantity",
       "selected": "Seleccionadas",
       "clear_selection": "Borrar selección"
-    }
+    },
+    "bulk_binder_title": "放进收纳册",
+    "bulk_binder_q": "库存已保存。要放进收纳册吗？",
+    "bulk_binder_yes": "要，选择收纳册",
+    "bulk_binder_no": "不用，只留库存"
   },
   "login": {
     "email_placeholder": "您的邮箱",

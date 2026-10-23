@@ -1101,7 +1101,11 @@
       "quantity": "Quantity",
       "selected": "Seleccionadas",
       "clear_selection": "Borrar selección"
-    }
+    },
+    "bulk_binder_title": "ใส่ในไบน์เดอร์",
+    "bulk_binder_q": "บันทึกสต็อกแล้ว ใส่ในไบน์เดอร์ไหม?",
+    "bulk_binder_yes": "ใช่ เลือกไบน์เดอร์",
+    "bulk_binder_no": "ไม่ แค่สต็อก"
   },
   "login": {
     "email_placeholder": "อีเมลของคุณ",

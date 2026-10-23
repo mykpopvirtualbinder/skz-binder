@@ -1101,7 +1101,11 @@
       "quantity": "Quantity",
       "selected": "Seleccionadas",
       "clear_selection": "Borrar selección"
-    }
+    },
+    "bulk_binder_title": "바인더에 넣기",
+    "bulk_binder_q": "스톡을 저장했습니다. 바인더에도 넣을까요?",
+    "bulk_binder_yes": "네, 바인더 선택",
+    "bulk_binder_no": "아니요, 스톡만"
   },
   "login": {
     "email_placeholder": "이메일",

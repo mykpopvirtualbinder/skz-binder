@@ -281,7 +281,11 @@
       "quantity": "Quantity",
       "selected": "Dipilih",
       "clear_selection": "Bersihkan pilihan"
-    }
+    },
+    "bulk_binder_title": "Taruh di binder",
+    "bulk_binder_q": "Stok tersimpan. Masukkan ke binder?",
+    "bulk_binder_yes": "Ya, pilih binder",
+    "bulk_binder_no": "Tidak, stok saja"
   },
   "pagination": {
     "prev": "◀ Sebelumnya",

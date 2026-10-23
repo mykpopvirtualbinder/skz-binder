@@ -337,7 +337,11 @@
       "selected": "Selected",
       "clear_selection": "Clear selection",
       "max_selection": "You can select up to 10 PCs."
-    }
+    },
+    "bulk_binder_title": "Place in a binder",
+    "bulk_binder_q": "Stock saved. Put them in a binder?",
+    "bulk_binder_yes": "Yes, choose a binder",
+    "bulk_binder_no": "No, stock only"
   },
   "pagination": {
     "prev": "◀ Previous",

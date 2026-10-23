@@ -336,7 +336,11 @@
       "selected": "Seleccionadas",
       "clear_selection": "Borrar selección",
       "max_selection": "Puedes seleccionar como máximo 10 PCs."
-    }
+    },
+    "bulk_binder_title": "Colocar en el binder",
+    "bulk_binder_q": "Stock guardado. ¿Las metemos en un binder?",
+    "bulk_binder_yes": "Sí, elegir binder",
+    "bulk_binder_no": "No, solo el stock"
   },
   "pagination": {
     "prev": "◀ Anterior",

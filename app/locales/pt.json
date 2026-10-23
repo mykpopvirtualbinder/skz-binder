@@ -1101,7 +1101,11 @@
       "quantity": "Quantity",
       "selected": "Seleccionadas",
       "clear_selection": "Borrar selección"
-    }
+    },
+    "bulk_binder_title": "Colocar num binder",
+    "bulk_binder_q": "Stock guardado. Metemo-las num binder?",
+    "bulk_binder_yes": "Sim, escolher binder",
+    "bulk_binder_no": "Não, só o stock"
   },
   "login": {
     "email_placeholder": "O teu email",

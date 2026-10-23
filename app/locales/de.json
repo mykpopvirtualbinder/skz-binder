@@ -281,7 +281,11 @@
       "quantity": "Quantity",
       "selected": "Ausgewählt",
       "clear_selection": "Auswahl aufheben"
-    }
+    },
+    "bulk_binder_title": "In einen Binder legen",
+    "bulk_binder_q": "Bestand gespeichert. In einen Binder legen?",
+    "bulk_binder_yes": "Ja, Binder wählen",
+    "bulk_binder_no": "Nein, nur der Bestand"
   },
   "pagination": {
     "prev": "◀ Zurück",

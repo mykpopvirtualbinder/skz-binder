@@ -281,7 +281,11 @@
       "quantity": "Quantity",
       "selected": "選択中",
       "clear_selection": "選択を解除"
-    }
+    },
+    "bulk_binder_title": "バインダーに入れる",
+    "bulk_binder_q": "ストックを保存しました。バインダーにも入れますか？",
+    "bulk_binder_yes": "はい、バインダーを選ぶ",
+    "bulk_binder_no": "いいえ、ストックだけ"
   },
   "pagination": {
     "prev": "◀ 前へ",

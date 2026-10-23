@@ -2490,6 +2490,9 @@ function LibraryContent() {
         const [selectMode, setSelectMode] = useState(false);
         const [selectedIds, setSelectedIds] = useState<number[]>([]);
         const [bulkOpen, setBulkOpen] = useState(false);
+        const [binderAskOpen, setBinderAskOpen] = useState(false);
+        const [placeOpen, setPlaceOpen] = useState(false);
+        const [placePieces, setPlacePieces] = useState<Array<{ itemId: number; memberId: number | null }>>([]);
         const [bulkSaving, setBulkSaving] = useState(false);
         const [bulkDraft, setBulkDraft] = useState<Record<PersistStatus, number>>({ have: 1, wtt: 0, wts: 0, on_its_way: 0, wishlist: 0 });
         const [q, setQ] = useState("");
@@ -3827,8 +3830,7 @@ const commitStockForItem = useCallback(
     });
     setBulkSaving(false);
     setBulkOpen(false);
-    setSelectMode(false);
-    setSelectedIds([]);
+    setBinderAskOpen(true);
   }, [bulkDraft, selectedIds, showAlert, t, userId]);
 // 👇 AÑADE ESTO (PASO 3) 👇
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -4238,6 +4240,7 @@ const commitStockForItem = useCallback(
                     setSelectMode(false);
                     setSelectedIds([]);
                     setBulkOpen(false);
+                    setBinderAskOpen(false);
                     return;
                   }
                   setSelectMode(true);
@@ -4379,6 +4382,38 @@ const commitStockForItem = useCallback(
                 <StockQtyRows draft={bulkDraft} disabled={bulkSaving} onDelta={(status, delta) => setBulkDraft((prev) => applyStockDelta(prev, status, delta))} t={t} />
                 <button type="button" disabled={bulkSaving} onClick={() => void applyBulkStock()} style={{ height: 42, borderRadius: 12, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: bulkSaving ? "wait" : "pointer" }}>
                   {bulkSaving ? "…" : t("library.bulk_apply")}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {binderAskOpen && (
+            <div role="presentation" onClick={() => { setBinderAskOpen(false); setSelectMode(false); setSelectedIds([]); }} style={{ position: "fixed", inset: 0, zIndex: 100000, background: "var(--overlay-medium)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+              <div role="dialog" aria-modal="true" aria-label={t("library.bulk_binder_q")} onClick={(event) => event.stopPropagation()} style={{ width: "min(420px, 100%)", borderRadius: 18, border: "1px solid var(--color-border)", background: "var(--bg-card)", padding: 16, display: "grid", gap: 12 }}>
+                <h3 style={{ margin: 0 }}>{t("library.bulk_binder_q")}</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlacePieces(selectedIds.map((itemId) => ({ itemId, memberId: null })));
+                    setBinderAskOpen(false);
+                    setSelectMode(false);
+                    setSelectedIds([]);
+                    setPlaceOpen(true);
+                  }}
+                  style={{ height: 42, borderRadius: 12, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: "pointer" }}
+                >
+                  {t("library.bulk_binder_yes")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBinderAskOpen(false);
+                    setSelectMode(false);
+                    setSelectedIds([]);
+                  }}
+                  style={{ height: 42, borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}
+                >
+                  {t("library.bulk_binder_no")}
                 </button>
               </div>
             </div>
@@ -4907,6 +4942,17 @@ return (
           userId={userId}
           isAdmin={isAdminTeamEmail(profile?.email)}
           onClose={() => setScanOpen(false)}
+        />
+      )}
+      {placeOpen && userId && placePieces.length > 0 && (
+        <PhotoPageImport
+          userId={userId}
+          isAdmin={isAdminTeamEmail(profile?.email)}
+          initialPieces={placePieces}
+          onClose={() => {
+            setPlaceOpen(false);
+            setPlacePieces([]);
+          }}
         />
       )}
       {catalog !== "inclusions" && <Footer />}

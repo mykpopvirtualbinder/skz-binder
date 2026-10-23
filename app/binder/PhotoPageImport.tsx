@@ -222,12 +222,14 @@ export default function PhotoPageImport({
   userId,
   isAdmin = false,
   initialGrid = "3x3",
+  initialPieces,
   onClose,
   onPlaced,
 }: {
   userId: string;
   isAdmin?: boolean;
   initialGrid?: string;
+  initialPieces?: Array<{ itemId: number; memberId: number | null }>;
   onClose: () => void;
   onPlaced?: () => void;
 }) {
@@ -252,8 +254,10 @@ export default function PhotoPageImport({
   const [progress, setProgress] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [choices, setChoices] = useState<SlotChoice[]>([]);
-  const [step, setStep] = useState<"scan" | "place" | "page" | "slot">("scan");
-  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [step, setStep] = useState<"scan" | "place" | "page" | "slot">(initialPieces?.length ? "place" : "scan");
+  const [pieces, setPieces] = useState<Piece[]>(
+    () => initialPieces?.map((piece) => ({ kind: "item" as const, itemId: piece.itemId, memberId: piece.memberId })) ?? [],
+  );
   const [binders, setBinders] = useState<BinderOption[]>([]);
   const [binderId, setBinderId] = useState<number | "">("");
   const [pages, setPages] = useState<PageOption[]>([]);
@@ -269,6 +273,28 @@ export default function PhotoPageImport({
       document.body.style.overflow = previous;
     };
   }, []);
+
+  useEffect(() => {
+    if (!initialPieces?.length) return;
+    let cancelled = false;
+    void (async () => {
+      const binderRes = await supabase.from("binders").select("id, title").eq("user_id", userId).order("id");
+      if (cancelled) return;
+      if (binderRes.error) {
+        setNotice(binderRes.error.message);
+        return;
+      }
+      setBinders(
+        (binderRes.data ?? []).map((row) => ({
+          id: Number(row.id),
+          title: String(row.title || "").trim() || `Binder ${row.id}`,
+        })),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialPieces, userId]);
 
   useEffect(() => {
     return () => {
@@ -973,7 +999,7 @@ export default function PhotoPageImport({
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-          <strong>{t("binders.photo.scan")}</strong>
+          <strong>{step === "scan" ? t("binders.photo.scan") : t("library.bulk_binder_title")}</strong>
           <button type="button" onClick={onClose} style={{ ...fieldStyle, width: "auto", fontWeight: 800 }}>
             {t("binders.photo.close")}
           </button>
