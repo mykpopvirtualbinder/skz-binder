@@ -30,13 +30,15 @@ export async function GET(req: Request) {
 
   try {
     const admin = createServiceRoleClient();
-    const [gRes, mRes] = await Promise.all([
+    const [gRes, mRes, aRes] = await Promise.all([
       admin.from("groups").select("*").order("name", { ascending: true }),
       admin.from("members").select("*").order("group_id", { ascending: true }).order("name", { ascending: true }),
+      admin.from("albums").select("id, group_id, name, slug").order("name", { ascending: true }),
     ]);
     if (gRes.error) return NextResponse.json({ error: gRes.error.message }, { status: 500 });
     if (mRes.error) return NextResponse.json({ error: mRes.error.message }, { status: 500 });
-    return NextResponse.json({ groups: gRes.data ?? [], members: mRes.data ?? [] });
+    if (aRes.error) return NextResponse.json({ error: aRes.error.message }, { status: 500 });
+    return NextResponse.json({ groups: gRes.data ?? [], members: mRes.data ?? [], albums: aRes.data ?? [] });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error";
     return NextResponse.json({ error: msg }, { status: 500 });

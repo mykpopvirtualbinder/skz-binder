@@ -157,6 +157,13 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     ],
     catalogo: [
     {
+      selector: "[data-tour='cat-pieza']",
+      title: tr("Subir una pieza"),
+      text: tr("Grupo, álbum, carpeta y miembro. El front entra en el stock y, si lo adjuntas, el back también. No hace falta bajar el archivo al PC."),
+      side: "bottom",
+      tab: "catalogo",
+    },
+    {
       selector: "[data-tour='cat-grupo']",
       title: tr("Alta de grupo"),
       text: tr("Nombre y logo son lo que ve la gente. El slug es interno. Guardar lo escribe en la base de datos."),

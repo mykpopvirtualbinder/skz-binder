@@ -224,6 +224,17 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
 
   const [catalogGroups, setCatalogGroups] = useState<any[]>([]);
   const [catalogMembers, setCatalogMembers] = useState<any[]>([]);
+  const [catalogAlbums, setCatalogAlbums] = useState<any[]>([]);
+  const [pieceForm, setPieceForm] = useState({
+    group_id: "",
+    album_id: "",
+    version: "",
+    member_id: "",
+    type: "photocards",
+  });
+  const [pieceFront, setPieceFront] = useState<File | null>(null);
+  const [pieceBack, setPieceBack] = useState<File | null>(null);
+  const [pieceFileKey, setPieceFileKey] = useState(0);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogGroupForm, setCatalogGroupForm] = useState({ id: null as number | null, name: "", slug: "", logo_url: "" });
   const [catalogMemberForm, setCatalogMemberForm] = useState({
@@ -1547,10 +1558,11 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     try {
       const h = await catalogAuthHeaders();
       const res = await fetch("/api/admin/catalog", { headers: h });
-      const json = (await res.json().catch(() => ({}))) as { groups?: any[]; members?: any[]; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { groups?: any[]; members?: any[]; albums?: any[]; error?: string };
       if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
       setCatalogGroups(json.groups || []);
       setCatalogMembers(json.members || []);
+      setCatalogAlbums(json.albums || []);
     } catch (err: any) {
       showAlert(tr("Catálogo"), err?.message || tr("No se pudo cargar."));
     } finally {
@@ -1631,6 +1643,40 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       await loadCatalog();
     } catch (err: any) {
       showAlert(tr("Catálogo"), err?.message || tr("Error al guardar miembro."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveCatalogPiece = async () => {
+    if (!pieceFront) {
+      showAlert(tr("Catálogo"), tr("Elige la cara delantera."));
+      return;
+    }
+    setLoading(true);
+    try {
+      const h = await catalogAuthHeaders();
+      const fd = new FormData();
+      fd.set("group_id", pieceForm.group_id);
+      fd.set("album_id", pieceForm.album_id);
+      fd.set("version", pieceForm.version);
+      fd.set("member_id", pieceForm.member_id);
+      fd.set("type", pieceForm.type);
+      fd.set("front", pieceFront);
+      if (pieceBack) fd.set("back", pieceBack);
+      const res = await fetch("/api/admin/catalog-item", { method: "POST", headers: h, body: fd });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; item?: { member?: string; version?: string } };
+      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+      showAlert(
+        tr("Catálogo"),
+        tr("Pieza en el stock. Puedes subir el siguiente miembro de esta misma carpeta."),
+      );
+      setPieceFront(null);
+      setPieceBack(null);
+      setPieceFileKey((n) => n + 1);
+      setPieceForm((p) => ({ ...p, member_id: "" }));
+    } catch (err: any) {
+      showAlert(tr("Catálogo"), err?.message || tr("No se pudo crear la ficha."));
     } finally {
       setLoading(false);
     }
@@ -3868,6 +3914,114 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   <code style={{ fontSize: 11 }}>scripts/add-catalog-slug-columns.sql</code>.
                 </p>
               </details>
+
+              <form
+                data-tour="cat-pieza"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void saveCatalogPiece();
+                }}
+                style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)", display: "flex", flexDirection: "column", gap: 12 }}
+              >
+                <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>{tr("Subir una pieza")}</h3>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 }}>
+                  {tr("El archivo se guarda en la web y se crea la ficha en la biblioteca. La versión es el nombre de la carpeta, por ejemplo soundwave-offline-ld-2. El back es opcional. Máximo 8 MB por imagen.")}
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={labelStyle}>{tr("Grupo")}</label>
+                    <select
+                      style={inputStyle}
+                      value={pieceForm.group_id}
+                      onChange={(e) => setPieceForm({ group_id: e.target.value, album_id: "", version: pieceForm.version, member_id: "", type: pieceForm.type })}
+                    >
+                      <option value="">{tr("Elige un grupo")}</option>
+                      {catalogGroups.map((g) => (
+                        <option key={g.id} value={String(g.id)}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Álbum")}</label>
+                    <select
+                      style={inputStyle}
+                      value={pieceForm.album_id}
+                      onChange={(e) => setPieceForm((p) => ({ ...p, album_id: e.target.value }))}
+                    >
+                      <option value="">{tr("Elige un álbum")}</option>
+                      {catalogAlbums
+                        .filter((a) => String(a.group_id) === pieceForm.group_id)
+                        .map((a) => (
+                          <option key={a.id} value={String(a.id)}>{a.name}</option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Versión o carpeta")}</label>
+                    <input
+                      style={inputStyle}
+                      value={pieceForm.version}
+                      onChange={(e) => setPieceForm((p) => ({ ...p, version: e.target.value }))}
+                      placeholder={tr("Ej: soundwave-offline-ld-2")}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Miembro")}</label>
+                    <select
+                      style={inputStyle}
+                      value={pieceForm.member_id}
+                      onChange={(e) => setPieceForm((p) => ({ ...p, member_id: e.target.value }))}
+                    >
+                      <option value="">{tr("Elige un miembro")}</option>
+                      {catalogMembers
+                        .filter((m) => String(m.group_id) === pieceForm.group_id)
+                        .map((m) => (
+                          <option key={m.member_id ?? m.id} value={String(m.member_id ?? m.id)}>{m.name}</option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Tipo")}</label>
+                    <select style={inputStyle} value={pieceForm.type} onChange={(e) => setPieceForm((p) => ({ ...p, type: e.target.value }))}>
+                      <option value="photocards">{tr("Photocard")}</option>
+                      <option value="pobs">{tr("POB")}</option>
+                      <option value="inclusions">{tr("Inclusión")}</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  <label style={{ fontWeight: 800, color: "var(--color-primary)", fontSize: 13 }}>
+                    {tr("Cara delantera")}
+                    <input
+                      key={`front-${pieceFileKey}`}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      required
+                      onChange={(e) => setPieceFront(e.target.files?.[0] ?? null)}
+                      style={{ display: "block", marginTop: 8, fontWeight: 700 }}
+                    />
+                  </label>
+                  <label style={{ fontWeight: 800, color: "var(--color-primary)", fontSize: 13 }}>
+                    {tr("Cara trasera (opcional)")}
+                    <input
+                      key={`back-${pieceFileKey}`}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={(e) => setPieceBack(e.target.files?.[0] ?? null)}
+                      style={{ display: "block", marginTop: 8, fontWeight: 700 }}
+                    />
+                  </label>
+                </div>
+                <div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 18px", borderRadius: "10px", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}
+                  >
+                    {loading ? tr("Guardando...") : tr("Subir al stock")}
+                  </button>
+                </div>
+              </form>
 
               {catalogLoading && catalogGroups.length === 0 ? (
                 <div style={{ display: "flex", justifyContent: "center", padding: 40 }}>
