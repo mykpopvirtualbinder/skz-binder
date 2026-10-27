@@ -9,6 +9,7 @@ create table if not exists public.market_listing_withdrawals (
   item_ref text not null,
   listing_type text not null check (listing_type in ('wtt', 'wts')),
   qty integer not null default 1 check (qty > 0),
+  stock_deducted integer not null default 0 check (stock_deducted >= 0),
   reason text not null check (reason in ('not_wanted', 'off_platform')),
   created_at timestamptz not null default now()
 );

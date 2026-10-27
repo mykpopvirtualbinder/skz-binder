@@ -9,6 +9,8 @@ type WithdrawInput = {
   statusRowId: string;
   listingType: "wtt" | "wts";
   reason: WithdrawReason;
+  /** Copias que salen del stock. 0 deja la cantidad igual (pasan a Tengo). */
+  deductQty: number;
 };
 
 function tableOf(itemType: "pc" | "merch") {
@@ -32,7 +34,7 @@ function normalizeItemId(itemType: "pc" | "merch", itemId: string | number) {
   return itemId;
 }
 
-/** Quita el anuncio y deja constancia del motivo. */
+/** Quita el anuncio. El stock solo baja si deductQty es mayor que 0, y nunca por encima de lo publicado. */
 export async function withdrawMarketListing(input: WithdrawInput): Promise<{ ok: true; logged: boolean } | { ok: false; message: string }> {
   const table = tableOf(input.itemType);
   const itemCol = itemColumn(input.itemType);
@@ -47,9 +49,11 @@ export async function withdrawMarketListing(input: WithdrawInput): Promise<{ ok:
   if (!rows?.length) return { ok: false, message: "missing" };
 
   const qty = rows.reduce((sum, row) => sum + Math.max(1, Number(row.qty) || 1), 0);
+  const deduct = Math.max(0, Math.min(qty, Math.floor(Number(input.deductQty) || 0)));
+  const keep = qty - deduct;
   let haveRollback: { prev: number; created: boolean } | null = null;
 
-  if (input.reason === "not_wanted") {
+  if (keep > 0) {
     const { data: have, error: haveError } = await supabase
       .from(table)
       .select("qty")
@@ -64,7 +68,7 @@ export async function withdrawMarketListing(input: WithdrawInput): Promise<{ ok:
         user_id: input.userId,
         [itemCol]: itemId,
         status: "have",
-        qty: prev + qty,
+        qty: prev + keep,
       },
       { onConflict: conflictKey(input.itemType) },
     );
@@ -98,11 +102,11 @@ export async function withdrawMarketListing(input: WithdrawInput): Promise<{ ok:
     return { ok: false, message: deleteError?.message || "failed" };
   }
 
-  if (input.reason === "not_wanted" && input.itemType === "merch") {
+  if (keep > 0 && input.itemType === "merch") {
     await supabase.from(table).delete().eq("user_id", input.userId).eq(itemCol, itemId).eq("status", "wishlist");
   }
 
-  const logged = await recordWithdrawal({ ...input, itemId, qty });
+  const logged = await recordWithdrawal({ ...input, itemId, qty, deductQty: deduct });
   return { ok: true, logged };
 }
 
@@ -115,6 +119,7 @@ async function recordWithdrawal(input: WithdrawInput & { qty: number }) {
     listing_type: input.listingType,
     qty: input.qty,
     reason: input.reason,
+    stock_deducted: input.deductQty,
   });
   if (!logError) return true;
 
@@ -132,6 +137,7 @@ async function recordWithdrawal(input: WithdrawInput & { qty: number }) {
       listing_type: input.listingType,
       qty: input.qty,
       reason: input.reason,
+      stock_deducted: input.deductQty,
     }),
   });
   return !fallbackError;

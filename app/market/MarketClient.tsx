@@ -535,6 +535,9 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
   const [showToast, setShowToast] = useState<string | null>(null);
   const [withdrawAd, setWithdrawAd] = useState<MarketAd | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawStep, setWithdrawStep] = useState<"reason" | "stock" | "qty">("reason");
+  const [withdrawReason, setWithdrawReason] = useState<WithdrawReason | null>(null);
+  const [stockQtyInput, setStockQtyInput] = useState("");
   const withdrawClosedAt = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -952,8 +955,27 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
 
   const isOwnAd = (ad: MarketAd) => Boolean(currentUserId && ad.user_id === currentUserId);
 
-  const confirmWithdraw = async (reason: WithdrawReason) => {
-    if (!withdrawAd || !currentUserId || withdrawing) return;
+  const openWithdraw = (ad: MarketAd) => {
+    if (Date.now() - withdrawClosedAt.current < 600) return;
+    setWithdrawStep("reason");
+    setWithdrawReason(null);
+    setStockQtyInput("");
+    setWithdrawAd(ad);
+  };
+
+  const closeWithdraw = () => {
+    if (withdrawing) return;
+    setWithdrawAd(null);
+    setWithdrawStep("reason");
+    setWithdrawReason(null);
+    setStockQtyInput("");
+  };
+
+  const finishWithdraw = async (deductQty: number) => {
+    if (!withdrawAd || !currentUserId || !withdrawReason || withdrawing) return;
+    const maxQty = Math.max(1, withdrawAd.qty);
+    const deduct = Math.floor(deductQty);
+    if (deduct < 0 || deduct > maxQty) return;
     setWithdrawing(true);
     const result = await withdrawMarketListing({
       userId: currentUserId,
@@ -961,7 +983,8 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
       itemId: withdrawAd.item_id,
       statusRowId: withdrawAd.statusRowId,
       listingType: withdrawAd.type,
-      reason,
+      reason: withdrawReason,
+      deductQty: deduct,
     });
     setWithdrawing(false);
     const dropListing = () => {
@@ -984,7 +1007,8 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
       return;
     }
     dropListing();
-    setShowToast(result.logged ? t("market.withdraw.done") : t("market.withdraw.log_failed"));
+    const done = deduct > 0 ? t("market.withdraw.done_deducted", { n: deduct }) : t("market.withdraw.done");
+    setShowToast(result.logged ? done : t("market.withdraw.log_failed"));
     setTimeout(() => setShowToast(null), 3000);
   };
 
@@ -1624,7 +1648,7 @@ const openPublicProfile = async (userId: string) => {
                   ad.itemType === "pc" ? formatMemberLabel(ad.member) : ad.pcName;
 
                 return (
-                  <div key={ad.id} data-market-ad-id={ad.id} className="ad-card" onClick={isOwnAd(ad) ? () => { if (Date.now() - withdrawClosedAt.current < 600) return; setWithdrawAd(ad); } : undefined} style={{ background: "var(--bg-card)", borderRadius: "16px", border: "1px solid var(--color-border)", overflow: "hidden", display: "flex", flexDirection: "column", cursor: isOwnAd(ad) ? "pointer" : "default" }}>
+                  <div key={ad.id} data-market-ad-id={ad.id} className="ad-card" onClick={isOwnAd(ad) ? () => openWithdraw(ad) : undefined} style={{ background: "var(--bg-card)", borderRadius: "16px", border: "1px solid var(--color-border)", overflow: "hidden", display: "flex", flexDirection: "column", cursor: isOwnAd(ad) ? "pointer" : "default" }}>
                     
                     {/* FOTO AREA */}
                     <div style={{ width: "100%", backgroundColor: "var(--bg-soft)", padding: "16px", boxSizing: "border-box" }}>
@@ -1724,7 +1748,7 @@ const openPublicProfile = async (userId: string) => {
 
                       <div style={{ display: "grid", gridTemplateColumns: !isOwnAd(ad) && ad.type === "wts" ? "1fr 1fr" : "1fr", gap: "6px", marginTop: "auto" }}>
                         {isOwnAd(ad) ? (
-                          <button type="button" onClick={(e) => { e.stopPropagation(); if (Date.now() - withdrawClosedAt.current < 600) return; setWithdrawAd(ad); }} style={{ ...ghostMarketBtn, color: "var(--text-main)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); openWithdraw(ad); }} style={{ ...ghostMarketBtn, color: "var(--text-main)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                             <Trash2 size={16} /> {t("market.withdraw.btn")}
                           </button>
                         ) : ad.type === "wts" ? (
@@ -1957,7 +1981,7 @@ const openPublicProfile = async (userId: string) => {
                       {isOwnAd(ad) ? (
                         <button
                           type="button"
-                          onClick={() => { if (Date.now() - withdrawClosedAt.current < 600) return; setWithdrawAd(ad); }}
+                          onClick={() => openWithdraw(ad)}
                           style={{ ...ghostMarketBtn, color: "var(--text-main)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px", borderRadius: "12px" }}
                         >
                           <Trash2 size={16} /> {t("market.withdraw.btn")}
@@ -2327,26 +2351,71 @@ const openPublicProfile = async (userId: string) => {
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => { if (!withdrawing) setWithdrawAd(null); }}
+          onClick={closeWithdraw}
           style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 10060, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", padding: 16 }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{ background: "var(--bg-card)", borderRadius: 24, width: "100%", maxWidth: 420, padding: 22, border: "2px solid var(--color-primary)", boxShadow: "0 20px 50px var(--shadow-card)", display: "flex", flexDirection: "column", gap: 12 }}
           >
-            <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900 }}>{t("market.withdraw.title")}</h3>
             <p style={{ margin: 0, color: "var(--text-main)", fontWeight: 700, lineHeight: 1.45 }}>{withdrawAd.pcName}</p>
-            <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>{t("market.withdraw.lead")}</p>
-            {withdrawAd.qty > 1 ? <p style={{ margin: 0, color: "var(--text-main)", fontWeight: 800, fontSize: 13 }}>{t("market.withdraw.copies", { n: withdrawAd.qty })}</p> : null}
-            <button type="button" disabled={withdrawing} onClick={() => void confirmWithdraw("not_wanted")} style={{ textAlign: "left", background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: 14, padding: "12px 14px", cursor: withdrawing ? "wait" : "pointer" }}>
-              <span style={{ display: "block", fontWeight: 900, color: "var(--color-primary)" }}>{t("market.withdraw.not_wanted")}</span>
-              <span style={{ display: "block", marginTop: 4, fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>{t("market.withdraw.not_wanted_hint")}</span>
+            {withdrawStep === "reason" ? (
+              <>
+                <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900 }}>{t("market.withdraw.title")}</h3>
+                <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>{t("market.withdraw.lead")}</p>
+                {withdrawAd.qty > 1 ? <p style={{ margin: 0, color: "var(--text-main)", fontWeight: 800, fontSize: 13 }}>{t("market.withdraw.copies", { n: withdrawAd.qty })}</p> : null}
+                <button type="button" disabled={withdrawing} onClick={() => { setWithdrawReason("not_wanted"); setWithdrawStep("stock"); }} style={{ textAlign: "left", background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: 14, padding: "12px 14px", cursor: "pointer" }}>
+                  <span style={{ display: "block", fontWeight: 900, color: "var(--color-primary)" }}>{t("market.withdraw.not_wanted")}</span>
+                  <span style={{ display: "block", marginTop: 4, fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>{t("market.withdraw.not_wanted_hint")}</span>
+                </button>
+                <button type="button" disabled={withdrawing} onClick={() => { setWithdrawReason("off_platform"); setWithdrawStep("stock"); }} style={{ textAlign: "left", background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: 14, padding: "12px 14px", cursor: "pointer" }}>
+                  <span style={{ display: "block", fontWeight: 900, color: "var(--color-primary)" }}>{t("market.withdraw.off_platform")}</span>
+                  <span style={{ display: "block", marginTop: 4, fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>{t("market.withdraw.off_platform_hint")}</span>
+                </button>
+              </>
+            ) : withdrawStep === "stock" ? (
+              <>
+                <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900 }}>{t("market.withdraw.stock_title")}</h3>
+                <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>{t("market.withdraw.stock_lead")}</p>
+                <p style={{ margin: 0, color: "var(--text-main)", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>{t("market.withdraw.stock_note")}</p>
+                <button type="button" disabled={withdrawing} onClick={() => void finishWithdraw(0)} style={{ textAlign: "left", background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: 14, padding: "12px 14px", cursor: withdrawing ? "wait" : "pointer", fontWeight: 900, color: "var(--color-primary)" }}>
+                  {t("market.withdraw.stock_no")}
+                </button>
+                <button type="button" disabled={withdrawing} onClick={() => { setStockQtyInput(""); setWithdrawStep("qty"); }} style={{ textAlign: "left", background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: 14, padding: "12px 14px", cursor: "pointer", fontWeight: 900, color: "var(--color-primary)" }}>
+                  {t("market.withdraw.stock_yes")}
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900 }}>{t("market.withdraw.qty_title")}</h3>
+                <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>{t("market.withdraw.qty_lead", { n: withdrawAd.qty, status: withdrawAd.type.toUpperCase() })}</p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={stockQtyInput}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    if (!digits) {
+                      setStockQtyInput("");
+                      return;
+                    }
+                    setStockQtyInput(String(Math.min(withdrawAd.qty, Number(digits))));
+                  }}
+                  style={{ width: "100%", boxSizing: "border-box", borderRadius: 14, border: "1px solid var(--color-border)", background: "var(--bg-soft)", color: "var(--text-main)", fontWeight: 900, fontSize: 18, padding: "12px 14px" }}
+                />
+                <button
+                  type="button"
+                  disabled={withdrawing || !(Number(stockQtyInput) >= 1 && Number(stockQtyInput) <= withdrawAd.qty)}
+                  onClick={() => void finishWithdraw(Number(stockQtyInput))}
+                  style={{ background: "var(--color-primary)", color: "#111", border: "none", borderRadius: 14, padding: "12px 14px", fontWeight: 900, cursor: withdrawing ? "wait" : "pointer", opacity: Number(stockQtyInput) >= 1 && Number(stockQtyInput) <= withdrawAd.qty ? 1 : 0.45 }}
+                >
+                  {t("market.withdraw.qty_confirm")}
+                </button>
+              </>
+            )}
+            <button type="button" disabled={withdrawing} onClick={withdrawStep === "qty" ? () => setWithdrawStep("stock") : closeWithdraw} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontWeight: 800, cursor: "pointer", padding: 8 }}>
+              {withdrawStep === "qty" ? t("market.withdraw.back") : t("common.cancel")}
             </button>
-            <button type="button" disabled={withdrawing} onClick={() => void confirmWithdraw("off_platform")} style={{ textAlign: "left", background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: 14, padding: "12px 14px", cursor: withdrawing ? "wait" : "pointer" }}>
-              <span style={{ display: "block", fontWeight: 900, color: "var(--color-primary)" }}>{t("market.withdraw.off_platform")}</span>
-              <span style={{ display: "block", marginTop: 4, fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>{t("market.withdraw.off_platform_hint")}</span>
-            </button>
-            <button type="button" disabled={withdrawing} onClick={() => setWithdrawAd(null)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontWeight: 800, cursor: "pointer", padding: 8 }}>{t("common.cancel")}</button>
           </div>
         </div>
       )}
