@@ -210,7 +210,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   
   // ESTADO DEL MODAL PRECIOSO
-  const [confirmDialog, setConfirmDialog] = useState<{ title: string, message: string, onConfirm: () => void | Promise<void> } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string, message: string, confirmLabel?: string, onConfirm: () => void | Promise<void> } | null>(null);
   const [artistWorksModal, setArtistWorksModal] = useState<{
     userName: string;
     works: { id: string; title: string; category: string; thumb: string | null }[];
@@ -284,6 +284,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   });
   const [pieceFiles, setPieceFiles] = useState<File[]>([]);
   const [pieceFileKey, setPieceFileKey] = useState(0);
+  const pieceDirInputRef = useRef<HTMLInputElement | null>(null);
   const [pieceVersions, setPieceVersions] = useState<string[]>([]);
   const [pieceStatus, setPieceStatus] = useState("");
   const [merchForm, setMerchForm] = useState({
@@ -1757,7 +1758,48 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pieceForm.album_id]);
 
-  const addPieceFiles = (list: FileList | null) => {
+  const choosePieceFolder = async () => {
+    const picker = (window as Window & { showDirectoryPicker?: (opts?: { mode?: "read" | "readwrite" }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
+    if (typeof picker !== "function") {
+      pieceDirInputRef.current?.click();
+      return;
+    }
+    let dir: FileSystemDirectoryHandle;
+    try {
+      dir = await picker({ mode: "read" });
+    } catch {
+      return;
+    }
+    const images: File[] = [];
+    const walk = async (folder: FileSystemDirectoryHandle) => {
+      const listing = folder as FileSystemDirectoryHandle & { values: () => AsyncIterable<FileSystemHandle> };
+      for await (const entry of listing.values()) {
+        if (images.length >= 80) return;
+        if (entry.kind === "file") {
+          const file = await (entry as FileSystemFileHandle).getFile();
+          if (/image\/(jpeg|png|webp|gif)/.test(file.type) || /\.(png|jpe?g|webp|gif)$/i.test(file.name)) images.push(file);
+        } else if (entry.kind === "directory" && !entry.name.startsWith(".") && !/^silvia/i.test(entry.name)) {
+          await walk(entry as FileSystemDirectoryHandle);
+        }
+      }
+    };
+    await walk(dir);
+    if (!images.length) {
+      showAlert(tr("Catálogo"), tr("Esa carpeta no tiene imágenes."));
+      return;
+    }
+    setConfirmDialog({
+      title: tr("Subir esta carpeta"),
+      confirmLabel: tr("Añadir carpeta"),
+      message: tr("Vas a añadir {count} archivos de «{folder}». Tiene que ser la carpeta de esa versión, no la del álbum entero.", {
+        count: String(images.length),
+        folder: dir.name,
+      }),
+      onConfirm: () => addPieceFiles(images),
+    });
+  };
+
+  const addPieceFiles = (list: FileList | File[] | null) => {
     const next = Array.from(list || []).filter((file) => /image\/(jpeg|png|webp|gif)/.test(file.type) || /\.(png|jpe?g|webp|gif)$/i.test(file.name));
     if (!next.length) return;
     setPieceFiles((prev) => {
@@ -4333,6 +4375,38 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
               <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.55 }}>
                 {tr("El nombre bonito es el que ve la gente. El slug es el nombre interno: bang-chan se muestra como el nombre bonito que escribas, por ejemplo Bang Chan.")}
               </p>
+              <input
+                key={`dir-${pieceFileKey}`}
+                ref={(el) => {
+                  pieceDirInputRef.current = el;
+                  if (!el) return;
+                  el.setAttribute("webkitdirectory", "");
+                  el.setAttribute("directory", "");
+                }}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files || []);
+                  e.target.value = "";
+                  const images = picked.filter((file) => /image\/(jpeg|png|webp|gif)/.test(file.type) || /\.(png|jpe?g|webp|gif)$/i.test(file.name));
+                  if (!images.length) {
+                    showAlert(tr("Catálogo"), tr("Esa carpeta no tiene imágenes."));
+                    return;
+                  }
+                  const folder = String((images[0] as File & { webkitRelativePath?: string }).webkitRelativePath || "").split("/")[0] || images[0].name;
+                  setConfirmDialog({
+                    title: tr("Subir esta carpeta"),
+                    confirmLabel: tr("Añadir carpeta"),
+                    message: tr("Vas a añadir {count} archivos de «{folder}». Tiene que ser la carpeta de esa versión, no la del álbum entero.", {
+                      count: String(images.length),
+                      folder,
+                    }),
+                    onConfirm: () => addPieceFiles(images),
+                  });
+                }}
+                style={{ display: "none" }}
+              />
               <form
                 data-tour="cat-pieza"
                 onSubmit={(e) => {
@@ -4460,25 +4534,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         style={{ display: "none" }}
                       />
                     </label>
-                    <label style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 12px", fontWeight: 900, cursor: "pointer" }}>
+                    <button
+                      type="button"
+                      onClick={() => void choosePieceFolder()}
+                      style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 12px", fontWeight: 900, cursor: "pointer" }}
+                    >
                       {tr("Elegir carpeta")}
-                      <input
-                        key={`dir-${pieceFileKey}`}
-                        type="file"
-                        multiple
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        ref={(el) => {
-                          if (!el) return;
-                          el.setAttribute("webkitdirectory", "");
-                          el.setAttribute("directory", "");
-                        }}
-                        onChange={(e) => {
-                          addPieceFiles(e.target.files);
-                          e.target.value = "";
-                        }}
-                        style={{ display: "none" }}
-                      />
-                    </label>
+                    </button>
                     {pieceFiles.length > 0 && (
                       <button
                         type="button"
@@ -6080,7 +6142,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 }} 
                 style={{ flex: 1, background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer", fontSize: "14px" }}
               >
-                {tr("Confirmar")}
+                {confirmDialog.confirmLabel || tr("Confirmar")}
               </button>
             </div>
           </div>
