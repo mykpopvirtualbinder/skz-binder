@@ -284,6 +284,23 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [pieceFileKey, setPieceFileKey] = useState(0);
   const [pieceVersions, setPieceVersions] = useState<string[]>([]);
   const [pieceStatus, setPieceStatus] = useState("");
+  const [merchForm, setMerchForm] = useState({
+    group_id: "",
+    category: "Peluches",
+    name: "",
+    album_title: "",
+    album_version: "",
+    rarity: "Común",
+  });
+  const [merchFiles, setMerchFiles] = useState<File[]>([]);
+  const [merchFileKey, setMerchFileKey] = useState(0);
+  const [removeTarget, setRemoveTarget] = useState("group");
+  const [removeGroupId, setRemoveGroupId] = useState("");
+  const [removeMemberId, setRemoveMemberId] = useState("");
+  const [removeAlbumId, setRemoveAlbumId] = useState("");
+  const [removeQuery, setRemoveQuery] = useState("");
+  const [removeHits, setRemoveHits] = useState<any[]>([]);
+  const [removeHitId, setRemoveHitId] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogGroupForm, setCatalogGroupForm] = useState({ id: null as number | null, name: "", slug: "", logo_url: "" });
   const [catalogMemberForm, setCatalogMemberForm] = useState({
@@ -1813,6 +1830,158 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       showAlert(tr("Catálogo"), err?.message || tr("No se pudo crear el set."));
     } finally {
       setPieceStatus("");
+      setLoading(false);
+    }
+  };
+
+  const merchNameFromFile = (file: File) =>
+    file.name.replace(/\.[^.]+$/, "").replace(/^\d+[-_]/, "").replace(/[-_]+/g, " ").trim();
+
+  const saveCatalogMerch = async () => {
+    if (!merchForm.group_id) {
+      showAlert(tr("Catálogo"), tr("Elige un grupo."));
+      return;
+    }
+    if (merchForm.category === "Álbumes" && !merchForm.album_title.trim()) {
+      showAlert(tr("Catálogo"), tr("Escribe el álbum de esa pieza."));
+      return;
+    }
+    if (!merchFiles.length) {
+      showAlert(tr("Catálogo"), tr("Elige las fotos del merch."));
+      return;
+    }
+    const tooBig = merchFiles.find((file) => file.size > 8 * 1024 * 1024);
+    if (tooBig) {
+      showAlert(tr("Catálogo"), tr("{name} pasa de 8 MB.", { name: tooBig.name }));
+      return;
+    }
+    setLoading(true);
+    try {
+      const h = await catalogAuthHeaders();
+      const pieces: { name: string; url: string; album_version: string | null }[] = [];
+      for (let i = 0; i < merchFiles.length; i += 1) {
+        const file = merchFiles[i];
+        setPieceStatus(tr("Subiendo {n} de {total}…", { n: String(i + 1), total: String(merchFiles.length) }));
+        const url = await uploadCatalogAsset(file, "piece");
+        const stem = merchNameFromFile(file);
+        const version = merchForm.category === "Álbumes"
+          ? (merchFiles.length === 1 && merchForm.album_version.trim() ? merchForm.album_version.trim() : stem)
+          : "";
+        const named = merchFiles.length === 1 && merchForm.name.trim() ? merchForm.name.trim() : "";
+        const name = named || (merchForm.category === "Álbumes" && merchForm.album_title.trim()
+          ? `${merchForm.album_title.trim()} — ${version || stem}`
+          : stem);
+        pieces.push({ name, url, album_version: version || null });
+      }
+      const res = await fetch("/api/admin/catalog-merch", {
+        method: "POST",
+        headers: { ...h, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          group_id: merchForm.group_id,
+          category: merchForm.category,
+          rarity: merchForm.rarity.trim() || "Común",
+          album_title: merchForm.album_title.trim(),
+          pieces,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; created?: number };
+      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+      showAlert(tr("Catálogo"), tr("Merch en el stock: {created} piezas.", { created: String(json.created ?? pieces.length) }));
+      setMerchFiles([]);
+      setMerchFileKey((n) => n + 1);
+      setMerchForm((prev) => ({ ...prev, name: "", album_version: "" }));
+    } catch (err: any) {
+      showAlert(tr("Catálogo"), err?.message || tr("No se pudo crear el merch."));
+    } finally {
+      setPieceStatus("");
+      setLoading(false);
+    }
+  };
+
+  const searchCatalogRemoval = async () => {
+    const h = await catalogAuthHeaders();
+    const params = new URLSearchParams();
+    if (removeTarget === "item") {
+      params.set("target", "search-items");
+      params.set("album_id", removeAlbumId);
+      params.set("q", removeQuery.trim());
+    } else {
+      params.set("target", "search-merch");
+      params.set("group_id", removeGroupId);
+      params.set("q", removeQuery.trim());
+    }
+    const res = await fetch(`/api/admin/catalog-remove?${params}`, { headers: h });
+    const json = (await res.json().catch(() => ({}))) as { error?: string; hits?: any[] };
+    if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+    setRemoveHits(json.hits || []);
+    setRemoveHitId("");
+  };
+
+  const askCatalogRemoval = async (target: string, id: string | number, message: string) => {
+    setConfirmDialog({
+      title: tr("Quitar del catálogo"),
+      message,
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const h = await catalogAuthHeaders();
+          const res = await fetch("/api/admin/catalog-remove", {
+            method: "POST",
+            headers: { ...h, "Content-Type": "application/json" },
+            body: JSON.stringify({ target, id }),
+          });
+          const json = (await res.json().catch(() => ({}))) as { error?: string; label?: string; items?: number; merch?: number };
+          if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+          showAlert(
+            tr("Catálogo"),
+            tr("Quitado: {label}. Fichas {items}, merch {merch}.", {
+              label: String(json.label || ""),
+              items: String(json.items ?? 0),
+              merch: String(json.merch ?? 0),
+            }),
+          );
+          setRemoveHits([]);
+          setRemoveHitId("");
+          await loadCatalog();
+        } catch (err: any) {
+          showAlert(tr("Catálogo"), err?.message || tr("No se pudo quitar del catálogo."));
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
+
+  const prepareCatalogRemoval = async () => {
+    const target = removeTarget;
+    const id = target === "group"
+      ? removeGroupId
+      : target === "member"
+        ? removeMemberId
+        : target === "album"
+          ? removeAlbumId
+          : removeHitId;
+    if (!id) {
+      showAlert(tr("Catálogo"), tr("Elige qué quieres quitar."));
+      return;
+    }
+    setLoading(true);
+    try {
+      const h = await catalogAuthHeaders();
+      const res = await fetch(`/api/admin/catalog-remove?target=${encodeURIComponent(target)}&id=${encodeURIComponent(String(id))}`, { headers: h });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; label?: string; items?: number; albums?: number; members?: number; merch?: number };
+      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+      const message = tr("Se quitará «{label}». Desaparecen {items} fichas, {albums} álbumes, {members} miembros y {merch} merch, con su stock, sus anuncios y sus huecos de binder.", {
+        label: String(json.label || ""),
+        items: String(json.items ?? 0),
+        albums: String(json.albums ?? 0),
+        members: String(json.members ?? 0),
+        merch: String(json.merch ?? 0),
+      });
+      await askCatalogRemoval(target, id, message);
+    } catch (err: any) {
+      showAlert(tr("Catálogo"), err?.message || tr("No se pudo quitar del catálogo."));
+    } finally {
       setLoading(false);
     }
   };
@@ -4187,6 +4356,214 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 </div>
               </form>
 
+              <form
+                data-tour="cat-merch"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void saveCatalogMerch();
+                }}
+                style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)", display: "flex", flexDirection: "column", gap: 12 }}
+              >
+                <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>{tr("Subir merch")}</h3>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 }}>
+                  {tr("Peluches, lightsticks, ropa, accesorios, tour merch y álbumes físicos. Puedes subir varias fotos a la vez: cada archivo es una pieza. Las inclusiones siguen en el set de arriba.")}
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={labelStyle}>{tr("Grupo")}</label>
+                    <select className="admin-catalog-select" style={inputStyle} value={merchForm.group_id} onChange={(e) => setMerchForm((p) => ({ ...p, group_id: e.target.value }))}>
+                      <option value="">{tr("Elige un grupo")}</option>
+                      {[...catalogGroups].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" })).map((g) => (
+                        <option key={g.id} value={String(g.id)}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Categoría")}</label>
+                    <select className="admin-catalog-select" style={inputStyle} value={merchForm.category} onChange={(e) => setMerchForm((p) => ({ ...p, category: e.target.value }))}>
+                      {["Peluches", "Lightsticks", "Ropa", "Accesorios", "Tour Merch", "Álbumes"].map((category) => (
+                        <option key={category} value={category}>{tr(category)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {merchForm.category === "Álbumes" && (
+                    <>
+                      <div>
+                        <label style={labelStyle}>{tr("Álbum")}</label>
+                        <input
+                          style={inputStyle}
+                          list="merch-album-titles"
+                          value={merchForm.album_title}
+                          onChange={(e) => setMerchForm((p) => ({ ...p, album_title: e.target.value }))}
+                          placeholder={tr("Ej: Hop")}
+                        />
+                        <datalist id="merch-album-titles">
+                          {catalogAlbumChoices(catalogAlbums, merchForm.group_id, catalogGroups.find((g) => String(g.id) === merchForm.group_id)?.name).map((album) => (
+                            <option key={album.id} value={album.label} />
+                          ))}
+                        </datalist>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>{tr("Versión")}</label>
+                        <input style={inputStyle} value={merchForm.album_version} onChange={(e) => setMerchForm((p) => ({ ...p, album_version: e.target.value }))} placeholder={tr("Ej: digipack, C, limited")} />
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <label style={labelStyle}>{tr("Nombre")}</label>
+                    <input style={inputStyle} value={merchForm.name} onChange={(e) => setMerchForm((p) => ({ ...p, name: e.target.value }))} placeholder={tr("Solo si subes una pieza. Si no, se usa el nombre del archivo.")} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Rareza")}</label>
+                    <input style={inputStyle} value={merchForm.rarity} onChange={(e) => setMerchForm((p) => ({ ...p, rarity: e.target.value }))} placeholder="Común" />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 12px", fontWeight: 900, cursor: "pointer" }}>
+                    {tr("Elegir fotos")}
+                    <input
+                      key={`merch-${merchFileKey}`}
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={(e) => {
+                        const next = Array.from(e.target.files || []).filter((file) => /image\/(jpeg|png|webp|gif)/.test(file.type) || /\.(png|jpe?g|webp|gif)$/i.test(file.name));
+                        setMerchFiles(next.slice(0, 40));
+                        e.target.value = "";
+                      }}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  <div style={{ marginTop: 8, fontSize: 13, color: "var(--text-muted)", fontWeight: 700 }}>
+                    {merchFiles.length ? tr("{n} fotos", { n: String(merchFiles.length) }) : tr("Sin fotos todavía.")}
+                  </div>
+                </div>
+                <button type="submit" disabled={loading} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 18px", borderRadius: "10px", fontWeight: 900, cursor: loading ? "wait" : "pointer", alignSelf: "flex-start" }}>
+                  {pieceStatus || (loading ? tr("Guardando...") : tr("Subir merch"))}
+                </button>
+              </form>
+
+              <form
+                data-tour="cat-quitar"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void prepareCatalogRemoval();
+                }}
+                style={{ border: "1px solid var(--state-danger-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)", display: "flex", flexDirection: "column", gap: 12 }}
+              >
+                <h3 style={{ margin: 0, color: "var(--state-danger-fg)", fontWeight: 900, fontSize: 16 }}>{tr("Quitar del catálogo")}</h3>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 }}>
+                  {tr("Grupo, miembro, álbum, ficha o merch. Un miembro se lleva sus photocards, POBs, inclusiones y las unidades en las que sale. Un grupo se lleva todo lo suyo. También se vacían el stock, los anuncios y los huecos de binder.")}
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={labelStyle}>{tr("Qué quieres quitar")}</label>
+                    <select
+                      className="admin-catalog-select"
+                      style={inputStyle}
+                      value={removeTarget}
+                      onChange={(e) => {
+                        setRemoveTarget(e.target.value);
+                        setRemoveHits([]);
+                        setRemoveHitId("");
+                        setRemoveQuery("");
+                      }}
+                    >
+                      <option value="group">{tr("Grupo")}</option>
+                      <option value="member">{tr("Miembro")}</option>
+                      <option value="album">{tr("Álbum")}</option>
+                      <option value="item">{tr("Ficha")}</option>
+                      <option value="merch">{tr("Merch")}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Grupo")}</label>
+                    <select
+                      className="admin-catalog-select"
+                      style={inputStyle}
+                      value={removeGroupId}
+                      onChange={(e) => {
+                        setRemoveGroupId(e.target.value);
+                        setRemoveMemberId("");
+                        setRemoveAlbumId("");
+                        setRemoveHits([]);
+                        setRemoveHitId("");
+                      }}
+                    >
+                      <option value="">{tr("Elige un grupo")}</option>
+                      {[...catalogGroups].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" })).map((g) => (
+                        <option key={g.id} value={String(g.id)}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {removeTarget === "member" && (
+                    <div>
+                      <label style={labelStyle}>{tr("Miembro")}</label>
+                      <select className="admin-catalog-select" style={inputStyle} value={removeMemberId} onChange={(e) => setRemoveMemberId(e.target.value)}>
+                        <option value="">{tr("Elige un miembro")}</option>
+                        {catalogMembers.filter((m) => String(m.group_id) === removeGroupId).map((m) => (
+                          <option key={m.member_id ?? m.id} value={String(m.member_id ?? m.id)}>{m.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {(removeTarget === "album" || removeTarget === "item") && (
+                    <div>
+                      <label style={labelStyle}>{tr("Álbum")}</label>
+                      <select className="admin-catalog-select" style={inputStyle} value={removeAlbumId} onChange={(e) => { setRemoveAlbumId(e.target.value); setRemoveHits([]); setRemoveHitId(""); }}>
+                        <option value="">{tr("Elige un álbum")}</option>
+                        {catalogAlbumChoices(catalogAlbums, removeGroupId, catalogGroups.find((g) => String(g.id) === removeGroupId)?.name).map((album) => (
+                          <option key={album.id} value={String(album.id)}>{album.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {(removeTarget === "item" || removeTarget === "merch") && (
+                    <div>
+                      <label style={labelStyle}>{tr("Buscar")}</label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input
+                          style={inputStyle}
+                          value={removeQuery}
+                          onChange={(e) => setRemoveQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.preventDefault();
+                            void searchCatalogRemoval().catch((err) => showAlert(tr("Catálogo"), err?.message || tr("No se pudo buscar.")));
+                          }}
+                          placeholder={removeTarget === "item" ? tr("Miembro o nombre") : tr("Nombre del merch")}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void searchCatalogRemoval().catch((err) => showAlert(tr("Catálogo"), err?.message || tr("No se pudo buscar.")))}
+                          style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "0 14px", fontWeight: 900, cursor: "pointer" }}
+                        >
+                          {tr("Buscar")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {removeHits.length > 0 && (
+                    <div>
+                      <label style={labelStyle}>{tr("Resultado")}</label>
+                      <select className="admin-catalog-select" style={inputStyle} value={removeHitId} onChange={(e) => setRemoveHitId(e.target.value)}>
+                        <option value="">{tr("Elige una pieza")}</option>
+                        {removeHits.map((hit) => (
+                          <option key={hit.id} value={String(hit.id)}>
+                            {removeTarget === "item"
+                              ? `${hit.member || hit.name || hit.id} · ${hit.version || ""} · ${hit.type || ""}`
+                              : `${hit.name} · ${hit.category || ""}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <button type="submit" disabled={loading} style={{ background: "var(--state-danger-fg, #b42318)", color: "white", border: "none", padding: "10px 18px", borderRadius: "10px", fontWeight: 900, cursor: loading ? "wait" : "pointer", alignSelf: "flex-start" }}>
+                  {tr("Quitar del catálogo")}
+                </button>
+              </form>
+
               {catalogLoading && catalogGroups.length === 0 ? (
                 <div style={{ display: "flex", justifyContent: "center", padding: 40 }}>
                   <Loader2 className="spinner" size={36} color="var(--color-primary)" />
@@ -4499,15 +4876,15 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             onClick={() => {
                               setConfirmDialog({
                                 title: tr("Borrar grupo"),
-                                message: `Se borrarán también todos los miembros del grupo «${g.name}». ¿Continuar?`,
+                                message: tr("Se quitará el grupo «{name}» y todo lo suyo: miembros, álbumes, fichas, merch, stock, anuncios y huecos de binder.", { name: String(g.name || "") }),
                                 onConfirm: async () => {
                                   setLoading(true);
                                   try {
                                     const h = await catalogAuthHeaders();
-                                    const res = await fetch("/api/admin/catalog", {
+                                    const res = await fetch("/api/admin/catalog-remove", {
                                       method: "POST",
                                       headers: { ...h, "Content-Type": "application/json" },
-                                      body: JSON.stringify({ action: "delete_group", id: g.id }),
+                                      body: JSON.stringify({ target: "group", id: g.id }),
                                     });
                                     const json = (await res.json().catch(() => ({}))) as { error?: string };
                                     if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
@@ -4632,15 +5009,15 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                               onClick={() => {
                                 setConfirmDialog({
                                   title: tr("Borrar miembro"),
-                                  message: `¿Eliminar a «${m.name}» del catálogo? Los biases de usuario pueden quedar huérfanos.`,
+                                  message: tr("Se quitará a «{name}» y sus fichas, también las unidades en las que sale. El stock, los anuncios y los huecos de binder de esas fichas se vacían.", { name: String(m.name || "") }),
                                   onConfirm: async () => {
                                     setLoading(true);
                                     try {
                                       const h = await catalogAuthHeaders();
-                                      const res = await fetch("/api/admin/catalog", {
+                                      const res = await fetch("/api/admin/catalog-remove", {
                                         method: "POST",
                                         headers: { ...h, "Content-Type": "application/json" },
-                                        body: JSON.stringify({ action: "delete_member", id: mid }),
+                                        body: JSON.stringify({ target: "member", id: mid }),
                                       });
                                       const json = (await res.json().catch(() => ({}))) as { error?: string };
                                       if (!res.ok) throw new Error(json.error || `Error ${res.status}`);

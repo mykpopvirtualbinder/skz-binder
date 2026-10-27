@@ -1,0 +1,260 @@
+import { canonicalMerchGroupDisplayName } from "@/lib/merch-group-display";
+import { createServiceRoleClient } from "@/lib/supabase-admin";
+
+const BUCKET = (process.env.SUPABASE_CATALOG_STORAGE_BUCKET || "catalog").trim() || "catalog";
+
+export type RemovalTarget = "group" | "member" | "album" | "item" | "merch";
+
+export type RemovalPlan = {
+  label: string;
+  itemIds: number[];
+  albumIds: number[];
+  memberIds: number[];
+  merchIds: string[];
+  groupId: number | null;
+  storagePaths: string[];
+};
+
+type Admin = ReturnType<typeof createServiceRoleClient>;
+
+function tokenKey(value: string): string {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function compactName(value: string): string {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function catalogObjectPath(url: string | null | undefined): string | null {
+  const raw = String(url || "").trim();
+  if (!raw) return null;
+  const base = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/$/, "");
+  const prefix = `${base}/storage/v1/object/public/${BUCKET}/`;
+  if (!base || !raw.startsWith(prefix)) return null;
+  try {
+    return decodeURIComponent(raw.slice(prefix.length).split("?")[0]);
+  } catch {
+    return raw.slice(prefix.length).split("?")[0];
+  }
+}
+
+function pushPath(paths: string[], url: string | null | undefined) {
+  const path = catalogObjectPath(url);
+  if (path && !paths.includes(path)) paths.push(path);
+}
+
+async function eachPage<T extends Record<string, unknown>>(
+  admin: Admin,
+  table: string,
+  columns: string,
+  filter: (query: any) => any,
+  onRow: (row: T) => void,
+) {
+  let from = 0;
+  while (from < 50000) {
+    const query = filter(admin.from(table).select(columns)).range(from, from + 999);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as T[];
+    for (const row of rows) onRow(row);
+    if (rows.length < 1000) break;
+    from += 1000;
+  }
+}
+
+function sameMerchGroup(groupName: string | null | undefined, group: { name?: string | null; slug?: string | null }) {
+  const row = canonicalMerchGroupDisplayName(groupName);
+  const named = canonicalMerchGroupDisplayName(group.name);
+  if (row && named && row === named) return true;
+  const slug = compactName(String(group.slug || group.name || ""));
+  return Boolean(slug) && compactName(String(groupName || "")) === slug;
+}
+
+export async function planCatalogRemoval(admin: Admin, target: RemovalTarget, id: string): Promise<RemovalPlan> {
+  const plan: RemovalPlan = {
+    label: "",
+    itemIds: [],
+    albumIds: [],
+    memberIds: [],
+    merchIds: [],
+    groupId: null,
+    storagePaths: [],
+  };
+
+  if (target === "item") {
+    const itemId = Number(id);
+    if (!Number.isFinite(itemId) || itemId <= 0) throw new Error("Elige una ficha.");
+    const { data, error } = await admin.from("items").select("id, name, member, version, image_url, back_image_url").eq("id", itemId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Esa ficha no está en el catálogo.");
+    plan.label = String(data.name || data.member || `Ficha ${itemId}`);
+    plan.itemIds = [itemId];
+    pushPath(plan.storagePaths, data.image_url);
+    pushPath(plan.storagePaths, data.back_image_url);
+    return plan;
+  }
+
+  if (target === "merch") {
+    const merchId = String(id || "").trim();
+    if (!/^[0-9a-f-]{36}$/i.test(merchId)) throw new Error("Elige una pieza de merch.");
+    const { data, error } = await admin.from("merch_items").select("id, name, image_url").eq("id", merchId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Esa pieza de merch no está en el catálogo.");
+    plan.label = String(data.name || "Merch");
+    plan.merchIds = [merchId];
+    pushPath(plan.storagePaths, data.image_url);
+    return plan;
+  }
+
+  if (target === "album") {
+    const albumId = Number(id);
+    if (!Number.isFinite(albumId) || albumId <= 0) throw new Error("Elige un álbum.");
+    const { data: album, error } = await admin.from("albums").select("id, name, slug, group_id").eq("id", albumId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!album) throw new Error("Ese álbum no está en el catálogo.");
+    const { data: group } = await admin.from("groups").select("id, name, slug").eq("id", album.group_id).maybeSingle();
+    plan.label = String(album.name || album.slug || `Álbum ${albumId}`);
+    plan.albumIds = [albumId];
+    await eachPage<{ id: number; image_url: string | null; back_image_url: string | null }>(
+      admin,
+      "items",
+      "id, image_url, back_image_url",
+      (query) => query.eq("album_id", albumId),
+      (row) => {
+        plan.itemIds.push(Number(row.id));
+        pushPath(plan.storagePaths, row.image_url);
+        pushPath(plan.storagePaths, row.back_image_url);
+      },
+    );
+    const titleKeys = new Set([compactName(String(album.name || "")), compactName(String(album.slug || ""))].filter(Boolean));
+    await eachPage<{ id: string; group_name: string | null; album_title: string | null; image_url: string | null }>(
+      admin,
+      "merch_items",
+      "id, group_name, album_title, image_url",
+      (query) => query.eq("category", "Álbumes"),
+      (row) => {
+        if (!group || !sameMerchGroup(row.group_name, group)) return;
+        if (!titleKeys.has(compactName(String(row.album_title || "")))) return;
+        plan.merchIds.push(String(row.id));
+        pushPath(plan.storagePaths, row.image_url);
+      },
+    );
+    return plan;
+  }
+
+  if (target === "member") {
+    const memberId = Number(id);
+    if (!Number.isFinite(memberId) || memberId <= 0) throw new Error("Elige un miembro.");
+    const { data: member, error } = await admin.from("members").select("member_id, name, slug, group_id").eq("member_id", memberId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!member) throw new Error("Ese miembro no está en el catálogo.");
+    plan.label = String(member.name || member.slug || `Miembro ${memberId}`);
+    plan.memberIds = [memberId];
+    const keys = new Set([tokenKey(String(member.slug || "")), tokenKey(String(member.name || ""))].filter(Boolean));
+    await eachPage<{ id: number; member: string | null; member_id: number | null; image_url: string | null; back_image_url: string | null }>(
+      admin,
+      "items",
+      "id, member, member_id, image_url, back_image_url",
+      (query) => query.eq("group_id", member.group_id),
+      (row) => {
+        const byId = Number(row.member_id) === memberId;
+        const tokens = String(row.member || "").split(/\s+/).filter(Boolean);
+        const byName = tokens.some((token) => keys.has(tokenKey(token)));
+        if (!byId && !byName) return;
+        plan.itemIds.push(Number(row.id));
+        pushPath(plan.storagePaths, row.image_url);
+        pushPath(plan.storagePaths, row.back_image_url);
+      },
+    );
+    return plan;
+  }
+
+  const groupId = Number(id);
+  if (!Number.isFinite(groupId) || groupId <= 0) throw new Error("Elige un grupo.");
+  const { data: group, error } = await admin.from("groups").select("id, name, slug").eq("id", groupId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!group) throw new Error("Ese grupo no está en el catálogo.");
+  plan.label = String(group.name || group.slug || `Grupo ${groupId}`);
+  plan.groupId = groupId;
+  await eachPage<{ id: number; image_url: string | null; back_image_url: string | null }>(
+    admin,
+    "items",
+    "id, image_url, back_image_url",
+    (query) => query.eq("group_id", groupId),
+    (row) => {
+      plan.itemIds.push(Number(row.id));
+      pushPath(plan.storagePaths, row.image_url);
+      pushPath(plan.storagePaths, row.back_image_url);
+    },
+  );
+  await eachPage<{ id: number }>(admin, "albums", "id", (query) => query.eq("group_id", groupId), (row) => {
+    plan.albumIds.push(Number(row.id));
+  });
+  await eachPage<{ member_id: number }>(admin, "members", "member_id", (query) => query.eq("group_id", groupId), (row) => {
+    plan.memberIds.push(Number(row.member_id));
+  });
+  await eachPage<{ id: string; group_name: string | null; image_url: string | null }>(
+    admin,
+    "merch_items",
+    "id, group_name, image_url",
+    (query) => query,
+    (row) => {
+      if (!sameMerchGroup(row.group_name, group)) return;
+      plan.merchIds.push(String(row.id));
+      pushPath(plan.storagePaths, row.image_url);
+    },
+  );
+  return plan;
+}
+
+async function deleteIn(admin: Admin, table: string, column: string, ids: Array<number | string>) {
+  for (let i = 0; i < ids.length; i += 80) {
+    const chunk = ids.slice(i, i + 80);
+    const { error } = await admin.from(table).delete().in(column, chunk);
+    if (error) throw new Error(error.message);
+  }
+}
+
+export async function applyCatalogRemoval(admin: Admin, plan: RemovalPlan) {
+  if (plan.itemIds.length) {
+    await deleteIn(admin, "page_slots", "item_id", plan.itemIds);
+    await deleteIn(admin, "user_item_statuses", "item_id", plan.itemIds);
+    await deleteIn(admin, "items", "id", plan.itemIds);
+  }
+  if (plan.memberIds.length) {
+    await deleteIn(admin, "page_slots", "member_id", plan.memberIds);
+    await deleteIn(admin, "user_biases", "member_id", plan.memberIds);
+  }
+  if (plan.merchIds.length) {
+    await deleteIn(admin, "user_merch_statuses", "merch_id", plan.merchIds);
+    await deleteIn(admin, "merch_items", "id", plan.merchIds);
+  }
+  if (plan.albumIds.length) await deleteIn(admin, "albums", "id", plan.albumIds);
+  if (plan.memberIds.length) await deleteIn(admin, "members", "member_id", plan.memberIds);
+  if (plan.groupId) {
+    const { error } = await admin.from("groups").delete().eq("id", plan.groupId);
+    if (error) throw new Error(error.message);
+  }
+  for (let i = 0; i < plan.storagePaths.length; i += 50) {
+    const chunk = plan.storagePaths.slice(i, i + 50);
+    const removed = await admin.storage.from(BUCKET).remove(chunk);
+    if (removed.error) return;
+  }
+}
+
+export function removalCounts(plan: RemovalPlan) {
+  return {
+    label: plan.label,
+    items: plan.itemIds.length,
+    albums: plan.albumIds.length,
+    members: plan.memberIds.length,
+    merch: plan.merchIds.length,
+  };
+}

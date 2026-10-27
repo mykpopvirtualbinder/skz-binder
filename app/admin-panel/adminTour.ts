@@ -164,6 +164,20 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
       tab: "catalogo",
     },
     {
+      selector: "[data-tour='cat-merch']",
+      title: tr("Subir merch"),
+      text: tr("Peluches, lightsticks, ropa y álbumes físicos. Varias fotos a la vez. Las inclusiones se suben en el set."),
+      side: "bottom",
+      tab: "catalogo",
+    },
+    {
+      selector: "[data-tour='cat-quitar']",
+      title: tr("Quitar del catálogo"),
+      text: tr("Quita un grupo, un miembro, un álbum, una ficha o un merch. También sale del stock, de los anuncios y de los binders."),
+      side: "bottom",
+      tab: "catalogo",
+    },
+    {
       selector: "[data-tour='cat-grupo']",
       title: tr("Alta de grupo"),
       text: tr("Nombre y logo son lo que ve la gente. El slug es interno. Guardar lo escribe en la base de datos."),
@@ -181,7 +195,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='cat-lista-grupos']",
       title: tr("Lista de grupos"),
-      text: tr("El buscador filtra por nombre. Editar carga el grupo en el formulario de arriba. Borrar elimina el grupo y todos sus miembros."),
+      text: tr("El buscador filtra por nombre. Editar carga el grupo en el formulario de arriba. Borrar quita el grupo, sus miembros, sus álbumes, sus fichas y su merch."),
       side: "top",
       tab: "catalogo",
     },
