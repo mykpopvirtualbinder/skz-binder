@@ -166,7 +166,14 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='cat-merch']",
       title: tr("Subir merch"),
-      text: tr("Peluches, lightsticks, ropa y álbumes físicos. Varias fotos a la vez. Las inclusiones se suben en el set."),
+      text: tr("Peluches, lightsticks, ropa, accesorios y tour merch. Varias fotos a la vez."),
+      side: "bottom",
+      tab: "catalogo",
+    },
+    {
+      selector: "[data-tour='cat-album']",
+      title: tr("Subir álbum"),
+      text: tr("El álbum físico de la pestaña Álbumes: país, edición y una foto por versión."),
       side: "bottom",
       tab: "catalogo",
     },

@@ -3,7 +3,8 @@ import path from "path";
 import { NextResponse } from "next/server";
 import { isStrayKidsPlaceholderMerchAlbumRow } from "@/lib/collection-filters";
 import { scanMerchAlbumsFromPublicAlbums } from "@/lib/merch-albums-catalog-scan";
-import { CATALOG_HTTP_CACHE, peekScanCache, setScanCache } from "@/lib/server-catalog-cache";
+import { peekScanCache, setScanCache } from "@/lib/server-catalog-cache";
+import { loadStoredAlbumCatalogRows } from "@/lib/stored-merch-catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,13 +74,22 @@ function buildAlbumsCatalog(cwd: string) {
 
 export async function GET() {
   try {
-    const cached = peekScanCache<unknown[]>("merch-albums-catalog-v2");
-    if (cached) return NextResponse.json(cached, { headers: { "Cache-Control": CATALOG_HTTP_CACHE } });
-
     const cwd = process.cwd();
-    const filtered = buildAlbumsCatalog(cwd);
-    setScanCache("merch-albums-catalog-v2", filtered);
-    return NextResponse.json(filtered, { headers: { "Cache-Control": CATALOG_HTTP_CACHE } });
+    let disk = peekScanCache<ReturnType<typeof buildAlbumsCatalog>>("merch-albums-disk-v2");
+    if (!disk) {
+      disk = buildAlbumsCatalog(cwd);
+      setScanCache("merch-albums-disk-v2", disk);
+    }
+    const seen = new Set(disk.map((row) => row.id));
+    const merged = [...disk];
+    for (const row of await loadStoredAlbumCatalogRows()) {
+      if (seen.has(row.id)) continue;
+      if (isStrayKidsPlaceholderMerchAlbumRow(row.group_name, row.album_title)) continue;
+      merged.push(row);
+      seen.add(row.id);
+    }
+    merged.sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base" }));
+    return NextResponse.json(merged, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
     return NextResponse.json([]);
   }

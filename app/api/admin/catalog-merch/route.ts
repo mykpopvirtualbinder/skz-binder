@@ -1,9 +1,24 @@
 import { NextResponse } from "next/server";
 import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
+import { canonicalMerchGroupDisplayName } from "@/lib/merch-group-display";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
 const BUCKET = (process.env.SUPABASE_CATALOG_STORAGE_BUCKET || "catalog").trim() || "catalog";
 const CATEGORIES = new Set(["Peluches", "Lightsticks", "Ropa", "Accesorios", "Tour Merch", "Álbumes"]);
+const ALBUM_REGIONS = new Set(["korean", "japanese", "taiwan"]);
+const ALBUM_KINDS = new Set([
+  "regular",
+  "limited",
+  "digipack",
+  "jewel-case",
+  "paper-case",
+  "postcard",
+  "fan-club",
+  "accordion",
+  "vinyl",
+  "platform",
+  "skzoo",
+]);
 const MAX_PIECES = 40;
 
 function isOwnCatalogUrl(url: string): boolean {
@@ -21,6 +36,8 @@ export async function POST(req: Request) {
     category?: string;
     rarity?: string;
     album_title?: string;
+    album_region?: string;
+    album_kind?: string;
     pieces?: { name?: string; url?: string; album_version?: string | null }[];
   };
   try {
@@ -33,6 +50,8 @@ export async function POST(req: Request) {
   const category = String(body.category || "").trim();
   const rarity = String(body.rarity || "Común").trim().slice(0, 80) || "Común";
   const albumTitle = String(body.album_title || "").trim();
+  const albumRegion = String(body.album_region || "").trim();
+  const albumKind = String(body.album_kind || "").trim();
   const pieces = Array.isArray(body.pieces) ? body.pieces : [];
 
   if (!Number.isFinite(groupId) || groupId <= 0) {
@@ -43,6 +62,12 @@ export async function POST(req: Request) {
   }
   if (category === "Álbumes" && !albumTitle) {
     return NextResponse.json({ error: "Escribe el álbum de esa pieza." }, { status: 400 });
+  }
+  if (category === "Álbumes" && !ALBUM_REGIONS.has(albumRegion)) {
+    return NextResponse.json({ error: "Elige el país del álbum." }, { status: 400 });
+  }
+  if (category === "Álbumes" && !ALBUM_KINDS.has(albumKind)) {
+    return NextResponse.json({ error: "Elige la edición del álbum." }, { status: 400 });
   }
   if (!pieces.length) return NextResponse.json({ error: "Elige las fotos del merch." }, { status: 400 });
   if (pieces.length > MAX_PIECES) {
@@ -65,12 +90,13 @@ export async function POST(req: Request) {
       const row: Record<string, unknown> = {
         name,
         category,
-        group_name: String(group.name || ""),
+        group_name: category === "Álbumes" ? canonicalMerchGroupDisplayName(group.name) : String(group.name || ""),
         image_url: url,
         rarity,
       };
       if (category === "Álbumes") {
         row.album_title = albumTitle;
+        row.album_type = `${albumRegion}/${albumKind}`;
         row.album_version = String(piece?.album_version || "").trim() || null;
       }
       const { data, error } = await admin.from("merch_items").insert(row).select("id").maybeSingle();

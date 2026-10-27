@@ -294,6 +294,15 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   });
   const [merchFiles, setMerchFiles] = useState<File[]>([]);
   const [merchFileKey, setMerchFileKey] = useState(0);
+  const [albumUpload, setAlbumUpload] = useState({
+    group_id: "",
+    album_title: "",
+    region: "korean",
+    kind: "regular",
+    version: "",
+  });
+  const [albumFiles, setAlbumFiles] = useState<File[]>([]);
+  const [albumFileKey, setAlbumFileKey] = useState(0);
   const [removeTarget, setRemoveTarget] = useState("group");
   const [removeGroupId, setRemoveGroupId] = useState("");
   const [removeMemberId, setRemoveMemberId] = useState("");
@@ -1849,10 +1858,6 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       showAlert(tr("Catálogo"), tr("Elige un grupo."));
       return;
     }
-    if (merchForm.category === "Álbumes" && !merchForm.album_title.trim()) {
-      showAlert(tr("Catálogo"), tr("Escribe el álbum de esa pieza."));
-      return;
-    }
     if (!merchFiles.length) {
       showAlert(tr("Catálogo"), tr("Elige las fotos del merch."));
       return;
@@ -1899,6 +1904,64 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       setMerchForm((prev) => ({ ...prev, name: "", album_version: "" }));
     } catch (err: any) {
       showAlert(tr("Catálogo"), err?.message || tr("No se pudo crear el merch."));
+    } finally {
+      setPieceStatus("");
+      setLoading(false);
+    }
+  };
+
+  const saveCatalogAlbum = async () => {
+    if (!albumUpload.group_id) {
+      showAlert(tr("Catálogo"), tr("Elige un grupo."));
+      return;
+    }
+    if (!albumUpload.album_title.trim()) {
+      showAlert(tr("Catálogo"), tr("Escribe el álbum de esa pieza."));
+      return;
+    }
+    if (!albumFiles.length) {
+      showAlert(tr("Catálogo"), tr("Elige las fotos del álbum."));
+      return;
+    }
+    const tooBig = albumFiles.find((file) => file.size > 8 * 1024 * 1024);
+    if (tooBig) {
+      showAlert(tr("Catálogo"), tr("{name} pasa de 8 MB.", { name: tooBig.name }));
+      return;
+    }
+    setLoading(true);
+    try {
+      const h = await catalogAuthHeaders();
+      const pieces: { name: string; url: string; album_version: string | null }[] = [];
+      for (let i = 0; i < albumFiles.length; i += 1) {
+        const file = albumFiles[i];
+        setPieceStatus(tr("Subiendo {n} de {total}…", { n: String(i + 1), total: String(albumFiles.length) }));
+        const url = await uploadCatalogAsset(file, "piece");
+        const stem = merchNameFromFile(file);
+        const version = albumFiles.length === 1 && albumUpload.version.trim() ? albumUpload.version.trim() : stem;
+        const name = `${albumUpload.album_title.trim()} — ${version}`;
+        pieces.push({ name, url, album_version: version });
+      }
+      const res = await fetch("/api/admin/catalog-merch", {
+        method: "POST",
+        headers: { ...h, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          group_id: albumUpload.group_id,
+          category: "Álbumes",
+          rarity: "Común",
+          album_title: albumUpload.album_title.trim(),
+          album_region: albumUpload.region,
+          album_kind: albumUpload.kind,
+          pieces,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; created?: number };
+      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+      showAlert(tr("Catálogo"), tr("Álbum en el catálogo: {created} versiones.", { created: String(json.created ?? pieces.length) }));
+      setAlbumFiles([]);
+      setAlbumFileKey((n) => n + 1);
+      setAlbumUpload((prev) => ({ ...prev, version: "" }));
+    } catch (err: any) {
+      showAlert(tr("Catálogo"), err?.message || tr("No se pudo crear el álbum."));
     } finally {
       setPieceStatus("");
       setLoading(false);
@@ -4425,7 +4488,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
               >
                 <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>{tr("Subir merch")}</h3>
                 <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 }}>
-                  {tr("Peluches, lightsticks, ropa, accesorios, tour merch y álbumes físicos. Puedes subir varias fotos a la vez: cada archivo es una pieza. Las inclusiones siguen en el set de arriba.")}
+                  {tr("Peluches, lightsticks, ropa, accesorios y tour merch. Puedes subir varias fotos a la vez: cada archivo es una pieza. El álbum físico va en el formulario de abajo.")}
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                   <div>
@@ -4440,34 +4503,11 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   <div>
                     <label style={labelStyle}>{tr("Categoría")}</label>
                     <select className="admin-catalog-select" style={inputStyle} value={merchForm.category} onChange={(e) => setMerchForm((p) => ({ ...p, category: e.target.value }))}>
-                      {["Peluches", "Lightsticks", "Ropa", "Accesorios", "Tour Merch", "Álbumes"].map((category) => (
+                      {["Peluches", "Lightsticks", "Ropa", "Accesorios", "Tour Merch"].map((category) => (
                         <option key={category} value={category}>{tr(category)}</option>
                       ))}
                     </select>
                   </div>
-                  {merchForm.category === "Álbumes" && (
-                    <>
-                      <div>
-                        <label style={labelStyle}>{tr("Álbum")}</label>
-                        <input
-                          style={inputStyle}
-                          list="merch-album-titles"
-                          value={merchForm.album_title}
-                          onChange={(e) => setMerchForm((p) => ({ ...p, album_title: e.target.value }))}
-                          placeholder={tr("Ej: Hop")}
-                        />
-                        <datalist id="merch-album-titles">
-                          {catalogAlbumChoices(catalogAlbums, merchForm.group_id, catalogGroups.find((g) => String(g.id) === merchForm.group_id)?.name).map((album) => (
-                            <option key={album.id} value={album.label} />
-                          ))}
-                        </datalist>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>{tr("Versión")}</label>
-                        <input style={inputStyle} value={merchForm.album_version} onChange={(e) => setMerchForm((p) => ({ ...p, album_version: e.target.value }))} placeholder={tr("Ej: digipack, C, limited")} />
-                      </div>
-                    </>
-                  )}
                   <div>
                     <label style={labelStyle}>{tr("Nombre")}</label>
                     <input style={inputStyle} value={merchForm.name} onChange={(e) => setMerchForm((p) => ({ ...p, name: e.target.value }))} placeholder={tr("Solo si subes una pieza. Si no, se usa el nombre del archivo.")} />
@@ -4499,6 +4539,101 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 </div>
                 <button type="submit" disabled={loading} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 18px", borderRadius: "10px", fontWeight: 900, cursor: loading ? "wait" : "pointer", alignSelf: "flex-start" }}>
                   {pieceStatus || (loading ? tr("Guardando...") : tr("Subir merch"))}
+                </button>
+              </form>
+
+              <form
+                data-tour="cat-album"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void saveCatalogAlbum();
+                }}
+                style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)", display: "flex", flexDirection: "column", gap: 12 }}
+              >
+                <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>{tr("Subir álbum")}</h3>
+                <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 }}>
+                  {tr("El álbum físico, el que sale en la pestaña Álbumes. País, edición y una foto por versión. Las photocards de ese álbum se suben en el set.")}
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={labelStyle}>{tr("Grupo")}</label>
+                    <select className="admin-catalog-select" style={inputStyle} value={albumUpload.group_id} onChange={(e) => setAlbumUpload((p) => ({ ...p, group_id: e.target.value }))}>
+                      <option value="">{tr("Elige un grupo")}</option>
+                      {[...catalogGroups].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" })).map((g) => (
+                        <option key={g.id} value={String(g.id)}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Álbum")}</label>
+                    <input
+                      style={inputStyle}
+                      list="catalog-album-titles"
+                      value={albumUpload.album_title}
+                      onChange={(e) => setAlbumUpload((p) => ({ ...p, album_title: e.target.value }))}
+                      placeholder={tr("Ej: Hop")}
+                    />
+                    <datalist id="catalog-album-titles">
+                      {catalogAlbumChoices(catalogAlbums, albumUpload.group_id, catalogGroups.find((g) => String(g.id) === albumUpload.group_id)?.name).map((album) => (
+                        <option key={album.id} value={album.label} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("País")}</label>
+                    <select className="admin-catalog-select" style={inputStyle} value={albumUpload.region} onChange={(e) => setAlbumUpload((p) => ({ ...p, region: e.target.value }))}>
+                      <option value="korean">{tr("Corea")}</option>
+                      <option value="japanese">{tr("Japón")}</option>
+                      <option value="taiwan">{tr("Taiwán")}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Edición")}</label>
+                    <select className="admin-catalog-select" style={inputStyle} value={albumUpload.kind} onChange={(e) => setAlbumUpload((p) => ({ ...p, kind: e.target.value }))}>
+                      {[
+                        ["regular", "Regular"],
+                        ["limited", "Limited"],
+                        ["digipack", "Digipack"],
+                        ["jewel-case", "Jewel case"],
+                        ["paper-case", "Paper case"],
+                        ["postcard", "Postcard"],
+                        ["fan-club", "Fan club"],
+                        ["accordion", "Accordion"],
+                        ["vinyl", "Vinilo"],
+                        ["platform", "Platform"],
+                        ["skzoo", "SKZOO"],
+                      ].map(([value, label]) => (
+                        <option key={value} value={value}>{tr(label)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Versión")}</label>
+                    <input style={inputStyle} value={albumUpload.version} onChange={(e) => setAlbumUpload((p) => ({ ...p, version: e.target.value }))} placeholder={tr("Ej: A, Bang Chan. Si subes varias fotos, cada archivo es una versión.")} />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 12px", fontWeight: 900, cursor: "pointer" }}>
+                    {tr("Elegir fotos")}
+                    <input
+                      key={`album-${albumFileKey}`}
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={(e) => {
+                        const next = Array.from(e.target.files || []).filter((file) => /image\/(jpeg|png|webp|gif)/.test(file.type) || /\.(png|jpe?g|webp|gif)$/i.test(file.name));
+                        setAlbumFiles(next.slice(0, 40));
+                        e.target.value = "";
+                      }}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  <div style={{ marginTop: 8, fontSize: 13, color: "var(--text-muted)", fontWeight: 700 }}>
+                    {albumFiles.length ? tr("{n} fotos", { n: String(albumFiles.length) }) : tr("Sin fotos todavía.")}
+                  </div>
+                </div>
+                <button type="submit" disabled={loading} style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 18px", borderRadius: "10px", fontWeight: 900, cursor: loading ? "wait" : "pointer", alignSelf: "flex-start" }}>
+                  {pieceStatus || (loading ? tr("Guardando...") : tr("Subir álbum"))}
                 </button>
               </form>
 

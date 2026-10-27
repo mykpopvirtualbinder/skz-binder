@@ -166,6 +166,10 @@ export function deriveAlbumRegionKey(item: MerchAlbumItem): AlbumRegionKey | nul
   if (/(?:\/|^)(korean|korean-albums)(?:\/|$)/.test(p)) return "korea";
   if (/(?:\/|^)(japanese|japanese-albums)(?:\/|$)/.test(p)) return "japan";
   if (/(?:\/|^)(taiwan|taiwanese|taiwanese-albums)(?:\/|$)/.test(p)) return "taiwan";
+  const typ = String(item.album_type || "").toLowerCase();
+  if (/^(korean|korea)(\/|$)/.test(typ)) return "korea";
+  if (/^(japanese|japan)(\/|$)/.test(typ)) return "japan";
+  if (/^(taiwan|taiwanese)(\/|$)/.test(typ)) return "taiwan";
   return null;
 }
 
