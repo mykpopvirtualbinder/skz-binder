@@ -158,8 +158,8 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     catalogo: [
     {
       selector: "[data-tour='cat-pieza']",
-      title: tr("Subir una pieza"),
-      text: tr("Grupo, álbum, carpeta y miembro. El front entra en el stock y, si lo adjuntas, el back también. No hace falta bajar el archivo al PC."),
+      title: tr("Subir un set"),
+      text: tr("Grupo, álbum (o uno nuevo) y carpeta. Sube el set entero de una vez: los fronts y los backs se emparejan por el nombre del archivo."),
       side: "bottom",
       tab: "catalogo",
     },

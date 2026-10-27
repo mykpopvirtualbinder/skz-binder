@@ -44,12 +44,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unsupported image type" }, { status: 400 });
   }
 
-  const kindRaw = form.get("kind");
-  const kind = kindRaw === "member" ? "members" : "groups";
+  const kindRaw = String(form.get("kind") || "");
+  const kind = kindRaw === "member" ? "members" : kindRaw === "piece" ? "items/inbox" : "groups";
 
   const buf = Buffer.from(await file.arrayBuffer());
   const ext = extFromMime(mime);
-  const path = `${kind}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  let path = `${kind}/${stamp}.${ext}`;
+  if (kindRaw === "piece") {
+    const rawName = String(form.get("filename") || "");
+    const base = (rawName.split(/[/\\]/).pop() || "")
+      .replace(/[^a-zA-Z0-9._+-]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    path = `${kind}/${stamp}-${base || `image.${ext}`}`;
+  }
 
   try {
     const admin = createServiceRoleClient();

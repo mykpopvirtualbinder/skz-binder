@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { formatCollectionOptionLabel, sortCollectionEntries } from "@/lib/collection-filters";
+import { pairCatalogSet } from "@/lib/catalog-set-files";
 
 import { supabase } from "@/lib/supabase";
 import { fetchAdminPendingByArea, fetchArsysUnseen, type AdminPendingByArea } from "@/lib/admin-pending-count";
@@ -145,6 +147,52 @@ function aportacionOriginLine(row: { origin_kind?: string | null; origin_title?:
   return [kind, row.origin_title, row.group_name, row.member_name].filter(Boolean).join(" · ");
 }
 
+function catalogAlbumChoices(albums: any[], groupId: string, groupName?: string | null) {
+  if (!groupId) return [] as { id: number; label: string }[];
+  const rows = albums.filter((album) => String(album.group_id) === String(groupId));
+  const sorted = sortCollectionEntries(
+    rows.map((album) => ({
+      album,
+      name: String(album.name || album.slug || `Álbum ${album.id}`),
+      releaseDate: album.release_date ?? null,
+    })),
+    { groupName: groupName || undefined },
+  );
+  const labels = sorted.map((row) => formatCollectionOptionLabel(row.name, row.releaseDate) || row.name);
+  const counts = new Map<string, number>();
+  for (const label of labels) counts.set(label, (counts.get(label) || 0) + 1);
+  return sorted.map((row, index) => {
+    const base = labels[index] || `Álbum ${row.album.id}`;
+    const raw = String(row.album.name || row.album.slug || row.album.id).trim();
+    const label = (counts.get(base) || 0) > 1 && raw.toLowerCase() !== base.toLowerCase() ? `${base} · ${raw}` : base;
+    return { id: Number(row.album.id), label };
+  });
+}
+
+function PieceSetPreview({ files }: { files: File[] }) {
+  if (!files.length) {
+    return <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--text-muted)", fontWeight: 700 }}>{tr("Sin archivos todavía. Elige la carpeta de esa versión, no la del álbum entero.")}</p>;
+  }
+  const { cards, orphanBacks } = pairCatalogSet(files.map((file) => ({ name: file.name, url: `preview:${file.name}:${file.size}` })));
+  const shown = cards.slice(0, 12);
+  return (
+    <div style={{ marginTop: 10, fontSize: 13, color: "var(--text-main)", fontWeight: 700, lineHeight: 1.45 }}>
+      <div>{tr("{files} archivos · {cards} fichas", { files: String(files.length), cards: String(cards.length) })}</div>
+      {shown.map((card) => (
+        <div key={`${card.member}-${card.frontName}`} style={{ color: "var(--text-muted)", fontWeight: 650 }}>
+          {card.member} · {card.backName ? tr("front y back") : tr("sin back")}
+        </div>
+      ))}
+      {cards.length > shown.length && (
+        <div style={{ color: "var(--text-muted)" }}>{tr("y {n} más", { n: String(cards.length - shown.length) })}</div>
+      )}
+      {orphanBacks.length > 0 && (
+        <div style={{ color: "var(--text-muted)" }}>{tr("{n} backs sin front", { n: String(orphanBacks.length) })}</div>
+      )}
+    </div>
+  );
+}
+
 function AdminPanelContent() {
   const { profile, showAlert, t, uiLanguage } = useGlobal();
   bindAdminLang(uiLanguage);
@@ -228,13 +276,14 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [pieceForm, setPieceForm] = useState({
     group_id: "",
     album_id: "",
+    album_name: "",
     version: "",
-    member_id: "",
     type: "photocards",
   });
-  const [pieceFront, setPieceFront] = useState<File | null>(null);
-  const [pieceBack, setPieceBack] = useState<File | null>(null);
+  const [pieceFiles, setPieceFiles] = useState<File[]>([]);
   const [pieceFileKey, setPieceFileKey] = useState(0);
+  const [pieceVersions, setPieceVersions] = useState<string[]>([]);
+  const [pieceStatus, setPieceStatus] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogGroupForm, setCatalogGroupForm] = useState({ id: null as number | null, name: "", slug: "", logo_url: "" });
   const [catalogMemberForm, setCatalogMemberForm] = useState({
@@ -1575,11 +1624,12 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al entrar en la pestaña
   }, [activeTab]);
 
-  const uploadCatalogAsset = async (file: File, kind: "group" | "member") => {
+  const uploadCatalogAsset = async (file: File, kind: "group" | "member" | "piece") => {
     const h = await catalogAuthHeaders();
     const fd = new FormData();
     fd.set("file", file);
     fd.set("kind", kind);
+    if (kind === "piece") fd.set("filename", file.name);
     const res = await fetch("/api/admin/catalog-upload", { method: "POST", headers: h, body: fd });
     const json = (await res.json().catch(() => ({}))) as { publicUrl?: string; error?: string };
     if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
@@ -1648,36 +1698,121 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     }
   };
 
+  useEffect(() => {
+    const albumId = Number(pieceForm.album_id);
+    if (!Number.isFinite(albumId) || albumId <= 0) {
+      setPieceVersions([]);
+      return;
+    }
+    let cancel = false;
+    void (async () => {
+      try {
+        const h = await catalogAuthHeaders();
+        const res = await fetch(`/api/admin/catalog-item?album_id=${albumId}`, { headers: h });
+        const json = (await res.json().catch(() => ({}))) as { versions?: string[] };
+        if (!cancel && res.ok) setPieceVersions(json.versions || []);
+      } catch {
+        if (!cancel) setPieceVersions([]);
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+    // catalogAuthHeaders is stable enough for this fetch; we only care about the album.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pieceForm.album_id]);
+
+  const addPieceFiles = (list: FileList | null) => {
+    const next = Array.from(list || []).filter((file) => /image\/(jpeg|png|webp|gif)/.test(file.type) || /\.(png|jpe?g|webp|gif)$/i.test(file.name));
+    if (!next.length) return;
+    setPieceFiles((prev) => {
+      const seen = new Set(prev.map((file) => `${file.name}:${file.size}`));
+      const merged = [...prev];
+      for (const file of next) {
+        const key = `${file.name}:${file.size}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(file);
+      }
+      return merged.slice(0, 80);
+    });
+  };
+
   const saveCatalogPiece = async () => {
-    if (!pieceFront) {
-      showAlert(tr("Catálogo"), tr("Elige la cara delantera."));
+    if (!pieceForm.group_id) {
+      showAlert(tr("Catálogo"), tr("Elige un grupo."));
+      return;
+    }
+    if (pieceForm.album_id === "__new__" && !pieceForm.album_name.trim()) {
+      showAlert(tr("Catálogo"), tr("Escribe el nombre del álbum nuevo."));
+      return;
+    }
+    if (!pieceForm.album_id) {
+      showAlert(tr("Catálogo"), tr("Elige un álbum."));
+      return;
+    }
+    if (!pieceForm.version.trim()) {
+      showAlert(tr("Catálogo"), tr("Escribe el nombre de la carpeta."));
+      return;
+    }
+    if (!pieceFiles.length) {
+      showAlert(tr("Catálogo"), tr("Elige los archivos del set."));
+      return;
+    }
+    const tooBig = pieceFiles.find((file) => file.size > 8 * 1024 * 1024);
+    if (tooBig) {
+      showAlert(tr("Catálogo"), tr("{name} pasa de 8 MB.", { name: tooBig.name }));
       return;
     }
     setLoading(true);
     try {
       const h = await catalogAuthHeaders();
-      const fd = new FormData();
-      fd.set("group_id", pieceForm.group_id);
-      fd.set("album_id", pieceForm.album_id);
-      fd.set("version", pieceForm.version);
-      fd.set("member_id", pieceForm.member_id);
-      fd.set("type", pieceForm.type);
-      fd.set("front", pieceFront);
-      if (pieceBack) fd.set("back", pieceBack);
-      const res = await fetch("/api/admin/catalog-item", { method: "POST", headers: h, body: fd });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; item?: { member?: string; version?: string } };
+      const uploaded: { name: string; url: string }[] = [];
+      for (let i = 0; i < pieceFiles.length; i += 1) {
+        const file = pieceFiles[i];
+        setPieceStatus(tr("Subiendo {n} de {total}…", { n: String(i + 1), total: String(pieceFiles.length) }));
+        const url = await uploadCatalogAsset(file, "piece");
+        uploaded.push({ name: file.name, url });
+      }
+      setPieceStatus(tr("Creando las fichas…"));
+      const res = await fetch("/api/admin/catalog-item", {
+        method: "POST",
+        headers: { ...h, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          group_id: pieceForm.group_id,
+          album_id: pieceForm.album_id === "__new__" ? "" : pieceForm.album_id,
+          album_name: pieceForm.album_id === "__new__" ? pieceForm.album_name.trim() : "",
+          version: pieceForm.version,
+          type: pieceForm.type,
+          files: uploaded,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        created?: number;
+        skipped?: number;
+        orphanBacks?: number;
+        album?: { id: number; group_id: number; name: string; slug: string | null; release_date: string | null };
+      };
       if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-      showAlert(
-        tr("Catálogo"),
-        tr("Pieza en el stock. Puedes subir el siguiente miembro de esta misma carpeta."),
-      );
-      setPieceFront(null);
-      setPieceBack(null);
+      if (json.album?.id) {
+        setCatalogAlbums((prev) => (prev.some((album) => Number(album.id) === Number(json.album?.id)) ? prev : [...prev, json.album]));
+        setPieceForm((prev) => ({ ...prev, album_id: String(json.album?.id), album_name: "" }));
+      }
+      const done = tr("Set en el stock: {created} fichas nuevas. {skipped} ya estaban.", {
+        created: String(json.created ?? 0),
+        skipped: String(json.skipped ?? 0),
+      });
+      const orphans = json.orphanBacks
+        ? ` ${tr("{n} backs no se emparejaron.", { n: String(json.orphanBacks) })}`
+        : "";
+      showAlert(tr("Catálogo"), `${done}${orphans}`);
+      setPieceFiles([]);
       setPieceFileKey((n) => n + 1);
-      setPieceForm((p) => ({ ...p, member_id: "" }));
     } catch (err: any) {
-      showAlert(tr("Catálogo"), err?.message || tr("No se pudo crear la ficha."));
+      showAlert(tr("Catálogo"), err?.message || tr("No se pudo crear el set."));
     } finally {
+      setPieceStatus("");
       setLoading(false);
     }
   };
@@ -3903,18 +4038,6 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
               <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.55 }}>
                 {tr("Lo que pongas en nombre e imágenes es lo que verán los usuarios en el alta y en el perfil. El slug es solo para uso interno (opcional).")}
               </p>
-              <details style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>
-                <summary style={{ cursor: "pointer", color: "var(--color-primary)", fontWeight: 800 }}>
-                  {tr("Primera vez: Storage y slugs en Supabase")}
-                </summary>
-                <p style={{ margin: "10px 0 0 0", lineHeight: 1.5 }}>
-                  Para que la subida de archivos funcione, en Supabase (SQL Editor) ejecuta{" "}
-                  <code style={{ fontSize: 11 }}>scripts/create-catalog-storage-bucket.sql</code>. Si quieres columna{" "}
-                  <code style={{ fontSize: 11 }}>slug</code> en tablas, usa{" "}
-                  <code style={{ fontSize: 11 }}>scripts/add-catalog-slug-columns.sql</code>.
-                </p>
-              </details>
-
               <form
                 data-tour="cat-pieza"
                 onSubmit={(e) => {
@@ -3923,94 +4046,135 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 }}
                 style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)", display: "flex", flexDirection: "column", gap: 12 }}
               >
-                <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>{tr("Subir una pieza")}</h3>
+                <style>{`
+                  .admin-catalog-select,
+                  .admin-catalog-select option {
+                    color: #1c140f;
+                    background-color: #fff;
+                  }
+                `}</style>
+                <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>{tr("Subir un set")}</h3>
                 <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 }}>
-                  {tr("El archivo se guarda en la web y se crea la ficha en la biblioteca. La versión es el nombre de la carpeta, por ejemplo soundwave-offline-ld-2. El back es opcional. Máximo 8 MB por imagen.")}
+                  {tr("Elige el grupo y el álbum, o crea un álbum y una carpeta que todavía no existan. Luego sube todos los archivos a la vez: 001-front-bang-chan.png se empareja con 009-back-bang-chan.png. Máximo 8 MB por imagen.")}
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                   <div>
                     <label style={labelStyle}>{tr("Grupo")}</label>
                     <select
+                      className="admin-catalog-select"
                       style={inputStyle}
                       value={pieceForm.group_id}
-                      onChange={(e) => setPieceForm({ group_id: e.target.value, album_id: "", version: pieceForm.version, member_id: "", type: pieceForm.type })}
+                      onChange={(e) => setPieceForm({ group_id: e.target.value, album_id: "", album_name: "", version: "", type: pieceForm.type })}
                     >
                       <option value="">{tr("Elige un grupo")}</option>
-                      {catalogGroups.map((g) => (
-                        <option key={g.id} value={String(g.id)}>{g.name}</option>
-                      ))}
+                      {[...catalogGroups]
+                        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" }))
+                        .map((g) => (
+                          <option key={g.id} value={String(g.id)}>{g.name}</option>
+                        ))}
                     </select>
                   </div>
                   <div>
                     <label style={labelStyle}>{tr("Álbum")}</label>
                     <select
+                      className="admin-catalog-select"
                       style={inputStyle}
                       value={pieceForm.album_id}
-                      onChange={(e) => setPieceForm((p) => ({ ...p, album_id: e.target.value }))}
+                      onChange={(e) => setPieceForm((p) => ({ ...p, album_id: e.target.value, album_name: e.target.value === "__new__" ? p.album_name : "" }))}
                     >
                       <option value="">{tr("Elige un álbum")}</option>
-                      {catalogAlbums
-                        .filter((a) => String(a.group_id) === pieceForm.group_id)
-                        .map((a) => (
-                          <option key={a.id} value={String(a.id)}>{a.name}</option>
-                        ))}
+                      <option value="__new__">{tr("Álbum nuevo")}</option>
+                      {catalogAlbumChoices(
+                        catalogAlbums,
+                        pieceForm.group_id,
+                        catalogGroups.find((g) => String(g.id) === pieceForm.group_id)?.name,
+                      ).map((album) => (
+                        <option key={album.id} value={String(album.id)}>{album.label}</option>
+                      ))}
                     </select>
                   </div>
+                  {pieceForm.album_id === "__new__" && (
+                    <div>
+                      <label style={labelStyle}>{tr("Nombre del álbum nuevo")}</label>
+                      <input
+                        style={inputStyle}
+                        value={pieceForm.album_name}
+                        onChange={(e) => setPieceForm((p) => ({ ...p, album_name: e.target.value }))}
+                        placeholder={tr("Ej: Hop")}
+                      />
+                    </div>
+                  )}
                   <div>
-                    <label style={labelStyle}>{tr("Versión o carpeta")}</label>
+                    <label style={labelStyle}>{tr("Carpeta")}</label>
                     <input
                       style={inputStyle}
+                      list="catalog-version-list"
                       value={pieceForm.version}
                       onChange={(e) => setPieceForm((p) => ({ ...p, version: e.target.value }))}
-                      placeholder={tr("Ej: soundwave-offline-ld-2")}
+                      placeholder={tr("Nueva, o una que ya exista")}
                     />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>{tr("Miembro")}</label>
-                    <select
-                      style={inputStyle}
-                      value={pieceForm.member_id}
-                      onChange={(e) => setPieceForm((p) => ({ ...p, member_id: e.target.value }))}
-                    >
-                      <option value="">{tr("Elige un miembro")}</option>
-                      {catalogMembers
-                        .filter((m) => String(m.group_id) === pieceForm.group_id)
-                        .map((m) => (
-                          <option key={m.member_id ?? m.id} value={String(m.member_id ?? m.id)}>{m.name}</option>
-                        ))}
-                    </select>
+                    <datalist id="catalog-version-list">
+                      {pieceVersions.map((version) => (
+                        <option key={version} value={version} />
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <label style={labelStyle}>{tr("Tipo")}</label>
-                    <select style={inputStyle} value={pieceForm.type} onChange={(e) => setPieceForm((p) => ({ ...p, type: e.target.value }))}>
+                    <select className="admin-catalog-select" style={inputStyle} value={pieceForm.type} onChange={(e) => setPieceForm((p) => ({ ...p, type: e.target.value }))}>
                       <option value="photocards">{tr("Photocard")}</option>
                       <option value="pobs">{tr("POB")}</option>
                       <option value="inclusions">{tr("Inclusión")}</option>
                     </select>
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                  <label style={{ fontWeight: 800, color: "var(--color-primary)", fontSize: 13 }}>
-                    {tr("Cara delantera")}
-                    <input
-                      key={`front-${pieceFileKey}`}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      required
-                      onChange={(e) => setPieceFront(e.target.files?.[0] ?? null)}
-                      style={{ display: "block", marginTop: 8, fontWeight: 700 }}
-                    />
-                  </label>
-                  <label style={{ fontWeight: 800, color: "var(--color-primary)", fontSize: 13 }}>
-                    {tr("Cara trasera (opcional)")}
-                    <input
-                      key={`back-${pieceFileKey}`}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      onChange={(e) => setPieceBack(e.target.files?.[0] ?? null)}
-                      style={{ display: "block", marginTop: 8, fontWeight: 700 }}
-                    />
-                  </label>
+                <div>
+                  <div style={labelStyle}>{tr("Archivos del set")}</div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    <label style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 12px", fontWeight: 900, cursor: "pointer" }}>
+                      {tr("Elegir archivos")}
+                      <input
+                        key={`files-${pieceFileKey}`}
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        onChange={(e) => {
+                          addPieceFiles(e.target.files);
+                          e.target.value = "";
+                        }}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                    <label style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "8px 12px", fontWeight: 900, cursor: "pointer" }}>
+                      {tr("Elegir carpeta")}
+                      <input
+                        key={`dir-${pieceFileKey}`}
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        ref={(el) => {
+                          if (!el) return;
+                          el.setAttribute("webkitdirectory", "");
+                          el.setAttribute("directory", "");
+                        }}
+                        onChange={(e) => {
+                          addPieceFiles(e.target.files);
+                          e.target.value = "";
+                        }}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                    {pieceFiles.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPieceFiles([])}
+                        style={{ background: "transparent", color: "var(--text-muted)", border: "none", fontWeight: 800, cursor: "pointer" }}
+                      >
+                        {tr("Quitar archivos")}
+                      </button>
+                    )}
+                  </div>
+                  <PieceSetPreview files={pieceFiles} />
                 </div>
                 <div>
                   <button
@@ -4018,7 +4182,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     disabled={loading}
                     style={{ background: "var(--color-primary)", color: "var(--bg-card)", border: "none", padding: "10px 18px", borderRadius: "10px", fontWeight: 900, cursor: loading ? "wait" : "pointer" }}
                   >
-                    {loading ? tr("Guardando...") : tr("Subir al stock")}
+                    {pieceStatus || (loading ? tr("Guardando...") : tr("Subir al stock"))}
                   </button>
                 </div>
               </form>

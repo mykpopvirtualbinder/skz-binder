@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     const [gRes, mRes, aRes] = await Promise.all([
       admin.from("groups").select("*").order("name", { ascending: true }),
       admin.from("members").select("*").order("group_id", { ascending: true }).order("name", { ascending: true }),
-      admin.from("albums").select("id, group_id, name, slug").order("name", { ascending: true }),
+      admin.from("albums").select("id, group_id, name, slug, release_date"),
     ]);
     if (gRes.error) return NextResponse.json({ error: gRes.error.message }, { status: 500 });
     if (mRes.error) return NextResponse.json({ error: mRes.error.message }, { status: 500 });
