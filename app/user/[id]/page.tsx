@@ -8,6 +8,8 @@ import VirtualBinder from "@/app/components/VirtualBinder";
 
 import { useGlobal } from "app/context/GlobalContext"; // 👈 Añadido
 import { isSiteAdminUser, loadSiteAdminStock } from "@/lib/site-admin-stock";
+import { collectionCardQty, emptyCollectionCounts, loadCollectionSummary, type CollectionCounts } from "@/lib/collection-summary";
+import CollectionSummary from "@/app/components/CollectionSummary";
 import Footer from "app/components/footer"
 import CatalogLoadingFun from "app/components/CatalogLoadingFun";
 
@@ -25,7 +27,8 @@ export default function PublicProfilePage() {
   
   const [profile, setProfile] = useState<any>(null);
   const [binders, setBinders] = useState<any[]>([]); 
-  const [pcs, setPcs] = useState<any[]>([]); 
+  const [pcs, setPcs] = useState<any[]>([]);
+  const [collectionCounts, setCollectionCounts] = useState<CollectionCounts>(emptyCollectionCounts); 
   const [otwItems, setOtwItems] = useState<number[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [fanarts, setFanarts] = useState<any[]>([]);
@@ -135,6 +138,7 @@ export default function PublicProfilePage() {
       if (p) setProfile(p);
       setBinders(bindersCalculados); 
       setPcs(c || []);
+      setCollectionCounts(await loadCollectionSummary(userId));
       setPosts(fz || []);
       setFanarts(fa || []);
       setMarketAds(ads || []);
@@ -280,13 +284,13 @@ if (loading) return <CatalogLoadingFun fullPage />;
         
         {/* VALOR DE COLECCIÓN */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px", marginBottom: "50px", marginTop: "20px" }}>
-          <div style={{ backgroundColor: "var(--bg-card)", padding: "25px", borderRadius: "24px", border: "1px solid var(--color-border)", textAlign: "center" }}>
-            <h3 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "16px", margin: "0 0 10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}><Boxes size={18}/> {t("public_profile.total_pcs")}</h3>
-            <div style={{ fontSize: "48px", fontWeight: 900, color: "var(--color-primary)", lineHeight: 1 }}>{pcs.length}</div>
+          <div style={{ backgroundColor: "var(--bg-card)", padding: "25px", borderRadius: "24px", border: "1px solid var(--color-border)", textAlign: "left" }}>
+            <h3 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "16px", margin: "0 0 16px 0", display: "flex", alignItems: "center", gap: "10px" }}><Boxes size={18}/> {t("me.my_collection_title")}</h3>
+            <CollectionSummary counts={collectionCounts} />
           </div>
           <div style={{ backgroundColor: "var(--bg-soft)", padding: "25px", borderRadius: "24px", border: "1px solid var(--color-border)", textAlign: "center" }}>
             <h3 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "16px", margin: "0 0 10px 0", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}><Wallet size={18}/> {t("public_profile.est_value")}</h3>
-            <div style={{ fontSize: "48px", fontWeight: 900, color: "var(--text-main)", lineHeight: 1 }}>{pcs.length * AVG_PC_PRICE}€</div>
+            <div style={{ fontSize: "48px", fontWeight: 900, color: "var(--text-main)", lineHeight: 1 }}>{collectionCardQty(collectionCounts) * AVG_PC_PRICE}€</div>
             <p style={{ color: "var(--text-muted)", fontSize: "11px", fontWeight: 700, margin: "5px 0 0 0" }}>{t("public_profile.based_on")}</p>
           </div>
         </div>

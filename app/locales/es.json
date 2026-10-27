@@ -17,6 +17,28 @@
     "tab_editions": "Ediciones",
     "tab_inclusions": "Inclusiones"
   },
+  "collection": {
+    "buckets": {
+      "photocards": "Photocards",
+      "pobs": "POBs",
+      "inclusions": "Inclusiones",
+      "albums": "Álbumes",
+      "plushies": "Peluches",
+      "lightsticks": "Lightsticks",
+      "clothes": "Ropa",
+      "accessories": "Accesorios",
+      "tour_merch": "Tour merch",
+      "merch": "Merch",
+      "seasons-greetings": "Season's Greetings",
+      "tours": "Tours",
+      "pop-ups": "Pop-ups",
+      "memberships": "Memberships",
+      "collabs": "Collabs",
+      "events": "Eventos",
+      "other": "Otros",
+      "wishlist": "Wishlist"
+    }
+  },
   "settings": {
     "title": "Ajustes de Perfil",
     "language": "Idioma de la web",

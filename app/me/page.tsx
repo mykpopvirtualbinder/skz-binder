@@ -13,7 +13,9 @@ import {
   type VipBadgeSectionKey,
 } from "./ui/AvatarModalInsigniasSection";
 import { isAdminTeamEmail, isSiteAdminSession } from "@/lib/admin-emails";
-import { countSiteAdminStock, isSiteAdminUser } from "@/lib/site-admin-stock";
+import { isSiteAdminUser } from "@/lib/site-admin-stock";
+import { collectionCardQty, emptyCollectionCounts, loadCollectionSummary, type CollectionCounts } from "@/lib/collection-summary";
+import CollectionSummary from "@/app/components/CollectionSummary";
 import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { getThemeUnlockCost, isVipThemeKey, normalizeThemeId, unlockKeyForTheme } from "@/lib/theme-unlocks";
 import { persistTheme } from "@/lib/theme-persist";
@@ -555,6 +557,7 @@ function MePageContent() {
     byType: { Single: 0, Unit: 0, OT8: 0 } as Record<string, number>,
     byMember: {} as Record<string, number>
   });
+  const [collectionCounts, setCollectionCounts] = useState<CollectionCounts>(emptyCollectionCounts);
   const [marketWtt, setMarketWtt] = useState<any[]>([]);
   const [marketWts, setMarketWts] = useState<any[]>([]);
   const [tab, setTab] = useState<TabKey>("home");
@@ -1111,27 +1114,24 @@ function MePageContent() {
           }
         });
         if (isSiteAdminUser(profileIdToLoad)) {
-          const total = await countSiteAdminStock();
-          newStats.have = total;
-          newStats.estimatedValue = total * AVG_PC_PRICE;
           newStats.byMember = {};
           newStats.byType = { Single: 0, Unit: 0, OT8: 0 };
         }
         setStats(newStats);
         setMarketWtt(wttArr);
         setMarketWts(wtsArr);
-      } else if (isSiteAdminUser(profileIdToLoad)) {
-        const total = await countSiteAdminStock();
-        setStats({
-          have: total,
-          wtt: 0,
-          wts: 0,
-          wishlist: 0,
-          estimatedValue: total * AVG_PC_PRICE,
-          byType: { Single: 0, Unit: 0, OT8: 0 },
-          byMember: {},
-        });
       }
+
+      const summary = await loadCollectionSummary(profileIdToLoad);
+      setCollectionCounts(summary);
+      const owned = Object.values(summary).reduce((sum, qty) => sum + qty, 0);
+      const cardQty = collectionCardQty(summary);
+      setStats((prev) => ({
+        ...prev,
+        have: owned,
+        estimatedValue: cardQty * AVG_PC_PRICE,
+        ...(isSiteAdminUser(profileIdToLoad) ? { byMember: {}, byType: { Single: 0, Unit: 0, OT8: 0 }, wishlist: 0 } : {}),
+      }));
 
       const { count } = await supabase.from('user_favorites').select('*', { count: 'exact', head: true }).eq('following_id', profileIdToLoad);
       setFavoritedByCount(count || 0);
@@ -2304,17 +2304,7 @@ function MePageContent() {
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.5fr 1fr", gap: "20px" }}>
                 <div className="me-panel-card" style={{ backgroundColor: "var(--bg-card)", padding: "30px", borderRadius: "24px" }}>
                   <h3 style={{ color: "var(--me-tab-accent)", fontWeight: 900, fontSize: "18px", margin: "0 0 20px 0", display: "flex", alignItems: "center", gap: "10px" }}><Boxes size={20}/> {t('me.my_collection_title')}</h3>
-                  <div style={{ display: "flex", gap: "40px" }}>
-                    <div>
-                      <div style={{ fontSize: "42px", fontWeight: 900, color: "var(--color-primary)", lineHeight: 1 }}>{stats.have}</div>
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginTop: "5px" }}>Photocards</div>
-                    </div>
-                    <div style={{ width: "1px", backgroundColor: "var(--color-border)" }}></div>
-                    <div>
-                      <div style={{ fontSize: "42px", fontWeight: 900, color: "var(--state-warning-fg)", lineHeight: 1 }}>{stats.wishlist}</div>
-                      <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--state-warning-fg)", textTransform: "uppercase", marginTop: "5px" }}>Wishlist</div>
-                    </div>
-                  </div>
+                  <CollectionSummary counts={collectionCounts} wishlist={stats.wishlist} />
                 </div>
                 <div className="me-panel-card" style={{ backgroundColor: "var(--bg-soft)", padding: "30px", borderRadius: "24px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                   <h3 style={{ color: "var(--me-tab-accent)", fontWeight: 900, fontSize: "18px", margin: "0 0 20px 0", display: "flex", alignItems: "center", gap: "10px" }}><Wallet size={20}/> {t('me.est_value')}</h3>
