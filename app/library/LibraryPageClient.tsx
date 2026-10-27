@@ -120,6 +120,7 @@ type ItemRow = {
   version: string | null;
   version_name?: string | null;
   member: string | null;
+  isPob?: boolean;
 };
 
 export type LibraryCatalog = "photocards" | "inclusions";
@@ -157,6 +158,11 @@ function mapCatalogItemRows(all: any[], catalog: LibraryCatalog, keepPersonal = 
     if (catalog === "photocards" && itemIsMerchNotPhotocard(r)) continue;
     if (catalog === "inclusions" && !isInclusion) continue;
     if (isMockPcBackPath(r.image_url)) continue;
+    const isPob = pobKindFromItem({
+      type: r.type,
+      image_url: r.image_url,
+      version: r.version,
+    }) === "pob";
     const front =
       typeof r.image_url === "string" && r.image_url.trim()
         ? resolveMockPcImageUrl(r.image_url.trim())
@@ -177,6 +183,7 @@ function mapCatalogItemRows(all: any[], catalog: LibraryCatalog, keepPersonal = 
       version_name: r.version_name ?? null,
       member: r.member ?? null,
       type: r.type ?? null,
+      isPob,
     });
   }
   return itemsData;
@@ -339,10 +346,18 @@ function unitTypeFromMember(memberRaw: string | null): "single" | "unit" | "ot8"
   return "single";
 }
 
-function pobKindFromItem(it: Pick<ItemRow, "type" | "image_url">): "regular" | "pob" {
+function isPobVersionSlug(version: string | null | undefined): boolean {
+  const leaf = String(version || "").trim().split("/").pop() || "";
+  return /^pobs?$/i.test(leaf) || /^pob[-_]/i.test(leaf);
+}
+
+function pobKindFromItem(it: Pick<ItemRow, "type" | "image_url" | "version" | "isPob">): "regular" | "pob" {
+  if (it.isPob) return "pob";
   const typeRaw = String(it.type ?? "").trim().toLowerCase();
   const urlRaw = String(it.image_url ?? "").toLowerCase();
-  if (typeRaw.includes("pob") || urlRaw.includes("/pobs/")) return "pob";
+  if (typeRaw.includes("pob")) return "pob";
+  if (/(^|\/)pobs?(\/|$)/i.test(urlRaw) || /(^|\/)pob[-_]/i.test(urlRaw)) return "pob";
+  if (isPobVersionSlug(it.version)) return "pob";
   return "regular";
 }
 function toNiceTitle(s: string) {
@@ -3334,8 +3349,12 @@ const versionOptions = useMemo(() => {
   }
   const fromFolders = selectedFolderAlbums.flatMap((f) => {
     if (catalog === "inclusions") return f.inclusionVersions;
-    if (fPobKind === "pob") return f.pobVersions;
-    if (fPobKind === "regular") return f.photocardsVersions;
+    const pobFolders = [
+      ...f.pobVersions,
+      ...f.photocardsVersions.filter((version) => isPobVersionSlug(version)),
+    ];
+    if (fPobKind === "pob") return pobFolders;
+    if (fPobKind === "regular") return f.photocardsVersions.filter((version) => !isPobVersionSlug(version));
     return [...f.photocardsVersions, ...f.pobVersions];
   });
   return mergeVersionLabels(Array.from(s), fromFolders);
@@ -3533,14 +3552,22 @@ const filtered = useMemo(() => {
   return copy;
 }, [items, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, fInBinder, placedByItem, placedReady, folderTree, albumById, groupNameById, catalogSort, stockDateByItem, priceScoreByItem]);
 
+  const selectedFolderHasNoItems = useMemo(() => {
+    if (fAlbum === "all" && fCollectionKind === "all" && fVersion === "all" && fPobKind === "all") return false;
+    return !items.some((it) => {
+      if (!itemMatchesCollectionKind(it, fCollectionKind)) return false;
+      if (!itemMatchesAlbumFilter(it, fAlbum)) return false;
+      if (fVersion !== "all" && !folderVersionMatches(it.version, fVersion)) return false;
+      if (fPobKind !== "all" && pobKindFromItem(it) !== fPobKind) return false;
+      return true;
+    });
+  }, [items, fAlbum, fCollectionKind, fVersion, fPobKind, folderTree, albumById, fAlbumMatchingIds]);
+
   const showContributeEmpty = useMemo(() => {
-    if (filtered.length > 0) return false;
+    if (!selectedFolderHasNoItems) return false;
     if (q.trim()) return false;
-    if (fStatus !== "all" || fInBinder) return false;
-    if (fMember !== "all" || fUnit !== "all") return false;
-    if (fAlbum === "all" && fCollectionKind === "all") return false;
     return true;
-  }, [filtered.length, q, fStatus, fInBinder, fMember, fUnit, fAlbum, fCollectionKind]);
+  }, [selectedFolderHasNoItems, q]);
 
   const contributeFolderLabel = useMemo(() => {
     const folderHit = typeof fAlbum === "string" ? findFolderAlbumByFilterKey(folderTree, fAlbum) : undefined;

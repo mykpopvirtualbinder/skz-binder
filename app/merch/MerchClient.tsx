@@ -1619,9 +1619,15 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     if (activeStatus !== "Todos") return false;
     if (albumFilterSlot4 !== "Todos") return false;
     if (activeTab === "catalogo_merch") {
-      if (activeCategory !== "all") return false;
-      if (fMerchKind === "all" && fMerchCollection === "all") return false;
-      return true;
+      if (fMerchKind === "all" && fMerchCollection === "all" && fMerchSet === "all") return false;
+      const folderHasGoods = merchCatalogItems.some((item) => {
+        const meta = merchGoodsMeta(item);
+        if (fMerchKind !== "all" && meta.kind !== fMerchKind) return false;
+        if (fMerchCollection !== "all" && !merchGoodsNameMatches(meta.collection, fMerchCollection)) return false;
+        if (fMerchSet !== "all" && !merchGoodsNameMatches(meta.productSet, fMerchSet)) return false;
+        return true;
+      });
+      return !folderHasGoods;
     }
     if (activeTab !== "albumes" && activeTab !== "inclusiones") return false;
     if (albumFilterAlbum === "Todos" && albumFilterKind === "Todos") return false;
@@ -1638,9 +1644,10 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     activeStatus,
     albumFilterSlot4,
     activeTab,
-    activeCategory,
     fMerchKind,
     fMerchCollection,
+    fMerchSet,
+    merchCatalogItems,
     albumFilterAlbum,
     albumFilterKind,
     merchFolderSlice,
