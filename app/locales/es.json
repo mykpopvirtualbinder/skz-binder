@@ -1300,6 +1300,7 @@
       "off_platform_hint": "Esas copias salen de tu colección.",
       "done": "Anuncio quitado.",
       "log_failed": "El anuncio ya no está en el mercado, pero el motivo no se ha podido guardar.",
+      "failed": "No se ha podido quitar el anuncio. Prueba otra vez.",
       "missing": "Ese anuncio ya no está."
     },
     "no_ads_found": "No hay anuncios que coincidan con tu búsqueda.",

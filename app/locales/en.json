@@ -1300,6 +1300,7 @@
       "off_platform_hint": "Those copies leave your collection.",
       "done": "Listing removed.",
       "log_failed": "The listing is off the market, but the reason could not be saved.",
+      "failed": "The listing could not be removed. Try again.",
       "missing": "That listing is already gone."
     },
     "no_ads_found": "No ads found matching your search.",

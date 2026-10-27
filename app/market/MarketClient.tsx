@@ -535,6 +535,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
   const [showToast, setShowToast] = useState<string | null>(null);
   const [withdrawAd, setWithdrawAd] = useState<MarketAd | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
+  const withdrawClosedAt = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -590,7 +591,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
             price_koins: resolveWtsKoins(row.price_koins, row.market_comment),
             item_kind: inclusion ? "inclusion" : "pc",
             album_title: null,
-            statusRowId: String(row.id),
+            statusRowId: `${row.user_id}:${row.item?.id || row.item_id}:${row.status}`,
             qty: Math.max(1, Number(row.qty) || 1),
           };
 
@@ -638,7 +639,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
             price_koins: resolveWtsKoins(row.price_koins, row.comment),
             item_kind: merchKind,
             album_title: merch.album_title || null,
-            statusRowId: String(row.id),
+            statusRowId: `${row.user_id}:${merch.id}:${row.status}`,
             qty: Math.max(1, Number(row.qty) || 1),
           };
 
@@ -963,17 +964,28 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
       reason,
     });
     setWithdrawing(false);
+    const dropListing = () => {
+      withdrawClosedAt.current = Date.now();
+      const gone = withdrawAd.statusRowId;
+      const kind = withdrawAd.itemType;
+      setAds((prev) => prev.filter((item) => !(item.statusRowId === gone && item.itemType === kind)));
+      setSelectedAd((cur) => (cur && cur.statusRowId === gone && cur.itemType === kind ? null : cur));
+      setWithdrawAd(null);
+      setShowDeepLinkPeek(false);
+    };
     if (!result.ok) {
-      showAlert(t("market.withdraw.title"), result.message === "missing" ? t("market.withdraw.missing") : result.message);
+      if (result.message === "missing") {
+        dropListing();
+        setShowToast(t("market.withdraw.missing"));
+        setTimeout(() => setShowToast(null), 3000);
+        return;
+      }
+      showAlert(t("market.withdraw.title"), t("market.withdraw.failed"));
       return;
     }
-    const gone = withdrawAd.statusRowId;
-    const kind = withdrawAd.itemType;
-    setAds((prev) => prev.filter((item) => !(item.statusRowId === gone && item.itemType === kind)));
-    setSelectedAd((cur) => (cur && cur.statusRowId === gone && cur.itemType === kind ? null : cur));
-    setWithdrawAd(null);
-    setShowDeepLinkPeek(false);
+    dropListing();
     setShowToast(result.logged ? t("market.withdraw.done") : t("market.withdraw.log_failed"));
+    setTimeout(() => setShowToast(null), 3000);
   };
 
   const handleBuy = (adId: string) => {
@@ -1612,7 +1624,7 @@ const openPublicProfile = async (userId: string) => {
                   ad.itemType === "pc" ? formatMemberLabel(ad.member) : ad.pcName;
 
                 return (
-                  <div key={ad.id} data-market-ad-id={ad.id} className="ad-card" onClick={isOwnAd(ad) ? () => setWithdrawAd(ad) : undefined} style={{ background: "var(--bg-card)", borderRadius: "16px", border: "1px solid var(--color-border)", overflow: "hidden", display: "flex", flexDirection: "column", cursor: isOwnAd(ad) ? "pointer" : "default" }}>
+                  <div key={ad.id} data-market-ad-id={ad.id} className="ad-card" onClick={isOwnAd(ad) ? () => { if (Date.now() - withdrawClosedAt.current < 600) return; setWithdrawAd(ad); } : undefined} style={{ background: "var(--bg-card)", borderRadius: "16px", border: "1px solid var(--color-border)", overflow: "hidden", display: "flex", flexDirection: "column", cursor: isOwnAd(ad) ? "pointer" : "default" }}>
                     
                     {/* FOTO AREA */}
                     <div style={{ width: "100%", backgroundColor: "var(--bg-soft)", padding: "16px", boxSizing: "border-box" }}>
@@ -1712,7 +1724,7 @@ const openPublicProfile = async (userId: string) => {
 
                       <div style={{ display: "grid", gridTemplateColumns: !isOwnAd(ad) && ad.type === "wts" ? "1fr 1fr" : "1fr", gap: "6px", marginTop: "auto" }}>
                         {isOwnAd(ad) ? (
-                          <button type="button" onClick={(e) => { e.stopPropagation(); setWithdrawAd(ad); }} style={{ ...ghostMarketBtn, color: "var(--text-main)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); if (Date.now() - withdrawClosedAt.current < 600) return; setWithdrawAd(ad); }} style={{ ...ghostMarketBtn, color: "var(--text-main)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                             <Trash2 size={16} /> {t("market.withdraw.btn")}
                           </button>
                         ) : ad.type === "wts" ? (
@@ -1945,7 +1957,7 @@ const openPublicProfile = async (userId: string) => {
                       {isOwnAd(ad) ? (
                         <button
                           type="button"
-                          onClick={() => setWithdrawAd(ad)}
+                          onClick={() => { if (Date.now() - withdrawClosedAt.current < 600) return; setWithdrawAd(ad); }}
                           style={{ ...ghostMarketBtn, color: "var(--text-main)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px", borderRadius: "12px" }}
                         >
                           <Trash2 size={16} /> {t("market.withdraw.btn")}

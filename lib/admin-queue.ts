@@ -94,7 +94,7 @@ export function parseQueueMessage(raw: string | null | undefined): Omit<QueueCas
   if (!raw) return null;
   try {
     const data = JSON.parse(raw);
-    if (!data || typeof data !== "object") return null;
+    if (!data || typeof data !== "object" || data.kind === "market-withdraw") return null;
     return {
       leido: Boolean(data.leido),
       status: normalizeStatus(data.status),
