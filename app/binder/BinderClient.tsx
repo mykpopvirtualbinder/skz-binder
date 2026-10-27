@@ -308,7 +308,7 @@ async function fetchBinderPages(binderId: number) {
   return { data: all, error: null };
 }
 const PICKER_ITEM_COLS =
-  "id, name, image_url, back_image_url, group_id, album_id, version_id, version, member_id, member";
+  "id, name, image_url, back_image_url, group_id, album_id, version_id, version, version_name, member_id, member";
 
 type StatusRow = { item_id: unknown; status: unknown; qty: unknown };
 
@@ -695,7 +695,7 @@ const [items, setItems] = useState<PickerItem[]>([]);
  
   const [statusFilter, setStatusFilter] = useState<"" | StatusKey>("");
   const [group, setGroupId] = useState<number | "">("");
-  const [album, setAlbumId] = useState<number | "">("");
+  const [album, setAlbumId] = useState<number | "" | "personal">("");
   const [version, setVersionId] = useState("");
   const [member, setMemberId] = useState("");
 const [unitFilter, setUnitFilter] = useState<UnitFilter>("all");
@@ -847,13 +847,16 @@ const mid = toNum(it.member_id) ?? undefined;
 
     const groupName = gid !== null ? groupMap[gid] || null : null;
     const albumName = aid !== null ? albumMap[aid] || null : null;
-    const versionName =
-     typeof it.version === "string" && it.version.trim()
-      ? it.version.trim()
-      : vid !== null
-      ? versionMap[vid] || null
-      : null;
-    const versionDisplay = versionName ? prettyText(versionName) : null;
+    const isPersonal = String(it.version || "").trim() === "personal";
+    const storedFolder = typeof it.version_name === "string" ? it.version_name.trim() : "";
+    const versionName = isPersonal
+      ? storedFolder
+      : typeof it.version === "string" && it.version.trim()
+        ? it.version.trim()
+        : vid !== null
+          ? versionMap[vid] || null
+          : null;
+    const versionDisplay = isPersonal ? (storedFolder || null) : versionName ? prettyText(versionName) : null;
     const memberNameFromId = mid !== undefined ? memberMap[mid] || null : null;
     const memberName =
      (typeof it.member === "string" && it.member.trim()
@@ -914,6 +917,7 @@ useEffect(() => {
 const albumOptions = useMemo(() => {
     const map = new Map<number, string>();
     for (const it of items) {
+      if (String(it.version || "") === "personal") continue;
       if (group !== "" && (it.group_id ?? null) !== group) continue;
       const id = it.album_id ?? null;
       if (id == null) continue;
@@ -935,8 +939,15 @@ const albumOptions = useMemo(() => {
     const set = new Set<string>();
     for (const it of items) {
       if (group !== "" && (it.group_id ?? null) !== group) continue;
-      if (album !== "" && (it.album_id ?? null) !== album) continue;
-      const v = (it.version_name_display ?? it.version_name ?? "").trim();
+      if (album === "personal") {
+        if (String(it.version || "") !== "personal") continue;
+      } else if (album !== "") {
+        if (String(it.version || "") === "personal") continue;
+        if ((it.album_id ?? null) !== album) continue;
+      }
+      const v = String(it.version || "") === "personal"
+        ? (it.version_name || "").trim()
+        : (it.version_name_display ?? it.version_name ?? "").trim();
       if (v) set.add(v);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
@@ -958,7 +969,9 @@ const albumOptions = useMemo(() => {
     const set = new Set<string>();
     for (const it of items) {
       if (group !== "" && (it.group_id ?? null) !== group) continue;
-      if (album !== "" && (it.album_id ?? null) !== album) continue;
+      if (album === "personal" && String(it.version || "") !== "personal") continue;
+      if (album !== "" && album !== "personal" && String(it.version || "") === "personal") continue;
+      if (album !== "" && album !== "personal" && (it.album_id ?? null) !== album) continue;
       if (version !== "") {
         const vLabel = (it.version_name_display ?? it.version_name ?? "").trim();
         if (vLabel !== version) continue;
@@ -981,7 +994,7 @@ const albumOptions = useMemo(() => {
   }, [memberOptionsFixed, availableMemberSet]);
 
   useEffect(() => {
-    if (album !== "" && !albumOptions.some((a) => a.id === album)) setAlbumId("");
+    if (album !== "" && album !== "personal" && !albumOptions.some((a) => a.id === album)) setAlbumId("");
   }, [album, albumOptions]);
 
   useEffect(() => {
@@ -1031,7 +1044,12 @@ const albumOptions = useMemo(() => {
       // 3. FILTROS DE CATEGORÍA
       if (group !== "" && (it.group_id ?? null) !== group) return false;
       // ... el resto de tus filtros siguen exactamente igual hacia abajo ...
-      if (album !== "" && (it.album_id ?? null) !== album) return false;
+      if (album === "personal") {
+        if (String(it.version || "") !== "personal") return false;
+      } else if (album !== "") {
+        if (String(it.version || "") === "personal") return false;
+        if ((it.album_id ?? null) !== album) return false;
+      }
       
       if (version !== "") {
         const vLabel = (it.version_name_display ?? it.version_name ?? "").trim();
@@ -1346,10 +1364,16 @@ return (
           </label>
           <select
             value={album}
-            onChange={(e) => setAlbumId(e.target.value ? Number(e.target.value) : "")}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === "personal") setAlbumId("personal");
+              else setAlbumId(value ? Number(value) : "");
+              setVersionId("");
+            }}
             style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--state-disabled-border)", ...pickerControlStyle, minWidth: 180 }}
           >
             <option value="">{t('binders.picker.all_masculine')}</option>
+            <option value="personal">{t("binders.picker.personal")}</option>
             {albumOptions.map((a) => (
               <option key={a.id} value={a.id}>
                 {formatCollectionOptionLabel(a.name, a.release_date)}

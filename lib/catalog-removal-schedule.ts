@@ -363,7 +363,7 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
     const itemId = Number(rawId);
     const { data: item, error } = await admin
       .from("items")
-      .select("id, group_id, album_id, type, member, member_id, name, image_url, back_image_url")
+      .select("id, group_id, album_id, type, member, member_id, name, image_url, back_image_url, version, version_name")
       .eq("id", itemId)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -378,6 +378,9 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
         member: item.member,
         member_id: item.member_id,
         version: "personal",
+        version_name: String(item.version_name || "").trim() || (item.version && item.version !== "personal"
+          ? String(item.version).split("-").filter(Boolean).map((word) => word.slice(0, 1).toUpperCase() + word.slice(1)).join(" ")
+          : null),
         name: item.name,
         image_url: personalImageUrl(item.image_url, token),
         back_image_url: personalImageUrl(item.back_image_url, token),
