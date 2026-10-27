@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import { Mail, MailOpen, Trash2 } from "lucide-react";
 import { bindAdminLang, tr } from "@/lib/admin-i18n";
 import { useGlobal } from "../context/GlobalContext";
 import {
@@ -74,28 +75,73 @@ export function UserCaseHistory({ noun, name, rows, onOpen, tour }: { noun: stri
   );
 }
 
+export function UnreadDot({ unread }: { unread: boolean }) {
+  useAdminLang();
+  if (!unread) return null;
+  return (
+    <span
+      title={tr("No leída")}
+      aria-label={tr("No leída")}
+      style={{ width: 8, height: 8, borderRadius: 99, background: "var(--color-primary)", flexShrink: 0, display: "inline-block" }}
+    />
+  );
+}
+
+export function QueueTrashButton({ onClick }: { onClick: () => void }) {
+  useAdminLang();
+  return (
+    <button
+      type="button"
+      title={tr("Eliminar")}
+      aria-label={tr("Eliminar")}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 36,
+        height: 36,
+        flexShrink: 0,
+        borderRadius: 10,
+        border: "1px solid var(--color-border)",
+        background: "var(--bg-card)",
+        color: "var(--text-main)",
+        cursor: "pointer",
+      }}
+    >
+      <Trash2 size={16} strokeWidth={1.7} />
+    </button>
+  );
+}
+
 export function ReadSelectionBar({
   ids,
   selected,
   onChange,
   onMark,
+  onDelete,
   tour,
 }: {
   ids: string[];
   selected: Set<string>;
   onChange: (next: Set<string>) => void;
   onMark: (ids: string[], leido: boolean) => void;
+  onDelete: (ids: string[]) => void;
   tour?: string;
 }) {
   useAdminLang();
   const allOn = ids.length > 0 && ids.every((id) => selected.has(id));
-  const btn: CSSProperties = { ...chip, cursor: "pointer", background: "var(--bg-card)" };
-  const label = (full: string, short: string) => (
-    <>
-      <span className="aq-long">{full}</span>
-      <span className="aq-short">{short}</span>
-    </>
-  );
+  const picked = ids.filter((id) => selected.has(id));
+  const ready = picked.length > 0;
+  const btn: CSSProperties = {
+    ...chip,
+    cursor: ready ? "pointer" : "default",
+    background: "var(--bg-card)",
+    opacity: ready ? 1 : 0.4,
+  };
   return (
     <div className="aq-readbar" data-tour={tour} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
       <label style={{ ...chip, cursor: "pointer" }}>
@@ -105,16 +151,25 @@ export function ReadSelectionBar({
           onChange={(e) => onChange(e.target.checked ? new Set(ids) : new Set())}
           style={{ accentColor: "var(--color-primary)" }}
         />
-        {label(tr("Seleccionar todas"), tr("Todas"))}
+        {tr("Todas")}
+        {picked.length > 0 ? <span style={{ color: "var(--text-muted)", fontWeight: 800 }}>{picked.length}</span> : null}
       </label>
-      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), true)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>{label(tr("Marcar seleccionadas leídas"), tr("Sel. leídas"))}</button>
-      <button type="button" disabled={selected.size === 0} onClick={() => onMark(Array.from(selected), false)} style={{ ...btn, opacity: selected.size ? 1 : 0.5 }}>{label(tr("Marcar seleccionadas no leídas"), tr("Sel. no leídas"))}</button>
-      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, true)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>{label(tr("Marcar todas leídas"), tr("Lista leída"))}</button>
-      <button type="button" disabled={ids.length === 0} onClick={() => onMark(ids, false)} style={{ ...btn, opacity: ids.length ? 1 : 0.5 }}>{label(tr("Marcar todas no leídas"), tr("Lista no leída"))}</button>
+      <button type="button" disabled={!ready} title={tr("Marcar como leída")} onClick={() => onMark(picked, true)} style={btn}>
+        <MailOpen size={14} />
+        <span className="aq-long">{tr("Marcar leídas")}</span>
+      </button>
+      <button type="button" disabled={!ready} title={tr("Marcar como no leída")} onClick={() => onMark(picked, false)} style={btn}>
+        <Mail size={14} />
+        <span className="aq-long">{tr("Marcar no leídas")}</span>
+      </button>
+      <button type="button" disabled={!ready} title={tr("Eliminar")} aria-label={tr("Eliminar")} onClick={() => onDelete(picked)} style={btn}>
+        <Trash2 size={14} />
+        <span className="aq-long">{tr("Eliminar")}</span>
+      </button>
       <style jsx>{`
-        .aq-short { display: none; }
+        .aq-long { display: inline; }
         @media (max-width: 860px) {
-          .aq-readbar { display: grid; grid-template-columns: 1fr 1fr; }
+          .aq-readbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
           .aq-readbar > :global(label) { grid-column: 1 / -1; }
           .aq-readbar > :global(label),
           .aq-readbar > :global(button) {
@@ -125,7 +180,6 @@ export function ReadSelectionBar({
             text-align: center;
           }
           .aq-long { display: none; }
-          .aq-short { display: inline; }
         }
       `}</style>
     </div>
@@ -228,6 +282,8 @@ export function AdminQueueBar({
       <button
         type="button"
         disabled={busy}
+        title={state.leido ? tr("Marcar como no leída") : tr("Marcar como leída")}
+        aria-label={state.leido ? tr("Marcar como no leída") : tr("Marcar como leída")}
         onClick={() => onPatch({ leido: !state.leido }, "lectura", state.leido ? "Marcada como no leída" : "Marcada como leída")}
         style={{
           ...chip,
@@ -236,8 +292,8 @@ export function AdminQueueBar({
         }}
       >
         <span style={{ width: 8, height: 8, borderRadius: 99, background: state.leido ? "var(--text-muted)" : "var(--color-primary)" }} />
-        <span className="aq-long">{state.leido ? tr("Marcar como no leída") : tr("Marcar como leída")}</span>
-        <span className="aq-short">{state.leido ? tr("No leída") : tr("Leída")}</span>
+        {state.leido ? <MailOpen size={14} /> : <Mail size={14} />}
+        {state.leido ? tr("Leída") : tr("No leída")}
       </button>
       <label data-tour={mark ? `${mark}-estado` : undefined} style={chip}>{tr("Estado")}<select
           disabled={busy}
@@ -272,13 +328,6 @@ export function AdminQueueBar({
         <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-muted)", overflowWrap: "anywhere" }}>{tr("Última:")} {state.historial[state.historial.length - 1].actor} · {tr(state.historial[state.historial.length - 1].detail)}
         </span>
       )}
-      <style jsx>{`
-        .aq-short { display: none; }
-        @media (max-width: 860px) {
-          .aq-long { display: none; }
-          .aq-short { display: inline; }
-        }
-      `}</style>
     </div>
   );
 }

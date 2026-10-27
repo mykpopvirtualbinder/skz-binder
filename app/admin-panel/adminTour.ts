@@ -316,7 +316,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='sol-leido']",
       title: tr("Marcar leída"),
-      text: tr("Una sola, las seleccionadas o todas las de la lista, como leídas o como no leídas."),
+      text: tr("Marca lo seleccionado como leído o no leído. La papelera lo borra. En cada ficha, el punto es lo no leído, el sobre cambia esa sola y la papelera la borra."),
       side: "bottom",
       tab: "solicitudes",
     },

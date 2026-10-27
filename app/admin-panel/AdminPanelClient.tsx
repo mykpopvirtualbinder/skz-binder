@@ -32,7 +32,7 @@ import {
   type QueueCase,
   type QueueKind,
 } from "@/lib/admin-queue";
-import { AdminQueueBar, AdminQueueFilters, ReadSelectionBar, UserCaseHistory, caseMatchesFilters, type UserHistoryRow } from "./AdminQueueBar";
+import { AdminQueueBar, AdminQueueFilters, QueueTrashButton, ReadSelectionBar, UnreadDot, UserCaseHistory, caseMatchesFilters, type UserHistoryRow } from "./AdminQueueBar";
 import AdminManual from "./AdminManual";
 import AdminMailbox from "./AdminMailbox";
 import { startAdminTour, adminTourActive, ADMIN_TOUR_IDS, type AdminTourHandlers, type AdminTourId } from "./adminTour";
@@ -626,31 +626,6 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [filtroEstadoAportaciones, setFiltroEstadoAportaciones] = useState("todos");
   const [selectedAportacionIds, setSelectedAportacionIds] = useState<Set<string>>(new Set());
 
-  const eliminarBuzonMasivo = async () => {
-    setConfirmDialog({
-      title: tr("Eliminar Mensajes"),
-      message: tr("¿Seguro que quieres eliminar estos mensajes definitivamente?"),
-      onConfirm: async () => {
-        await supabase.from('buzon_colaboraciones').delete().in('id', Array.from(selectedBuzonIds));
-        setBuzon(prev => prev.filter(b => !selectedBuzonIds.has(b.id)));
-        setSelectedBuzonIds(new Set());
-        setSelectedBuzon(null);
-      }
-    });
-  };
-
-  const eliminarAportacionesMasivas = async () => {
-    setConfirmDialog({
-      title: tr("Eliminar Aportaciones"),
-      message: tr("¿Seguro que quieres eliminar estas aportaciones definitivamente?"),
-      onConfirm: async () => {
-        await supabase.from('aportaciones_pcs').delete().in('id', Array.from(selectedAportacionIds));
-        setAportaciones(prev => prev.filter(a => !selectedAportacionIds.has(a.id)));
-        setSelectedAportacionIds(new Set());
-        setSelectedAportacion(null);
-      }
-    });
-  };
 // FUNCIÓN PARA FORZAR LA DESCARGA EN EL PC
   const forceDownload = async (url: string, filename: string) => {
     try {
@@ -716,27 +691,8 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [selectedDenuncias, setSelectedDenuncias] = useState<Set<string>>(new Set());
   const [filtroEstado, setFiltroEstado] = useState("todos");
 
-  const handleSelectAllDenuncias = (checked: boolean, listaFiltrada: any[]) => {
-    if (checked) {
-      setSelectedDenuncias(new Set(listaFiltrada.map(d => d.id)));
-    } else {
-      setSelectedDenuncias(new Set());
-    }
-  };
-
   const [visorImages, setVisorImages] = useState<string[]>([]);
   const [visorIndex, setVisorIndex] = useState(0);
-
-  const eliminarDenunciasMasivas = async () => {
-    if (selectedDenuncias.size === 0) return;
-    setLoadingDenuncias(true);
-    const ids = Array.from(selectedDenuncias);
-    await supabase.from("denuncias").delete().in("id", ids); 
-    setDenuncias(prev => prev.filter(d => !ids.includes(d.id)));
-    setSelectedDenuncias(new Set());
-    setSelectedDenuncia(null);
-    setLoadingDenuncias(false);
-  };
 
   const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=U&background=F3C7DA&color=8C659C";
   const [isMobile, setIsMobile] = useState(false);
@@ -918,6 +874,69 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
   const [denuncias, setDenuncias] = useState<any[]>([]);
   queueSink.current = { setDenuncias, setSelectedDenuncia };
 
+  const deleteQueueItems = async (queue: QueueKind, ids: string[]) => {
+    const table =
+      queue === "solicitud" ? "solicitudes_artistas"
+      : queue === "denuncia" ? "denuncias"
+      : queue === "aportacion" ? "aportaciones_pcs"
+      : "buzon_colaboraciones";
+    const { data, error } = await supabase.from(table).delete().in("id", ids).select("id");
+    if (error) {
+      showAlert(tr("Error"), error.message);
+      return;
+    }
+    const gone = (data || []).map((row) => String(row.id));
+    if (gone.length === 0) {
+      showAlert(tr("Error"), tr("No se pudo eliminar."));
+      return;
+    }
+    const keys = gone.map((id) => queueKey(queue, id));
+    await supabase.from("buzon_colaboraciones").delete().eq("asunto", ADMIN_QUEUE_SUBJECT).in("email", keys);
+    setQueueCases((map) => {
+      const next = { ...map };
+      for (const key of keys) delete next[key];
+      return next;
+    });
+    const drop = (id: string) => gone.includes(String(id));
+    if (queue === "solicitud") {
+      setSolicitudes((prev) => prev.filter((row) => !drop(row.id)));
+      setSelectedSolicitudIds((prev) => new Set(Array.from(prev).filter((id) => !drop(id))));
+      setOpenSolicitudId((cur) => (cur && drop(cur) ? null : cur));
+    } else if (queue === "denuncia") {
+      setDenuncias((prev) => prev.filter((row) => !drop(row.id)));
+      setSelectedDenuncias((prev) => new Set(Array.from(prev).filter((id) => !drop(id))));
+      setSelectedDenuncia((cur: { id?: string } | null) => (cur && drop(String(cur.id)) ? null : cur));
+    } else if (queue === "buzon") {
+      setBuzon((prev) => prev.filter((row) => !drop(row.id)));
+      setSelectedBuzonIds((prev) => new Set(Array.from(prev).filter((id) => !drop(id))));
+      if (selectedBuzon && drop(selectedBuzon.id)) {
+        setSelectedBuzon(null);
+        router.push("/admin-panel?tab=buzon");
+      }
+    } else {
+      setAportaciones((prev) => prev.filter((row) => !drop(row.id)));
+      setSelectedAportacionIds((prev) => new Set(Array.from(prev).filter((id) => !drop(id))));
+      if (selectedAportacion && drop(selectedAportacion.id)) {
+        setSelectedAportacion(null);
+        router.push("/admin-panel?tab=aportaciones");
+      }
+    }
+    window.dispatchEvent(new Event("admin-pending-refresh"));
+  };
+
+  const askDeleteQueue = (queue: QueueKind, ids: string[]) => {
+    const unique = Array.from(new Set(ids.filter((id) => id != null && String(id) !== "")));
+    if (!unique.length) return;
+    const what = unique.length === 1
+      ? { solicitud: tr("esta solicitud"), denuncia: tr("esta denuncia"), buzon: tr("este mensaje"), aportacion: tr("esta aportación") }[queue]
+      : tr("{n} elementos", { n: unique.length });
+    setConfirmDialog({
+      title: tr("Eliminar"),
+      message: tr("¿Seguro que quieres eliminar {what}? No se puede deshacer.", { what }),
+      onConfirm: () => deleteQueueItems(queue, unique),
+    });
+  };
+
   useEffect(() => {
     const pending = pendingPublishRef.current;
     pendingPublishRef.current = null;
@@ -962,11 +981,6 @@ const [historialModal, setHistorialModal] = useState<{user: any, history: any[]}
     }
   }, [reopenId, denuncias]);
 
-  const resolverDenuncia = async (id: string) => {
-    await supabase.from('denuncias').delete().eq('id', id);
-    setDenuncias(prev => prev.filter(d => d.id !== id));
-    setSelectedDenuncia(null);
-  };
 const levantarSancion = async (userId: string, ticketId: string) => {
   setLoading(true);
   try {
@@ -994,10 +1008,6 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     setLoading(false);
   }
 };
-  const resolverSolicitud = async (id: string) => {
-    await supabase.from('solicitudes_artistas').delete().eq('id', id);
-    setSolicitudes(prev => prev.filter(s => s.id !== id));
-  };
 
   useEffect(() => {
     if (selectedUserId && formData.category === "Fanfics") {
@@ -3183,6 +3193,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                       selected={selectedSolicitudIds}
                       onChange={setSelectedSolicitudIds}
                       onMark={(ids, leido) => void markQueueRead("solicitud", ids, leido)}
+                      onDelete={(ids) => askDeleteQueue("solicitud", ids)}
                     />
                     {visible.length === 0 ? <p style={{color: "var(--text-muted)", fontWeight: 700}}>{tr("Nada con estos filtros.")}</p> : visible.map((sol, solIndex) => {
                   const rawText = sol.comentarios || "";
@@ -3198,8 +3209,11 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                         <input type="checkbox" checked={selectedSolicitudIds.has(sol.id)} onChange={(e) => { const next = new Set(selectedSolicitudIds); e.target.checked ? next.add(sol.id) : next.delete(sol.id); setSelectedSolicitudIds(next); }} style={{ accentColor: "var(--color-primary)", marginTop: 4 }} aria-label={tr("Seleccionar")} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                            <strong style={{ color: "var(--text-main)", fontSize: 15, overflowWrap: "anywhere" }}>{sol.nombre || tr("Solicitud")}</strong>
-                            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 900, textTransform: "uppercase", color: "var(--color-primary)", background: "var(--bg-soft)", borderRadius: 8, padding: "3px 8px" }}>{statusLabel(caso.status)}</span>
+                            <strong style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "var(--text-main)", fontSize: 15, overflowWrap: "anywhere", fontWeight: caso.leido ? 700 : 900 }}>{!caso.leido ? <UnreadDot unread /> : null}{sol.nombre || tr("Solicitud")}</strong>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                              <span style={{ fontSize: 10, fontWeight: 900, textTransform: "uppercase", color: "var(--color-primary)", background: "var(--bg-soft)", borderRadius: 8, padding: "3px 8px" }}>{statusLabel(caso.status)}</span>
+                              <QueueTrashButton onClick={() => askDeleteQueue("solicitud", [sol.id])} />
+                            </span>
                           </div>
                           <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted)", fontWeight: 700, overflowWrap: "anywhere" }}>{sol.email}</p>
                         </div>
@@ -3313,15 +3327,6 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
 </div>
 </div>
 
-              {selectedDenuncias.size > 0 && (
-                <div style={{ display: "flex", gap: "10px", background: "var(--bg-soft)", padding: "10px 15px", borderRadius: "12px", alignItems: "center" }}>
-                  <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--text-main)" }}>{selectedDenuncias.size} seleccionadas</span>
-                  <button onClick={eliminarDenunciasMasivas} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "6px 12px", borderRadius: "8px", fontWeight: 900, fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Trash2 size={14} /> {tr("Eliminar Seleccionadas")}
-                  </button>
-                </div>
-              )}
-
               {loadingDenuncias ? (
 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px", gap: "10px" }}>
   <Loader2 className="spinner" size={32} color="var(--color-primary)" />
@@ -3361,6 +3366,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                         selected={selectedDenuncias}
                         onChange={(next) => { setSelectedDenuncias(next); }}
                         onMark={(ids, leido) => void markQueueRead("denuncia", ids, leido)}
+                        onDelete={(ids) => askDeleteQueue("denuncia", ids)}
                       />
 
                       {filtradas.map((d, denIndex) => {
@@ -3382,7 +3388,8 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                             <div>
                               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "5px" }}>
                                 <ShieldAlert size={18} color="var(--color-primary)" />
-                                <span style={{ fontWeight: 900, color: "var(--text-main)", fontSize: "16px" }}>{d.categoria}</span>
+                                <UnreadDot unread={!caso.leido} />
+                                <span style={{ fontWeight: caso.leido ? 700 : 900, color: "var(--text-main)", fontSize: "16px" }}>{d.categoria}</span>
                               </div>
                               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                 <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: "bold" }}>{new Date(d.created_at).toLocaleDateString()}</span>
@@ -3403,9 +3410,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
    router.push(`/admin-panel?tab=denuncias&reopen=${d.id}`);
 }}
 style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>{tr("Revisar")}</button>
-                            <button onClick={() => resolverDenuncia(d.id)} style={{ background: "transparent", color: "var(--text-main)", border: "none", padding: "8px", cursor: "pointer" }} title={tr("Eliminar/Archivar")}>
-                              <Trash2 size={20} />
-                            </button>
+                            <QueueTrashButton onClick={() => askDeleteQueue("denuncia", [d.id])} />
                           </div>
                           </div>
                           <AdminQueueBar
@@ -3456,14 +3461,6 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 </div>
               </div>
 
-              {selectedBuzonIds.size > 0 && (
-                <div style={{ display: "flex", gap: "10px", background: "var(--bg-soft)", padding: "10px 15px", borderRadius: "12px", alignItems: "center" }}>
-                  <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--text-main)" }}>{selectedBuzonIds.size} seleccionados</span>
-                  <button onClick={eliminarBuzonMasivo} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "6px 12px", borderRadius: "8px", fontWeight: 900, fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Trash2 size={14} />{tr("Eliminar")}</button>
-                </div>
-              )}
-              
               {!selectedBuzon ? (
                 (() => {
                   const filtrados = buzon.filter((b) => {
@@ -3482,6 +3479,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         selected={selectedBuzonIds}
                         onChange={setSelectedBuzonIds}
                         onMark={(ids, leido) => void markQueueRead("buzon", ids, leido)}
+                        onDelete={(ids) => askDeleteQueue("buzon", ids)}
                       />
 
                       <div className="buz-list" data-tour="buz-list">
@@ -3493,23 +3491,21 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             <input type="checkbox" checked={selectedBuzonIds.has(b.id)} onChange={(e) => { const next = new Set(selectedBuzonIds); e.target.checked ? next.add(b.id) : next.delete(b.id); setSelectedBuzonIds(next); }} style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} aria-label={tr("Seleccionar")} />
                             <div className="buz-main">
                               <div className="buz-top">
-                                <strong>{b.asunto || tr("Sin asunto")}</strong>
+                                <UnreadDot unread={!leido} />
+                                <strong style={{ fontWeight: leido ? 700 : 900 }}>{b.asunto || tr("Sin asunto")}</strong>
                                 <span className="buz-status" style={{ background: status === "cerrado" ? "var(--state-success-bg)" : status === "gestionando" ? "var(--state-warning-bg)" : "var(--bg-soft)", color: status === "cerrado" ? "var(--state-success-fg)" : status === "gestionando" ? "var(--state-warning-fg)" : "var(--color-primary)" }}>{status}</span>
                               </div>
                               <p className="buz-from">{tr("De:")} {b.userName || tr("Usuario anónimo")}</p>
                             </div>
                             <div className="buz-actions">
-                              <button type="button" onClick={() => void saveQueueCase("buzon", b.id, { leido: !leido }, "lectura", leido ? tr("Marcada como no leída") : tr("Marcada como leída"))}>
-                                <span className="buz-long">{leido ? tr("Marcar no leída") : tr("Marcar leída")}</span>
-                                <span className="buz-short">{leido ? tr("No leída") : tr("Leída")}</span>
-                              </button>
-                              <button type="button" onClick={() => {
+                              <button type="button" className="buz-open" onClick={() => {
                                 setSelectedBuzon(b);
                                 router.push(`/admin-panel?tab=buzon&buzonId=${b.id}`);
                               }}>
                                 <span className="buz-long">{tr("Abrir hilo")}</span>
                                 <span className="buz-short">{tr("Abrir")}</span>
                               </button>
+                              <QueueTrashButton onClick={() => askDeleteQueue("buzon", [b.id])} />
                             </div>
                           </div>
                         );
@@ -3539,6 +3535,8 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         Email de Contacto: {selectedBuzon.email}
                       </p>
                     </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <QueueTrashButton onClick={() => askDeleteQueue("buzon", [selectedBuzon.id])} />
                     <select data-tour="buz-estado" value={selectedBuzon.status || 'pendiente'} onChange={async (e) => {
                       const st = e.target.value;
                       setSelectedBuzon({...selectedBuzon, status: st});
@@ -3549,6 +3547,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       <option value="gestionando">{tr("Gestionando")}</option>
                       <option value="cerrado">{tr("Cerrado")}</option>
                     </select>
+                    </div>
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
@@ -3607,14 +3606,6 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 onRead={setApoFiltroLeido}
               />
 
-              {selectedAportacionIds.size > 0 && (
-                <div style={{ display: "flex", gap: "10px", background: "var(--bg-soft)", padding: "10px 15px", borderRadius: "12px", alignItems: "center" }}>
-                  <span style={{ fontSize: "13px", fontWeight: 900, color: "var(--text-main)" }}>{selectedAportacionIds.size} seleccionadas</span>
-                  <button onClick={eliminarAportacionesMasivas} style={{ background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--text-main)", padding: "6px 12px", borderRadius: "8px", fontWeight: 900, fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Trash2 size={14} />{tr("Eliminar")}</button>
-                </div>
-              )}
-
               {!selectedAportacion ? (
                 (() => {
                   const filtrados = aportaciones.filter((a) => caseMatchesFilters(
@@ -3634,6 +3625,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         selected={selectedAportacionIds}
                         onChange={setSelectedAportacionIds}
                         onMark={(ids, leido) => void markQueueRead("aportacion", ids, leido)}
+                        onDelete={(ids) => askDeleteQueue("aportacion", ids)}
                       />
 
                       {filtrados.map((a, apoIndex) => {
@@ -3645,7 +3637,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             <input type="checkbox" checked={selectedAportacionIds.has(a.id)} onChange={(e) => { const next = new Set(selectedAportacionIds); e.target.checked ? next.add(a.id) : next.delete(a.id); setSelectedAportacionIds(next); }} style={{ accentColor: "var(--color-primary)", width: "16px", height: "16px", cursor: "pointer" }} />
                             <ImagePlus size={18} color="var(--color-primary)" />
                             <div>
-                              <span style={{ fontWeight: 900, color: "var(--text-main)", fontSize: "16px" }}>Mejora para Photocard #{a.item_id} ({a.face})</span>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: caso.leido ? 700 : 900, color: "var(--text-main)", fontSize: "16px" }}><UnreadDot unread={!caso.leido} />Mejora para Photocard #{a.item_id} ({a.face})</span>
                               <div data-tour={apoIndex === 0 ? "apo-origen" : undefined} style={{ marginTop: 4, fontSize: 12, fontWeight: 800, color: "var(--text-main)" }}>
                                 {aportacionOriginLine(a) || tr("Origen sin indicar")}
                               </div>
@@ -3655,10 +3647,13 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                               </div>
                             </div>
                           </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <button onClick={() => {
   setSelectedAportacion(a);
   router.push(`/admin-panel?tab=aportaciones&aportacionId=${a.id}`);
 }}style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", fontWeight: 900, fontSize: "13px" }}>{tr("Revisar")}</button>
+                          <QueueTrashButton onClick={() => askDeleteQueue("aportacion", [a.id])} />
+                          </div>
                           </div>
                           <AdminQueueBar
                             queue="aportacion"
@@ -3692,7 +3687,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
   router.push(`/admin-panel?tab=aportaciones`);
 }}style={{ background: "none", border: "none", color: "var(--color-primary)", fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}><ChevronLeft size={16}/>{tr("Volver a la lista")}</button>
                      
-                     <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--text-muted)" }}>
+                     <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: "13px", fontWeight: 800, color: "var(--text-muted)" }}>
                        Aportado por:{" "}
                        <span 
                          onClick={() => router.push(`/me?u=${selectedAportacion.user_id}&fromAdmin=true`)} 
@@ -3701,6 +3696,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                        >
                          @{selectedAportacion.userName || tr("Anónimo")}
                        </span>
+                       <QueueTrashButton onClick={() => askDeleteQueue("aportacion", [selectedAportacion.id])} />
                      </span>
                    </div>
                    
@@ -4852,9 +4848,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
     <button onClick={(e) => selectedDenuncia.denunciado.strikes > 0 ? quitarStrike(selectedDenuncia.denunciado, e) : null} style={{ flex: 2, background: "var(--bg-card)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: selectedDenuncia.denunciado.strikes > 0 ? "pointer" : "default", fontWeight: 800, fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", opacity: selectedDenuncia.denunciado.strikes > 0 ? 1 : 0.4 }}>
       <Undo2 size={14} color="var(--color-border)" /> {tr("-1 STR")}
     </button>
-    <button onClick={() => resolverDenuncia(selectedDenuncia.id)} style={{ flex: 1, background: "var(--bg-card)", color: "var(--color-border)", border: "1px solid var(--color-border)", padding: "8px 4px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <Trash2 size={16} />
-    </button>
+    <QueueTrashButton onClick={() => askDeleteQueue("denuncia", [selectedDenuncia.id])} />
   </div>
 
   {/* 6. REACTIVAR (Solo visible si está restringido) */}
@@ -5459,8 +5453,8 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
           .sol-actions > button { width: 100%; }
           .buz-filters { width: 100%; }
           .buz-row { grid-template-columns: auto minmax(0, 1fr); }
-          .buz-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
-          .buz-actions button { width: 100%; }
+          .buz-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+          .buz-actions .buz-open { flex: 1; }
           .buz-long { display: none; }
           .buz-short { display: inline; }
           .admin-nav {
