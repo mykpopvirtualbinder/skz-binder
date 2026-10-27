@@ -19,7 +19,7 @@ WITH app_tables AS (
     'fanzone_posts', 'fanzone_likes', 'fanzone_comments', 'fanzone_comment_likes',
     'fanarts', 'fanart_likes', 'fanart_comments', 'fanart_comment_likes',
     'obras', 'capitulos', 'traducciones', 'solicitudes_artistas',
-    'ad_campaigns', 'market_ads', 'follows', 'stripe_fulfillments',
+    'ad_campaigns', 'market_ads', 'market_listing_withdrawals', 'follows', 'stripe_fulfillments',
     'emails', 'email_folders', 'email_attachments', 'email_inbound_chunks'
   ]) AS table_name
 ),
@@ -75,7 +75,7 @@ WHERE t.table_schema = 'public'
     'fanzone_posts', 'fanzone_likes', 'fanzone_comments', 'fanzone_comment_likes',
     'fanarts', 'fanart_likes', 'fanart_comments', 'fanart_comment_likes',
     'obras', 'capitulos', 'traducciones', 'solicitudes_artistas',
-    'ad_campaigns', 'market_ads', 'follows', 'stripe_fulfillments',
+    'ad_campaigns', 'market_ads', 'market_listing_withdrawals', 'follows', 'stripe_fulfillments',
     'emails', 'email_folders', 'email_attachments', 'email_inbound_chunks'
   )
 ORDER BY t.table_name;
@@ -94,7 +94,7 @@ WITH app_tables AS (
     'artist_wall', 'artist_wall_likes', 'denuncias',
     'fanzone_posts', 'fanzone_likes', 'fanzone_comments',
     'fanarts', 'fanart_likes', 'fanart_comments',
-    'ad_campaigns', 'solicitudes_artistas'
+    'ad_campaigns', 'solicitudes_artistas', 'market_listing_withdrawals'
   ]) AS table_name
 ),
 checks AS (

@@ -587,7 +587,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='market-tabs']",
         title: "Cambios y ventas",
-        text: "WTT es intercambio. WTS es venta. El anuncio no se crea aquí: se publica desde la ficha de la photocard en biblioteca, o desde la ficha del merch. Aquí se mira, se contacta y se compra.",
+        text: "WTT es intercambio. WTS es venta. El anuncio no se crea aquí: se publica desde la ficha de la photocard en biblioteca, o desde la ficha del merch. Aquí se mira, se contacta y se compra. Si el anuncio es tuyo, pulsa la ficha: Quitar anuncio pide el motivo y lo baja del mercado.",
         side: "bottom",
       },
       {

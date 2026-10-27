@@ -88,6 +88,7 @@ DECLARE
     'ad_campaigns|SELECT,INSERT,UPDATE,DELETE|authenticated',
     'market_ads|SELECT|anon,authenticated',
     'market_ads|SELECT,INSERT,UPDATE,DELETE|authenticated',
+    'market_listing_withdrawals|SELECT,INSERT|authenticated',
     'follows|SELECT,INSERT,DELETE|authenticated',
 
     -- Correo del admin: solo el servidor

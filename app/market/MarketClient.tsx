@@ -17,6 +17,7 @@ import { prettyMemberLabel as canonicalMemberLabel } from "@/lib/member-labels";
 import { MERCH_ALBUM_DB_CATEGORY } from "@/lib/merch-album-filter-meta";
 import { getCurrencyOptions } from "../library/currencyOptions";
 import { requireLoggedIn } from "@/lib/auth-gate";
+import { withdrawMarketListing, type WithdrawReason } from "@/lib/market-withdraw";
 import { goToNoticeChat, readNoticeReturn } from "@/lib/notice-return";
 import {
   Search,
@@ -36,6 +37,7 @@ import {
   BookOpen,
   Send,
   Tag,
+  Trash2,
   Camera,
   BookText,
   ChevronDown,
@@ -71,6 +73,8 @@ type MarketAd = {
   price_koins?: number | null;
   item_kind?: "pc" | "inclusion" | "album" | "merch";
   album_title?: string | null;
+  statusRowId: string;
+  qty: number;
 };
 
 type MarketItemKind = "all" | "pc" | "inclusion" | "album" | "merch";
@@ -529,6 +533,8 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
   const [isUploadingMsg, setIsUploadingMsg] = useState(false);
   // Notificación flotante bonita
   const [showToast, setShowToast] = useState<string | null>(null);
+  const [withdrawAd, setWithdrawAd] = useState<MarketAd | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -552,8 +558,8 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
       const targetMerchIdsToFetch = new Set<string>();
 
       // 1. CARGAMOS PHOTOCARDS
-      const pcSelectWithKoins = 'id, status, price, currency, origin_country, shipping_to, wts_negotiable, market_comment, wtt_ids, price_koins, updated_at, user_id, item: items(id, name, image_url, member, version, group_id, album_id, type), profiles (display_name, avatar_url, is_restricted)';
-      const pcSelectPlain = 'id, status, price, currency, origin_country, shipping_to, wts_negotiable, market_comment, wtt_ids, updated_at, user_id, item: items(id, name, image_url, member, version, group_id, album_id, type), profiles (display_name, avatar_url, is_restricted)';
+      const pcSelectWithKoins = 'id, qty, status, price, currency, origin_country, shipping_to, wts_negotiable, market_comment, wtt_ids, price_koins, updated_at, user_id, item: items(id, name, image_url, member, version, group_id, album_id, type), profiles (display_name, avatar_url, is_restricted)';
+      const pcSelectPlain = 'id, qty, status, price, currency, origin_country, shipping_to, wts_negotiable, market_comment, wtt_ids, updated_at, user_id, item: items(id, name, image_url, member, version, group_id, album_id, type), profiles (display_name, avatar_url, is_restricted)';
       let { data: pcData, error: pcErr } = await supabase
         .from("user_item_statuses")
         .select(pcSelectWithKoins)
@@ -584,6 +590,8 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
             price_koins: resolveWtsKoins(row.price_koins, row.market_comment),
             item_kind: inclusion ? "inclusion" : "pc",
             album_title: null,
+            statusRowId: String(row.id),
+            qty: Math.max(1, Number(row.qty) || 1),
           };
 
           if (row.status === "wtt" && row.wtt_ids && row.wtt_ids.length > 0) {
@@ -596,8 +604,8 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
       }
 
       // 2. CARGAMOS MERCHANDISING
-      const merchSelectWithKoins = 'id, status, price, currency, comment, wtt_ids, price_koins, updated_at, user_id, merch:merch_items(id, name, category, group_name, image_url, rarity, album_title, album_type, album_version), profiles(display_name, avatar_url, is_restricted)';
-      const merchSelectNoAlbum = 'id, status, price, currency, comment, wtt_ids, updated_at, user_id, merch:merch_items(id, name, category, group_name, image_url, rarity), profiles(display_name, avatar_url, is_restricted)';
+      const merchSelectWithKoins = 'id, qty, status, price, currency, comment, wtt_ids, price_koins, updated_at, user_id, merch:merch_items(id, name, category, group_name, image_url, rarity, album_title, album_type, album_version), profiles(display_name, avatar_url, is_restricted)';
+      const merchSelectNoAlbum = 'id, qty, status, price, currency, comment, wtt_ids, updated_at, user_id, merch:merch_items(id, name, category, group_name, image_url, rarity), profiles(display_name, avatar_url, is_restricted)';
       let { data: merchData, error: merchErr } = await supabase
         .from("user_merch_statuses")
         .select(merchSelectWithKoins)
@@ -630,6 +638,8 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
             price_koins: resolveWtsKoins(row.price_koins, row.comment),
             item_kind: merchKind,
             album_title: merch.album_title || null,
+            statusRowId: String(row.id),
+            qty: Math.max(1, Number(row.qty) || 1),
           };
 
           if (row.status === "wtt" && row.wtt_ids && row.wtt_ids.length > 0) {
@@ -939,9 +949,36 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
       });
   }, [ads, wttTargets, knownSingleMembers]);
 
+  const isOwnAd = (ad: MarketAd) => Boolean(currentUserId && ad.user_id === currentUserId);
+
+  const confirmWithdraw = async (reason: WithdrawReason) => {
+    if (!withdrawAd || !currentUserId || withdrawing) return;
+    setWithdrawing(true);
+    const result = await withdrawMarketListing({
+      userId: currentUserId,
+      itemType: withdrawAd.itemType === "merch" ? "merch" : "pc",
+      itemId: withdrawAd.item_id,
+      statusRowId: withdrawAd.statusRowId,
+      listingType: withdrawAd.type,
+      reason,
+    });
+    setWithdrawing(false);
+    if (!result.ok) {
+      showAlert(t("market.withdraw.title"), result.message === "missing" ? t("market.withdraw.missing") : result.message);
+      return;
+    }
+    const gone = withdrawAd.statusRowId;
+    const kind = withdrawAd.itemType;
+    setAds((prev) => prev.filter((item) => !(item.statusRowId === gone && item.itemType === kind)));
+    setSelectedAd((cur) => (cur && cur.statusRowId === gone && cur.itemType === kind ? null : cur));
+    setWithdrawAd(null);
+    setShowDeepLinkPeek(false);
+    setShowToast(result.logged ? t("market.withdraw.done") : t("market.withdraw.log_failed"));
+  };
+
   const handleBuy = (adId: string) => {
     const ad = ads.find((item) => item.id === adId);
-    if (!ad) return;
+    if (!ad || isOwnAd(ad)) return;
     if (!requireLoggedIn(currentUserId, showAlert, t)) return;
     setContactFlow("wts_buy");
     setSelectedAd(ad);
@@ -971,6 +1008,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
     fontSize: 13,
   };
  const openContact = (ad: MarketAd) => {
+    if (isOwnAd(ad)) return;
     if (!requireLoggedIn(currentUserId, showAlert, t)) return;
     setContactFlow("wtt_trade");
     setSelectedAd(ad);
@@ -980,6 +1018,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
   };
 
   const openOffer = (ad: MarketAd) => {
+    if (isOwnAd(ad)) return;
     if (!requireLoggedIn(currentUserId, showAlert, t)) return;
     setSelectedAd(ad);
     setOfferPrice("");
@@ -1573,7 +1612,7 @@ const openPublicProfile = async (userId: string) => {
                   ad.itemType === "pc" ? formatMemberLabel(ad.member) : ad.pcName;
 
                 return (
-                  <div key={ad.id} data-market-ad-id={ad.id} className="ad-card" style={{ background: "var(--bg-card)", borderRadius: "16px", border: "1px solid var(--color-border)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <div key={ad.id} data-market-ad-id={ad.id} className="ad-card" onClick={isOwnAd(ad) ? () => setWithdrawAd(ad) : undefined} style={{ background: "var(--bg-card)", borderRadius: "16px", border: "1px solid var(--color-border)", overflow: "hidden", display: "flex", flexDirection: "column", cursor: isOwnAd(ad) ? "pointer" : "default" }}>
                     
                     {/* FOTO AREA */}
                     <div style={{ width: "100%", backgroundColor: "var(--bg-soft)", padding: "16px", boxSizing: "border-box" }}>
@@ -1648,7 +1687,7 @@ const openPublicProfile = async (userId: string) => {
                     <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column", gap: "16px", background: "var(--bg-card)" }}>
                       <div>
                         <span style={{ fontSize: "10px", fontWeight: 900, color: ACC.pink, textTransform: "uppercase", display: "block", marginBottom: 4 }}>
-                          {metaLine || "—"}
+                          {isOwnAd(ad) ? `${t("market.withdraw.badge")} · ` : ""}{metaLine || "—"}
                         </span>
                         <h3 style={{ color: ACC.purple, fontWeight: 900, fontSize: "15px", margin: 0, lineHeight: 1.2 }}>
                           {cardTitle}
@@ -1671,8 +1710,12 @@ const openPublicProfile = async (userId: string) => {
                         <div style={{ fontSize: "11px", fontStyle: "italic", color: "var(--text-muted)" }}>"{ad.comment}"</div>
                       )}
 
-                      <div style={{ display: "grid", gridTemplateColumns: ad.type === "wts" ? "1fr 1fr" : "1fr", gap: "6px", marginTop: "auto" }}>
-                        {ad.type === "wts" ? (
+                      <div style={{ display: "grid", gridTemplateColumns: !isOwnAd(ad) && ad.type === "wts" ? "1fr 1fr" : "1fr", gap: "6px", marginTop: "auto" }}>
+                        {isOwnAd(ad) ? (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setWithdrawAd(ad); }} style={{ ...ghostMarketBtn, color: "var(--text-main)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                            <Trash2 size={16} /> {t("market.withdraw.btn")}
+                          </button>
+                        ) : ad.type === "wts" ? (
                           <>
                             <button data-tour="market-buy" onClick={() => handleBuy(ad.id)} style={{ ...ghostMarketBtn, color: ACC.green }}>{t("market.btn_buy")}</button>
                             <button onClick={() => openOffer(ad)} style={{ ...ghostMarketBtn, color: ACC.orange }}>{t("market.btn_offer")}</button>
@@ -1687,13 +1730,13 @@ const openPublicProfile = async (userId: string) => {
                       <div style={{ display: "flex", alignItems: "center", gap: "10px", borderTop: "1px solid var(--color-border)", paddingTop: "12px" }}>
                         <img 
                           src={ad.avatar_url} 
-                          onClick={() => openPublicProfile(ad.user_id)}
+                          onClick={(e) => { e.stopPropagation(); openPublicProfile(ad.user_id); }}
                           style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", cursor: "pointer" }} 
                           alt="Avatar" 
                         />
                         <div style={{ display: "flex", flexDirection: "column" }}>
                           <span 
-                            onClick={() => openPublicProfile(ad.user_id)}
+                            onClick={(e) => { e.stopPropagation(); openPublicProfile(ad.user_id); }}
                             style={{ fontSize: "13px", fontWeight: 900, color: ACC.purple, cursor: "pointer" }}
                           >
                             @{ad.username}
@@ -1898,8 +1941,16 @@ const openPublicProfile = async (userId: string) => {
                       </div>
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: ad.type === "wts" ? "1fr 1fr" : "1fr", gap: "10px", marginTop: "4px" }}>
-                      {ad.type === "wts" ? (
+                    <div style={{ display: "grid", gridTemplateColumns: !isOwnAd(ad) && ad.type === "wts" ? "1fr 1fr" : "1fr", gap: "10px", marginTop: "4px" }}>
+                      {isOwnAd(ad) ? (
+                        <button
+                          type="button"
+                          onClick={() => setWithdrawAd(ad)}
+                          style={{ ...ghostMarketBtn, color: "var(--text-main)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px", borderRadius: "12px" }}
+                        >
+                          <Trash2 size={16} /> {t("market.withdraw.btn")}
+                        </button>
+                      ) : ad.type === "wts" ? (
                         <>
                           <button
                             type="button"
@@ -2256,6 +2307,34 @@ const openPublicProfile = async (userId: string) => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {withdrawAd && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => { if (!withdrawing) setWithdrawAd(null); }}
+          style={{ position: "fixed", inset: 0, background: "var(--overlay-strong)", zIndex: 10060, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", padding: 16 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "var(--bg-card)", borderRadius: 24, width: "100%", maxWidth: 420, padding: 22, border: "2px solid var(--color-primary)", boxShadow: "0 20px 50px var(--shadow-card)", display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <h3 style={{ margin: 0, color: "var(--color-primary)", fontWeight: 900 }}>{t("market.withdraw.title")}</h3>
+            <p style={{ margin: 0, color: "var(--text-main)", fontWeight: 700, lineHeight: 1.45 }}>{withdrawAd.pcName}</p>
+            <p style={{ margin: 0, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, lineHeight: 1.45 }}>{t("market.withdraw.lead")}</p>
+            {withdrawAd.qty > 1 ? <p style={{ margin: 0, color: "var(--text-main)", fontWeight: 800, fontSize: 13 }}>{t("market.withdraw.copies", { n: withdrawAd.qty })}</p> : null}
+            <button type="button" disabled={withdrawing} onClick={() => void confirmWithdraw("not_wanted")} style={{ textAlign: "left", background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: 14, padding: "12px 14px", cursor: withdrawing ? "wait" : "pointer" }}>
+              <span style={{ display: "block", fontWeight: 900, color: "var(--color-primary)" }}>{t("market.withdraw.not_wanted")}</span>
+              <span style={{ display: "block", marginTop: 4, fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>{t("market.withdraw.not_wanted_hint")}</span>
+            </button>
+            <button type="button" disabled={withdrawing} onClick={() => void confirmWithdraw("off_platform")} style={{ textAlign: "left", background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: 14, padding: "12px 14px", cursor: withdrawing ? "wait" : "pointer" }}>
+              <span style={{ display: "block", fontWeight: 900, color: "var(--color-primary)" }}>{t("market.withdraw.off_platform")}</span>
+              <span style={{ display: "block", marginTop: 4, fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>{t("market.withdraw.off_platform_hint")}</span>
+            </button>
+            <button type="button" disabled={withdrawing} onClick={() => setWithdrawAd(null)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontWeight: 800, cursor: "pointer", padding: 8 }}>{t("common.cancel")}</button>
           </div>
         </div>
       )}
