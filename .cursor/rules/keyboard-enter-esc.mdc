@@ -1,0 +1,12 @@
+---
+description: Enter confirma y Esc cierra en toda la web.
+alwaysApply: true
+---
+
+# Teclado: Enter y Esc
+
+En toda la web, Enter acepta (ok, guardar, enviar, confirmar) y Esc cancela o cierra.
+
+Shift+Enter en un texto largo sigue siendo un salto de línea. No interceptes Enter en un desplegable, un enlace o un botón que ya se activa solo.
+
+Los cuadros nuevos llevan `data-kbd="confirm"` en el botón de aceptar y `data-kbd="cancel"` en el de cancelar o cerrar. La lógica común está en `lib/site-keyboard.ts`.

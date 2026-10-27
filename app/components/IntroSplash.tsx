@@ -190,7 +190,7 @@ export default function IntroSplash() {
 
   return (
     <div className="intro-overlay" role="dialog" aria-modal="true" aria-labelledby="intro-heading">
-      <button type="button" className="intro-skip" onClick={() => close()}>
+      <button type="button" className="intro-skip" data-kbd="cancel" onClick={() => close()}>
         {t("intro.skip")}
       </button>
       <div className="intro-sky" aria-hidden>

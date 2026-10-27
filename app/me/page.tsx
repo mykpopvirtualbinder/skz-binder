@@ -13,6 +13,7 @@ import {
   type VipBadgeSectionKey,
 } from "./ui/AvatarModalInsigniasSection";
 import { isAdminTeamEmail, isSiteAdminSession } from "@/lib/admin-emails";
+import { countSiteAdminStock, isSiteAdminUser } from "@/lib/site-admin-stock";
 import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { getThemeUnlockCost, isVipThemeKey, normalizeThemeId, unlockKeyForTheme } from "@/lib/theme-unlocks";
 import { persistTheme } from "@/lib/theme-persist";
@@ -1109,9 +1110,27 @@ function MePageContent() {
             newStats.wishlist += qty;
           }
         });
+        if (isSiteAdminUser(profileIdToLoad)) {
+          const total = await countSiteAdminStock();
+          newStats.have = total;
+          newStats.estimatedValue = total * AVG_PC_PRICE;
+          newStats.byMember = {};
+          newStats.byType = { Single: 0, Unit: 0, OT8: 0 };
+        }
         setStats(newStats);
         setMarketWtt(wttArr);
         setMarketWts(wtsArr);
+      } else if (isSiteAdminUser(profileIdToLoad)) {
+        const total = await countSiteAdminStock();
+        setStats({
+          have: total,
+          wtt: 0,
+          wts: 0,
+          wishlist: 0,
+          estimatedValue: total * AVG_PC_PRICE,
+          byType: { Single: 0, Unit: 0, OT8: 0 },
+          byMember: {},
+        });
       }
 
       const { count } = await supabase.from('user_favorites').select('*', { count: 'exact', head: true }).eq('following_id', profileIdToLoad);

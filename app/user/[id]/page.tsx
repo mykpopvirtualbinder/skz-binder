@@ -7,6 +7,7 @@ import { Sparkles, ChevronLeft, ChevronRight, Crown, BookOpen, LayoutGrid, Palet
 import VirtualBinder from "@/app/components/VirtualBinder";
 
 import { useGlobal } from "app/context/GlobalContext"; // 👈 Añadido
+import { isSiteAdminUser, loadSiteAdminStock } from "@/lib/site-admin-stock";
 import Footer from "app/components/footer"
 import CatalogLoadingFun from "app/components/CatalogLoadingFun";
 
@@ -90,7 +91,9 @@ export default function PublicProfilePage() {
         };
       });
 
-      const { data: c } = await supabase.from("user_item_statuses").select("*, item:items(*)").eq("user_id", userId).eq("status", "have");
+      const c = isSiteAdminUser(userId)
+        ? await loadSiteAdminStock()
+        : (await supabase.from("user_item_statuses").select("*, item:items(*)").eq("user_id", userId).eq("status", "have")).data;
       const { data: otwData } = await supabase.from("user_item_statuses").select("item_id").eq("user_id", userId).eq("status", "on_its_way");
       if (otwData) setOtwItems(otwData.map(row => row.item_id));
       
@@ -343,7 +346,7 @@ if (loading) return <CatalogLoadingFun fullPage />;
           {pcs.length > 0 ? pcs.map(slot => (
             <div key={slot.id} style={{ background: "var(--bg-card)", padding: "8px", borderRadius: "16px", border: "1px solid var(--color-border)", boxShadow: "0 4px 10px var(--shadow-card)", transition: "transform 0.2s" }} onMouseEnter={e => e.currentTarget.style.transform="scale(1.05)"} onMouseLeave={e => e.currentTarget.style.transform="scale(1)"}>
               <div style={{ aspectRatio: '2/3', borderRadius: '10px', overflow: 'hidden' }}>
-                <img src={slot.item?.image_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+                <img src={slot.item?.image_url || "/mock-pcs/groups/not-available.png"} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
               </div>
             </div>
           )) : <div style={{ gridColumn: '1/-1', color: "var(--text-muted)" }}>{t("public_profile.no_pcs")}</div>}

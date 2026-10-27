@@ -1,0 +1,12 @@
+---
+description: El perfil de info@mykpopbinder tiene una unidad de cada pieza del catálogo.
+alwaysApply: true
+---
+
+# Stock del admin del sitio
+
+Solo la cuenta `info@mykpopbinder.com` (`SITE_ADMIN_USER_ID` en `lib/site-admin-stock.ts`). El resto del equipo admin no.
+
+Cuando alguien consulta su perfil, tiene 1 unidad de cada item que exista en la web: photocards, inclusiones y merch. Es una regla de lectura, no filas reales en `user_item_statuses`. Una pieza nueva del catálogo entra sola.
+
+No rellenes el binder ni cambies el stock editable de la biblioteca con esta regla.

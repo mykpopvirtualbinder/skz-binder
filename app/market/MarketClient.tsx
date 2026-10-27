@@ -2406,6 +2406,7 @@ const openPublicProfile = async (userId: string) => {
                 <button
                   type="button"
                   disabled={withdrawing || !(Number(stockQtyInput) >= 1 && Number(stockQtyInput) <= withdrawAd.qty)}
+                  data-kbd="confirm"
                   onClick={() => void finishWithdraw(Number(stockQtyInput))}
                   style={{ background: "var(--color-primary)", color: "#111", border: "none", borderRadius: 14, padding: "12px 14px", fontWeight: 900, cursor: withdrawing ? "wait" : "pointer", opacity: Number(stockQtyInput) >= 1 && Number(stockQtyInput) <= withdrawAd.qty ? 1 : 0.45 }}
                 >
@@ -2413,7 +2414,7 @@ const openPublicProfile = async (userId: string) => {
                 </button>
               </>
             )}
-            <button type="button" disabled={withdrawing} onClick={withdrawStep === "qty" ? () => setWithdrawStep("stock") : closeWithdraw} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontWeight: 800, cursor: "pointer", padding: 8 }}>
+            <button type="button" data-kbd="cancel" disabled={withdrawing} onClick={withdrawStep === "qty" ? () => setWithdrawStep("stock") : closeWithdraw} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontWeight: 800, cursor: "pointer", padding: 8 }}>
               {withdrawStep === "qty" ? t("market.withdraw.back") : t("common.cancel")}
             </button>
           </div>

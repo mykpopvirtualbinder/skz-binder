@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { applySiteKeyboard } from "@/lib/site-keyboard";
 import es from "../locales/es.json";
 import en from "../locales/en.json";
 import fr from "../locales/fr.json";
@@ -332,17 +333,10 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
           setPromptData(null);
           return;
         }
-        if (e.key === "Enter" && !e.shiftKey && promptText.trim()) {
-          const target = e.target as HTMLElement | null;
-          const tag = (target?.tagName || "").toLowerCase();
-          // En textarea requerimos Ctrl/Cmd+Enter para evitar envíos accidentales.
-          const isTextarea = tag === "textarea";
-          const wantsSubmit = !isTextarea || e.ctrlKey || e.metaKey;
-          if (wantsSubmit) {
-            e.preventDefault();
-            promptData.onConfirm(promptText, promptAnon);
-            setPromptData(null);
-          }
+        if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && promptText.trim()) {
+          e.preventDefault();
+          promptData.onConfirm(promptText, promptAnon);
+          setPromptData(null);
         }
       }
       if (confirmData) {
@@ -359,8 +353,16 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
         }
       }
     };
+    const onSiteKeys = (e: KeyboardEvent) => {
+      if (alertData || promptData || confirmData) return;
+      applySiteKeyboard(e);
+    };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onSiteKeys, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onSiteKeys, true);
+    };
   }, [alertData, promptData, promptText, promptAnon, confirmData]);
 
   return (
@@ -376,6 +378,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
             <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: "0 0 15px 0", fontSize: "24px" }}>{alertData.title}</h3>
             <p style={{ color: "var(--text-main)", fontSize: "15px", fontWeight: 600, marginBottom: "25px", lineHeight: "1.5" }}>{alertData.message}</p>
             <button
+              data-kbd="confirm"
               onClick={() => { if(alertData.onClose) alertData.onClose(); setAlertData(null); }}
               style={{ background: "var(--color-primary)", color: "#111", padding: "12px 30px", borderRadius: "99px", border: "none", fontWeight: 900, cursor: "pointer", width: "100%", fontSize: "14px" }}
             >
@@ -408,10 +411,11 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
             </label>
 
             <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={() => setPromptData(null)} style={{ flex: 1, background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}>
+              <button data-kbd="cancel" onClick={() => setPromptData(null)} style={{ flex: 1, background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}>
                 {t('common.cancel')}
               </button>
-              <button 
+              <button
+                data-kbd="confirm"
                 disabled={!promptText.trim()} 
                 onClick={() => { promptData.onConfirm(promptText, promptAnon); setPromptData(null); }} 
                 style={{ flex: 1, background: "var(--color-primary)", color: "white", border: "none", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: promptText.trim() ? "pointer" : "not-allowed", opacity: promptText.trim() ? 1 : 0.5 }}
@@ -439,6 +443,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
             <p style={{ color: "var(--text-main)", fontSize: "14px", fontWeight: 600, marginBottom: "20px", lineHeight: "1.5" }}>{confirmData.message}</p>
             <div style={{ display: "flex", gap: "10px" }}>
               <button
+                data-kbd="cancel"
                 onClick={() => {
                   confirmData.resolve(false);
                   setConfirmData(null);
@@ -448,6 +453,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
                 {t("common.cancel")}
               </button>
               <button
+                data-kbd="confirm"
                 onClick={() => {
                   confirmData.resolve(true);
                   setConfirmData(null);
