@@ -21,6 +21,7 @@ export type RemovalJob = {
   holderIds: string[];
   converted: Record<string, string[]>;
   sent: Record<string, number[]>;
+  bell?: Record<string, number[]>;
   notices: { n: 1 | 2 | 3; sendAt: string }[];
 };
 
@@ -104,14 +105,23 @@ export function parseRemovalDate(raw: string) {
   return executeAt;
 }
 
+function utcMorning(ms: number) {
+  const day = new Date(ms);
+  return Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 8, 0, 0, 0);
+}
+
 function noticeTimes(executeAt: Date) {
-  const start = Date.now();
   const end = executeAt.getTime();
-  const mid = start + (end - start) / 2;
-  let last = end - 24 * 60 * 60 * 1000;
-  if (last <= mid) last = mid + 60 * 60 * 1000;
+  const day = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  let last = utcMorning(end - day);
+  if (last >= end) last = end - day;
+  if (last <= now) last = Math.max(now + 60 * 60 * 1000, end - 60 * 60 * 1000);
+  let mid = utcMorning(end - 2 * day);
+  if (mid <= now + 60 * 60 * 1000) mid = Math.min(last - 60 * 60 * 1000, now + day);
+  if (mid >= last) mid = now + 2 * 60 * 60 * 1000;
   return [
-    { n: 1 as const, sendAt: new Date(start).toISOString() },
+    { n: 1 as const, sendAt: new Date(now).toISOString() },
     { n: 2 as const, sendAt: new Date(mid).toISOString() },
     { n: 3 as const, sendAt: new Date(last).toISOString() },
   ];
@@ -142,8 +152,8 @@ export async function scheduleCatalogRemoval(admin: Admin, target: RemovalTarget
     notices: noticeTimes(executeAt),
   };
   queue.jobs.push(job);
+  await deliverJobNotices(admin, job);
   await writeQueue(admin, queue);
-  await deliverDueNotices(admin, job.id);
   return { scheduled: true as const, holders: holderIds.length, executeAt: job.executeAt, ...removalCounts(plan) };
 }
 
@@ -196,62 +206,61 @@ function noticeText(n: number, label: string, when: string, lang: string) {
   };
 }
 
-async function deliverDueNotices(admin: Admin, onlyJobId?: string) {
-  const queue = await readQueue(admin);
+async function deliverJobNotices(admin: Admin, job: RemovalJob) {
+  if (job.status !== "scheduled") return;
   const now = Date.now();
-  for (const job of queue.jobs) {
-    if (job.status !== "scheduled") continue;
-    if (onlyJobId && job.id !== onlyJobId) continue;
-    const due = job.notices.filter((notice) => Date.parse(notice.sendAt) <= now);
-    if (!due.length) continue;
-    const langByUser = new Map<string, string>();
-    for (const ids of chunk(job.holderIds, 200)) {
-      const langs = await admin.from("profiles").select("user_id, language").in("user_id", ids);
-      for (const row of langs.data ?? []) langByUser.set(String(row.user_id), String(row.language || "es"));
-    }
-    let dirty = 0;
-    for (const notice of due) {
-      for (const userId of job.holderIds) {
-        if (!userStillHolding(job, userId)) continue;
-        const already = job.sent[userId] || [];
-        if (already.includes(notice.n)) continue;
-        const lang = langByUser.get(userId) || "es";
-        const copy = noticeText(notice.n, job.label, dateLabel(job.executeAt, lang), lang);
-        const note = await admin.from("notifications").insert({
+  const due = (job.notices || []).filter((notice) => Date.parse(notice.sendAt) <= now);
+  if (!due.length) return;
+  job.sent = job.sent || {};
+  job.bell = job.bell || {};
+  const langByUser = new Map<string, string>();
+  for (const ids of chunk(job.holderIds, 200)) {
+    const langs = await admin.from("profiles").select("user_id, language").in("user_id", ids);
+    for (const row of langs.data ?? []) langByUser.set(String(row.user_id), String(row.language || "es"));
+  }
+  for (const notice of due) {
+    for (const userId of job.holderIds) {
+      if (!userStillHolding(job, userId)) continue;
+      const already = job.sent[userId] || [];
+      if (already.includes(notice.n)) continue;
+      const lang = langByUser.get(userId) || "es";
+      const copy = noticeText(notice.n, job.label, dateLabel(job.executeAt, lang), lang);
+      const bell = job.bell[userId] || [];
+      if (!bell.includes(notice.n)) {
+        const payload = {
           user_id: userId,
           sender_id: SITE_ADMIN_USER_ID,
           type: "admin_message",
           content: copy.text,
           read: false,
+          is_read: false,
           metadata: { catalog_removal_id: job.id, execute_at: job.executeAt, notice: notice.n },
-        });
+        };
+        const note = await admin.from("notifications").insert(payload);
         if (note.error) {
-          const retry = await admin.from("notifications").insert({
-            user_id: userId,
-            sender_id: SITE_ADMIN_USER_ID,
-            type: "admin_message",
-            content: copy.text,
-            read: false,
-          });
+          const { metadata: _metadata, ...rest } = payload;
+          const retry = await admin.from("notifications").insert(rest);
           if (retry.error) continue;
         }
-        try {
-          const authUser = await admin.auth.admin.getUserById(userId);
-          const email = authUser.data.user?.email;
-          if (email) await sendMail({ to: email, subject: copy.subject, text: copy.text });
-        } catch {
-          /* the in-app notice is already there; the next run does not repeat it */
-        }
-        job.sent[userId] = [...already, notice.n];
-        dirty += 1;
-        if (dirty >= 10) {
-          await writeQueue(admin, queue);
-          dirty = 0;
-        }
+        job.bell[userId] = [...bell, notice.n];
       }
+      try {
+        const authUser = await admin.auth.admin.getUserById(userId);
+        const email = authUser.data.user?.email;
+        if (email) await sendMail({ to: email, subject: copy.subject, text: copy.text });
+      } catch (err) {
+        console.error("catalog removal mail", err instanceof Error ? err.message : err);
+        continue;
+      }
+      job.sent[userId] = [...already, notice.n];
     }
-    if (dirty) await writeQueue(admin, queue);
   }
+}
+
+async function deliverDueNotices(admin: Admin) {
+  const queue = await readQueue(admin);
+  for (const job of queue.jobs) await deliverJobNotices(admin, job);
+  await writeQueue(admin, queue);
 }
 
 export async function runDueCatalogRemovals(admin: Admin) {
@@ -389,7 +398,8 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
           const back = String(slot.face || "") === "back";
           await admin.from("page_slots").update({
             is_custom: true,
-            item_id: null,
+            item_id: newId,
+            custom_text: item.name || "PC personalizada",
             custom_image_url: back ? item.back_image_url || item.image_url : item.image_url,
             custom_back_image_url: back ? item.image_url : item.back_image_url,
           }).eq("id", slot.id);

@@ -2961,21 +2961,6 @@ const loadAll = useCallback(async () => {
             setRemovalByItem(map);
           }
         }
-        const { data: statuses } = await supabase.from("user_item_statuses").select("item_id").eq("user_id", user.id);
-        const ids = [...new Set((statuses || []).map((row) => Number(row.item_id)).filter((id) => id > 0))];
-        const personal: any[] = [];
-        for (let i = 0; i < ids.length; i += 80) {
-          const slice = ids.slice(i, i + 80);
-          const { data } = await supabase.from("items").select(itemSelect).eq("version", "personal").in("id", slice);
-          personal.push(...(data || []));
-        }
-        if (personal.length) {
-          const extra = mapCatalogItemRows(personal, catalog, true);
-          setItems((prev) => {
-            const seen = new Set(prev.map((row) => row.id));
-            return [...prev, ...extra.filter((row) => !seen.has(row.id))];
-          });
-        }
       } catch {
         /* avisos opcionales */
       }
