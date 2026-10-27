@@ -277,7 +277,9 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
     group_id: "",
     album_id: "",
     album_name: "",
+    album_slug: "",
     version: "",
+    version_name: "",
     type: "photocards",
   });
   const [pieceFiles, setPieceFiles] = useState<File[]>([]);
@@ -1815,7 +1817,9 @@ const levantarSancion = async (userId: string, ticketId: string) => {
           group_id: pieceForm.group_id,
           album_id: pieceForm.album_id === "__new__" ? "" : pieceForm.album_id,
           album_name: pieceForm.album_id === "__new__" ? pieceForm.album_name.trim() : "",
+          album_slug: pieceForm.album_id === "__new__" ? pieceForm.album_slug.trim() : "",
           version: pieceForm.version,
+          version_name: pieceForm.version_name.trim(),
           type: pieceForm.type,
           files: uploaded,
         }),
@@ -1830,7 +1834,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
       if (json.album?.id) {
         setCatalogAlbums((prev) => (prev.some((album) => Number(album.id) === Number(json.album?.id)) ? prev : [...prev, json.album]));
-        setPieceForm((prev) => ({ ...prev, album_id: String(json.album?.id), album_name: "" }));
+        setPieceForm((prev) => ({ ...prev, album_id: String(json.album?.id), album_name: "", album_slug: "" }));
       }
       const done = tr("Set en el stock: {created} fichas nuevas. {skipped} ya estaban.", {
         created: String(json.created ?? 0),
@@ -4327,7 +4331,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                 </button>
               </div>
               <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.55 }}>
-                {tr("Lo que pongas en nombre e imágenes es lo que verán los usuarios en el alta y en el perfil. El slug es solo para uso interno (opcional).")}
+                {tr("El nombre bonito es el que ve la gente. El slug es el nombre interno: bang-chan se muestra como el nombre bonito que escribas, por ejemplo Bang Chan.")}
               </p>
               <form
                 data-tour="cat-pieza"
@@ -4355,7 +4359,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       className="admin-catalog-select"
                       style={inputStyle}
                       value={pieceForm.group_id}
-                      onChange={(e) => setPieceForm({ group_id: e.target.value, album_id: "", album_name: "", version: "", type: pieceForm.type })}
+                      onChange={(e) => setPieceForm({ group_id: e.target.value, album_id: "", album_name: "", album_slug: "", version: "", version_name: "", type: pieceForm.type })}
                     >
                       <option value="">{tr("Elige un grupo")}</option>
                       {[...catalogGroups]
@@ -4371,7 +4375,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       className="admin-catalog-select"
                       style={inputStyle}
                       value={pieceForm.album_id}
-                      onChange={(e) => setPieceForm((p) => ({ ...p, album_id: e.target.value, album_name: e.target.value === "__new__" ? p.album_name : "" }))}
+                      onChange={(e) => setPieceForm((p) => ({ ...p, album_id: e.target.value, album_name: e.target.value === "__new__" ? p.album_name : "", album_slug: e.target.value === "__new__" ? p.album_slug : "" }))}
                     >
                       <option value="">{tr("Elige un álbum")}</option>
                       <option value="__new__">{tr("Álbum nuevo")}</option>
@@ -4386,29 +4390,49 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   </div>
                   {pieceForm.album_id === "__new__" && (
                     <div>
-                      <label style={labelStyle}>{tr("Nombre del álbum nuevo")}</label>
+                      <label style={labelStyle}>{tr("Nombre bonito del álbum")}</label>
                       <input
                         style={inputStyle}
                         value={pieceForm.album_name}
                         onChange={(e) => setPieceForm((p) => ({ ...p, album_name: e.target.value }))}
-                        placeholder={tr("Ej: Hop")}
+                        placeholder={tr("Ej: HOP")}
+                      />
+                    </div>
+                  )}
+                  {pieceForm.album_id === "__new__" && (
+                    <div>
+                      <label style={labelStyle}>{tr("Slug interno del álbum (opcional)")}</label>
+                      <input
+                        style={inputStyle}
+                        value={pieceForm.album_slug}
+                        onChange={(e) => setPieceForm((p) => ({ ...p, album_slug: e.target.value }))}
+                        placeholder="hop"
                       />
                     </div>
                   )}
                   <div>
-                    <label style={labelStyle}>{tr("Carpeta")}</label>
+                    <label style={labelStyle}>{tr("Carpeta (nombre interno)")}</label>
                     <input
                       style={inputStyle}
                       list="catalog-version-list"
                       value={pieceForm.version}
                       onChange={(e) => setPieceForm((p) => ({ ...p, version: e.target.value }))}
-                      placeholder={tr("Nueva, o una que ya exista")}
+                      placeholder="soundwave-offline-ld-2"
                     />
                     <datalist id="catalog-version-list">
                       {pieceVersions.map((version) => (
                         <option key={version} value={version} />
                       ))}
                     </datalist>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{tr("Nombre bonito de la carpeta")}</label>
+                    <input
+                      style={inputStyle}
+                      value={pieceForm.version_name}
+                      onChange={(e) => setPieceForm((p) => ({ ...p, version_name: e.target.value }))}
+                      placeholder={tr("Ej: Soundwave Offline LD 2")}
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>{tr("Tipo")}</label>
@@ -4509,8 +4533,8 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>{tr("Nombre")}</label>
-                    <input style={inputStyle} value={merchForm.name} onChange={(e) => setMerchForm((p) => ({ ...p, name: e.target.value }))} placeholder={tr("Solo si subes una pieza. Si no, se usa el nombre del archivo.")} />
+                    <label style={labelStyle}>{tr("Nombre bonito")}</label>
+                    <input style={inputStyle} value={merchForm.name} onChange={(e) => setMerchForm((p) => ({ ...p, name: e.target.value }))} placeholder={tr("Así se verá. Si subes varias fotos y lo dejas vacío, se usa el nombre del archivo.")} />
                   </div>
                   <div>
                     <label style={labelStyle}>{tr("Rareza")}</label>
@@ -4565,7 +4589,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>{tr("Álbum")}</label>
+                    <label style={labelStyle}>{tr("Nombre bonito")}</label>
                     <input
                       style={inputStyle}
                       list="catalog-album-titles"
@@ -4608,7 +4632,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>{tr("Versión")}</label>
+                    <label style={labelStyle}>{tr("Nombre bonito de la versión")}</label>
                     <input style={inputStyle} value={albumUpload.version} onChange={(e) => setAlbumUpload((p) => ({ ...p, version: e.target.value }))} placeholder={tr("Ej: A, Bang Chan. Si subes varias fotos, cada archivo es una versión.")} />
                   </div>
                 </div>
@@ -4816,7 +4840,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px", alignItems: "start" }}>
                     <div data-tour="cat-grupo" style={{ border: "1px solid var(--color-border)", borderRadius: 16, padding: 18, background: "var(--bg-main)" }}>
                       <h3 style={{ margin: "0 0 14px 0", color: "var(--color-primary)", fontWeight: 900, fontSize: 16 }}>{tr("Grupo")}</h3>
-                      <label style={labelStyle}>{tr("Nombre (visible)")}</label>
+                      <label style={labelStyle}>{tr("Nombre bonito")}</label>
                       <input
                         style={inputStyle}
                         value={catalogGroupForm.name}
@@ -4940,7 +4964,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           </option>
                         ))}
                       </select>
-                      <label style={{ ...labelStyle, marginTop: 12 }}>{tr("Nombre (visible)")}</label>
+                      <label style={{ ...labelStyle, marginTop: 12 }}>{tr("Nombre bonito")}</label>
                       <input
                         style={inputStyle}
                         value={catalogMemberForm.name}

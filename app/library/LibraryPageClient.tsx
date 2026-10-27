@@ -118,6 +118,7 @@ type ItemRow = {
   album_id: number | null;
   type?: string | null;
   version: string | null;
+  version_name?: string | null;
   member: string | null;
 };
 
@@ -173,6 +174,7 @@ function mapCatalogItemRows(all: any[], catalog: LibraryCatalog, keepPersonal = 
       group_id: Number.isFinite(Number(r.group_id)) ? Number(r.group_id) : null,
       album_id: Number.isFinite(Number(r.album_id)) ? Number(r.album_id) : null,
       version: r.version ?? null,
+      version_name: r.version_name ?? null,
       member: r.member ?? null,
       type: r.type ?? null,
     });
@@ -358,10 +360,18 @@ function prettySlug(s: string | null) {
   return toNiceTitle(t.replace(/[-_]+/g, " "));
 }
 
-function prettyVersionLabel(s: string | null) {
+function prettyVersionLabel(s: string | null, pretty?: string | null) {
+  const named = String(pretty || "").trim();
+  if (named) return named;
   const t = (s ?? "").trim();
   if (!t) return "—";
   return toNiceTitle(t.replace(/[-_]+/g, " "));
+}
+
+function memberDisplay(raw: string | null, names: Record<string, string>) {
+  const parts = String(raw || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "—";
+  return parts.map((part) => names[part.toLowerCase()] || prettyMemberLabel(part)).join(" · ");
 }
 
 function prettyMemberLabel(memberRaw: string | null) {
@@ -1079,6 +1089,7 @@ function LibraryItemCard({
   onQuickHave,
   removalNote,
   onMakePersonal,
+  memberNames,
   t,
 }: {
   item: ItemRow;
@@ -1101,6 +1112,7 @@ function LibraryItemCard({
   onQuickHave?: () => void;
   removalNote?: string;
   onMakePersonal?: () => void;
+  memberNames?: Record<string, string>;
   t: (k: string) => string;
 }) {
  
@@ -1122,8 +1134,8 @@ function LibraryItemCard({
   const targetUserId = searchParams.get('u') || currentUserId;
   const prettyGroup = prettySlug(groupName);
   const prettyAlbum = prettyAlbumDisplay(albumName);
-  const prettyVersion = prettyVersionLabel(item.version);
-  const prettyMember = prettyMemberLabel(item.member);
+  const prettyVersion = prettyVersionLabel(item.version, item.version_name);
+  const prettyMember = memberDisplay(item.member, memberNames || {});
 
   const DEFAULT_BACK_URL = "/mock-pcs/groups/default-back.png";
 
@@ -1448,6 +1460,7 @@ function ItemModal({
   uiLang = "es",
   hideBinder,
   onCommitStock,
+  memberNames,
 }: {
   item: ItemRow;
   counts: StatusCounts;
@@ -1469,6 +1482,7 @@ function ItemModal({
   uiLang?: string;
   hideBinder?: boolean;
   onCommitStock?: (next: Record<PersistStatus, number>) => Promise<void>;
+  memberNames?: Record<string, string>;
 }) {
   const [face, setFace] = useState<"front" | "back">("front");
   const [rot, setRot] = useState(0);
@@ -1650,12 +1664,12 @@ function ItemModal({
 
       // 2. Registrar la aportación en la base de datos
       const albumLabel = prettyAlbumDisplay(albumName);
-      const versionLabel = item.version ? prettyVersionLabel(item.version) : "";
+      const versionLabel = item.version ? prettyVersionLabel(item.version, item.version_name) : "";
       const originTitle = [albumLabel, versionLabel]
         .filter((part, index) => part && part !== "—" && (index === 0 || part.toLowerCase() !== albumLabel.toLowerCase()))
         .join(" · ");
       const originGroup = prettySlug(groupName);
-      const originMember = prettyMemberLabel(item.member);
+      const originMember = memberDisplay(item.member, memberNames || {});
 
       const { data: created, error: dbError } = await supabase.from('aportaciones_pcs').insert({
         user_id: authData.user.id,
@@ -2510,6 +2524,7 @@ function LibraryContent() {
         const [selectMode, setSelectMode] = useState(false);
         const [selectedIds, setSelectedIds] = useState<number[]>([]);
         const [removalByItem, setRemovalByItem] = useState<Record<number, string>>({});
+        const [catalogMembers, setCatalogMembers] = useState<{ slug: string; name: string; group_id: number | null }[]>([]);
         const [bulkOpen, setBulkOpen] = useState(false);
         const [binderAskOpen, setBinderAskOpen] = useState(false);
         const [placeOpen, setPlaceOpen] = useState(false);
@@ -2760,7 +2775,7 @@ const loadAll = useCallback(async () => {
   setStatus("Leyendo sesión...");
 
   const PAGE = 1000;
-  const itemSelect = "id, name, image_url, back_image_url, group_id, album_id, type, version, member";
+  const itemSelect = "id, name, image_url, back_image_url, group_id, album_id, type, version, version_name, member";
   const firstPromise = supabase.from("items").select(itemSelect).order("id", { ascending: true }).range(0, PAGE - 1);
 
   const treePromise = (async () => {
@@ -2794,6 +2809,22 @@ const loadAll = useCallback(async () => {
   })();
 
   const groupsPromise = supabase.from("groups").select("id, name");
+  const membersPromise = (async () => {
+    const rows: { slug: string; name: string; group_id: number | null }[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase.from("members").select("slug, name, group_id").range(from, from + 999);
+      if (error || !data?.length) break;
+      for (const row of data) {
+        rows.push({
+          slug: String(row.slug || "").trim().toLowerCase(),
+          name: String(row.name || "").trim(),
+          group_id: Number.isFinite(Number(row.group_id)) ? Number(row.group_id) : null,
+        });
+      }
+      if (data.length < 1000) break;
+    }
+    setCatalogMembers(rows.filter((row) => row.slug && row.name));
+  })();
   const albumsPromise = supabase.from("albums").select("id, name, release_date, group_id");
 
   const { data: userData } = await supabase.auth.getUser();
@@ -2901,7 +2932,7 @@ const loadAll = useCallback(async () => {
   }
 
   setPageFace("front");
-  void Promise.all([treePromise, invPromise, restPromise]).then(async () => {
+  void Promise.all([treePromise, invPromise, restPromise, membersPromise]).then(async () => {
     if (user && !uParam) {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -3314,18 +3345,41 @@ useEffect(() => {
   if (!versionOptions.some((v) => folderVersionMatches(v, fVersion))) setFVersion("all");
 }, [versionOptions, fVersion]);
 // ===== MIEMBROS (8 fijos, pero dependientes del resto de filtros) =====
+const memberNames = useMemo(() => {
+  const map: Record<string, string> = {};
+  for (const member of catalogMembers) map[member.slug] = member.name;
+  return map;
+}, [catalogMembers]);
+const versionPrettyBySlug = useMemo(() => {
+  const map: Record<string, string> = {};
+  for (const item of items) {
+    const pretty = String(item.version_name || "").trim();
+    if (item.version && pretty) map[item.version] = pretty;
+  }
+  return map;
+}, [items]);
 const memberOptionsFixed = useMemo(
-  () => [
-    { value: "bang-chan", label: "Bang Chan" },
-    { value: "lee-know", label: "Lee Know" },
-    { value: "changbin", label: "Changbin" },
-    { value: "hyunjin", label: "Hyunjin" },
-    { value: "han", label: "Han" },
-    { value: "felix", label: "Felix" },
-    { value: "seungmin", label: "Seungmin" },
-    { value: "in", label: "I.N" },
-  ],
-  []
+  () => {
+    const base = [
+      { value: "bang-chan", label: memberNames["bang-chan"] || "Bang Chan" },
+      { value: "lee-know", label: memberNames["lee-know"] || "Lee Know" },
+      { value: "changbin", label: memberNames.changbin || "Changbin" },
+      { value: "hyunjin", label: memberNames.hyunjin || "Hyunjin" },
+      { value: "han", label: memberNames.han || "Han" },
+      { value: "felix", label: memberNames.felix || "Felix" },
+      { value: "seungmin", label: memberNames.seungmin || "Seungmin" },
+      { value: "in", label: memberNames.in || "I.N" },
+    ];
+    const seen = new Set(base.map((row) => row.value));
+    for (const member of catalogMembers) {
+      if (seen.has(member.slug)) continue;
+      if (fGroup !== "all" && member.group_id !== fGroup) continue;
+      seen.add(member.slug);
+      base.push({ value: member.slug, label: member.name });
+    }
+    return base;
+  },
+  [catalogMembers, memberNames, fGroup]
 );
 
 const availableMemberSet = useMemo(() => {
@@ -3500,7 +3554,7 @@ const filtered = useMemo(() => {
         : typeof fAlbum === "number"
           ? formatCollectionOptionLabel(prettyAlbumDisplay(albumById[fAlbum]?.name ?? ""), albumById[fAlbum]?.release_date ?? null)
           : "";
-    const versionLabel = fVersion !== "all" ? prettyVersionLabel(fVersion) : "";
+    const versionLabel = fVersion !== "all" ? prettyVersionLabel(fVersion, versionPrettyBySlug[fVersion]) : "";
     const pobLabel =
       catalog === "photocards" && fPobKind !== "all"
         ? fPobKind === "pob"
@@ -3508,7 +3562,7 @@ const filtered = useMemo(() => {
           : t("library.filters.regular")
         : "";
     return [albumLabel, pobLabel, versionLabel].filter(Boolean).join(" · ");
-  }, [fAlbum, fVersion, fPobKind, folderTree, albumById, catalog, t]);
+  }, [fAlbum, fVersion, fPobKind, folderTree, albumById, catalog, t, versionPrettyBySlug]);
 
   const openColabModal = (prefillFolder = false) => {
     setColabData((d) => ({
@@ -4195,7 +4249,7 @@ const commitStockForItem = useCallback(
               <select value={fVersion} onChange={(e) => setFVersion(e.target.value as string | "all")} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", width: "100%" }}>
                 <option value="all">{allLabel}</option>
                 {versionOptions.map((v) => (
-                  <option key={v} value={v}>{prettyVersionLabel(v)}</option>
+                  <option key={v} value={v}>{prettyVersionLabel(v, versionPrettyBySlug[v])}</option>
                 ))}
               </select>
             </div>
@@ -4552,6 +4606,7 @@ const commitStockForItem = useCallback(
                           date: new Date(removalByItem[it.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }),
                         })
                       : undefined}
+                    memberNames={memberNames}
                     onMakePersonal={() => {
                       void (async () => {
                         try {
@@ -4669,6 +4724,7 @@ return (
     hideBinder={catalog === "inclusions"}
     groupName={groupName}
     albumName={albumName}
+    memberNames={memberNames}
     wttOfferItems={wttOfferItems}
     onOpenWttOffer={() => openWttOfferModal(it.id)}
     onClose={() => setOpenItemId(null)}
@@ -4776,7 +4832,7 @@ return (
               </select>
               <select value={wttOfferVersion} onChange={(e) => setWttOfferVersion(e.target.value)} style={{ padding: "10px", borderRadius: 10, border: "1px solid color-mix(in srgb, var(--color-accent-orange) 40%, var(--color-border))", background: "var(--bg-main)", color: "var(--color-accent-orange)", fontWeight: 800, outline: "none" }}>
                 <option value="">{t("binders.picker.version") || "Versión"}</option>
-                {wttVersionOptions.map((v) => <option key={v} value={v}>{prettyVersionLabel(v)}</option>)}
+                {wttVersionOptions.map((v) => <option key={v} value={v}>{prettyVersionLabel(v, versionPrettyBySlug[v])}</option>)}
               </select>
               <select value={wttOfferMember} onChange={(e) => setWttOfferMember(e.target.value)} style={{ padding: "10px", borderRadius: 10, border: "1px solid color-mix(in srgb, var(--accent-vibe-green) 40%, var(--color-border))", background: "var(--bg-main)", color: "var(--accent-vibe-green)", fontWeight: 800, outline: "none" }}>
                 <option value="">{t("binders.picker.member") || "Miembro"}</option>

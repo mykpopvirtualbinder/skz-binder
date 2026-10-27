@@ -88,6 +88,8 @@ export async function POST(req: Request) {
   if (gate instanceof NextResponse) return gate;
 
   let body: {
+    album_slug?: string;
+    version_name?: string;
     group_id?: number | string;
     album_id?: number | string | null;
     album_name?: string | null;
@@ -104,7 +106,9 @@ export async function POST(req: Request) {
   const groupId = Number(body.group_id);
   const albumIdRaw = Number(body.album_id);
   const albumName = String(body.album_name || "").trim();
+  const albumSlug = slugify(String(body.album_slug || ""));
   const version = slugify(String(body.version || ""));
+  const versionName = String(body.version_name || "").trim();
   const type = String(body.type || "photocards");
   const files = Array.isArray(body.files) ? body.files : [];
 
@@ -153,8 +157,23 @@ export async function POST(req: Request) {
       .select("member_id, name, slug, group_id")
       .eq("group_id", groupId);
 
-    const album = await resolveAlbum(admin, groupId, albumIdRaw, albumName);
+    const album = await resolveAlbum(admin, groupId, albumIdRaw, albumName, albumSlug);
     if ("error" in album) return NextResponse.json({ error: album.error }, { status: 400 });
+
+    const versionPretty = versionName || version.split("-").filter(Boolean).map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
+    const versionRow = await admin.from("versions").select("id, name").eq("album_id", album.id).eq("slug", version).maybeSingle();
+    let versionId = versionRow.data?.id != null ? Number(versionRow.data.id) : null;
+    if (versionId && versionName && versionRow.data?.name !== versionName) {
+      await admin.from("versions").update({ name: versionName }).eq("id", versionId);
+    }
+    if (!versionId) {
+      const createdVersion = await admin
+        .from("versions")
+        .insert({ album_id: album.id, slug: version, name: versionPretty })
+        .select("id")
+        .maybeSingle();
+      if (createdVersion.data?.id != null) versionId = Number(createdVersion.data.id);
+    }
 
     const memberRows = members ?? [];
     const created: { id: number; member: string }[] = [];
@@ -197,6 +216,10 @@ export async function POST(req: Request) {
           member: card.member,
           member_id: memberId,
           version,
+          version_name: versionPretty,
+          version_id: versionId,
+          album_name: album.name,
+          group_name: group.name,
           name,
           image_url: card.frontUrl,
           back_image_url: card.backUrl,
@@ -234,6 +257,7 @@ async function resolveAlbum(
   groupId: number,
   albumIdRaw: number,
   albumName: string,
+  albumSlug: string,
 ): Promise<AlbumRow | { error: string }> {
   if (Number.isFinite(albumIdRaw) && albumIdRaw > 0) {
     const { data: album } = await admin
@@ -246,7 +270,7 @@ async function resolveAlbum(
   }
 
   if (!albumName) return { error: "Elige un álbum o escribe el nombre de uno nuevo." };
-  const slug = slugify(albumName);
+  const slug = albumSlug || slugify(albumName);
   if (!slug) return { error: "El nombre del álbum no es válido." };
 
   const { data: existing, error } = await admin
@@ -258,7 +282,7 @@ async function resolveAlbum(
   const wanted = albumName.trim().toLowerCase();
   const hit = (existing ?? []).find((row) => {
     const name = String(row.name || "").trim().toLowerCase();
-    return name === wanted || slugify(String(row.slug || row.name || "")) === slug;
+    return name === wanted || slugify(String(row.slug || "")) === slug || slugify(String(row.name || "")) === slug;
   });
   if (hit) return hit as AlbumRow;
 
