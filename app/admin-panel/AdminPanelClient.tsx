@@ -313,6 +313,8 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [removeQuery, setRemoveQuery] = useState("");
   const [removeHits, setRemoveHits] = useState<any[]>([]);
   const [removeHitId, setRemoveHitId] = useState("");
+  const [removeFolders, setRemoveFolders] = useState<{ id: string; name: string; items: number }[]>([]);
+  const [removeFolderId, setRemoveFolderId] = useState("");
   const [removeExecuteAt, setRemoveExecuteAt] = useState("");
   const [scheduledRemovals, setScheduledRemovals] = useState<{ id: string; label: string; executeAt: string; holders: number }[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -2014,6 +2016,29 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     }
   };
 
+  useEffect(() => {
+    if (removeTarget !== "folder" || !removeAlbumId) {
+      setRemoveFolders([]);
+      return;
+    }
+    let cancel = false;
+    void (async () => {
+      try {
+        const h = await catalogAuthHeaders();
+        const res = await fetch(`/api/admin/catalog-remove?target=folders&album_id=${encodeURIComponent(removeAlbumId)}`, { headers: h });
+        const json = (await res.json().catch(() => ({}))) as { folders?: { id: string; name: string; items: number }[] };
+        if (cancel || !res.ok) return;
+        setRemoveFolders(json.folders || []);
+        setRemoveFolderId("");
+      } catch {
+        if (!cancel) setRemoveFolders([]);
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [removeTarget, removeAlbumId]);
+
   const searchCatalogRemoval = async () => {
     const h = await catalogAuthHeaders();
     const params = new URLSearchParams();
@@ -2150,7 +2175,9 @@ const levantarSancion = async (userId: string, ticketId: string) => {
         ? removeMemberId
         : target === "album"
           ? removeAlbumId
-          : removeHitId;
+          : target === "folder"
+            ? removeFolderId
+            : removeHitId;
     await beginCatalogRemoval(target, id);
   };
 
@@ -4733,7 +4760,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
               >
                 <h3 style={{ margin: 0, color: "var(--state-danger-fg)", fontWeight: 900, fontSize: 16 }}>{tr("Quitar del catálogo")}</h3>
                 <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 }}>
-                  {tr("Si nadie tiene esa pieza, se borra al momento. Si alguien tiene stock o un hueco de binder, elige la fecha: no se borra hasta ese día y esas personas reciben 3 correos y 3 avisos para pulsar «Convertir en personalizada».")}
+                  {tr("Si nadie tiene esa pieza, se borra al momento. Si alguien tiene stock o un hueco de binder, elige la fecha: no se borra hasta ese día y esas personas reciben 3 correos y 3 avisos para pulsar «Convertir en personalizada». Una carpeta es una versión del álbum: se quitan sus fichas y el álbum se queda.")}
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                   <div>
@@ -4746,12 +4773,14 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         setRemoveTarget(e.target.value);
                         setRemoveHits([]);
                         setRemoveHitId("");
+                        setRemoveFolderId("");
                         setRemoveQuery("");
                       }}
                     >
                       <option value="group">{tr("Grupo")}</option>
                       <option value="member">{tr("Miembro")}</option>
                       <option value="album">{tr("Álbum")}</option>
+                      <option value="folder">{tr("Carpeta")}</option>
                       <option value="item">{tr("Ficha")}</option>
                       <option value="merch">{tr("Merch")}</option>
                     </select>
@@ -4766,6 +4795,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                         setRemoveGroupId(e.target.value);
                         setRemoveMemberId("");
                         setRemoveAlbumId("");
+                        setRemoveFolderId("");
                         setRemoveHits([]);
                         setRemoveHitId("");
                       }}
@@ -4787,13 +4817,26 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                       </select>
                     </div>
                   )}
-                  {(removeTarget === "album" || removeTarget === "item") && (
+                  {(removeTarget === "album" || removeTarget === "item" || removeTarget === "folder") && (
                     <div>
                       <label style={labelStyle}>{tr("Álbum")}</label>
-                      <select className="admin-catalog-select" style={inputStyle} value={removeAlbumId} onChange={(e) => { setRemoveAlbumId(e.target.value); setRemoveHits([]); setRemoveHitId(""); }}>
+                      <select className="admin-catalog-select" style={inputStyle} value={removeAlbumId} onChange={(e) => { setRemoveAlbumId(e.target.value); setRemoveHits([]); setRemoveHitId(""); setRemoveFolderId(""); }}>
                         <option value="">{tr("Elige un álbum")}</option>
                         {catalogAlbumChoices(catalogAlbums, removeGroupId, catalogGroups.find((g) => String(g.id) === removeGroupId)?.name).map((album) => (
                           <option key={album.id} value={String(album.id)}>{album.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {removeTarget === "folder" && (
+                    <div>
+                      <label style={labelStyle}>{tr("Carpeta")}</label>
+                      <select className="admin-catalog-select" style={inputStyle} value={removeFolderId} onChange={(e) => setRemoveFolderId(e.target.value)}>
+                        <option value="">{tr("Elige una carpeta")}</option>
+                        {removeFolders.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            {folder.name} · {folder.items ? tr("{n} fichas", { n: String(folder.items) }) : tr("Sin fichas")}
+                          </option>
                         ))}
                       </select>
                     </div>

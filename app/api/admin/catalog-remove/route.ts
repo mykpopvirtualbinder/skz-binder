@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { applyCatalogRemoval, planCatalogRemoval, removalCounts, type RemovalTarget } from "@/lib/catalog-removal";
+import { applyCatalogRemoval, listAlbumFolders, planCatalogRemoval, removalCounts, type RemovalTarget } from "@/lib/catalog-removal";
 import {
   cancelCatalogRemoval,
   listHolderIds,
@@ -11,7 +11,7 @@ import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 import { canonicalMerchGroupDisplayName } from "@/lib/merch-group-display";
 
-const targets = new Set<RemovalTarget>(["group", "member", "album", "item", "merch"]);
+const targets = new Set<RemovalTarget>(["group", "member", "album", "folder", "item", "merch"]);
 
 function asTarget(value: string | null): RemovalTarget | null {
   return value && targets.has(value as RemovalTarget) ? (value as RemovalTarget) : null;
@@ -62,6 +62,14 @@ export async function GET(req: Request) {
         })
         .slice(0, 40);
       return NextResponse.json({ hits });
+    }
+
+    if (mode === "folders") {
+      const albumId = Number(url.searchParams.get("album_id"));
+      if (!Number.isFinite(albumId) || albumId <= 0) {
+        return NextResponse.json({ error: "Elige un álbum." }, { status: 400 });
+      }
+      return NextResponse.json({ folders: await listAlbumFolders(admin, albumId) });
     }
 
     if (mode === "scheduled") {

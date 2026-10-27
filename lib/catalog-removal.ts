@@ -3,7 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase-admin";
 
 const BUCKET = (process.env.SUPABASE_CATALOG_STORAGE_BUCKET || "catalog").trim() || "catalog";
 
-export type RemovalTarget = "group" | "member" | "album" | "item" | "merch";
+export type RemovalTarget = "group" | "member" | "album" | "folder" | "item" | "merch";
 
 export type RemovalPlan = {
   label: string;
@@ -11,8 +11,16 @@ export type RemovalPlan = {
   albumIds: number[];
   memberIds: number[];
   merchIds: string[];
+  versionIds: number[];
   groupId: number | null;
   storagePaths: string[];
+};
+
+export type AlbumFolder = {
+  id: string;
+  slug: string;
+  name: string;
+  items: number;
 };
 
 type Admin = ReturnType<typeof createServiceRoleClient>;
@@ -84,6 +92,7 @@ export async function planCatalogRemoval(admin: Admin, target: RemovalTarget, id
     albumIds: [],
     memberIds: [],
     merchIds: [],
+    versionIds: [],
     groupId: null,
     storagePaths: [],
   };
@@ -110,6 +119,45 @@ export async function planCatalogRemoval(admin: Admin, target: RemovalTarget, id
     plan.label = String(data.name || "Merch");
     plan.merchIds = [merchId];
     pushPath(plan.storagePaths, data.image_url);
+    return plan;
+  }
+
+  if (target === "folder") {
+    const split = id.indexOf(":");
+    const albumId = Number(split > 0 ? id.slice(0, split) : "");
+    let slug = "";
+    try {
+      slug = decodeURIComponent(split > 0 ? id.slice(split + 1) : "").trim();
+    } catch {
+      slug = "";
+    }
+    if (!Number.isFinite(albumId) || albumId <= 0 || !slug || slug === "personal") throw new Error("Elige una carpeta.");
+    const { data: album, error: albumError } = await admin.from("albums").select("id, name").eq("id", albumId).maybeSingle();
+    if (albumError) throw new Error(albumError.message);
+    if (!album) throw new Error("Ese álbum no está en el catálogo.");
+    const { data: versionRow, error: versionError } = await admin
+      .from("versions")
+      .select("id, name, slug")
+      .eq("album_id", albumId)
+      .eq("slug", slug)
+      .maybeSingle();
+    if (versionError) throw new Error(versionError.message);
+    await eachPage<{ id: number; version: string | null; image_url: string | null; back_image_url: string | null }>(
+      admin,
+      "items",
+      "id, version, image_url, back_image_url",
+      (query) => query.eq("album_id", albumId).eq("version", slug),
+      (row) => {
+        if (String(row.version || "") === "personal") return;
+        plan.itemIds.push(Number(row.id));
+        pushPath(plan.storagePaths, row.image_url);
+        pushPath(plan.storagePaths, row.back_image_url);
+      },
+    );
+    if (!versionRow && !plan.itemIds.length) throw new Error("Esa carpeta no está en el catálogo.");
+    const pretty = String(versionRow?.name || "").trim();
+    plan.label = pretty || slug.split("-").filter(Boolean).map((word) => word.slice(0, 1).toUpperCase() + word.slice(1)).join(" ");
+    if (versionRow?.id != null) plan.versionIds = [Number(versionRow.id)];
     return plan;
   }
 
@@ -236,6 +284,13 @@ export async function applyCatalogRemoval(admin: Admin, plan: RemovalPlan) {
     await deleteIn(admin, "user_merch_statuses", "merch_id", plan.merchIds);
     await deleteIn(admin, "merch_items", "id", plan.merchIds);
   }
+  if (plan.versionIds?.length) {
+    for (const versionId of plan.versionIds) {
+      const cleared = await admin.from("items").update({ version_id: null }).eq("version_id", versionId);
+      if (cleared.error) throw new Error(cleared.error.message);
+    }
+    await deleteIn(admin, "versions", "id", plan.versionIds);
+  }
   if (plan.albumIds.length) await deleteIn(admin, "albums", "id", plan.albumIds);
   if (plan.memberIds.length) await deleteIn(admin, "members", "member_id", plan.memberIds);
   if (plan.groupId) {
@@ -247,6 +302,48 @@ export async function applyCatalogRemoval(admin: Admin, plan: RemovalPlan) {
     const removed = await admin.storage.from(BUCKET).remove(chunk);
     if (removed.error) return;
   }
+}
+
+function folderLabel(slug: string, name?: string | null) {
+  const pretty = String(name || "").trim();
+  if (pretty) return pretty;
+  return slug.split("-").filter(Boolean).map((word) => word.slice(0, 1).toUpperCase() + word.slice(1)).join(" ");
+}
+
+export async function listAlbumFolders(admin: Admin, albumId: number): Promise<AlbumFolder[]> {
+  const buckets = new Map<string, { name: string; items: number }>();
+  const { data: versionRows, error } = await admin.from("versions").select("slug, name").eq("album_id", albumId);
+  if (error) throw new Error(error.message);
+  for (const row of versionRows ?? []) {
+    const slug = String(row.slug || "").trim();
+    if (!slug || slug === "personal") continue;
+    buckets.set(slug, { name: folderLabel(slug, row.name), items: 0 });
+  }
+  await eachPage<{ version: string | null; version_name: string | null }>(
+    admin,
+    "items",
+    "version, version_name",
+    (query) => query.eq("album_id", albumId),
+    (row) => {
+      const slug = String(row.version || "").trim();
+      if (!slug || slug === "personal") return;
+      const current = buckets.get(slug);
+      if (current) {
+        current.items += 1;
+        if (!current.name) current.name = folderLabel(slug, row.version_name);
+        return;
+      }
+      buckets.set(slug, { name: folderLabel(slug, row.version_name), items: 1 });
+    },
+  );
+  return [...buckets.entries()]
+    .map(([slug, bucket]) => ({
+      id: `${albumId}:${encodeURIComponent(slug)}`,
+      slug,
+      name: bucket.name || slug,
+      items: bucket.items,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base", numeric: true }));
 }
 
 export function removalCounts(plan: RemovalPlan) {
