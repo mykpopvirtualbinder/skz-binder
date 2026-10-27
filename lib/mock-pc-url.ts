@@ -806,7 +806,8 @@ export function buildMockPcBackCandidates(
   const out: string[] = [];
   const push = (v: string) => {
     const t = String(v || "").trim();
-    if (!t || out.includes(t) || out.length >= MAX_CANDIDATES) return;
+    // Member backs are often numbered after the fronts (001-front → 009-back).
+    if (!t || out.includes(t) || out.length >= 64) return;
     out.push(t);
   };
   const pushTree = (url: string) => {
@@ -846,6 +847,25 @@ export function buildMockPcBackCandidates(
         if (i === 0) pushAliased(next);
         else pushTree(next);
       });
+      const numbered = se.stem.match(/^(.*\/)(\d+)-front-(.+)$/i);
+      if (numbered) {
+        const dirOfFront = numbered[1];
+        const width = numbered[2].length;
+        const frontNum = Number(numbered[2]);
+        const tail = numbered[3];
+        // 001-front / 009-back is the usual scan. Then the other gaps we have on disk.
+        for (const delta of [8, 12, 4, 9, 1, 11, 7, -4]) {
+          const n = frontNum + delta;
+          if (n < 0 || n > 40) continue;
+          const num = String(n).padStart(width, "0");
+          const stem = `${dirOfFront}${num}-back-${tail}`;
+          push(encodeMockPcPathUrl(`${stem}.png`));
+          if (delta === 8 || delta === 12) {
+            push(encodeMockPcPathUrl(`${stem}.jpg`));
+            push(encodeMockPcPathUrl(`${stem}.JPG`));
+          }
+        }
+      }
     }
     const dir = mockPcDir(resolvedFront);
     const ot8Stems = ["009-back-ot8", "010-back-ot8", "back-ot8", "back ot8", "008-back-ot8", "016-back-ot8"];
