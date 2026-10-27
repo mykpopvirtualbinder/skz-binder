@@ -1,3 +1,4 @@
+import { ADMIN_TEAM_EMAILS } from "@/lib/admin-emails";
 import { SITE_ADMIN_USER_ID } from "@/lib/site-admin-stock";
 import { sendMail } from "@/lib/site-mail";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
@@ -263,15 +264,56 @@ async function deliverDueNotices(admin: Admin) {
   await writeQueue(admin, queue);
 }
 
+async function notifyAdminsCleared(admin: Admin, job: RemovalJob) {
+  const when = dateLabel(job.executeAt, "es");
+  const text = `«${job.label}» ya no la tiene nadie en stock ni en un binder. Se ha borrado del catálogo ahora, sin esperar al ${when}. Las copias personalizadas se quedan.`;
+  const subject = `Borrado hecho: «${job.label}»`;
+  const note = await admin.from("notifications").insert({
+    user_id: SITE_ADMIN_USER_ID,
+    sender_id: SITE_ADMIN_USER_ID,
+    type: "admin_message",
+    content: text,
+    read: false,
+    is_read: false,
+    metadata: { catalog_removal_id: job.id, cleared_early: true },
+  });
+  if (note.error) {
+    await admin.from("notifications").insert({
+      user_id: SITE_ADMIN_USER_ID,
+      sender_id: SITE_ADMIN_USER_ID,
+      type: "admin_message",
+      content: text,
+      read: false,
+      is_read: false,
+    });
+  }
+  for (const email of ADMIN_TEAM_EMAILS) {
+    try {
+      await sendMail({ to: email, subject, text });
+    } catch (err) {
+      console.error("catalog removal admin mail", err instanceof Error ? err.message : err);
+    }
+  }
+}
+
 export async function runDueCatalogRemovals(admin: Admin) {
   await deliverDueNotices(admin);
   const queue = await readQueue(admin);
   const now = Date.now();
   for (const job of queue.jobs) {
     if (job.status !== "scheduled") continue;
-    if (Date.parse(job.executeAt) > now) continue;
+    const due = Date.parse(job.executeAt) <= now;
+    const holders = await listHolderIds(admin, job.plan);
+    if (!due && holders.length) continue;
     await applyCatalogRemoval(admin, job.plan);
     job.status = "done";
+    if (!due) {
+      try {
+        await notifyAdminsCleared(admin, job);
+      } catch (err) {
+        console.error("catalog removal admin notice", err instanceof Error ? err.message : err);
+      }
+    }
   }
   await writeQueue(admin, queue);
   return queue.jobs.filter((job) => job.status === "scheduled").length;
@@ -434,6 +476,16 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
 
   done.add(key);
   job.converted[userId] = [...done];
+  const holders = await listHolderIds(admin, job.plan);
+  if (!holders.length) {
+    await applyCatalogRemoval(admin, job.plan);
+    job.status = "done";
+    try {
+      await notifyAdminsCleared(admin, job);
+    } catch (err) {
+      console.error("catalog removal admin notice", err instanceof Error ? err.message : err);
+    }
+  }
   await writeQueue(admin, queue);
-  return { ok: true, already: false };
+  return { ok: true, already: false, cleared: holders.length === 0 };
 }
