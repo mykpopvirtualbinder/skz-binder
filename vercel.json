@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/catalog-removals/run",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

@@ -301,6 +301,8 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   const [removeQuery, setRemoveQuery] = useState("");
   const [removeHits, setRemoveHits] = useState<any[]>([]);
   const [removeHitId, setRemoveHitId] = useState("");
+  const [removeExecuteAt, setRemoveExecuteAt] = useState("");
+  const [scheduledRemovals, setScheduledRemovals] = useState<{ id: string; label: string; executeAt: string; holders: number }[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogGroupForm, setCatalogGroupForm] = useState({ id: null as number | null, name: "", slug: "", logo_url: "" });
   const [catalogMemberForm, setCatalogMemberForm] = useState({
@@ -1629,6 +1631,11 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       setCatalogGroups(json.groups || []);
       setCatalogMembers(json.members || []);
       setCatalogAlbums(json.albums || []);
+      const scheduled = await fetch("/api/admin/catalog-remove?target=scheduled", { headers: h });
+      if (scheduled.ok) {
+        const pending = (await scheduled.json().catch(() => ({}))) as { jobs?: { id: string; label: string; executeAt: string; holders: number }[] };
+        setScheduledRemovals(pending.jobs || []);
+      }
     } catch (err: any) {
       showAlert(tr("Catálogo"), err?.message || tr("No se pudo cargar."));
     } finally {
@@ -1928,18 +1935,47 @@ const levantarSancion = async (userId: string, ticketId: string) => {
           const res = await fetch("/api/admin/catalog-remove", {
             method: "POST",
             headers: { ...h, "Content-Type": "application/json" },
-            body: JSON.stringify({ target, id }),
+            body: JSON.stringify({ target, id, executeAt: removeExecuteAt || undefined }),
           });
-          const json = (await res.json().catch(() => ({}))) as { error?: string; label?: string; items?: number; merch?: number };
+          const json = (await res.json().catch(() => ({}))) as {
+            error?: string;
+            label?: string;
+            items?: number;
+            merch?: number;
+            needsDate?: boolean;
+            scheduled?: boolean;
+            holders?: number;
+            executeAt?: string;
+          };
           if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-          showAlert(
-            tr("Catálogo"),
-            tr("Quitado: {label}. Fichas {items}, merch {merch}.", {
-              label: String(json.label || ""),
-              items: String(json.items ?? 0),
-              merch: String(json.merch ?? 0),
-            }),
-          );
+          if (json.needsDate) {
+            showAlert(
+              tr("Catálogo"),
+              tr("Hay {holders} personas con stock o un hueco de binder. Elige la fecha de borrado, al menos a 3 días, y vuelve a pulsar. No se borra nada hasta ese día.", {
+                holders: String(json.holders ?? 0),
+              }),
+            );
+            return;
+          }
+          if (json.scheduled) {
+            showAlert(
+              tr("Catálogo"),
+              tr("Programado: «{label}». El {date} se borra. {holders} personas recibirán 3 correos y 3 avisos en la web.", {
+                label: String(json.label || ""),
+                date: String(json.executeAt || removeExecuteAt).slice(0, 10),
+                holders: String(json.holders ?? 0),
+              }),
+            );
+          } else {
+            showAlert(
+              tr("Catálogo"),
+              tr("Quitado: {label}. Fichas {items}, merch {merch}.", {
+                label: String(json.label || ""),
+                items: String(json.items ?? 0),
+                merch: String(json.merch ?? 0),
+              }),
+            );
+          }
           setRemoveHits([]);
           setRemoveHitId("");
           await loadCatalog();
@@ -1952,6 +1988,51 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     });
   };
 
+  const beginCatalogRemoval = async (target: string, id: string | number) => {
+    if (!id) {
+      showAlert(tr("Catálogo"), tr("Elige qué quieres quitar."));
+      return;
+    }
+    setLoading(true);
+    try {
+      const h = await catalogAuthHeaders();
+      const res = await fetch(`/api/admin/catalog-remove?target=${encodeURIComponent(target)}&id=${encodeURIComponent(String(id))}`, { headers: h });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; label?: string; items?: number; albums?: number; members?: number; merch?: number; holders?: number };
+      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+      const holders = Number(json.holders || 0);
+      if (holders > 0 && !removeExecuteAt) {
+        setRemoveTarget(target);
+        if (target === "group") setRemoveGroupId(String(id));
+        if (target === "member") setRemoveMemberId(String(id));
+        showAlert(
+          tr("Catálogo"),
+          tr("Hay {holders} personas con stock o un hueco de binder. Elige la fecha de borrado, al menos a 3 días, y vuelve a pulsar. No se borra nada hasta ese día.", {
+            holders: String(holders),
+          }),
+        );
+        return;
+      }
+      const message = holders > 0
+        ? tr("No se borra hoy. El {date} se quitará «{label}». {holders} personas tienen stock o un hueco. Recibirán 3 correos y 3 avisos en la web para pulsar «Convertir en personalizada».", {
+            date: removeExecuteAt,
+            label: String(json.label || ""),
+            holders: String(holders),
+          })
+        : tr("Se quitará «{label}». Nadie lo tiene en stock ni en un binder, así que se borra ahora. Desaparecen {items} fichas, {albums} álbumes, {members} miembros y {merch} merch.", {
+            label: String(json.label || ""),
+            items: String(json.items ?? 0),
+            albums: String(json.albums ?? 0),
+            members: String(json.members ?? 0),
+            merch: String(json.merch ?? 0),
+          });
+      await askCatalogRemoval(target, id, message);
+    } catch (err: any) {
+      showAlert(tr("Catálogo"), err?.message || tr("No se pudo quitar del catálogo."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const prepareCatalogRemoval = async () => {
     const target = removeTarget;
     const id = target === "group"
@@ -1961,29 +2042,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
         : target === "album"
           ? removeAlbumId
           : removeHitId;
-    if (!id) {
-      showAlert(tr("Catálogo"), tr("Elige qué quieres quitar."));
-      return;
-    }
-    setLoading(true);
-    try {
-      const h = await catalogAuthHeaders();
-      const res = await fetch(`/api/admin/catalog-remove?target=${encodeURIComponent(target)}&id=${encodeURIComponent(String(id))}`, { headers: h });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; label?: string; items?: number; albums?: number; members?: number; merch?: number };
-      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-      const message = tr("Se quitará «{label}». Desaparecen {items} fichas, {albums} álbumes, {members} miembros y {merch} merch, con su stock, sus anuncios y sus huecos de binder.", {
-        label: String(json.label || ""),
-        items: String(json.items ?? 0),
-        albums: String(json.albums ?? 0),
-        members: String(json.members ?? 0),
-        merch: String(json.merch ?? 0),
-      });
-      await askCatalogRemoval(target, id, message);
-    } catch (err: any) {
-      showAlert(tr("Catálogo"), err?.message || tr("No se pudo quitar del catálogo."));
-    } finally {
-      setLoading(false);
-    }
+    await beginCatalogRemoval(target, id);
   };
 
 const togglePremium = async (p: any, planToSet: string, e: React.MouseEvent) => {
@@ -4453,7 +4512,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
               >
                 <h3 style={{ margin: 0, color: "var(--state-danger-fg)", fontWeight: 900, fontSize: 16 }}>{tr("Quitar del catálogo")}</h3>
                 <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", fontWeight: 600, lineHeight: 1.5 }}>
-                  {tr("Grupo, miembro, álbum, ficha o merch. Un miembro se lleva sus photocards, POBs, inclusiones y las unidades en las que sale. Un grupo se lleva todo lo suyo. También se vacían el stock, los anuncios y los huecos de binder.")}
+                  {tr("Si nadie tiene esa pieza, se borra al momento. Si alguien tiene stock o un hueco de binder, elige la fecha: no se borra hasta ese día y esas personas reciben 3 correos y 3 avisos para pulsar «Convertir en personalizada».")}
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
                   <div>
@@ -4559,9 +4618,58 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                     </div>
                   )}
                 </div>
+                <div>
+                  <label style={labelStyle}>{tr("Fecha de borrado")}</label>
+                  <input
+                    type="date"
+                    style={inputStyle}
+                    value={removeExecuteAt}
+                    min={new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
+                    onChange={(e) => setRemoveExecuteAt(e.target.value)}
+                  />
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>
+                    {tr("Obligatoria si alguien tiene la pieza. Mínimo dentro de 3 días. Si nadie la tiene, se ignora y se borra ahora.")}
+                  </p>
+                </div>
                 <button type="submit" disabled={loading} style={{ background: "var(--state-danger-fg, #b42318)", color: "white", border: "none", padding: "10px 18px", borderRadius: "10px", fontWeight: 900, cursor: loading ? "wait" : "pointer", alignSelf: "flex-start" }}>
                   {tr("Quitar del catálogo")}
                 </button>
+                {scheduledRemovals.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: "var(--text-main)" }}>{tr("Borrados programados")}</div>
+                    {scheduledRemovals.map((job) => (
+                      <div key={job.id} style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", fontSize: 12, fontWeight: 700 }}>
+                        <span>{job.label} · {job.executeAt.slice(0, 10)} · {job.holders}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void (async () => {
+                              setLoading(true);
+                              try {
+                                const h = await catalogAuthHeaders();
+                                const res = await fetch("/api/admin/catalog-remove", {
+                                  method: "POST",
+                                  headers: { ...h, "Content-Type": "application/json" },
+                                  body: JSON.stringify({ action: "cancel", id: job.id }),
+                                });
+                                const json = (await res.json().catch(() => ({}))) as { error?: string };
+                                if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+                                await loadCatalog();
+                              } catch (err: any) {
+                                showAlert(tr("Catálogo"), err?.message || tr("No se pudo anular el borrado."));
+                              } finally {
+                                setLoading(false);
+                              }
+                            })();
+                          }}
+                          style={{ border: "1px solid var(--color-border)", background: "var(--bg-soft)", color: "var(--color-primary)", borderRadius: 8, padding: "4px 8px", fontWeight: 900, cursor: "pointer" }}
+                        >
+                          {tr("Anular")}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </form>
 
               {catalogLoading && catalogGroups.length === 0 ? (
@@ -4873,34 +4981,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                           <button
                             type="button"
                             data-tour={groupIndex === 0 ? "cat-borrar-grupo" : undefined}
-                            onClick={() => {
-                              setConfirmDialog({
-                                title: tr("Borrar grupo"),
-                                message: tr("Se quitará el grupo «{name}» y todo lo suyo: miembros, álbumes, fichas, merch, stock, anuncios y huecos de binder.", { name: String(g.name || "") }),
-                                onConfirm: async () => {
-                                  setLoading(true);
-                                  try {
-                                    const h = await catalogAuthHeaders();
-                                    const res = await fetch("/api/admin/catalog-remove", {
-                                      method: "POST",
-                                      headers: { ...h, "Content-Type": "application/json" },
-                                      body: JSON.stringify({ target: "group", id: g.id }),
-                                    });
-                                    const json = (await res.json().catch(() => ({}))) as { error?: string };
-                                    if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-                                    showAlert(tr("Catálogo"), tr("Grupo eliminado."));
-                                    if (catalogGroupForm.id === Number(g.id)) {
-                                      setCatalogGroupForm({ id: null, name: "", slug: "", logo_url: "" });
-                                    }
-                                    await loadCatalog();
-                                  } catch (err: any) {
-                                    showAlert(tr("Catálogo"), err?.message || tr("Error al borrar."));
-                                  } finally {
-                                    setLoading(false);
-                                  }
-                                },
-                              });
-                            }}
+                            onClick={() => void beginCatalogRemoval("group", g.id)}
                             style={{
                               border: "1px solid var(--state-danger-border)",
                               background: "var(--state-danger-bg)",
@@ -5006,40 +5087,7 @@ style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1
                             <button
                               type="button"
                               data-tour={memberIndex === 0 ? "cat-borrar-miembro" : undefined}
-                              onClick={() => {
-                                setConfirmDialog({
-                                  title: tr("Borrar miembro"),
-                                  message: tr("Se quitará a «{name}» y sus fichas, también las unidades en las que sale. El stock, los anuncios y los huecos de binder de esas fichas se vacían.", { name: String(m.name || "") }),
-                                  onConfirm: async () => {
-                                    setLoading(true);
-                                    try {
-                                      const h = await catalogAuthHeaders();
-                                      const res = await fetch("/api/admin/catalog-remove", {
-                                        method: "POST",
-                                        headers: { ...h, "Content-Type": "application/json" },
-                                        body: JSON.stringify({ target: "member", id: mid }),
-                                      });
-                                      const json = (await res.json().catch(() => ({}))) as { error?: string };
-                                      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
-                                      showAlert(tr("Catálogo"), tr("Miembro eliminado."));
-                                      if (catalogMemberForm.id === mid) {
-                                        setCatalogMemberForm((p) => ({
-                                          id: null,
-                                          group_id: p.group_id,
-                                          name: "",
-                                          slug: "",
-                                          image_url: "",
-                                        }));
-                                      }
-                                      await loadCatalog();
-                                    } catch (err: any) {
-                                      showAlert(tr("Catálogo"), err?.message || tr("Error al borrar."));
-                                    } finally {
-                                      setLoading(false);
-                                    }
-                                  },
-                                });
-                              }}
+                              onClick={() => void beginCatalogRemoval("member", mid)}
                               style={{
                                 border: "1px solid var(--state-danger-border)",
                                 background: "var(--state-danger-bg)",

@@ -4789,7 +4789,9 @@ useEffect(() => {
       setWttWantLoading(true);
       const res = await supabase.from("items").select("id, name, image_url, group_id, album_id, version, member").order("id", { ascending: true });
       if (!res.error && res.data) {
-        const list = res.data.map((r: any) => ({
+        const list = res.data
+          .filter((r: any) => String(r.version || "") !== "personal")
+          .map((r: any) => ({
           id: Number(r.id),
           name: r.name,
           image_url: r.image_url,

@@ -813,5 +813,16 @@
   "Subir al stock": "Add to stock",
   "Elige la cara delantera.": "Choose the front.",
   "Pieza en el stock. Puedes subir el siguiente miembro de esta misma carpeta.": "The piece is in stock. You can upload the next member of this same folder.",
-  "No se pudo crear la ficha.": "The card could not be created."
+  "No se pudo crear la ficha.": "The card could not be created.",
+  "Si nadie tiene esa pieza, se borra al momento. Si alguien tiene stock o un hueco de binder, elige la fecha: no se borra hasta ese día y esas personas reciben 3 correos y 3 avisos para pulsar «Convertir en personalizada».": "If nobody holds that piece, it is deleted right away. If someone has stock or a binder slot, pick the date: it stays until that day and those people get 3 emails and 3 notices to press “Make it personal”.",
+  "Fecha de borrado": "Deletion date",
+  "Obligatoria si alguien tiene la pieza. Mínimo dentro de 3 días. Si nadie la tiene, se ignora y se borra ahora.": "Required if someone holds the piece. At least 3 days away. If nobody holds it, the date is ignored and it is deleted now.",
+  "Borrados programados": "Scheduled deletions",
+  "Anular": "Cancel",
+  "No se pudo anular el borrado.": "The scheduled deletion could not be cancelled.",
+  "Hay {holders} personas con stock o un hueco de binder. Elige la fecha de borrado, al menos a 3 días, y vuelve a pulsar. No se borra nada hasta ese día.": "{holders} people have stock or a binder slot. Pick a deletion date at least 3 days away and press again. Nothing is deleted until that day.",
+  "No se borra hoy. El {date} se quitará «{label}». {holders} personas tienen stock o un hueco. Recibirán 3 correos y 3 avisos en la web para pulsar «Convertir en personalizada».": "It is not deleted today. On {date}, “{label}” will be removed. {holders} people have stock or a slot. They will get 3 emails and 3 notices on the site to press “Make it personal”.",
+  "Se quitará «{label}». Nadie lo tiene en stock ni en un binder, así que se borra ahora. Desaparecen {items} fichas, {albums} álbumes, {members} miembros y {merch} merch.": "“{label}” will be removed. Nobody has it in stock or in a binder, so it is deleted now. {items} cards, {albums} albums, {members} members and {merch} merch disappear.",
+  "Programado: «{label}». El {date} se borra. {holders} personas recibirán 3 correos y 3 avisos en la web.": "Scheduled: “{label}”. It is deleted on {date}. {holders} people will get 3 emails and 3 notices on the site.",
+  "Si nadie la tiene, se borra al momento. Si alguien tiene stock o un hueco de binder, elige la fecha y se avisa tres veces para que la pasen a personalizada.": "If nobody holds it, it is deleted right away. If someone has stock or a binder slot, pick the date and they are warned three times so they can make it personal."
 }

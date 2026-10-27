@@ -145,9 +145,10 @@ type UserItemStatusRow = {
   price_koins?: number | null;
 };
 
-function mapCatalogItemRows(all: any[], catalog: LibraryCatalog): ItemRow[] {
+function mapCatalogItemRows(all: any[], catalog: LibraryCatalog, keepPersonal = false): ItemRow[] {
   const itemsData: ItemRow[] = [];
   for (const r of all as ItemRow[]) {
+    if (!keepPersonal && String(r.version || "") === "personal") continue;
     const typeRaw = String(r.type ?? "").trim().toLowerCase();
     const frontRaw = String(r.image_url ?? "").toLowerCase();
     const isInclusion = typeRaw.startsWith("inclusions") || frontRaw.includes("/inclusions/");
@@ -1076,6 +1077,8 @@ function LibraryItemCard({
   selected,
   onToggleSelected,
   onQuickHave,
+  removalNote,
+  onMakePersonal,
   t,
 }: {
   item: ItemRow;
@@ -1096,6 +1099,8 @@ function LibraryItemCard({
   selected?: boolean;
   onToggleSelected?: () => void;
   onQuickHave?: () => void;
+  removalNote?: string;
+  onMakePersonal?: () => void;
   t: (k: string) => string;
 }) {
  
@@ -1337,6 +1342,21 @@ function LibraryItemCard({
   <StockDropdown counts={counts} onCommit={onCommitStock} disabled={disableEdits} markTour={markTour} t={t} />
         </div>
       </div>
+      {removalNote && onMakePersonal && !disableEdits && (
+        <div style={{ width: 120, marginTop: 6 }}>
+          <p style={{ margin: "0 0 4px", fontSize: 10, lineHeight: 1.3, color: "var(--state-danger-fg, #b42318)", fontWeight: 700, textAlign: "center" }}>{removalNote}</p>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMakePersonal();
+            }}
+            style={{ width: "100%", fontSize: 10, fontWeight: 900, padding: "6px 4px", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--bg-soft)", color: "var(--color-primary)", cursor: "pointer" }}
+          >
+            {t("library.convert_personal")}
+          </button>
+        </div>
+      )}
 
      {/* FILA 2 */}
         <div
@@ -2489,6 +2509,7 @@ function LibraryContent() {
         const [fInBinder, setFInBinder] = useState(false);
         const [selectMode, setSelectMode] = useState(false);
         const [selectedIds, setSelectedIds] = useState<number[]>([]);
+        const [removalByItem, setRemovalByItem] = useState<Record<number, string>>({});
         const [bulkOpen, setBulkOpen] = useState(false);
         const [binderAskOpen, setBinderAskOpen] = useState(false);
         const [placeOpen, setPlaceOpen] = useState(false);
@@ -2880,7 +2901,41 @@ const loadAll = useCallback(async () => {
   }
 
   setPageFace("front");
-  void Promise.all([treePromise, invPromise, restPromise]).then(() => {
+  void Promise.all([treePromise, invPromise, restPromise]).then(async () => {
+    if (user && !uParam) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (token) {
+          const noticeRes = await fetch("/api/catalog-removals/mine", { headers: { Authorization: `Bearer ${token}` } });
+          if (noticeRes.ok) {
+            const notice = (await noticeRes.json()) as { items?: { id: number; executeAt: string }[] };
+            const map: Record<number, string> = {};
+            for (const row of notice.items || []) map[Number(row.id)] = String(row.executeAt || "");
+            setRemovalByItem(map);
+          }
+        }
+        const { data: statuses } = await supabase.from("user_item_statuses").select("item_id").eq("user_id", user.id);
+        const ids = [...new Set((statuses || []).map((row) => Number(row.item_id)).filter((id) => id > 0))];
+        const personal: any[] = [];
+        for (let i = 0; i < ids.length; i += 80) {
+          const slice = ids.slice(i, i + 80);
+          const { data } = await supabase.from("items").select(itemSelect).eq("version", "personal").in("id", slice);
+          personal.push(...(data || []));
+        }
+        if (personal.length) {
+          const extra = mapCatalogItemRows(personal, catalog, true);
+          setItems((prev) => {
+            const seen = new Set(prev.map((row) => row.id));
+            return [...prev, ...extra.filter((row) => !seen.has(row.id))];
+          });
+        }
+      } catch {
+        /* avisos opcionales */
+      }
+    } else {
+      setRemovalByItem({});
+    }
     setStatus(user ? "Inventario listo ✅" : "Catálogo listo ✅");
     setLoadingMore(false);
   });
@@ -4492,6 +4547,31 @@ const commitStockForItem = useCallback(
                     onOpen={() => setOpenItemId(it.id)}
                     hideBinder={catalog === "inclusions"}
                     markTour={cardIndex === 0}
+                    removalNote={removalByItem[it.id]
+                      ? t("library.removal_on", {
+                          date: new Date(removalByItem[it.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }),
+                        })
+                      : undefined}
+                    onMakePersonal={() => {
+                      void (async () => {
+                        try {
+                          const { data: sessionData } = await supabase.auth.getSession();
+                          const token = sessionData.session?.access_token;
+                          if (!token) throw new Error("login");
+                          const res = await fetch("/api/catalog-removals/convert", {
+                            method: "POST",
+                            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                            body: JSON.stringify({ kind: "item", id: it.id }),
+                          });
+                          const json = (await res.json().catch(() => ({}))) as { error?: string };
+                          if (!res.ok) throw new Error(json.error || t("library.convert_failed"));
+                          showAlert(t("library.convert_done_title"), t("library.convert_done"));
+                          await loadAll();
+                        } catch (err: any) {
+                          showAlert(t("library.convert_done_title"), err?.message || t("library.convert_failed"));
+                        }
+                      })();
+                    }}
                     t={t}
                   />
                 </div>

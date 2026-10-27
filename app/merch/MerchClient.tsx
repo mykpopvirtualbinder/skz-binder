@@ -496,6 +496,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   const [showColabModal, setShowColabModal] = useState(false);
   const [allDbGroups, setAllDbGroups] = useState<string[]>([]);
   const [myInventory, setMyInventory] = useState<Record<string, MerchStatus>>({});
+  const [removalByMerch, setRemovalByMerch] = useState<Record<string, string>>({});
   const [wishMeta, setWishMeta] = useState<Record<string, WishPosterMeta>>({});
   const [wttOfferByMerch, setWttOfferByMerch] = useState<Record<string, string[]>>({});
 
@@ -728,11 +729,67 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
       setWishMeta(wm);
       setWttOfferByMerch(wttOffers);
     }
+    if (profile?.id) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (token) {
+          const noticeRes = await fetch("/api/catalog-removals/mine", { headers: { Authorization: `Bearer ${token}` } });
+          if (noticeRes.ok) {
+            const notice = (await noticeRes.json()) as { merch?: { id: string; executeAt: string }[] };
+            const map: Record<string, string> = {};
+            for (const row of notice.merch || []) map[String(row.id)] = String(row.executeAt || "");
+            setRemovalByMerch(map);
+          }
+        }
+        const ownedIds = [...new Set((inventory || []).map((row: { merch_id?: string }) => String(row.merch_id || "")).filter(Boolean))];
+        const personal: MerchItem[] = [];
+        for (let i = 0; i < ownedIds.length; i += 80) {
+          const slice = ownedIds.slice(i, i + 80);
+          const { data } = await supabase.from("merch_items").select("id, name, category, group_name, image_url, rarity, album_title, album_type, album_version").in("id", slice);
+          for (const row of data || []) {
+            if (String(row.album_version || "") === "personal" && row.image_url) personal.push(row as MerchItem);
+          }
+        }
+        if (personal.length) {
+          setMerchCatalog((prev) => {
+            const seen = new Set(prev.map((row) => row.id));
+            return [...prev, ...personal.filter((row) => !seen.has(row.id))];
+          });
+        }
+      } catch {
+        /* avisos opcionales */
+      }
+    } else {
+      setRemovalByMerch({});
+    }
   };
 
   useEffect(() => {
     void loadMerchData();
   }, [profile?.id, variant]);
+
+  const convertMerchPersonal = async (id: string) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      showAlert(t("library.convert_done_title"), t("library.convert_failed"));
+      return;
+    }
+    try {
+      const res = await fetch("/api/catalog-removals/convert", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "merch", id }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error || t("library.convert_failed"));
+      showAlert(t("library.convert_done_title"), t("library.convert_done"));
+      await loadMerchData();
+    } catch (err: unknown) {
+      showAlert(t("library.convert_done_title"), err instanceof Error ? err.message : t("library.convert_failed"));
+    }
+  };
 
   const ensureMerchItemInDb = async (item: MerchItem | undefined) => {
     if (!item?.id) return { ok: false as const, error: t("common.error") };
@@ -2109,6 +2166,19 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                       <button onClick={() => openMerchWttPicker(item)} style={{ background: "transparent", color: "var(--accent-vibe-violet)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.wtt > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-violet) 55%, transparent)" : "none" }}><Repeat2 size={12}/> {t("merch.label_wtt")}</button>
                       <button onClick={() => setWtsModal(item)} style={{ background: "transparent", color: "var(--accent-vibe-orange)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.wts > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-orange) 55%, transparent)" : "none" }}><DollarSign size={12}/> {t("merch.label_wts")}</button>
                     </div>
+                    {removalByMerch[item.id] && (
+                      <button
+                        type="button"
+                        onClick={() => void convertMerchPersonal(item.id)}
+                        style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", marginBottom: "8px" }}
+                      >
+                        {t("merch.removal_on", {
+                          date: new Date(removalByMerch[item.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }),
+                        })}
+                        {" · "}
+                        {t("merch.convert_personal")}
+                      </button>
+                    )}
 
                     <button onClick={() => updateMerchStatus(item.id, 'wishlist', isWish ? -1 : 1, { defaultTitle: albumHeading })} style={{ background: isWish ? "color-mix(in srgb, #ffe88a 35%, var(--bg-card))" : "color-mix(in srgb, #ffe88a 18%, var(--bg-card))", border: `1px ${isWish ? 'solid' : 'dashed'} color-mix(in srgb, #ffe88a 60%, var(--color-border))`, color: "#ffe88a", padding: "8px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
                        <Star size={14} color="#ffe88a" fill={isWish ? "#ffe88a" : "none"}/> {isWish ? t("merch.in_wishlist") : t("merch.add_wishlist")}

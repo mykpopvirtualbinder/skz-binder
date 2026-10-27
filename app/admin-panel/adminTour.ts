@@ -173,7 +173,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='cat-quitar']",
       title: tr("Quitar del catálogo"),
-      text: tr("Quita un grupo, un miembro, un álbum, una ficha o un merch. También sale del stock, de los anuncios y de los binders."),
+      text: tr("Si nadie la tiene, se borra al momento. Si alguien tiene stock o un hueco de binder, elige la fecha y se avisa tres veces para que la pasen a personalizada."),
       side: "bottom",
       tab: "catalogo",
     },

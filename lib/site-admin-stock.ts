@@ -29,17 +29,19 @@ async function fetchAll(table: "items" | "merch_items", columns: string) {
 /** Una unidad de cada photocard, inclusión y merch que exista en el catálogo. */
 export async function loadSiteAdminStock(): Promise<SiteAdminStockCard[]> {
   const [items, merch] = await Promise.all([
-    fetchAll("items", "id, name, image_url"),
-    fetchAll("merch_items", "id, name, image_url"),
+    fetchAll("items", "id, name, image_url, version"),
+    fetchAll("merch_items", "id, name, image_url, album_version"),
   ]);
+  const publicItems = items.filter((item) => String((item as { version?: string | null }).version || "") !== "personal");
+  const publicMerch = merch.filter((item) => String((item as { album_version?: string | null }).album_version || "") !== "personal");
   return [
-    ...items.map((item) => ({
+    ...publicItems.map((item) => ({
       id: `pc-${item.id}`,
       qty: 1 as const,
       status: "have" as const,
       item: { id: item.id, name: item.name ?? null, image_url: item.image_url ?? null },
     })),
-    ...merch.map((item) => ({
+    ...publicMerch.map((item) => ({
       id: `merch-${item.id}`,
       qty: 1 as const,
       status: "have" as const,
@@ -49,9 +51,6 @@ export async function loadSiteAdminStock(): Promise<SiteAdminStockCard[]> {
 }
 
 export async function countSiteAdminStock() {
-  const [items, merch] = await Promise.all([
-    supabase.from("items").select("id", { count: "exact", head: true }),
-    supabase.from("merch_items").select("id", { count: "exact", head: true }),
-  ]);
-  return (items.count || 0) + (merch.count || 0);
+  const stock = await loadSiteAdminStock();
+  return stock.length;
 }

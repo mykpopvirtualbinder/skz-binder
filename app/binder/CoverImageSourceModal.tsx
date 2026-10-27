@@ -194,6 +194,7 @@ async function loadPcs(query: string, filters: Filters): Promise<PickItem[]> {
   const { data, error } = await req;
   if (error) return [];
   return (data || [])
+    .filter((row) => String(row.version || "") !== "personal")
     .map((row) => {
       const url = usableUrl(resolveMockPcImageUrl(row.image_url));
       if (!url) return null;

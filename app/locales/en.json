@@ -141,6 +141,11 @@
   },
   "library": {
     "search_placeholder": "Search member, group, album, collection...",
+    "convert_personal": "Make it personal",
+    "removal_on": "It leaves the catalog on {date}. Press the button if you want to keep the photo and your quantity.",
+    "convert_done_title": "Personal piece",
+    "convert_done": "You keep the photo and your quantity. Sale and trade listings for that piece are closed.",
+    "convert_failed": "It could not be converted.",
     "modal": {
       "notas": "Notes",
       "placeholder_notas": "Write your notes here...",
@@ -1731,6 +1736,8 @@
     "tab_album_inclusions": "Album inclusions",
     "tab_inventory": "My Inventory",
     "search_placeholder": "Search...",
+    "convert_personal": "Make it personal",
+    "removal_on": "It leaves the catalog on {date}. Press the button if you want to keep the photo and your quantity.",
     "clear_filters": "Clear filters",
     "empty_results": "No matching items.",
     "all_groups": "All Groups",

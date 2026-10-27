@@ -105,11 +105,15 @@ async function loadCatalogSummary(): Promise<CollectionCounts> {
   const counts = emptyCollectionCounts();
   await eachPage("items", "type, image_url, version", (rows) => {
     for (const row of rows) {
+      if (String(row.version || "") === "personal") continue;
       counts[bucketForCatalogItem(row as { type?: string | null; image_url?: string | null; version?: string | null })] += 1;
     }
   });
-  await eachPage("merch_items", "category", (rows) => {
-    for (const row of rows) counts[bucketForMerchCategory(row.category as string | null)] += 1;
+  await eachPage("merch_items", "category, album_version", (rows) => {
+    for (const row of rows) {
+      if (String(row.album_version || "") === "personal") continue;
+      counts[bucketForMerchCategory(row.category as string | null)] += 1;
+    }
   });
   return counts;
 }
