@@ -814,8 +814,12 @@ export function buildMockPcBackCandidates(
       push(url);
       return;
     }
-    push(encodeMockPcPathUrl(url));
-    push(resolveMockPcImageUrl(url));
+    // Prefer the path the site actually serves (photocards/…, spaces trimmed).
+    // The raw Supabase path often points at album/… and a filename with a trailing space.
+    const resolved = resolveMockPcImageUrl(url);
+    push(resolved);
+    const encoded = encodeMockPcPathUrl(url);
+    if (encoded !== resolved) push(encoded);
   };
   const pushAliased = (url: string) => {
     pushTree(url);
