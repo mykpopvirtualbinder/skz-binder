@@ -1104,6 +1104,7 @@ function LibraryItemCard({
   onQuickHave,
   removalNote,
   onMakePersonal,
+  converting,
   memberNames,
   t,
 }: {
@@ -1127,6 +1128,7 @@ function LibraryItemCard({
   onQuickHave?: () => void;
   removalNote?: string;
   onMakePersonal?: () => void;
+  converting?: boolean;
   memberNames?: Record<string, string>;
   t: (k: string) => string;
 }) {
@@ -1374,13 +1376,14 @@ function LibraryItemCard({
           <p style={{ margin: "0 0 4px", fontSize: 10, lineHeight: 1.3, color: "var(--state-danger-fg, #b42318)", fontWeight: 700, textAlign: "center" }}>{removalNote}</p>
           <button
             type="button"
+            disabled={converting}
             onClick={(e) => {
               e.stopPropagation();
               onMakePersonal();
             }}
-            style={{ width: "100%", fontSize: 10, fontWeight: 900, padding: "6px 4px", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--bg-soft)", color: "var(--color-primary)", cursor: "pointer" }}
+            style={{ width: "100%", fontSize: 10, fontWeight: 900, padding: "6px 4px", borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--bg-soft)", color: "var(--color-primary)", cursor: converting ? "wait" : "pointer", opacity: converting ? 0.7 : 1 }}
           >
-            {t("library.convert_personal")}
+            {converting ? t("library.convert_working") : t("library.convert_personal")}
           </button>
         </div>
       )}
@@ -2539,6 +2542,7 @@ function LibraryContent() {
         const [selectMode, setSelectMode] = useState(false);
         const [selectedIds, setSelectedIds] = useState<number[]>([]);
         const [removalByItem, setRemovalByItem] = useState<Record<number, string>>({});
+        const [convertingId, setConvertingId] = useState<number | null>(null);
         const [catalogMembers, setCatalogMembers] = useState<{ slug: string; name: string; group_id: number | null }[]>([]);
         const [bulkOpen, setBulkOpen] = useState(false);
         const [binderAskOpen, setBinderAskOpen] = useState(false);
@@ -2783,11 +2787,13 @@ const applyInvMeta = (rows: UserItemStatusRow[]) => {
   setPriceScoreByItem(scores);
 };
 
-const loadAll = useCallback(async () => {
-  setLoading(true);
+const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
+  if (!opts?.silent) {
+    setLoading(true);
+    setStatus("Leyendo sesión...");
+  }
   setLoadingMore(false);
   setError(null);
-  setStatus("Leyendo sesión...");
 
   const PAGE = 1000;
   const itemSelect = "id, name, image_url, back_image_url, group_id, album_id, type, version, version_name, member";
@@ -2849,7 +2855,7 @@ const loadAll = useCallback(async () => {
   if (user) {
     setEmail(user.email ?? null);
     setUserId(user.id);
-    setStatus("Cargando tus favoritos...");
+    if (!opts?.silent) setStatus("Cargando tus favoritos...");
     const { data: biasData } = await supabase
       .from("user_biases")
       .select("member_id")
@@ -2859,7 +2865,7 @@ const loadAll = useCallback(async () => {
     setEmail(null);
     setUserId(null);
     setMyBiasIds([]);
-    if (!uParam) setStatus("Modo catálogo: inicia sesión para gestionar tu stock");
+    if (!uParam && !opts?.silent) setStatus("Modo catálogo: inicia sesión para gestionar tu stock");
   }
 
   const invPromise = (async () => {
@@ -2878,7 +2884,7 @@ const loadAll = useCallback(async () => {
     await loadPlacedAcrossBinder(targetUid);
   })();
 
-  setStatus("Cargando items...");
+  if (!opts?.silent) setStatus("Cargando items...");
   const all: any[] = [];
   const first = await firstPromise;
   if (first.error) {
@@ -2967,7 +2973,7 @@ const loadAll = useCallback(async () => {
     } else {
       setRemovalByItem({});
     }
-    setStatus(user ? "Inventario listo ✅" : "Catálogo listo ✅");
+    if (!opts?.silent) setStatus(user ? "Inventario listo ✅" : "Catálogo listo ✅");
     setLoadingMore(false);
   });
 }, [loadPlacedAcrossBinder, rebuildInvMap, uParam, catalog]);
@@ -4619,8 +4625,11 @@ const commitStockForItem = useCallback(
                         })
                       : undefined}
                     memberNames={memberNames}
+                    converting={convertingId === it.id}
                     onMakePersonal={() => {
+                      if (convertingId != null) return;
                       void (async () => {
+                        setConvertingId(it.id);
                         try {
                           const { data: sessionData } = await supabase.auth.getSession();
                           const token = sessionData.session?.access_token;
@@ -4632,10 +4641,17 @@ const commitStockForItem = useCallback(
                           });
                           const json = (await res.json().catch(() => ({}))) as { error?: string };
                           if (!res.ok) throw new Error(json.error || t("library.convert_failed"));
+                          setRemovalByItem((prev) => {
+                            const next = { ...prev };
+                            delete next[it.id];
+                            return next;
+                          });
                           showAlert(t("library.convert_done_title"), t("library.convert_done"));
-                          await loadAll();
+                          void loadAll({ silent: true });
                         } catch (err: any) {
-                          showAlert(t("library.convert_done_title"), err?.message || t("library.convert_failed"));
+                          showAlert(t("library.convert_failed"), err?.message || t("library.convert_failed"));
+                        } finally {
+                          setConvertingId(null);
                         }
                       })();
                     }}

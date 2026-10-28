@@ -142,9 +142,10 @@
   "library": {
     "search_placeholder": "Buscar miembro, grupo, álbum, colección...",
     "convert_personal": "Convertir en personalizada",
-    "removal_on": "Sale del catálogo el {date}. Pulsa el botón si quieres quedarte la foto y tu cantidad.",
-    "convert_done_title": "Pieza personalizada",
-    "convert_done": "Te quedas la foto y tu cantidad. Los anuncios de venta o cambio de esa pieza se han cerrado.",
+    "convert_working": "Guardando tu foto…",
+    "removal_on": "Sale el {date}",
+    "convert_done_title": "Ya es tuya",
+    "convert_done": "La foto y tu cantidad están en Personalizadas. Esta ficha del catálogo ya no es tuya.",
     "convert_failed": "No se pudo convertir.",
     "modal": {
       "notas": "Notas",
@@ -1738,7 +1739,8 @@
     "tab_inventory": "Mi Inventario",
     "search_placeholder": "Buscar...",
     "convert_personal": "Convertir en personalizada",
-    "removal_on": "Sale del catálogo el {date}. Pulsa el botón si quieres quedarte la foto y tu cantidad.",
+    "convert_working": "Guardando tu foto…",
+    "removal_on": "Sale el {date}",
     "clear_filters": "Limpiar filtros",
     "empty_results": "No hay items que coincidan.",
     "all_groups": "Todos los Grupos",

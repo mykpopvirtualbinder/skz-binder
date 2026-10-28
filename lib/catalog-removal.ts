@@ -105,6 +105,15 @@ export async function copyImageToPersonal(
     return admin.storage.from(BUCKET).getPublicUrl(current).data.publicUrl || value.split("?")[0];
   }
 
+  if (current) {
+    const dest = `personal/${token}/${side}.${imageExt(value)}`;
+    const copied = await admin.storage.from(BUCKET).copy(current, dest);
+    if (!copied.error) {
+      const publicUrl = admin.storage.from(BUCKET).getPublicUrl(dest).data.publicUrl;
+      if (publicUrl) return publicUrl;
+    }
+  }
+
   let bytes: Buffer | null = null;
   let contentType = imageContentType(imageExt(value));
   if (current) {

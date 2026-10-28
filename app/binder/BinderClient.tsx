@@ -1854,6 +1854,7 @@ type SlotItem = {
   member_name?: string | null; // <--- AÑADE ESTO PARA QUITAR EL ROJO
   is_wanted?: boolean;         // <--- AÑADE ESTO PARA QUITAR EL ROJO
   is_custom?: boolean;
+  version?: string | null;
   custom_text?: string | null;
   custom_image_url?: string | null;
   custom_back_image_url?: string | null;
@@ -2294,12 +2295,15 @@ const badge = assigned ? dominantBadge(counts) : { key: null, label: "", bg: "va
 
    // ... (unas líneas arriba tienes: const face = slotFace[slotIndex] ?? "front"; etc.)
 
+const personalCatalog = String((assigned as { version?: string | null } | null)?.version || "") === "personal";
 const frontUrl = assigned?.is_custom
-  ? (assigned.custom_image_url ?? undefined) 
-  : (assigned?.image_url ? resolveMockPcImageUrl(assigned.image_url) : undefined);
+  ? (assigned.custom_image_url ?? undefined)
+  : personalCatalog
+    ? (assigned.custom_image_url || (assigned.image_url ? resolveMockPcImageUrl(assigned.image_url) : undefined))
+    : (assigned?.image_url ? resolveMockPcImageUrl(assigned.image_url) : undefined);
 
-const backUrl = assigned?.is_custom
-  ? ((assigned as any).custom_back_image_url ?? DEFAULT_BACK_URL)
+const backUrl = assigned?.is_custom || personalCatalog
+  ? ((assigned as any).custom_back_image_url || (personalCatalog ? assigned?.back_image_url : null) || DEFAULT_BACK_URL)
   : resolveMockPcBackUrl(assigned?.image_url, assigned?.back_image_url);
 
 
@@ -7609,7 +7613,7 @@ if (!pageData) {
   if (itemIds.length > 0) {
     const itemsRes = await supabase
   .from("items")
-  .select("id, name, image_url, back_image_url, member, member_id")
+  .select("id, name, image_url, back_image_url, member, member_id, version")
   .in("id", itemIds);
 
 if (!itemsRes.error) {
@@ -7625,6 +7629,7 @@ if (!itemsRes.error) {
       }),
       member: it.member ?? null,
       member_id: it.member_id ?? null,
+      version: it.version ?? null,
     });
   }
 }
@@ -9100,6 +9105,7 @@ const saveCustomToDb = useCallback(
       // Respetamos el bias que tuviera, o guardamos el nuevo si nos lo pasan
       const currentSlot = slotItems[slotIndex];
       const midToSave = forceMemberId !== undefined ? forceMemberId : ((currentSlot as any)?.member_id ?? null);
+      const keepCatalogItem = String((currentSlot as { version?: string | null } | undefined)?.version || "") === "personal" && Number(currentSlot?.id) > 0;
 
       const up = await supabase
         .from("page_slots")
@@ -9107,9 +9113,9 @@ const saveCustomToDb = useCallback(
           {
             page_id: pageId,
             slot_index: slotIndex,
-            item_id: null,
-            member_id: midToSave, // 👈 GUARDAMOS EL BIAS AQUÍ
-            is_custom: true,
+            item_id: keepCatalogItem ? currentSlot!.id : null,
+            member_id: midToSave,
+            is_custom: keepCatalogItem ? false : true,
             custom_text: nextText,
             custom_image_url: nextFrontImgUrl,
             custom_back_image_url: nextBackImgUrl,
@@ -9130,10 +9136,11 @@ const saveCustomToDb = useCallback(
 const [modalCustomBusy, setModalCustomBusy] = useState(false);
 
 
+const modalOpensCustom = Boolean(modalAssigned?.is_custom) || String((modalAssigned as { version?: string | null } | null)?.version || "") === "personal";
 const modalCustomText = useMemo(() => {
-  if (!modalAssigned?.is_custom) return "";
-  return modalAssigned.custom_text ?? "";
-}, [modalAssigned]);
+  if (!modalOpensCustom || !modalAssigned) return "";
+  return modalAssigned.custom_text || (String((modalAssigned as { version?: string | null }).version || "") === "personal" ? modalAssigned.name || "" : "");
+}, [modalAssigned, modalOpensCustom]);
 const [betterPhotoBusy, setBetterPhotoBusy] = useState(false);
 
 const submitBetterPhoto = useCallback(
@@ -9162,18 +9169,18 @@ const submitBetterPhoto = useCallback(
   [betterPhotoBusy, userId, binderId, pageId, modalSlotIndex, modalItemId]
 );
 const modalCustomImageUrl = useMemo(() => {
-  if (!modalAssigned?.is_custom) return null;
-  return modalAssigned.custom_image_url ?? null;
-}, [modalAssigned]);
+  if (!modalOpensCustom || !modalAssigned) return null;
+  return modalAssigned.custom_image_url || modalAssigned.image_url || null;
+}, [modalAssigned, modalOpensCustom]);
 const modalCustomBackImageUrl = useMemo(() => {
-  if (!modalAssigned?.is_custom) return null;
-  return (modalAssigned as any).custom_back_image_url ?? null;
-}, [modalAssigned]);
+  if (!modalOpensCustom || !modalAssigned) return null;
+  return (modalAssigned as any).custom_back_image_url || modalAssigned.back_image_url || null;
+}, [modalAssigned, modalOpensCustom]);
 
 const [modalCustomIsBias, setModalCustomIsBias] = useState(false);
 
  useEffect(() => {
-    if (modalAssigned?.is_custom) {
+    if (modalOpensCustom && modalAssigned) {
       const mid = (modalAssigned as any).member_id;
       
       // 1. Miramos si hay algo guardado en la memoria del navegador para este slot
@@ -9189,10 +9196,10 @@ const [modalCustomIsBias, setModalCustomIsBias] = useState(false);
     } else {
       setModalCustomIsBias(false);
     }
-  }, [modalAssigned, userBiases, modalSlotIndex]);
+  }, [modalAssigned, userBiases, modalSlotIndex, modalOpensCustom]);
 
  const handleToggleCustomBias = useCallback(async (val: boolean) => {
-  if (modalSlotIndex == null || !modalAssigned?.is_custom) return;
+  if (modalSlotIndex == null || !modalOpensCustom) return;
 
   setModalCustomIsBias(val); // Actualiza el check visualmente al instante
 
@@ -9241,11 +9248,11 @@ const [modalCustomIsBias, setModalCustomIsBias] = useState(false);
     modalSlotFlipH,
     newMid // Guardamos 999 o null
   );
-}, [modalSlotIndex, modalAssigned, saveCustomToDb, modalCustomText, modalCustomImageUrl, modalCustomBackImageUrl, modalSlotRot, modalSlotFlipH]);
+}, [modalSlotIndex, modalAssigned, modalOpensCustom, saveCustomToDb, modalCustomText, modalCustomImageUrl, modalCustomBackImageUrl, modalSlotRot, modalSlotFlipH]);
 
   const setModalCustomText = useCallback(
     async (v: string) => {
-      if (modalSlotIndex == null || !modalAssigned?.is_custom) return;
+      if (modalSlotIndex == null || !modalOpensCustom || !modalAssigned) return;
 
       await pushModalUndoSnapshot(modalAssigned?.id ?? DUMMY_ITEM_ID);
 
@@ -9257,7 +9264,7 @@ const [modalCustomIsBias, setModalCustomIsBias] = useState(false);
         ...prev,
         [modalSlotIndex]: {
           ...prev[modalSlotIndex]!,
-          is_custom: true,
+          is_custom: String((modalAssigned as { version?: string | null }).version || "") === "personal" ? false : true,
           custom_text: v,
           member_id: currentMid,
         },
@@ -9280,7 +9287,7 @@ const [modalCustomIsBias, setModalCustomIsBias] = useState(false);
         setStatus("Error guardando texto custom");
       }
     },
-    [modalSlotIndex, modalAssigned, modalCustomImageUrl, modalCustomBackImageUrl, modalSlotRot, modalSlotFlipH, saveCustomToDb, pushModalUndoSnapshot]
+    [modalSlotIndex, modalAssigned, modalOpensCustom, modalCustomImageUrl, modalCustomBackImageUrl, modalSlotRot, modalSlotFlipH, saveCustomToDb, pushModalUndoSnapshot]
   );
 const uploadCustomImage = useCallback(
   async (file: File, slotIndex: number) => {
@@ -10454,7 +10461,7 @@ function BinderItemModal({
 }: BinderItemModalProps) {
   useOverlayDismiss(open, onClose);
 
-  const isCustom = Boolean(assigned?.is_custom);
+  const isCustom = Boolean(assigned?.is_custom) || String((assigned as { version?: string | null } | null)?.version || "") === "personal";
   const activeItemId = !isCustom && typeof modalItemId === "number" ? modalItemId : null;
 // ✅ counts “real” (estado guardado)
 const counts =
@@ -11081,9 +11088,9 @@ const currencySelectStyle: CSSProperties = {
 
   if (!open) return null;
 // SUSTITUYE las líneas 4532 a 4537 por este bloque:
-const frontImg = isCustom ? customImageUrl : (meta?.image_url ?? null);
+const frontImg = isCustom ? (customImageUrl || assigned?.image_url || null) : (meta?.image_url ?? null);
 const backImg = isCustom
-  ? ((assigned as any)?.custom_back_image_url ?? DEFAULT_BACK_URL)
+  ? ((assigned as any)?.custom_back_image_url || assigned?.back_image_url || DEFAULT_BACK_URL)
   : resolveMockPcBackUrl(meta?.image_url ?? assigned?.image_url, meta?.back_image_url ?? assigned?.back_image_url);
   const modalObjectFit = modalZoom > 1 ? "contain" : "cover"; 
 const currentImgUrl = face === "front" ? frontImg : backImg;

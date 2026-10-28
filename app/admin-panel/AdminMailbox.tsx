@@ -562,8 +562,7 @@ export default function AdminMailbox() {
         .mkb-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(10rem, 32%) minmax(0, 1fr); min-width: 0; min-height: 0; }
         .mkb-list { display: flex; flex-direction: column; border-bottom: 1px solid var(--color-border); min-height: 0; }
         .mkb-back { display: none; }
-        .mail-html, .mail-html * { color: var(--text-main) !important; }
-        .mail-html a, .mail-html a * { color: var(--color-primary) !important; }
+        .mail-html { background: #ffffff; color: #1a1a1a; border-radius: 12px; padding: 16px 18px; overflow: auto; }
         .mail-html img, .mail-html table { max-width: 100%; }
         @media (max-width: 860px) {
           .mkb-mail { grid-template-columns: 1fr; height: auto; min-height: 70vh; }

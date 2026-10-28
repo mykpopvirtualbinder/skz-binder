@@ -497,6 +497,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   const [allDbGroups, setAllDbGroups] = useState<string[]>([]);
   const [myInventory, setMyInventory] = useState<Record<string, MerchStatus>>({});
   const [removalByMerch, setRemovalByMerch] = useState<Record<string, string>>({});
+  const [convertingMerchId, setConvertingMerchId] = useState<string | null>(null);
   const [wishMeta, setWishMeta] = useState<Record<string, WishPosterMeta>>({});
   const [wttOfferByMerch, setWttOfferByMerch] = useState<Record<string, string[]>>({});
 
@@ -770,12 +771,14 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
   }, [profile?.id, variant]);
 
   const convertMerchPersonal = async (id: string) => {
+    if (convertingMerchId) return;
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
     if (!token) {
-      showAlert(t("library.convert_done_title"), t("library.convert_failed"));
+      showAlert(t("library.convert_failed"), t("library.convert_failed"));
       return;
     }
+    setConvertingMerchId(id);
     try {
       const res = await fetch("/api/catalog-removals/convert", {
         method: "POST",
@@ -784,10 +787,17 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(json.error || t("library.convert_failed"));
+      setRemovalByMerch((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       showAlert(t("library.convert_done_title"), t("library.convert_done"));
-      await loadMerchData();
+      void loadMerchData();
     } catch (err: unknown) {
-      showAlert(t("library.convert_done_title"), err instanceof Error ? err.message : t("library.convert_failed"));
+      showAlert(t("library.convert_failed"), err instanceof Error ? err.message : t("library.convert_failed"));
+    } finally {
+      setConvertingMerchId(null);
     }
   };
 
@@ -2176,14 +2186,15 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
                     {removalByMerch[item.id] && (
                       <button
                         type="button"
+                        disabled={convertingMerchId === item.id}
                         onClick={() => void convertMerchPersonal(item.id)}
-                        style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", marginBottom: "8px" }}
+                        style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px", borderRadius: "8px", fontWeight: 900, cursor: convertingMerchId === item.id ? "wait" : "pointer", fontSize: "11px", marginBottom: "8px", opacity: convertingMerchId === item.id ? 0.7 : 1 }}
                       >
-                        {t("merch.removal_on", {
-                          date: new Date(removalByMerch[item.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }),
-                        })}
-                        {" · "}
-                        {t("merch.convert_personal")}
+                        {convertingMerchId === item.id
+                          ? t("merch.convert_working")
+                          : `${t("merch.removal_on", {
+                              date: new Date(removalByMerch[item.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }),
+                            })} · ${t("merch.convert_personal")}`}
                       </button>
                     )}
 
