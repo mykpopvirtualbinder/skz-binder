@@ -417,8 +417,8 @@
     "send": "Enviar al Equipo de Admin"
   },
   "anti_scam": {
-    "title_part1": "ANTI-SCAM",
-    "title_part2": "PROTECTION",
+    "title_part1": "POLÍTICA",
+    "title_part2": "ANTIFRAUDE",
     "subtitle": "Salvaguardando la magia del coleccionismo",
     "last_updated": "Última actualización: 17/3/2026",
     "section1_title": "1. NUESTRO COMPROMISO",
@@ -857,8 +857,8 @@
     "thumb_reset": "Centrar vista"
   },
   "community_rules": {
-    "title_part1": "COMMUNITY",
-    "title_part2": "& GUIDELINES",
+    "title_part1": "NORMAS",
+    "title_part2": "DE LA COMUNIDAD",
     "subtitle": "Cuidando nuestro rincón favorito del fandom",
     "rule1_title": "1. EL RESPETO ES LA BASE",
     "rule1_text": "My Kpop Binder es un espacio seguro para tod@s. No toleramos el odio, el acoso (bullying) ni la discriminación por gustos, grupos o bias. Celebramos la diversidad de la comunidad.",
@@ -959,8 +959,8 @@
     "default_user_name": "Coleccionista"
   },
   "copyright": {
-    "title_part1": "COPYRIGHT",
-    "title_part2": "& INTELLECTUAL PROPERTY",
+    "title_part1": "DERECHOS",
+    "title_part2": "DE AUTOR",
     "subtitle": "Respetando los derechos de creadores y agencias",
     "last_updated": "Última actualización: 17/3/2026",
     "section1_title": "1. PROPIEDAD DEL CONTENIDO",
@@ -1175,8 +1175,8 @@
     }
   },
   "faq": {
-    "title_part1": "HELP",
-    "title_part2": "& RESOURCES",
+    "title_part1": "PREGUNTAS",
+    "title_part2": "FRECUENTES",
     "subtitle": "Guía esencial para tod@s l@s coleccionistas",
     "questions": {
       "q1": "¿Qué significan las siglas WTS, WTT y OTW?",
@@ -1473,8 +1473,8 @@
     "btn_view_collection": "Ver colección y Binder"
   },
   "market_rules": {
-    "title_part1": "MARKET",
-    "title_part2": "RULES",
+    "title_part1": "REGLAS",
+    "title_part2": "DEL MERCADO",
     "subtitle": "Normas de convivencia para un mercado mágico",
     "section1_title": "1. COMPRAVENTA (WTS)",
     "section1_text": "My Kpop Binder actúa únicamente como un intermediario tecnológico para facilitar el contacto entre fans. Es fundamental mantener la transparencia en cada trato.",
@@ -1489,13 +1489,13 @@
     "section4_title": "4. SEGURIDAD",
     "section4_text": "Cualquier intento de fraude, venta de falsificaciones o engaño resultará en la expulsión inmediata de la comunidad. Velamos por un entorno seguro para tod@s.",
     "contact_question": "¿Dudas sobre una transacción?",
-    "title_1": "MARKET",
-    "title_2": "RULES",
+    "title_1": "REGLAS",
+    "title_2": "DEL MERCADO",
     "wts_title": "1. COMPRAVENTA (WTS)",
     "wts_desc": "My Kpop Binder actúa como intermediario tecnológico para facilitar el contacto entre fans.",
-    "wts_payments": "Wts Payments",
+    "wts_payments": "GESTIÓN DE PAGOS",
     "wts_payments_desc": "Los pagos se realizan externamente o mediante pasarelas seguras.",
-    "wts_faithful": "Wts Faithful",
+    "wts_faithful": "DESCRIPCIÓN FIEL",
     "wts_faithful_desc": "El vendedor debe indicar claramente el estado real de la carta.",
     "wtt_title": "2. INTERCAMBIOS (WTT)",
     "wtt_desc": "Los intercambios son acuerdos directos entre usuarios.",
@@ -1897,8 +1897,8 @@
     "wts_koins_column_missing": "PostgREST aún no ve la columna price_koins (a veces la caché del API va atrasada respecto a PostgreSQL). Si la columna ya existe en user_merch_statuses, en Supabase: Project Settings → Data API → «Reload schema», o en el SQL Editor ejecuta: NOTIFY pgrst, 'reload schema'; Luego vuelve a publicar. Si la columna no existía, ejecuta scripts/add-price-koins-user-merch-statuses.sql."
   },
   "privacy": {
-    "title_part1": "PRIVACY",
-    "title_part2": "& COOKIES",
+    "title_part1": "PRIVACIDAD",
+    "title_part2": "Y COOKIES",
     "subtitle": "Protegiendo la privacidad de tod@s l@s coleccionistas",
     "last_updated": "Última actualización: 17/3/2026",
     "section1_title": "1. TRATAMIENTO DE DATOS",
@@ -1912,8 +1912,8 @@
     "gdpr_title": "CUMPLIMIENTO RGPD",
     "gdpr_text": "Cumplimos con el Reglamento General de Protección de Datos (RGPD). Tienes derecho a acceder, rectificar o solicitar la eliminación de tus datos personales en cualquier momento.",
     "contact_question": "¿Tienes dudas sobre tus datos?",
-    "title_1": "PRIVACY",
-    "title_2": "& COOKIES",
+    "title_1": "PRIVACIDAD",
+    "title_2": "Y COOKIES",
     "last_update": "Última actualización: 17/3/2026",
     "data_title": "1. TRATAMIENTO DE DATOS",
     "data_desc": "En My Kpop Binder nos tomamos muy en serio tu privacidad. Los datos que recopilamos (como tu correo electrónico y nombre de usuario) se utilizan exclusivamente para gestionar tu cuenta y mejorar tu experiencia en la plataforma. Tus datos se almacenan de forma cifrada y segura a través de Supabase.",
@@ -1963,8 +1963,8 @@
     "alert_verify_email_with_issue": "Tu cuenta se ha creado, pero no se pudo enviar el correo de confirmación en este momento ({error}). Intenta iniciar sesión y usa \"reenviar confirmación\" si hace falta."
   },
   "report": {
-    "title_part1": "REPORTING",
-    "title_part2": "& COMPLIANCE",
+    "title_part1": "REPORTAR",
+    "title_part2": "UN ABUSO",
     "subtitle": "Canal oficial de denuncias bajo el reglamento dsa",
     "last_updated": "Última actualización: 17/3/2026",
     "section1_title": "1. REGLAMENTO DE SERVICIOS DIGITALES",
@@ -2022,8 +2022,8 @@
     "alert_success_msg": "Gracias por ayudarnos a mantener la comunidad segura. El equipo de moderación revisará el caso pronto.",
     "alert_error_title": "Error al enviar",
     "alert_error_msg": "Hubo un problema de conexión: ",
-    "title_1": "REPORTING",
-    "title_2": "& COMPLIANCE",
+    "title_1": "REPORTAR",
+    "title_2": "UN ABUSO",
     "last_update": "Última actualización: 17/3/2026",
     "section1_desc": "My Kpop Binder cumple con el Reglamento de Servicios Digitales (DSA) de la Unión Europea. Adoptamos medidas proactivas para prevenir la difusión de contenido ilegal y permitir a tod@s l@s usuari@s reportar infracciones de forma sencilla y transparente.",
     "section2_desc": "Cualquier actividad que ponga en riesgo la seguridad de la comunidad o infrinja la ley puede ser notificada:",
@@ -2228,15 +2228,15 @@
     }
   },
   "terms": {
-    "title_part1": "TERMS",
-    "title_part2": "& CONDITIONS",
+    "title_part1": "TÉRMINOS",
+    "title_part2": "Y CONDICIONES",
     "subtitle": "Marco legal y de convivencia para My Kpop Binder",
     "last_updated": "Última actualización: 17/3/2026",
     "section1_title": "1. IDENTIFICACIÓN",
     "section1_text": "My Kpop Binder es una plataforma dedicada a la gestión de colecciones y la interacción entre coleccionistas. Al acceder, tod@s l@s usuari@s aceptan el presente marco legal.",
     "section2_title": "2. USO Y RESPONSABILIDAD",
     "section2_text": "El registro requiere información veraz. L@s usuari@s son responsables de la seguridad de sus cuentas. El marketplace actúa como facilitador tecnológico; las transacciones físicas son responsabilidad de las partes involucradas.",
-    "section3_title": "3. COMMUNITY GUIDELINES",
+    "section3_title": "3. NORMAS DE LA COMUNIDAD",
     "section3_sub1_title": "RESPETO",
     "section3_sub1_text": "Cero tolerancia al acoso o discriminación entre miembros.",
     "section3_sub2_title": "MODERACIÓN",
@@ -2246,8 +2246,8 @@
     "section5_title": "5. POLÍTICA ANTI-FRAUDE",
     "section5_text": "Cualquier actividad fraudulenta (scams, falsificaciones, ocultación de daños) resultará en la expulsión definitiva. Trabajamos con el estándar DSA para reportes de abuso.",
     "contact_question": "¿Tienes alguna consulta legal?",
-    "title_1": "TERMS",
-    "title_2": "& CONDITIONS",
+    "title_1": "TÉRMINOS",
+    "title_2": "Y CONDICIONES",
     "last_update": "Última actualización: 17/3/2026",
     "section1_desc": "My Kpop Binder es una plataforma dedicada a la gestión de colecciones y la interacción entre coleccionistas. Al acceder, tod@s l@s usuari@s aceptan el presente marco legal.",
     "section2_desc": "El registro requiere información veraz. L@s usuari@s son responsables de la seguridad de sus cuentas. El marketplace actúa como facilitador tecnológico; las transacciones físicas son responsabilidad de las partes involucradas.",

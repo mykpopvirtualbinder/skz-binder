@@ -858,7 +858,7 @@
   },
   "community_rules": {
     "title_part1": "COMMUNITY",
-    "title_part2": "& GUIDELINES",
+    "title_part2": "GUIDELINES",
     "subtitle": "Taking care of our favorite corner of the fandom",
     "rule1_title": "1. RESPECT IS THE FOUNDATION",
     "rule1_text": "My Kpop Binder is a safe space for everyone. We do not tolerate hate, bullying, or discrimination based on tastes, groups, or biases. We celebrate the diversity of the community.",
@@ -960,7 +960,7 @@
   },
   "copyright": {
     "title_part1": "COPYRIGHT",
-    "title_part2": "& INTELLECTUAL PROPERTY",
+    "title_part2": "AND INTELLECTUAL PROPERTY",
     "subtitle": "Respecting the rights of creators and agencies",
     "last_updated": "Last updated: 3/17/2026",
     "section1_title": "1. CONTENT OWNERSHIP",
@@ -1176,7 +1176,7 @@
   },
   "faq": {
     "title_part1": "HELP",
-    "title_part2": "& RESOURCES",
+    "title_part2": "AND RESOURCES",
     "subtitle": "Essential guide for all collectors",
     "questions": {
       "q1": "What do the acronyms WTS, WTT, and OTW mean?",
@@ -1898,7 +1898,7 @@
   },
   "privacy": {
     "title_part1": "PRIVACY",
-    "title_part2": "& COOKIES",
+    "title_part2": "AND COOKIES",
     "subtitle": "Protecting the privacy of all collectors",
     "last_updated": "Last updated: 3/17/2026",
     "section1_title": "1. DATA PROCESSING",
@@ -1913,7 +1913,7 @@
     "gdpr_text": "We comply with the General Data Protection Regulation (GDPR). You have the right to access, rectify, or request the deletion of your personal data at any time.",
     "contact_question": "Do you have questions about your data?",
     "title_1": "PRIVACY",
-    "title_2": "& COOKIES",
+    "title_2": "AND COOKIES",
     "last_update": "Last updated: 3/17/2026",
     "data_title": "1. DATA PROCESSING",
     "data_desc": "At My Kpop Binder, we take your privacy very seriously. The data we collect (such as your email and username) is used exclusively to manage your account and improve your experience on the platform. Your data is stored encrypted and securely through Supabase.",
@@ -1964,7 +1964,7 @@
   },
   "report": {
     "title_part1": "REPORTING",
-    "title_part2": "& COMPLIANCE",
+    "title_part2": "AND COMPLIANCE",
     "subtitle": "Official reporting channel under the DSA regulation",
     "last_updated": "Last updated: 3/17/2026",
     "section1_title": "1. DIGITAL SERVICES ACT",
@@ -2023,7 +2023,7 @@
     "alert_error_title": "Error sending",
     "alert_error_msg": "There was a connection problem: ",
     "title_1": "REPORTING",
-    "title_2": "& COMPLIANCE",
+    "title_2": "AND COMPLIANCE",
     "last_update": "Last updated: 3/17/2026",
     "section1_desc": "My Kpop Binder complies with the European Union's Digital Services Act (DSA). We take proactive measures to prevent the spread of illegal content and allow all users to report violations simply and transparently.",
     "section2_desc": "Any activity that puts the safety of the community at risk or breaks the law can be reported:",
@@ -2229,7 +2229,7 @@
   },
   "terms": {
     "title_part1": "TERMS",
-    "title_part2": "& CONDITIONS",
+    "title_part2": "AND CONDITIONS",
     "subtitle": "Legal and coexistence framework for My Kpop Binder",
     "last_updated": "Last updated: 3/17/2026",
     "section1_title": "1. IDENTIFICATION",
@@ -2247,7 +2247,7 @@
     "section5_text": "Any fraudulent activity (scams, fakes, hiding damage) will result in permanent expulsion. We work with the DSA standard for abuse reports.",
     "contact_question": "Do you have a legal question?",
     "title_1": "TERMS",
-    "title_2": "& CONDITIONS",
+    "title_2": "AND CONDITIONS",
     "last_update": "Last updated: 3/17/2026",
     "section1_desc": "My Kpop Binder is a platform dedicated to managing collections and interaction between collectors. By accessing, all users accept this legal framework.",
     "section2_desc": "Registration requires truthful information. Users are responsible for the security of their accounts. The marketplace acts as a technological facilitator; physical transactions are the responsibility of the parties involved.",

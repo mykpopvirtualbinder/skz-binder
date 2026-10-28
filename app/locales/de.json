@@ -325,8 +325,8 @@
     "send": "An das Admin-Team senden"
   },
   "anti_scam": {
-    "title_part1": "ANTI-SCAM",
-    "title_part2": "SCHUTZ",
+    "title_part1": "SCHUTZ",
+    "title_part2": "VOR BETRUG",
     "subtitle": "Die Magie des Sammelns bewahren",
     "last_updated": "Letzte Aktualisierung: 17.03.2026",
     "section1_title": "1. UNSER VERSPRECHEN",
@@ -730,8 +730,8 @@
     "thumb_reset": "Ansicht zurücksetzen"
   },
   "community_rules": {
-    "title_part1": "COMMUNITY",
-    "title_part2": "& RICHTLINIEN",
+    "title_part1": "REGELN",
+    "title_part2": "DER GEMEINSCHAFT",
     "subtitle": "Wir kümmern uns um unsere Lieblingsecke im Fandom",
     "rule1_title": "1. RESPEKT IST DIE BASIS",
     "rule1_text": "My Kpop Binder ist ein sicherer Ort für alle. Wir tolerieren keinen Hass, Mobbing (Bullying) oder Diskriminierung aufgrund von Vorlieben, Gruppen oder Bias. Wir feiern die Vielfalt der Community.",
@@ -823,7 +823,7 @@
   },
   "copyright": {
     "title_part1": "URHEBERRECHT",
-    "title_part2": "& GEISTIGES EIGENTUM",
+    "title_part2": "UND GEISTIGES EIGENTUM",
     "subtitle": "Respekt vor den Rechten von Schöpfern und Agenturen",
     "last_updated": "Letzte Aktualisierung: 17.03.2026",
     "section1_title": "1. EIGENTUM AN INHALTEN",
@@ -1036,8 +1036,8 @@
     }
   },
   "faq": {
-    "title_part1": "HILFE",
-    "title_part2": "& RESSOURCEN",
+    "title_part1": "HÄUFIGE",
+    "title_part2": "FRAGEN",
     "subtitle": "Ein unerlässlicher Leitfaden für alle Sammler",
     "questions": {
       "q1": "Was bedeuten die Abkürzungen WTS, WTT und OTW?",
@@ -1306,7 +1306,7 @@
     "btn_view_collection": "Sammlung und Binder ansehen"
   },
   "market_rules": {
-    "title_part1": "MARKET",
+    "title_part1": "MARKT",
     "title_part2": "REGELN",
     "subtitle": "Regeln für das Zusammenleben auf einem magischen Marktplatz",
     "section1_title": "1. KAUF/VERKAUF (WTS)",
@@ -1322,7 +1322,7 @@
     "section4_title": "4. SICHERHEIT",
     "section4_text": "Jeder Versuch von Betrug, Verkauf von Fälschungen oder Täuschung führt zum sofortigen Ausschluss aus der Community. Wir sorgen für eine sichere Umgebung für alle.",
     "contact_question": "Fragen zu einer Transaktion?",
-    "title_1": "MARKET",
+    "title_1": "MARKT",
     "title_2": "REGELN",
     "wts_title": "1. KAUF/VERKAUF (WTS)",
     "wts_desc": "My Kpop Binder agiert als technologischer Vermittler, um den Kontakt zwischen Fans zu erleichtern.",
@@ -1710,7 +1710,7 @@
   },
   "privacy": {
     "title_part1": "DATENSCHUTZ",
-    "title_part2": "& COOKIES",
+    "title_part2": "UND COOKIES",
     "subtitle": "Schutz der Privatsphäre aller Sammler",
     "last_updated": "Letzte Aktualisierung: 17.03.2026",
     "section1_title": "1. DATENVERARBEITUNG",
@@ -1725,7 +1725,7 @@
     "gdpr_text": "Wir halten uns an die Datenschutz-Grundverordnung (DSGVO). Du hast das Recht, jederzeit auf deine personenbezogenen Daten zuzugreifen, sie zu berichtigen oder ihre Löschung zu verlangen.",
     "contact_question": "Hast du Fragen zu deinen Daten?",
     "title_1": "DATENSCHUTZ",
-    "title_2": "& COOKIES",
+    "title_2": "UND COOKIES",
     "last_update": "Letzte Aktualisierung: 17.03.2026",
     "data_title": "1. DATENVERARBEITUNG",
     "data_desc": "Bei My Kpop Binder nehmen wir deine Privatsphäre sehr ernst. Die Daten, die wir sammeln (wie deine E-Mail und dein Benutzername), werden ausschließlich zur Verwaltung deines Kontos und zur Verbesserung deiner Erfahrung auf der Plattform verwendet. Deine Daten werden verschlüsselt und sicher über Supabase gespeichert.",
@@ -1775,8 +1775,8 @@
     "alert_verify_email_with_issue": "Dein Konto wurde erstellt, aber wir konnten die Bestätigungs-E-Mail gerade nicht senden ({error}). Versuche dich anzumelden und nutze bei Bedarf \"Bestätigung erneut senden\"."
   },
   "report": {
-    "title_part1": "MELDUNGEN",
-    "title_part2": "& COMPLIANCE",
+    "title_part1": "MISSBRAUCH",
+    "title_part2": "MELDEN",
     "subtitle": "Offizieller Meldekanal unter der DSA-Verordnung",
     "last_updated": "Letzte Aktualisierung: 17.03.2026",
     "section1_title": "1. GESETZ ÜBER DIGITALE DIENSTE (DSA)",
@@ -1834,8 +1834,8 @@
     "alert_success_msg": "Danke, dass du uns hilfst, die Community sicher zu halten. Das Moderationsteam wird den Fall bald prüfen.",
     "alert_error_title": "Fehler beim Senden",
     "alert_error_msg": "Es gab ein Verbindungsproblem: ",
-    "title_1": "MELDUNGEN",
-    "title_2": "& COMPLIANCE",
+    "title_1": "MISSBRAUCH",
+    "title_2": "MELDEN",
     "last_update": "Letzte Aktualisierung: 17.03.2026",
     "section1_desc": "My Kpop Binder hält sich an das Gesetz über digitale Dienste (DSA) der Europäischen Union. Wir ergreifen proaktive Maßnahmen zur Verhinderung der Verbreitung illegaler Inhalte und ermöglichen es allen Nutzern, Verstöße einfach und transparent zu melden.",
     "section2_desc": "Jede Aktivität, die die Sicherheit der Community gefährdet oder gegen das Gesetz verstößt, kann gemeldet werden:",
@@ -2026,8 +2026,8 @@
     }
   },
   "terms": {
-    "title_part1": "ALLGEMEINE",
-    "title_part2": "& GESCHÄFTSBEDINGUNGEN",
+    "title_part1": "NUTZUNGS",
+    "title_part2": "BEDINGUNGEN",
     "subtitle": "Rechtlicher und gemeinschaftlicher Rahmen für My Kpop Binder",
     "last_updated": "Letzte Aktualisierung: 17.03.2026",
     "section1_title": "1. IDENTIFIKATION",
@@ -2044,8 +2044,8 @@
     "section5_title": "5. ANTI-BETRUGS-RICHTLINIE",
     "section5_text": "Jede betrügerische Aktivität (Scams, Fälschungen, Verheimlichung von Schäden) führt zum endgültigen Ausschluss. Wir arbeiten mit dem DSA-Standard für Missbrauchsmeldungen.",
     "contact_question": "Hast du eine rechtliche Frage?",
-    "title_1": "ALLGEMEINE",
-    "title_2": "& GESCHÄFTSBEDINGUNGEN",
+    "title_1": "NUTZUNGS",
+    "title_2": "BEDINGUNGEN",
     "last_update": "Letzte Aktualisierung: 17.03.2026",
     "section1_desc": "My Kpop Binder ist eine Plattform, die der Verwaltung von Sammlungen und der Interaktion zwischen Sammlern gewidmet ist. Durch den Zugriff akzeptieren alle Nutzer diesen rechtlichen Rahmen.",
     "section2_desc": "Die Registrierung erfordert wahrheitsgemäße Informationen. Benutzer sind für die Sicherheit ihrer Konten verantwortlich. Der Marktplatz agiert als technologischer Vermittler; physische Transaktionen liegen in der Verantwortung der beteiligten Parteien.",

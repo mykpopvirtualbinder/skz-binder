@@ -117,8 +117,8 @@
     "contribute_empty_subject": "Pasta vazia: {{folder}}"
   },
   "anti_scam": {
-    "title_part1": "ANTI-SCAM",
-    "title_part2": "PROTECTION",
+    "title_part1": "POLÍTICA",
+    "title_part2": "ANTIFRAUDE",
     "subtitle": "Salvaguardando a magia do colecionismo",
     "last_updated": "Última atualização: 17/03/2026",
     "section1_title": "1. O NOSSO COMPROMISSO",
@@ -522,8 +522,8 @@
     "thumb_reset": "Repor vista"
   },
   "community_rules": {
-    "title_part1": "COMUNIDADE",
-    "title_part2": "& REGRAS",
+    "title_part1": "REGRAS",
+    "title_part2": "DA COMUNIDADE",
     "subtitle": "Cuidando do nosso canto favorito do fandom",
     "rule1_title": "1. O RESPEITO É A BASE",
     "rule1_text": "My Kpop Binder é um espaço seguro para todos. Não toleramos ódio, bullying ou discriminação com base em gostos, grupos ou bias. Celebramos a diversidade da comunidade.",
@@ -614,8 +614,8 @@
     "default_user_name": "Colecionador"
   },
   "copyright": {
-    "title_part1": "COPYRIGHT",
-    "title_part2": "& PROPRIEDADE INTELECTUAL",
+    "title_part1": "DIREITOS",
+    "title_part2": "DE AUTOR",
     "subtitle": "Respeitando os direitos dos criadores e agências",
     "last_updated": "Última atualização: 17/03/2026",
     "section1_title": "1. PROPRIEDADE DO CONTEÚDO",
@@ -828,8 +828,8 @@
     }
   },
   "faq": {
-    "title_part1": "AJUDA",
-    "title_part2": "& RECURSOS",
+    "title_part1": "PERGUNTAS",
+    "title_part2": "FREQUENTES",
     "subtitle": "Guia essencial para tod@s @s colecionadores",
     "questions": {
       "q1": "O que significam as siglas WTS, WTT e OTW?",
@@ -1269,8 +1269,8 @@
     "btn_view_collection": "Ver colección y Binder"
   },
   "market_rules": {
-    "title_part1": "REGRAS DO",
-    "title_part2": "MARKET",
+    "title_part1": "REGRAS",
+    "title_part2": "DO MERCADO",
     "subtitle": "Regras de convivência para um mercado mágico",
     "section1_title": "1. COMPRA/VENDA (WTS)",
     "section1_text": "A My Kpop Binder atua apenas como intermediária tecnológica para facilitar o contacto entre fãs. É essencial manter a transparência em cada transação.",
@@ -1285,19 +1285,19 @@
     "section4_title": "4. SEGURANÇA",
     "section4_text": "Qualquer tentativa de fraude, venda de falsificações ou engano resultará na expulsão imediata da comunidade. Zelamos por um ambiente seguro para todos.",
     "contact_question": "Dúvidas sobre uma transação?",
-    "title_1": "MARKET",
-    "title_2": "RULES",
-    "wts_title": "1. COMPRAVENTA (WTS)",
+    "title_1": "REGRAS",
+    "title_2": "DO MERCADO",
+    "wts_title": "1. COMPRA E VENDA (WTS)",
     "wts_desc": "My Kpop Binder actúa como intermediario tecnológico para facilitar el contacto entre fans.",
-    "wts_payments": "Wts Payments",
+    "wts_payments": "PAGAMENTOS",
     "wts_payments_desc": "Los pagos se realizan externamente o mediante pasarelas seguras.",
-    "wts_faithful": "Wts Faithful",
+    "wts_faithful": "DESCRIÇÃO FIEL",
     "wts_faithful_desc": "El vendedor debe indicar claramente el estado real de la carta.",
-    "wtt_title": "2. INTERCAMBIOS (WTT)",
+    "wtt_title": "2. TROCAS (WTT)",
     "wtt_desc": "Los intercambios son acuerdos directos entre usuarios.",
-    "shipping_title": "3. ENVÍOS Y LOGÍSTICA",
+    "shipping_title": "3. ENVIOS E LOGÍSTICA",
     "shipping_desc": "El empaquetado y transporte físico son responsabilidad de los usuarios.",
-    "security_title": "4. SEGURIDAD",
+    "security_title": "4. SEGURANÇA",
     "security_desc": "Cualquier intento de fraude resultará en expulsión inmediata.",
     "doubts": "Dúvidas sobre uma transação?"
   },
@@ -1674,7 +1674,7 @@
   },
   "privacy": {
     "title_part1": "PRIVACIDADE",
-    "title_part2": "& COOKIES",
+    "title_part2": "E COOKIES",
     "subtitle": "Protegendo a privacidade de tod@s @s colecionadores",
     "last_updated": "Última atualização: 17/03/2026",
     "section1_title": "1. TRATAMENTO DE DADOS",
@@ -1689,7 +1689,7 @@
     "gdpr_text": "Cumprimos com o Regulamento Geral sobre a Proteção de Dados (RGPD). Tens o direito de aceder, retificar ou solicitar a eliminação dos teus dados pessoais a qualquer momento.",
     "contact_question": "Tens dúvidas sobre os teus dados?",
     "title_1": "PRIVACIDADE",
-    "title_2": "& COOKIES",
+    "title_2": "E COOKIES",
     "last_update": "Última atualização: 17/03/2026",
     "data_title": "1. TRATAMENTO DE DADOS",
     "data_desc": "Na My Kpop Binder levamos a tua privacidade muito a sério. Os dados que recolhemos (como o teu email e nome de utilizador) são usados exclusivamente para gerir a tua conta e melhorar a tua experiência na plataforma. Os teus dados são armazenados de forma encriptada e segura através da Supabase.",
@@ -1739,8 +1739,8 @@
     "alert_verify_email_with_issue": "A tua conta foi criada, mas não foi possível enviar o email de confirmação agora ({error}). Tenta iniciar sessão e usa \"Reenviar confirmação\" se necessário."
   },
   "report": {
-    "title_part1": "REPORTES",
-    "title_part2": "& COMPLIANCE",
+    "title_part1": "DENUNCIAR",
+    "title_part2": "UM ABUSO",
     "subtitle": "Canal oficial de denúncias sob o regulamento DSA",
     "last_updated": "Última atualização: 17/03/2026",
     "section1_title": "1. REGULAMENTO DOS SERVIÇOS DIGITAIS (DSA)",
@@ -1798,8 +1798,8 @@
     "alert_success_msg": "Obrigado por nos ajudares a manter a comunidade segura. A equipa de moderação analisará o caso em breve.",
     "alert_error_title": "Erro ao enviar",
     "alert_error_msg": "Houve um problema de ligação: ",
-    "title_1": "REPORTES",
-    "title_2": "& COMPLIANCE",
+    "title_1": "DENUNCIAR",
+    "title_2": "UM ABUSO",
     "last_update": "Última atualização: 17/03/2026",
     "section1_desc": "A My Kpop Binder cumpre com o Digital Services Act (DSA) da União Europeia. Tomamos medidas proativas para prevenir a difusão de conteúdos ilegais e permitir a todos os utilizadores reportar infrações de forma simples e transparente.",
     "section2_desc": "Qualquer atividade que ponha em risco a segurança da comunidade ou infrinja a lei pode ser notificada:",
@@ -1991,7 +1991,7 @@
   },
   "terms": {
     "title_part1": "TERMOS",
-    "title_part2": "& CONDIÇÕES",
+    "title_part2": "E CONDIÇÕES",
     "subtitle": "Quadro legal e de convivência para a My Kpop Binder",
     "last_updated": "Última atualização: 17/03/2026",
     "section1_title": "1. IDENTIFICAÇÃO",
@@ -2009,7 +2009,7 @@
     "section5_text": "Qualquer atividade fraudulenta (scams, falsificações, ocultação de danos) resultará na expulsão definitiva. Trabalhamos com o padrão DSA para reportes de abuso.",
     "contact_question": "Tens alguma dúvida legal?",
     "title_1": "TERMOS",
-    "title_2": "& CONDIÇÕES",
+    "title_2": "E CONDIÇÕES",
     "last_update": "Última atualização: 17/03/2026",
     "section1_desc": "A My Kpop Binder é uma plataforma dedicada à gestão de coleções e à interação entre colecionadores. Ao aceder, todos os utilizadores aceitam o presente quadro legal.",
     "section2_desc": "O registo requer informações verdadeiras. Os utilizadores são responsáveis pela segurança das suas contas. O marketplace atua como facilitador tecnológico; as transações físicas são da responsabilidade das partes envolvidas.",

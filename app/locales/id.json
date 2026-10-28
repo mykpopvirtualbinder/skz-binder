@@ -326,7 +326,7 @@
   },
   "anti_scam": {
     "title_part1": "PERLINDUNGAN",
-    "title_part2": "ANTI-SCAM",
+    "title_part2": "ANTI-PENIPUAN",
     "subtitle": "Menjaga keajaiban dalam mengoleksi",
     "last_updated": "Terakhir diperbarui: 17/3/2026",
     "section1_title": "1. KOMITMEN KAMI",
@@ -730,8 +730,8 @@
     "thumb_reset": "Reset rotasi"
   },
   "community_rules": {
-    "title_part1": "KOMUNITAS",
-    "title_part2": "& PANDUAN",
+    "title_part1": "ATURAN",
+    "title_part2": "KOMUNITAS",
     "subtitle": "Merawat sudut favorit kita di fandom",
     "rule1_title": "1. RASA HORMAT ADALAH DASARNYA",
     "rule1_text": "My Kpop Binder adalah ruang aman untuk semua orang. Kami tidak menoleransi kebencian, perundungan (bullying), atau diskriminasi berdasarkan selera, grup, atau bias. Kami merayakan keberagaman komunitas.",
@@ -822,8 +822,8 @@
     "default_user_name": "Kolektor"
   },
   "copyright": {
-    "title_part1": "HAK CIPTA",
-    "title_part2": "& KEKAYAAN INTELEKTUAL",
+    "title_part1": "HAK",
+    "title_part2": "CIPTA",
     "subtitle": "Menghormati hak-hak pembuat dan agensi",
     "last_updated": "Terakhir diperbarui: 17/3/2026",
     "section1_title": "1. KEPEMILIKAN KONTEN",
@@ -1036,8 +1036,8 @@
     }
   },
   "faq": {
-    "title_part1": "BANTUAN",
-    "title_part2": "& SUMBER DAYA",
+    "title_part1": "PERTANYAAN",
+    "title_part2": "UMUM",
     "subtitle": "Panduan penting untuk semua kolektor",
     "questions": {
       "q1": "Apa arti singkatan WTS, WTT, dan OTW?",
@@ -1307,7 +1307,7 @@
   },
   "market_rules": {
     "title_part1": "ATURAN",
-    "title_part2": "MARKET",
+    "title_part2": "PASAR",
     "subtitle": "Aturan hidup berdampingan untuk market yang ajaib",
     "section1_title": "1. JUAL BELI (WTS)",
     "section1_text": "My Kpop Binder hanya bertindak sebagai perantara teknologi untuk memfasilitasi kontak antar penggemar. Sangat penting untuk menjaga transparansi dalam setiap transaksi.",
@@ -1323,7 +1323,7 @@
     "section4_text": "Setiap percobaan penipuan, penjualan barang palsu, atau kebohongan akan mengakibatkan pengusiran segera dari komunitas. Kami memastikan lingkungan yang aman untuk semua.",
     "contact_question": "Ada keraguan tentang transaksi?",
     "title_1": "ATURAN",
-    "title_2": "MARKET",
+    "title_2": "PASAR",
     "wts_title": "1. JUAL BELI (WTS)",
     "wts_desc": "My Kpop Binder bertindak sebagai perantara teknologi untuk memfasilitasi kontak antar penggemar.",
     "wts_payments": "Pembayaran",
@@ -1710,7 +1710,7 @@
   },
   "privacy": {
     "title_part1": "PRIVASI",
-    "title_part2": "& COOKIE",
+    "title_part2": "DAN COOKIE",
     "subtitle": "Melindungi privasi semua kolektor",
     "last_updated": "Terakhir diperbarui: 17/3/2026",
     "section1_title": "1. PEMROSESAN DATA",
@@ -1725,7 +1725,7 @@
     "gdpr_text": "Kami mematuhi Regulasi Perlindungan Data Umum (GDPR). Kamu memiliki hak untuk mengakses, memperbaiki, atau meminta penghapusan data pribadimu kapan saja.",
     "contact_question": "Ada keraguan tentang datamu?",
     "title_1": "PRIVASI",
-    "title_2": "& COOKIE",
+    "title_2": "DAN COOKIE",
     "last_update": "Terakhir diperbarui: 17/3/2026",
     "data_title": "1. PEMROSESAN DATA",
     "data_desc": "Di My Kpop Binder, kami menangani privasi kamu dengan sangat serius. Data yang kami kumpulkan (seperti email dan nama penggunamu) digunakan semata-mata untuk mengelola akunmu dan meningkatkan pengalamanmu di platform. Data kamu disimpan terenkripsi dan aman melalui Supabase.",
@@ -1775,8 +1775,8 @@
     "alert_verify_email_with_issue": "Akun kamu sudah dibuat, tetapi email konfirmasi belum bisa dikirim saat ini ({error}). Coba login lalu gunakan \"Kirim ulang konfirmasi\" jika diperlukan."
   },
   "report": {
-    "title_part1": "PELAPORAN",
-    "title_part2": "& KEPATUHAN",
+    "title_part1": "LAPORKAN",
+    "title_part2": "PENYALAHGUNAAN",
     "subtitle": "Saluran pelaporan resmi di bawah regulasi DSA",
     "last_updated": "Terakhir diperbarui: 17/3/2026",
     "section1_title": "1. UNDANG-UNDANG LAYANAN DIGITAL",
@@ -1834,8 +1834,8 @@
     "alert_success_msg": "Terima kasih telah membantu kami menjaga keamanan komunitas. Tim moderasi akan segera meninjau kasus ini.",
     "alert_error_title": "Kesalahan mengirim",
     "alert_error_msg": "Ada masalah koneksi: ",
-    "title_1": "PELAPORAN",
-    "title_2": "& KEPATUHAN",
+    "title_1": "LAPORKAN",
+    "title_2": "PENYALAHGUNAAN",
     "last_update": "Terakhir diperbarui: 17/3/2026",
     "section1_desc": "My Kpop Binder mematuhi Regulasi Layanan Digital (DSA) Uni Eropa. Kami mengambil langkah proaktif untuk mencegah penyebaran konten ilegal dan memungkinkan semua pengguna melaporkan pelanggaran secara sederhana dan transparan.",
     "section2_desc": "Setiap aktivitas yang membahayakan keselamatan komunitas atau melanggar hukum dapat dilaporkan:",
@@ -2027,7 +2027,7 @@
   },
   "terms": {
     "title_part1": "SYARAT",
-    "title_part2": "& KETENTUAN",
+    "title_part2": "DAN KETENTUAN",
     "subtitle": "Kerangka hukum dan koeksistensi untuk My Kpop Binder",
     "last_updated": "Terakhir diperbarui: 17/3/2026",
     "section1_title": "1. IDENTIFIKASI",
@@ -2045,7 +2045,7 @@
     "section5_text": "Setiap aktivitas penipuan (scams, pemalsuan, menyembunyikan kerusakan) akan mengakibatkan pengusiran permanen. Kami bekerja dengan standar DSA untuk pelaporan penyalahgunaan.",
     "contact_question": "Ada pertanyaan hukum?",
     "title_1": "SYARAT",
-    "title_2": "& KETENTUAN",
+    "title_2": "DAN KETENTUAN",
     "last_update": "Terakhir diperbarui: 17/3/2026",
     "section1_desc": "My Kpop Binder adalah platform yang didedikasikan untuk mengelola koleksi dan interaksi antar kolektor. Dengan mengakses, semua pengguna menerima kerangka hukum ini.",
     "section2_desc": "Pendaftaran membutuhkan informasi yang jujur. Pengguna bertanggung jawab atas keamanan akun mereka. Marketplace bertindak sebagai fasilitator teknologi; transaksi fisik adalah tanggung jawab pihak yang terlibat.",

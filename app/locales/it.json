@@ -325,8 +325,8 @@
     "send": "Invia al Team Admin"
   },
   "anti_scam": {
-    "title_part1": "PROTEZIONE",
-    "title_part2": "ANTI-SCAM",
+    "title_part1": "POLITICA",
+    "title_part2": "ANTIFRODE",
     "subtitle": "Salvaguardare la magia del collezionismo",
     "last_updated": "Ultimo aggiornamento: 17/03/2026",
     "section1_title": "1. IL NOSTRO IMPEGNO",
@@ -730,8 +730,8 @@
     "thumb_reset": "Ripristina vista"
   },
   "community_rules": {
-    "title_part1": "COMMUNITY",
-    "title_part2": "& LINEE GUIDA",
+    "title_part1": "REGOLE",
+    "title_part2": "DELLA COMUNITÀ",
     "subtitle": "Prendendoci cura del nostro angolo preferito del fandom",
     "rule1_title": "1. IL RISPETTO È LA BASE",
     "rule1_text": "My Kpop Binder è uno spazio sicuro per tutti. Non tolleriamo odio, bullismo o discriminazione basata su gusti, gruppi o bias. Celebriamo la diversità della community.",
@@ -822,8 +822,8 @@
     "default_user_name": "Collezionista"
   },
   "copyright": {
-    "title_part1": "COPYRIGHT",
-    "title_part2": "& PROPRIETÀ INTELLETTUALE",
+    "title_part1": "DIRITTI",
+    "title_part2": "D'AUTORE",
     "subtitle": "Rispettare i diritti dei creatori e delle agenzie",
     "last_updated": "Ultimo aggiornamento: 17/03/2026",
     "section1_title": "1. PROPRIETÀ DEL CONTENUTO",
@@ -1036,8 +1036,8 @@
     }
   },
   "faq": {
-    "title_part1": "AIUTO",
-    "title_part2": "& RISORSE",
+    "title_part1": "DOMANDE",
+    "title_part2": "FREQUENTI",
     "subtitle": "Guida essenziale per tutti i collezionisti",
     "questions": {
       "q1": "Cosa significano gli acronimi WTS, WTT e OTW?",
@@ -1709,8 +1709,8 @@
     "wts_koins_column_missing": "PostgREST non vede ancora la colonna price_koins (cache dello schema). Se la colonna esiste su user_merch_statuses: Supabase → Project Settings → Data API → «Reload schema», oppure SQL: NOTIFY pgrst, 'reload schema'; Altrimenti esegui scripts/add-price-koins-user-merch-statuses.sql."
   },
   "privacy": {
-    "title_part1": "PRIVACY",
-    "title_part2": "& COOKIE",
+    "title_part1": "RISERVATEZZA",
+    "title_part2": "E COOKIE",
     "subtitle": "Proteggere la privacy di tutti i collezionisti",
     "last_updated": "Ultimo aggiornamento: 17/03/2026",
     "section1_title": "1. TRATTAMENTO DEI DATI",
@@ -1724,8 +1724,8 @@
     "gdpr_title": "CONFORMITÀ GDPR",
     "gdpr_text": "Rispettiamo il Regolamento Generale sulla Protezione dei Dati (GDPR). Hai il diritto di accedere, rettificare o richiedere l'eliminazione dei tuoi dati personali in qualsiasi momento.",
     "contact_question": "Hai dubbi sui tuoi dati?",
-    "title_1": "PRIVACY",
-    "title_2": "& COOKIE",
+    "title_1": "RISERVATEZZA",
+    "title_2": "E COOKIE",
     "last_update": "Ultimo aggiornamento: 17/03/2026",
     "data_title": "1. TRATTAMENTO DEI DATI",
     "data_desc": "In My Kpop Binder prendiamo molto sul serio la tua privacy. I dati che raccogliamo (come la tua email e il tuo nome utente) vengono utilizzati esclusivamente per gestire il tuo account e migliorare la tua esperienza sulla piattaforma. I tuoi dati vengono archiviati in modo crittografato e sicuro tramite Supabase.",
@@ -1775,8 +1775,8 @@
     "alert_verify_email_with_issue": "Il tuo account è stato creato, ma al momento non siamo riusciti a inviare l'email di conferma ({error}). Prova ad accedere e usa \"Invia di nuovo la conferma\" se necessario."
   },
   "report": {
-    "title_part1": "SEGNALAZIONI",
-    "title_part2": "& CONFORMITÀ",
+    "title_part1": "SEGNALA",
+    "title_part2": "UN ABUSO",
     "subtitle": "Canale ufficiale di segnalazione secondo il regolamento DSA",
     "last_updated": "Ultimo aggiornamento: 17/03/2026",
     "section1_title": "1. REGOLAMENTO SUI SERVIZI DIGITALI (DSA)",
@@ -1834,8 +1834,8 @@
     "alert_success_msg": "Grazie per aiutarci a mantenere la community sicura. Il team di moderazione esaminerà il caso presto.",
     "alert_error_title": "Errore durante l'invio",
     "alert_error_msg": "C'è stato un problema di connessione: ",
-    "title_1": "SEGNALAZIONI",
-    "title_2": "& CONFORMITÀ",
+    "title_1": "SEGNALA",
+    "title_2": "UN ABUSO",
     "last_update": "Ultimo aggiornamento: 17/03/2026",
     "section1_desc": "My Kpop Binder è conforme al Regolamento sui Servizi Digitali (DSA) dell'Unione Europea. Adottiamo misure proattive per prevenire la diffusione di contenuti illegali e consentiamo a tutti gli utenti di segnalare le violazioni in modo semplice e trasparente.",
     "section2_desc": "Qualsiasi attività che metta a rischio la sicurezza della community o infranga la legge può essere segnalata:",
@@ -2027,7 +2027,7 @@
   },
   "terms": {
     "title_part1": "TERMINI",
-    "title_part2": "& CONDIZIONI",
+    "title_part2": "E CONDIZIONI",
     "subtitle": "Quadro legale e di convivenza per My Kpop Binder",
     "last_updated": "Ultimo aggiornamento: 17/03/2026",
     "section1_title": "1. IDENTIFICAZIONE",
@@ -2045,7 +2045,7 @@
     "section5_text": "Qualsiasi attività fraudolenta (truffe, falsificazioni, occultamento di danni) comporterà l'espulsione definitiva. Lavoriamo con lo standard DSA per le segnalazioni di abusi.",
     "contact_question": "Hai qualche domanda legale?",
     "title_1": "TERMINI",
-    "title_2": "& CONDIZIONI",
+    "title_2": "E CONDIZIONI",
     "last_update": "Ultimo aggiornamento: 17/03/2026",
     "section1_desc": "My Kpop Binder è una piattaforma dedicata alla gestione delle collezioni e all'interazione tra collezionisti. Accedendovi, tutti gli utenti accettano il presente quadro legale.",
     "section2_desc": "La registrazione richiede informazioni veritiere. Gli utenti sono responsabili della sicurezza dei propri account. Il marketplace funge da facilitatore tecnologico; le transazioni fisiche sono responsabilità delle parti coinvolte.",

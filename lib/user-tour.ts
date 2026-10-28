@@ -195,13 +195,13 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='hdr-mail']",
         title: "Notificaciones",
-        text: "El numerito del sobre es lo que no has leído. En el equipo, esa bolita suma también el correo de info@ sin abrir; ese buzón está en Admin, sección Correo. El sobre, para el resto, abre los avisos del perfil.",
+        text: "El numerito del sobre es lo que no has leído. Ábrelo y vas al centro de avisos de tu perfil: mensajes, ofertas y lo que la comunidad te manda.",
         side: "bottom",
       },
       {
         selector: "[data-tour='site-footer']",
         title: "El pie de la web",
-        text: "Abajo del todo: legal, reglas del mercado, privacidad, esta guía, preguntas frecuentes y el botón para reportar un abuso. En todas las secciones, merch incluido.",
+        text: "Abajo del todo: legal, reglas del mercado, privacidad, esta guía, preguntas frecuentes y el botón para reportar un abuso.",
         side: "top",
       },
     ],
@@ -257,7 +257,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='lib-type']",
         title: "Qué pieza es",
-        text: "Photocard, polaroid, postal… para no mezclar formatos en la misma búsqueda.",
+        text: "Selfie, unit, OT… para no mezclar formatos en la misma búsqueda.",
         side: "bottom",
         expand: true,
       },
@@ -312,13 +312,13 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='pc-modal-stock']",
         title: "Stock dentro de la ficha",
-        text: "Los mismos contadores que el desplegable de la carta, más el precio y las notas. Si subes WTT o WTS y guardas, se abre el anuncio. En merch es igual: desde la ficha de la pieza.",
+        text: "Los mismos contadores que el desplegable de la carta, más el precio y las notas. Si subes WTT o WTS y guardas, se abre el anuncio.",
         side: "left",
       },
       {
         selector: "[data-tour='wtt-listing']",
         title: "Crear un cambio",
-        text: "Esta ventana sale al guardar un WTT en la ficha. Eliges si aceptas cualquier oferta, solo el mismo miembro o todo el grupo, y dejas una nota. El botón de abajo abre el grid de las cartas por las que cambiarías. En merch se publica igual.",
+        text: "Esta ventana sale al guardar un WTT en la ficha. Eliges si aceptas cualquier oferta, solo el mismo miembro o todo el grupo, y dejas una nota. El botón de abajo abre el grid de las cartas por las que cambiarías.",
         side: "left",
         clickBefore: "[data-tour='lib-open-wtt']",
         wait: 400,
@@ -333,7 +333,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='wts-listing']",
         title: "Crear una venta",
-        text: "Lo mismo con WTS: al guardar la venta en la ficha se abre el precio. Puedes cobrar en dinero, en K-oins o en los dos. En merch funciona igual.",
+        text: "Lo mismo con WTS: al guardar la venta en la ficha se abre el precio. Puedes cobrar en dinero, en K-oins o en los dos.",
         side: "left",
         clickBefore: "[data-tour='lib-open-wts']",
         wait: 400,
@@ -863,7 +863,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='binder-picker']",
         title: "El orden al colocar",
-        text: "El picker sale por colección, luego por carpeta y, dentro de cada carpeta, por edad: Bang Chan, Lee Know, Changbin, Hyunjin, Han, Felix, Seungmin e I.N. Si la carta ya está en cualquier binder, no vuelve a salir como libre.",
+        text: "El picker sale por colección, luego por carpeta y, dentro de cada carpeta, por los miembros del grupo. Si la carta ya está en cualquier binder, no vuelve a salir como libre.",
         side: "left",
         clickBefore: "[data-tour='binder-empty-slot']",
         wait: 500,

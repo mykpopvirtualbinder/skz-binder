@@ -326,7 +326,7 @@
   },
   "anti_scam": {
     "title_part1": "詐欺防止",
-    "title_part2": "保護",
+    "title_part2": "と保護",
     "subtitle": "コレクションの魔法を守るために",
     "last_updated": "最終更新日：2026年3月17日",
     "section1_title": "1. 私たちの約束",
@@ -731,7 +731,7 @@
   },
   "community_rules": {
     "title_part1": "コミュニティ",
-    "title_part2": "＆ GUIDELINES",
+    "title_part2": "のルール",
     "subtitle": "ファンダムのお気に入りのコーナーを守るために",
     "rule1_title": "1. 敬意が基本",
     "rule1_text": "My Kpop Binderはすべての人のための安全なスペースです。好み、グループ、またはBiasに基づくヘイト、いじめ、差別は容認しません。私たちはコミュニティの多様性を称えます。",
@@ -823,7 +823,7 @@
   },
   "copyright": {
     "title_part1": "著作権",
-    "title_part2": "＆ 知的財産",
+    "title_part2": "と知的財産",
     "subtitle": "クリエイターと事務所の権利を尊重する",
     "last_updated": "最終更新日：2026年3月17日",
     "section1_title": "1. コンテンツの所有権",
@@ -1037,7 +1037,7 @@
   },
   "faq": {
     "title_part1": "ヘルプ",
-    "title_part2": "＆ リソース",
+    "title_part2": "とリソース",
     "subtitle": "すべてのコレクターのための必須ガイド",
     "questions": {
       "q1": "WTS、WTT、OTWの略語は何を意味しますか？",
@@ -1307,7 +1307,7 @@
   },
   "market_rules": {
     "title_part1": "マーケット",
-    "title_part2": "ルール",
+    "title_part2": "のルール",
     "subtitle": "魔法のマーケットで共存するためのルール",
     "section1_title": "1. 販売・購入 (WTS)",
     "section1_text": "My Kpop Binderは、ファン間の連絡を促進するための技術的な仲介者としてのみ機能します。すべての取引において透明性を維持することが不可欠です。",
@@ -1323,7 +1323,7 @@
     "section4_text": "詐欺、偽造品の販売、または欺瞞の試みは、コミュニティからの即時追放につながります。私たちはすべての人のために安全な環境を確保します。",
     "contact_question": "取引について疑問がありますか？",
     "title_1": "マーケット",
-    "title_2": "ルール",
+    "title_2": "のルール",
     "wts_title": "1. 販売・購入 (WTS)",
     "wts_desc": "My Kpop Binderは、ファン間の連絡を促進する技術的な仲介者として機能します。",
     "wts_payments": "支払い",
@@ -1710,7 +1710,7 @@
   },
   "privacy": {
     "title_part1": "プライバシー",
-    "title_part2": "＆ COOKIE",
+    "title_part2": "とクッキー",
     "subtitle": "すべてのコレクターのプライバシーを守る",
     "last_updated": "最終更新日：2026年3月17日",
     "section1_title": "1. データ処理",
@@ -1725,7 +1725,7 @@
     "gdpr_text": "私たちは一般データ保護規則（GDPR）を遵守しています。あなたはいつでも自分の個人データにアクセスし、修正し、または削除を要求する権利があります。",
     "contact_question": "データについて疑問がありますか？",
     "title_1": "プライバシー",
-    "title_2": "＆ COOKIE",
+    "title_2": "とクッキー",
     "last_update": "最終更新日：2026年3月17日",
     "data_title": "1. データ処理",
     "data_desc": "My Kpop Binderでは、あなたのプライバシーを非常に真剣に受け止めています。私たちが収集するデータ（メールアドレスやユーザー名など）は、アカウントの管理とプラットフォームでの体験向上のためだけに使用されます。あなたのデータは暗号化され、Supabaseを通じて安全に保存されます。",
@@ -1775,8 +1775,8 @@
     "alert_verify_email_with_issue": "アカウントは作成されましたが、現在確認メールを送信できませんでした（{error}）。ログインを試し、必要であれば「確認メールを再送」を利用してください。"
   },
   "report": {
-    "title_part1": "報告",
-    "title_part2": "＆ コンプライアンス",
+    "title_part1": "通報",
+    "title_part2": "と対応",
     "subtitle": "DSA規制に基づく公式の報告チャネル",
     "last_updated": "最終更新日：2026年3月17日",
     "section1_title": "1. デジタルサービス法（DSA）",
@@ -1834,8 +1834,8 @@
     "alert_success_msg": "コミュニティの安全を保つ手助けをしていただきありがとうございます。モデレーションチームがすぐにケースを確認します。",
     "alert_error_title": "送信エラー",
     "alert_error_msg": "接続の問題がありました：",
-    "title_1": "報告",
-    "title_2": "＆ コンプライアンス",
+    "title_1": "通報",
+    "title_2": "と対応",
     "last_update": "最終更新日：2026年3月17日",
     "section1_desc": "My Kpop Binderは、欧州連合のデジタルサービス法（DSA）に準拠しています。違法コンテンツの拡散を防ぐための積極的な措置を講じており、すべてのユーザーが違反を簡単かつ透明に報告できるようにしています。",
     "section2_desc": "コミュニティの安全を危険にさらす、または法律に違反する活動は報告できます：",
