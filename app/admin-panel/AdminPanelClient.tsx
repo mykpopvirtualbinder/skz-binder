@@ -9,6 +9,7 @@ import { fetchAdminPendingByArea, fetchArsysUnseen, type AdminPendingByArea } fr
 import Footer from "../components/footer";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { adminRemoveContent } from "@/lib/admin-moderate-client";
+import { clearAdminActingAs, rememberAdminActingAs } from "@/lib/admin-acting-as";
 import { useGlobal } from "../context/GlobalContext";
 import {
   UploadCloud, Save, Download, Loader2, Plus, Minus, FileText, Film,
@@ -1518,7 +1519,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
 
   const runUserAuthAction = async (
     p: AdminOverviewUser,
-    action: "reset_password" | "unlock_login" | "lock_login" | "confirm_email" | "sign_out_all",
+    action: "reset_password" | "unlock_login" | "lock_login" | "confirm_email" | "sign_out_all" | "enter_profile",
   ) => {
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
@@ -1556,7 +1557,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
 
   const confirmUserAuthAction = (
     p: AdminOverviewUser,
-    action: "reset_password" | "unlock_login" | "lock_login" | "confirm_email" | "sign_out_all",
+    action: "reset_password" | "unlock_login" | "lock_login" | "confirm_email" | "sign_out_all" | "enter_profile",
     title: string,
     message: string,
     e: React.MouseEvent,
@@ -1572,6 +1573,52 @@ const levantarSancion = async (userId: string, ticketId: string) => {
         } catch (err: any) {
           showAlert(tr("Error"), err?.message || tr("No se pudo completar la acción."));
         } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
+
+  const enterUserProfile = (p: AdminOverviewUser, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const who = p.display_name || p.email || "este usuario";
+    setConfirmDialog({
+      title: tr("Ver perfil"),
+      message: `Vas a entrar en la cuenta de ${who}. Verás su stock, su binder, sus mensajes y sus ajustes, y lo que cambies se guarda en su cuenta. Para volver al panel tendrás que iniciar sesión otra vez como admin.`,
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+          if (!accessToken) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
+          if (sessionData.session?.user?.id === p.user_id) {
+            window.location.assign("/me");
+            return;
+          }
+          const res = await fetch("/api/admin/user-auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+            body: JSON.stringify({ user_id: p.user_id, action: "enter_profile" }),
+          });
+          const json = (await res.json().catch(() => ({}))) as { error?: string; token_hash?: string };
+          if (!res.ok || !json.token_hash) throw new Error(json.error || tr("No se pudo abrir esa cuenta."));
+          rememberAdminActingAs({ name: who });
+          try {
+            localStorage.removeItem("me:profile");
+            sessionStorage.removeItem("ui:language_override");
+          } catch {
+            /* ignore */
+          }
+          const { error } = await supabase.auth.verifyOtp({ token_hash: json.token_hash, type: "magiclink" });
+          if (error) {
+            clearAdminActingAs();
+            throw new Error(error.message);
+          }
+          window.location.assign("/me");
+        } catch (err: unknown) {
+          clearAdminActingAs();
+          const message = err instanceof Error ? err.message : tr("No se pudo abrir esa cuenta.");
+          showAlert(tr("Error"), message);
           setLoading(false);
         }
       },
@@ -3075,9 +3122,11 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
           )}
 
           <AdminUserActionGroup label={tr("CUENTA")} tour="usr-cuenta">
-            <button type="button" onClick={() => router.push(`/user/${p.user_id}`)} style={compactActionStyle()}>
-              <ExternalLink size={12} /> {tr("Perfil")}
-            </button>
+            {!p.is_deleted && (
+              <button type="button" onClick={(e) => void enterUserProfile(p, e)} style={compactActionStyle("primary")}>
+                <ExternalLink size={12} /> {tr("Ver perfil")}
+              </button>
+            )}
             {p.is_premium ? (
               <button onClick={(e) => togglePremium(p, "free", e)} style={compactActionStyle("warning")}>
                 <Crown size={12} /> {tr("Quitar premium")}

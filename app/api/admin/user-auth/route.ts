@@ -9,6 +9,7 @@ const ACTIONS = [
   "lock_login",
   "confirm_email",
   "sign_out_all",
+  "enter_profile",
 ] as const;
 
 type AuthAction = (typeof ACTIONS)[number];
@@ -148,6 +149,25 @@ export async function POST(req: Request) {
         is_banned: true,
         message: "Inicio de sesión bloqueado. La cuenta sigue existiendo, pero no puede entrar.",
       });
+    }
+
+    if (action === "enter_profile") {
+      if (!email) return NextResponse.json({ error: "Este usuario no tiene email." }, { status: 400 });
+      if (isCurrentlyBanned(authUser)) {
+        return NextResponse.json(
+          { error: "Esta cuenta tiene el acceso bloqueado. Desbloquéala para entrar como ella." },
+          { status: 409 },
+        );
+      }
+      const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+      });
+      const tokenHash = asRecord(linkData?.properties).hashed_token;
+      if (linkErr || typeof tokenHash !== "string" || !tokenHash) {
+        return NextResponse.json({ error: linkErr?.message || "No se pudo abrir esa cuenta." }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, token_hash: tokenHash });
     }
 
     if (action === "confirm_email") {

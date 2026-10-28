@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { clearAdminActingAs, readAdminActingAs, type AdminActingAs } from "@/lib/admin-acting-as";
 import { fetchAdminPendingCount, fetchArsysUnseen } from "@/lib/admin-pending-count";
 import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 import {
@@ -507,6 +508,7 @@ export default function Header() {
   const [activeCursor, setActiveCursor] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState(pathname);
   const [mounted, setMounted] = useState(false);
+  const [actingAs, setActingAs] = useState<AdminActingAs | null>(null);
   
   const [currentLocale, setCurrentLocale] = useState('es');
 
@@ -563,6 +565,7 @@ export default function Header() {
 
   useEffect(() => {
     setMounted(true);
+    setActingAs(readAdminActingAs());
     setCurrentPath(window.location.pathname);
 
     const sessionOverride =
@@ -1021,12 +1024,36 @@ export default function Header() {
     setThemeMenuOpen(false);
   };
 
+  const leaveActingAccount = async () => {
+    clearAdminActingAs();
+    setActingAs(null);
+    try {
+      localStorage.removeItem("me:profile");
+    } catch {
+      /* ignore */
+    }
+    await supabase.auth.signOut();
+    window.location.assign("/admin-panel");
+  };
+
   if (!mounted) {
     return <div style={{ height: 125, backgroundColor: "var(--bg-soft)", width: "100%" }} />;
   }
 
+  const actingBar = 36;
+
   return (
     <>
+      {actingAs ? (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1200, height: actingBar, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "0 16px", background: "var(--color-primary)", color: "var(--bg-card)", fontSize: "13px", fontWeight: 800 }}>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Estás dentro de la cuenta de {actingAs.name}. Lo que cambies se guarda en su cuenta.
+          </span>
+          <button type="button" onClick={() => void leaveActingAccount()} style={{ flexShrink: 0, background: "var(--bg-card)", color: "var(--color-primary)", border: "none", borderRadius: "999px", padding: "6px 12px", fontWeight: 900, fontSize: "12px", cursor: "pointer" }}>
+            Volver al admin
+          </button>
+        </div>
+      ) : null}
       <header
         ref={headerRef}
         style={{
@@ -1041,7 +1068,7 @@ export default function Header() {
           alignItems: isMobile ? "stretch" : undefined,
           borderBottom: "1px solid var(--color-border)",
           position: "fixed",
-          top: 0, left: 0, right: 0,
+          top: actingAs ? actingBar : 0, left: 0, right: 0,
           zIndex: 1100,
           boxSizing: "border-box",
           transition: "background-color 0.3s ease, border-color 0.3s ease" 
@@ -1772,7 +1799,7 @@ export default function Header() {
           }
         }
       `}} />
-      <div className="site-header-spacer" style={{ height: isMobile ? mobileHeaderHeight : 90, width: "100%", flexShrink: 0 }} />
+      <div className="site-header-spacer" style={{ height: (isMobile ? mobileHeaderHeight : 90) + (actingAs ? actingBar : 0), width: "100%", flexShrink: 0 }} />
       {moreMenuOpen && (
         <>
           <button type="button" className="mobile-more-backdrop" aria-label={t("common.close") || "Cerrar"} onClick={closeAllMenus} />
