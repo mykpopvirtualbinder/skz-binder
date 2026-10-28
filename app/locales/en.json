@@ -1304,6 +1304,10 @@
     "welcome": "Welcome",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "You must confirm your email before signing in. Check your inbox (and spam) for the link we sent you.",
+    "error_title": "Could not sign in",
+    "error_invalid": "The email or password is not correct.",
+    "error_generic": "Sign-in did not work. Try again.",
+    "sent_title": "Email sent",
     "resend_confirmation_btn": "Resend confirmation",
     "resend_confirmation_need_email": "Type your email and tap again to resend confirmation.",
     "resend_confirmation_success": "We have resent the confirmation email. Please check your spam folder too."

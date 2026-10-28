@@ -1128,6 +1128,10 @@
     "welcome": "欢迎",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "登录前请先完成邮箱验证。请在收件箱（以及垃圾邮件）中查看我们发送的链接。",
+    "error_title": "无法登录",
+    "error_invalid": "邮箱或密码不正确。",
+    "error_generic": "登录没有成功，请再试一次。",
+    "sent_title": "邮件已发送",
     "resend_confirmation_btn": "重新发送验证邮件",
     "resend_confirmation_need_email": "请输入邮箱后再次点击以重新发送验证邮件。",
     "resend_confirmation_success": "我们已重新发送验证邮件，请同时检查垃圾邮件文件夹。"

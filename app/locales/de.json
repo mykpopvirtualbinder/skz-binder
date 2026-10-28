@@ -1165,6 +1165,10 @@
     "welcome": "Willkommen",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "Du musst deine E-Mail bestätigen, bevor du dich anmeldest. Prüfe deinen Posteingang (und Spam) auf den Link, den wir dir gesendet haben.",
+    "error_title": "Anmeldung fehlgeschlagen",
+    "error_invalid": "E-Mail oder Passwort stimmt nicht.",
+    "error_generic": "Die Anmeldung hat nicht geklappt. Versuch es noch einmal.",
+    "sent_title": "E-Mail gesendet",
     "resend_confirmation_btn": "Bestätigung erneut senden",
     "resend_confirmation_need_email": "Gib deine E-Mail ein und tippe erneut, um die Bestätigung zu senden.",
     "resend_confirmation_success": "Wir haben die Bestätigungs-E-Mail erneut gesendet. Bitte prüfe auch deinen Spam-Ordner."

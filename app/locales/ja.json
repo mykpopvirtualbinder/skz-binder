@@ -1165,6 +1165,10 @@
     "welcome": "ようこそ",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "ログインする前にメール確認が必要です。送信したリンクを受信トレイ（迷惑メール含む）で確認してください。",
+    "error_title": "ログインできませんでした",
+    "error_invalid": "メールアドレスかパスワードが違います。",
+    "error_generic": "ログインできませんでした。もう一度試してください。",
+    "sent_title": "メールを送りました",
     "resend_confirmation_btn": "確認メールを再送",
     "resend_confirmation_need_email": "メールアドレスを入力して、もう一度押してください。",
     "resend_confirmation_success": "確認メールを再送しました。迷惑メールフォルダも確認してください。"

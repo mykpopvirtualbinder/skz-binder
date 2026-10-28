@@ -1165,6 +1165,10 @@
     "welcome": "Selamat datang",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "Kamu harus mengonfirmasi email sebelum masuk. Cek inbox (dan spam) untuk tautan yang sudah kami kirim.",
+    "error_title": "Tidak bisa masuk",
+    "error_invalid": "Email atau kata sandi tidak benar.",
+    "error_generic": "Masuk gagal. Coba lagi.",
+    "sent_title": "Email terkirim",
     "resend_confirmation_btn": "Kirim ulang konfirmasi",
     "resend_confirmation_need_email": "Isi email kamu lalu klik lagi untuk kirim ulang konfirmasi.",
     "resend_confirmation_success": "Email konfirmasi sudah kami kirim ulang. Cek juga folder spam."

@@ -1128,6 +1128,10 @@
     "welcome": "Bem-vindo/a",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "Tens de confirmar o teu email antes de iniciar sessão. Verifica a tua caixa de entrada (e spam) para o link que enviámos.",
+    "error_title": "Não foi possível entrar",
+    "error_invalid": "O e-mail ou a palavra-passe não estão corretos.",
+    "error_generic": "Não foi possível iniciar sessão. Tenta outra vez.",
+    "sent_title": "Email enviado",
     "resend_confirmation_btn": "Reenviar confirmação",
     "resend_confirmation_need_email": "Escreve o teu email e toca novamente para reenviar a confirmação.",
     "resend_confirmation_success": "Reenviámos o email de confirmação. Verifica também a pasta de spam."

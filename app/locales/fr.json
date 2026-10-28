@@ -1165,6 +1165,10 @@
     "welcome": "Bienvenue",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "Tu dois confirmer ton email avant de te connecter. Vérifie ta boîte de réception (et les spams) pour le lien que nous t'avons envoyé.",
+    "error_title": "Connexion impossible",
+    "error_invalid": "L'e-mail ou le mot de passe n'est pas correct.",
+    "error_generic": "La connexion n'a pas abouti. Réessaie.",
+    "sent_title": "E-mail envoyé",
     "resend_confirmation_btn": "Renvoyer la confirmation",
     "resend_confirmation_need_email": "Saisis ton email puis clique à nouveau pour renvoyer la confirmation.",
     "resend_confirmation_success": "Nous avons renvoyé l'email de confirmation. Vérifie aussi le dossier spam."

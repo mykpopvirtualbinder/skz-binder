@@ -1128,6 +1128,10 @@
     "welcome": "환영합니다",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "로그인하기 전에 이메일 인증이 필요합니다. 우리가 보낸 링크를 받은편지함(스팸 포함)에서 확인해 주세요.",
+    "error_title": "로그인하지 못했어요",
+    "error_invalid": "이메일 또는 비밀번호가 맞지 않아요.",
+    "error_generic": "로그인에 실패했어요. 다시 시도해 주세요.",
+    "sent_title": "메일을 보냈어요",
     "resend_confirmation_btn": "인증 메일 다시 보내기",
     "resend_confirmation_need_email": "이메일을 입력한 뒤 다시 눌러 인증 메일을 보내세요.",
     "resend_confirmation_success": "인증 메일을 다시 보냈습니다. 스팸 폴더도 확인해 주세요."

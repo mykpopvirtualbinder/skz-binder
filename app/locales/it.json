@@ -1165,6 +1165,10 @@
     "welcome": "Benvenuto/a",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "Devi confermare la tua email prima di accedere. Controlla la posta in arrivo (e lo spam) per il link che ti abbiamo inviato.",
+    "error_title": "Accesso non riuscito",
+    "error_invalid": "L'email o la password non sono corrette.",
+    "error_generic": "L'accesso non è riuscito. Riprova.",
+    "sent_title": "Email inviata",
     "resend_confirmation_btn": "Invia di nuovo la conferma",
     "resend_confirmation_need_email": "Inserisci la tua email e premi di nuovo per inviare la conferma.",
     "resend_confirmation_success": "Ti abbiamo inviato di nuovo l'email di conferma. Controlla anche la cartella spam."

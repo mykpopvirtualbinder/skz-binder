@@ -1304,6 +1304,10 @@
     "welcome": "¡Bienvenido/a!",
     "subtitle_romanized": "Annyeonghaseyo",
     "error_email_not_confirmed": "Debes confirmar tu correo antes de iniciar sesión. Revisa tu bandeja (y spam) por el enlace que te enviamos.",
+    "error_title": "No se ha podido entrar",
+    "error_invalid": "El correo o la contraseña no son correctos.",
+    "error_generic": "No se ha podido iniciar sesión. Prueba otra vez.",
+    "sent_title": "Correo enviado",
     "resend_confirmation_btn": "Reenviar confirmación",
     "resend_confirmation_need_email": "Escribe tu correo y pulsa de nuevo para reenviar la confirmación.",
     "resend_confirmation_success": "Te hemos reenviado el correo de confirmación. Revisa también la carpeta de spam."

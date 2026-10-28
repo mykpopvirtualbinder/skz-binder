@@ -24,7 +24,7 @@ const inputStyle: React.CSSProperties = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t, refreshGlobal } = useGlobal();
+  const { t, refreshGlobal, showAlert, showPrompt } = useGlobal();
   const [isMobile, setIsMobile] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,14 +48,17 @@ export default function LoginPage() {
     if (error) {
       const msg = error.message || "";
       const code = (error as { code?: string }).code;
-      if (
+      const needsConfirm =
         code === "email_not_confirmed" ||
-        /confirm|verif|not confirmed|confirmar|correo/i.test(msg)
-      ) {
-        alert(t("login.error_email_not_confirmed"));
+        /confirm|verif|not confirmed|confirmar/i.test(msg);
+      if (needsConfirm) {
+        showAlert(t("login.error_title"), t("login.error_email_not_confirmed"));
         setShowResendConfirmation(true);
+      } else if (code === "invalid_credentials" || /invalid login credentials|invalid credentials/i.test(msg)) {
+        showAlert(t("login.error_title"), t("login.error_invalid"));
+        setShowResendConfirmation(false);
       } else {
-        alert(t("login.error_prefix") + msg);
+        showAlert(t("login.error_title"), t("login.error_generic"));
         setShowResendConfirmation(false);
       }
       setLoading(false);
@@ -78,23 +81,27 @@ export default function LoginPage() {
     router.push(next.startsWith("/admin-panel") ? next : "/me");
   };
 
-  const handleResetPassword = async () => {
-    const emailToReset = prompt(t('login.reset_password_prompt'));
-    if (!emailToReset) return;
-
-    if (typeof supabase !== "undefined") {
-      const { error } = await supabase.auth.resetPasswordForEmail(emailToReset, {
-        redirectTo: `${window.location.origin}/update-password`, 
-      });
-      if (error) alert(t('login.error_prefix') + error.message);
-      else alert(t('login.reset_password_success'));
-    }
+  const handleResetPassword = () => {
+    showPrompt(
+      t("login.forgot_password"),
+      t("login.reset_password_prompt"),
+      async (emailToReset) => {
+        const target = emailToReset.trim();
+        if (!target) return;
+        const { error } = await supabase.auth.resetPasswordForEmail(target, {
+          redirectTo: `${window.location.origin}/update-password`,
+        });
+        if (error) showAlert(t("login.error_title"), t("login.error_generic"));
+        else showAlert(t("login.sent_title"), t("login.reset_password_success"));
+      },
+      { hideAnonymous: true, confirmLabel: t("common.confirm"), placeholder: t("login.email_placeholder") },
+    );
   };
 
   const handleResendConfirmation = async () => {
     const targetEmail = email.trim();
     if (!targetEmail) {
-      alert(t("login.resend_confirmation_need_email"));
+      showAlert(t("login.error_title"), t("login.resend_confirmation_need_email"));
       return;
     }
     const { error } = await supabase.auth.resend({
@@ -105,10 +112,10 @@ export default function LoginPage() {
       },
     });
     if (error) {
-      alert(t("login.error_prefix") + error.message);
+      showAlert(t("login.error_title"), t("login.error_generic"));
       return;
     }
-    alert(t("login.resend_confirmation_success"));
+    showAlert(t("login.sent_title"), t("login.resend_confirmation_success"));
   };
 
   return (
