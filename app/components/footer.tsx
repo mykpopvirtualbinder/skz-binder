@@ -1,7 +1,22 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useGlobal } from "../context/GlobalContext";
+import { normalizeThemeId } from "@/lib/theme-unlocks";
+
+const FOOTER_LOGO: Record<string, string> = {
+  pastel: "soft pastel.png",
+  dark: "Midnight Neon.png",
+  vibrant: "Anime Vibrant.png",
+  minimal: "Korean Cafe.png",
+  k_pride: "K-Pride.png",
+  iris_bloom: "Iris Bloom.png",
+};
+
+function footerLogoSrc(themeId: string) {
+  const file = FOOTER_LOGO[normalizeThemeId(themeId)] || FOOTER_LOGO.pastel;
+  return `/branding/logo-footer/${encodeURIComponent(file)}`;
+}
 
 const footerColumnTitle: React.CSSProperties = { 
   fontSize: "13px", 
@@ -21,7 +36,15 @@ const footerLinkStyle: React.CSSProperties = {
 };
 
 export default function Footer() {
-  const { t } = useGlobal(); 
+  const { t } = useGlobal();
+  const [themeId, setThemeId] = useState("pastel");
+
+  useEffect(() => {
+    const read = () => setThemeId(document.documentElement.getAttribute("data-theme") || "pastel");
+    read();
+    window.addEventListener("themeChange", read);
+    return () => window.removeEventListener("themeChange", read);
+  }, []); 
 
   return (
     <footer className="site-footer" data-tour="site-footer" style={{ 
@@ -78,7 +101,12 @@ export default function Footer() {
         </div>
       </div>
 
-      <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "20px", textAlign: "center" }}>
+      <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "20px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+        <img
+          src={footerLogoSrc(themeId)}
+          alt="omyo creator lab"
+          style={{ height: 84, width: "auto", maxWidth: "min(360px, 100%)", objectFit: "contain" }}
+        />
         <span className="site-footer-copy">
           © {new Date().getFullYear()} {t('footer.copyright_text')}
         </span>
