@@ -68,13 +68,29 @@ async function removeListing(admin: Admin, body: AdminRemovalBody) {
   return noticed;
 }
 
+const LISTING_REMOVED: Record<string, (type: string, piece: string, reason: string) => string> = {
+  es: (type, piece, reason) => `Hemos quitado tu anuncio ${type}${piece} del mercado. Motivo: ${reason}. Las copias pasan a Tengo.`,
+  en: (type, piece, reason) => `We removed your ${type} listing${piece} from the market. Reason: ${reason}. The copies move to Have.`,
+  fr: (type, piece, reason) => `Nous avons retiré ton annonce ${type}${piece} du marché. Motif : ${reason}. Les exemplaires passent dans J'ai.`,
+  de: (type, piece, reason) => `Wir haben deine ${type}-Anzeige${piece} vom Markt genommen. Grund: ${reason}. Die Exemplare liegen jetzt bei Habe ich.`,
+  it: (type, piece, reason) => `Abbiamo tolto il tuo annuncio ${type}${piece} dal mercato. Motivo: ${reason}. Le copie passano a Ce l'ho.`,
+  pt: (type, piece, reason) => `Tirámos o teu anúncio ${type}${piece} do mercado. Motivo: ${reason}. As cópias passam para Tenho.`,
+  id: (type, piece, reason) => `Kami menurunkan iklan ${type} milikmu${piece} dari market. Alasan: ${reason}. Salinannya pindah ke Punya.`,
+  th: (type, piece, reason) => `เราเอารายการ ${type}${piece} ของคุณออกจากตลาดแล้ว เหตุผล: ${reason} สำเนาไปอยู่ที่ มีแล้ว`,
+  ja: (type, piece, reason) => `あなたの${type}出品${piece}をマーケットから取り下げました。理由: ${reason}。枚数は「持っている」に移ります。`,
+  ko: (type, piece, reason) => `회원님의 ${type} 글${piece}을 마켓에서 내렸습니다. 사유: ${reason}. 수량은 보유로 옮겨집니다.`,
+  zh: (type, piece, reason) => `我们已将你的 ${type} 公告${piece}从市场移除。原因：${reason}。副本已转入「已有」。`,
+};
+
+function listingRemovedText(language: string, type: string, piece: string, reason: string) {
+  const code = language.toLowerCase().split("-")[0];
+  return (LISTING_REMOVED[code] || LISTING_REMOVED.es)(type, piece, reason);
+}
+
 async function notifyListingRemoved(admin: Admin, userId: string, listingType: "wtt" | "wts", reason: string, label: string) {
   const { data: profile } = await admin.from("profiles").select("language").eq("user_id", userId).maybeSingle();
-  const english = String(profile?.language || "").toLowerCase().startsWith("en");
   const piece = label ? ` (${label})` : "";
-  const content = english
-    ? `We removed your ${listingType.toUpperCase()} listing${piece} from the market. Reason: ${reason}. The copies move to Have.`
-    : `Hemos quitado tu anuncio ${listingType.toUpperCase()}${piece} del mercado. Motivo: ${reason}. Las copias pasan a Tengo.`;
+  const content = listingRemovedText(String(profile?.language || "es"), listingType.toUpperCase(), piece, reason);
   const payload = {
     user_id: userId,
     sender_id: SITE_ADMIN_USER_ID,

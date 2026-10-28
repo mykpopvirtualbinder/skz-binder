@@ -931,13 +931,26 @@ export default function Header() {
 
   // ✨ LA MAGIA DEL IDIOMA ✨
   const changeLanguage = async (code: string) => {
-    setCurrentLocale(code);
-    setNextLocaleCookie(code);
+    const lang = code.trim().toLowerCase();
+    setCurrentLocale(lang);
+    setNextLocaleCookie(lang);
     if (typeof window !== "undefined") {
-      // Cambio temporal de sesión: no pisa el idioma persistente de ajustes.
-      sessionStorage.setItem("ui:language_override", code);
+      sessionStorage.setItem("ui:language_override", lang);
+      try {
+        const localProfileStr = localStorage.getItem("me:profile");
+        if (localProfileStr) {
+          const parsed = JSON.parse(localProfileStr) as Record<string, unknown>;
+          parsed.language = lang;
+          localStorage.setItem("me:profile", JSON.stringify(parsed));
+        }
+      } catch {
+        /* ignore */
+      }
     }
-    window.location.reload(); 
+    if (user?.id) {
+      await supabase.from("profiles").update({ language: lang }).eq("user_id", user.id);
+    }
+    window.location.reload();
   };
 
   const changeTheme = async (themeId: string, isVip: boolean) => {
