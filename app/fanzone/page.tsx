@@ -13,6 +13,7 @@ import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { avisarFavoritos } from "@/lib/avisos";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { canModerateGlobalContent } from "@/lib/admin-emails";
+import { adminRemoveContent } from "@/lib/admin-moderate-client";
 import {
   Heart, MessageCircle, Repeat2, Share, Image as ImageIcon, Sparkles,
   ShieldCheck, AlertTriangle, Ban, Loader2, X, Flag, Send, Trash2, ZoomIn, Star, Video
@@ -630,7 +631,16 @@ export default function FanZonePage() {
         setDeleteConfirm(null);
         return;
       }
-      await supabase.from("fanzone_posts").delete().match({ id: deleteConfirm.id });
+      if (!isOwner) {
+        const removed = await adminRemoveContent({ kind: "fanzone_post", id: deleteConfirm.id });
+        if (!removed.ok) {
+          showAlert(t("common.error"), removed.message);
+          setDeleteConfirm(null);
+          return;
+        }
+      } else {
+        await supabase.from("fanzone_posts").delete().match({ id: deleteConfirm.id });
+      }
     } else {
       const { data: row } = await supabase
         .from("fanzone_comments")
@@ -643,7 +653,16 @@ export default function FanZonePage() {
         setDeleteConfirm(null);
         return;
       }
-      await supabase.from("fanzone_comments").delete().match({ id: deleteConfirm.id });
+      if (!isOwner) {
+        const removed = await adminRemoveContent({ kind: "fanzone_comment", id: deleteConfirm.id });
+        if (!removed.ok) {
+          showAlert(t("common.error"), removed.message);
+          setDeleteConfirm(null);
+          return;
+        }
+      } else {
+        await supabase.from("fanzone_comments").delete().match({ id: deleteConfirm.id });
+      }
     }
     setDeleteConfirm(null);
     fetchPosts(false);

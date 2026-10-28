@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchAdminPendingByArea, fetchArsysUnseen, type AdminPendingByArea } from "@/lib/admin-pending-count";
 import Footer from "../components/footer";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { adminRemoveContent } from "@/lib/admin-moderate-client";
 import { useGlobal } from "../context/GlobalContext";
 import {
   UploadCloud, Save, Download, Loader2, Plus, Minus, FileText, Film,
@@ -1419,29 +1420,8 @@ const levantarSancion = async (userId: string, ticketId: string) => {
 
   const deleteArtistWorks = async (ids: string[]) => {
     if (ids.length === 0) return;
-    const { data: comments } = await supabase.from("fanart_comments").select("id, parent_id").in("fanart_id", ids);
-    const commentRows = (comments || []) as { id: string; parent_id?: string | null }[];
-    const replyIds = commentRows.filter((row) => row.parent_id).map((row) => row.id);
-    const rootIds = commentRows.filter((row) => !row.parent_id).map((row) => row.id);
-    const commentIds = [...replyIds, ...rootIds];
-    if (commentIds.length > 0) {
-      await supabase.from("fanart_comment_likes").delete().in("comment_id", commentIds);
-      if (replyIds.length > 0) await supabase.from("fanart_comments").delete().in("id", replyIds);
-      if (rootIds.length > 0) await supabase.from("fanart_comments").delete().in("id", rootIds);
-    }
-    await supabase.from("fanart_likes").delete().in("fanart_id", ids);
-    await supabase.from("fanzone_notifications").delete().in("fanart_id", ids);
-
-    const { data: chapters } = await supabase.from("capitulos").select("id").in("obra_id", ids);
-    const chapterIds = (chapters || []).map((row) => String(row.id));
-    if (chapterIds.length > 0) {
-      await supabase.from("traducciones").delete().in("capitulo_id", chapterIds);
-      await supabase.from("capitulos").delete().in("id", chapterIds);
-    }
-    await supabase.from("obras").delete().in("id", ids);
-
-    const { error } = await supabase.from("fanarts").delete().in("id", ids);
-    if (error) throw error;
+    const removed = await adminRemoveContent({ kind: "fanart", ids });
+    if (!removed.ok) throw new Error(removed.message);
   };
   // --- FUNCIÓN PARA AÑADIR STRIKE ---
   const addStrike = async (p: any, e: React.MouseEvent) => {

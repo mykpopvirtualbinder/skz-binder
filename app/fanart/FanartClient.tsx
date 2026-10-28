@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { pingAdminInbox } from "@/lib/ping-admin-inbox";
 import { canModerateGlobalContent } from "@/lib/admin-emails";
+import { adminRemoveContent } from "@/lib/admin-moderate-client";
 import { useGlobal } from "@/app/context/GlobalContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -573,8 +574,13 @@ function FanArtContent() {
     if (!isOwner && !canModerateAllContent) {
       return showAlert(t("common.error"), t("fanart.no_permission_comment"));
     }
-    const { error } = await supabase.from('fanart_comments').delete().eq('id', commentId);
-    if (error) return showAlert(t("common.error"), `${t("common.error")}: ${error.message}`);
+    if (!isOwner) {
+      const removed = await adminRemoveContent({ kind: "fanart_comment", id: commentId });
+      if (!removed.ok) return showAlert(t("common.error"), removed.message);
+    } else {
+      const { error } = await supabase.from('fanart_comments').delete().eq('id', commentId);
+      if (error) return showAlert(t("common.error"), `${t("common.error")}: ${error.message}`);
+    }
     if (viewingArt) loadComments(viewingArt.id);
 
     setViewingArt(prev => prev ? { ...prev, comments_count: Math.max(0, (prev.comments_count || 0) - 1) } : prev);
@@ -590,8 +596,8 @@ function FanArtContent() {
     if (!canModerateAllContent) {
       return showAlert(t("common.error"), t("fanart.no_permission_delete"));
     }
-    const { error } = await supabase.from('fanarts').delete().eq('id', artId);
-    if (error) return showAlert(t("common.error"), `${t("common.error")}: ${error.message}`);
+    const removed = await adminRemoveContent({ kind: "fanart", id: artId });
+    if (!removed.ok) return showAlert(t("common.error"), removed.message);
     showAlert(t("common.deleted"), t("fanart.post_deleted"));
     setViewingArt(null);
     fetchArt();

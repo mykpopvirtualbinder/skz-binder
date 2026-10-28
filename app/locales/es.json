@@ -1345,6 +1345,8 @@
       "done_deducted": "Anuncio quitado. Se han descontado {n} copias del stock.",
       "log_failed": "El anuncio ya no está en el mercado, pero el motivo no se ha podido guardar.",
       "failed": "No se ha podido quitar el anuncio. Prueba otra vez.",
+      "admin_confirm": "Este anuncio es de otra persona. ¿Lo quitas del mercado? Las copias pasan a Tengo.",
+      "admin_any": "¿Quitas este contenido? Sale de la web aunque lo haya publicado otra persona.",
       "missing": "Ese anuncio ya no está."
     },
     "no_ads_found": "No hay anuncios que coincidan con tu búsqueda.",

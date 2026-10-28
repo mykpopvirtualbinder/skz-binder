@@ -18,6 +18,8 @@ import { MERCH_ALBUM_DB_CATEGORY } from "@/lib/merch-album-filter-meta";
 import { getCurrencyOptions } from "../library/currencyOptions";
 import { requireLoggedIn } from "@/lib/auth-gate";
 import { withdrawMarketListing, type WithdrawReason } from "@/lib/market-withdraw";
+import { adminRemoveContent } from "@/lib/admin-moderate-client";
+import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { goToNoticeChat, readNoticeReturn } from "@/lib/notice-return";
 import {
   Search,
@@ -429,7 +431,8 @@ const PriceConverter = ({
 
 function MarketContent() {
   const router = useRouter();
-  const { t, showAlert } = useGlobal(); // 👈 AÑADE ESTA LÍNEA AQUÍ
+  const { t, showAlert, showConfirm, profile } = useGlobal();
+  const canModerate = isAdminTeamEmail(profile?.email);
   const searchParams = useSearchParams();
  
 
@@ -954,6 +957,25 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
   }, [ads, wttTargets, knownSingleMembers]);
 
   const isOwnAd = (ad: MarketAd) => Boolean(currentUserId && ad.user_id === currentUserId);
+
+  const removeForeignListing = async (ad: MarketAd) => {
+    const ok = await showConfirm(t("common.confirm"), t("market.withdraw.admin_confirm"));
+    if (!ok) return;
+    const result = await adminRemoveContent({
+      kind: "listing",
+      userId: ad.user_id,
+      itemType: ad.itemType === "merch" ? "merch" : "pc",
+      itemId: ad.item_id,
+      listingType: ad.type,
+    });
+    if (!result.ok) {
+      showAlert(t("common.error"), result.message === "login" ? t("market.withdraw.failed") : result.message);
+      return;
+    }
+    setAds((prev) => prev.filter((row) => row.id !== ad.id));
+    setSelectedAd((cur) => (cur?.id === ad.id ? null : cur));
+    showAlert(t("common.deleted"), t("market.withdraw.done"));
+  };
 
   const openWithdraw = (ad: MarketAd) => {
     if (Date.now() - withdrawClosedAt.current < 600) return;
@@ -1746,6 +1768,11 @@ const openPublicProfile = async (userId: string) => {
                         <div style={{ fontSize: "11px", fontStyle: "italic", color: "var(--text-muted)" }}>"{ad.comment}"</div>
                       )}
 
+                      {canModerate && !isOwnAd(ad) ? (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); void removeForeignListing(ad); }} style={{ ...ghostMarketBtn, color: "var(--text-main)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                          <Trash2 size={16} /> {t("market.withdraw.btn")}
+                        </button>
+                      ) : null}
                       <div style={{ display: "grid", gridTemplateColumns: !isOwnAd(ad) && ad.type === "wts" ? "1fr 1fr" : "1fr", gap: "6px", marginTop: "auto" }}>
                         {isOwnAd(ad) ? (
                           <button type="button" onClick={(e) => { e.stopPropagation(); openWithdraw(ad); }} style={{ ...ghostMarketBtn, color: "var(--text-main)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
@@ -1977,6 +2004,15 @@ const openPublicProfile = async (userId: string) => {
                       </div>
                     </div>
 
+                    {canModerate && !isOwnAd(ad) ? (
+                      <button
+                        type="button"
+                        onClick={() => void removeForeignListing(ad)}
+                        style={{ ...ghostMarketBtn, color: "var(--text-main)", border: "1px solid var(--color-border)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "12px", borderRadius: "12px" }}
+                      >
+                        <Trash2 size={16} /> {t("market.withdraw.btn")}
+                      </button>
+                    ) : null}
                     <div style={{ display: "grid", gridTemplateColumns: !isOwnAd(ad) && ad.type === "wts" ? "1fr 1fr" : "1fr", gap: "10px", marginTop: "4px" }}>
                       {isOwnAd(ad) ? (
                         <button

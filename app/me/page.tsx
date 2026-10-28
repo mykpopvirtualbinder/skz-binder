@@ -13,6 +13,7 @@ import {
   type VipBadgeSectionKey,
 } from "./ui/AvatarModalInsigniasSection";
 import { isAdminTeamEmail, isSiteAdminSession } from "@/lib/admin-emails";
+import { adminRemoveContent } from "@/lib/admin-moderate-client";
 import { isSiteAdminUser } from "@/lib/site-admin-stock";
 import { collectionCardQty, emptyCollectionCounts, loadCollectionSummary, type CollectionCounts } from "@/lib/collection-summary";
 import CollectionSummary from "@/app/components/CollectionSummary";
@@ -1442,6 +1443,17 @@ function MePageContent() {
     window.dispatchEvent(new Event("update_notifications"));
   };
 
+  const removeChatMessage = async (id: string) => {
+    const ok = await showConfirm(t("common.confirm"), t("market.withdraw.admin_any"));
+    if (!ok) return;
+    const removed = await adminRemoveContent({ kind: "message", id });
+    if (!removed.ok) {
+      showAlert(t("common.error"), removed.message);
+      return;
+    }
+    setChatHistory((prev) => prev.filter((row) => row.id !== id));
+  };
+
   const handleSendReply = async () => {
     if (profile?.is_restricted) {
       setIsSendingReply(false);
@@ -2867,8 +2879,13 @@ function MePageContent() {
                           </div>
                         )}
                       </div>
-                      <span style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "4px", fontWeight: 700 }}>
+                      <span style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "4px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "8px" }}>
                         {new Date(msg.created_at).toLocaleString([], {hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit'})}
+                        {isAdmin ? (
+                          <button type="button" onClick={() => void removeChatMessage(msg.id)} style={{ background: "none", border: "none", padding: 0, color: "var(--text-muted)", fontSize: "10px", fontWeight: 800, cursor: "pointer" }}>
+                            {t("common.delete")}
+                          </button>
+                        ) : null}
                       </span>
                     </div>
                   )

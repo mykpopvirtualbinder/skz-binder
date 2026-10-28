@@ -21,7 +21,7 @@ export function isAdminTeamEmail(email: string | null | undefined): boolean {
   return (ADMIN_TEAM_EMAILS as readonly string[]).includes(n);
 }
 
-/** Solo esta cuenta puede moderar (borrar) contenido ajeno en comunidad. */
+/** El equipo admin puede borrar contenido publicado por cualquier cuenta. */
 export function canModerateGlobalContent(email: string | null | undefined): boolean {
-  return isSiteAdminSession(email);
+  return isAdminTeamEmail(email);
 }

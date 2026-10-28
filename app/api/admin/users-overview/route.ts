@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
+import { adminRemoveContent, type AdminRemovalBody } from "@/lib/admin-moderate-content";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
 export type AccountBucket = "alta" | "baja" | "pendiente" | "restringido";
@@ -147,6 +148,25 @@ export async function GET(req: Request) {
     };
 
     return NextResponse.json({ summary, users: rows });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  const gate = await requireAdminFromRequest(req);
+  if (gate instanceof NextResponse) return gate;
+  let body: AdminRemovalBody;
+  try {
+    body = (await req.json()) as AdminRemovalBody;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  try {
+    const result = await adminRemoveContent(createServiceRoleClient(), body);
+    if (!result.ok) return NextResponse.json({ error: result.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error";
     return NextResponse.json({ error: msg }, { status: 500 });

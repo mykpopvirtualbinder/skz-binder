@@ -10,6 +10,8 @@ import Footer from "../components/footer";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { Sparkles, ArrowLeft, Instagram, Youtube, Info, Send, User, Heart, ImageIcon, X, Loader2, Flag, Reply, ShieldAlert } from "lucide-react";
 import { useGlobal } from "../context/GlobalContext";
+import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { adminRemoveContent } from "@/lib/admin-moderate-client";
 
 function ArtistContent() {
   const router = useRouter();
@@ -19,7 +21,8 @@ function ArtistContent() {
   const isAdmin = searchParams.get('admin') === 'true';
   const denunciaId = searchParams.get('denunciaId');
 
-const { profile, showAlert, showPrompt, t } = useGlobal();
+const { profile, showAlert, showPrompt, showConfirm, t } = useGlobal();
+  const canModerate = isAdminTeamEmail(profile?.email);
 // El perfil en las dependencias de los efectos asegura que si el usuario
 // cambia el idioma en el Header, el contenido de esta página se refresque.
 // 
@@ -246,6 +249,24 @@ const { profile, showAlert, showPrompt, t } = useGlobal();
             <button onClick={() => handleReport(post.id, post.user_id)} style={{ background: "none", border: "none", padding: 0, color: "var(--text-muted)", fontSize: "12px", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", marginLeft: "auto" }}>
               <Flag size={12} /> {t('artist_month.btn_report')}
             </button>
+            {canModerate ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await showConfirm(t("common.confirm"), t("market.withdraw.admin_any"));
+                  if (!ok) return;
+                  const removed = await adminRemoveContent({ kind: "artist_wall", id: post.id });
+                  if (!removed.ok) {
+                    showAlert(t("common.error"), removed.message);
+                    return;
+                  }
+                  setWallPosts((prev) => prev.filter((row) => row.id !== post.id && row.parent_id !== post.id));
+                }}
+                style={{ background: "none", border: "none", padding: 0, color: "var(--text-muted)", fontSize: "12px", fontWeight: 800, cursor: "pointer" }}
+              >
+                {t("common.delete")}
+              </button>
+            ) : null}
           </div>
 
           {replyingToId === post.id && (
