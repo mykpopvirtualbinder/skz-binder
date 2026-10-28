@@ -47,6 +47,65 @@ const ME_TAB_ACCENTS: Record<TabKey, string> = {
   notices: "var(--accent-vibe-orange)",
 };
 
+function NoticeSelectBar({
+  total,
+  selectedCount,
+  allSelected,
+  hasUnread,
+  onToggleAll,
+  onMarkRead,
+  onMarkUnread,
+  onMarkAllRead,
+  onDelete,
+}: {
+  total: number;
+  selectedCount: number;
+  allSelected: boolean;
+  hasUnread: boolean;
+  onToggleAll: (checked: boolean) => void;
+  onMarkRead: () => void;
+  onMarkUnread: () => void;
+  onMarkAllRead: () => void;
+  onDelete: () => void;
+}) {
+  if (total === 0) return null;
+  const actionStyle: CSSProperties = {
+    padding: "6px 12px",
+    borderRadius: "99px",
+    border: "1px solid var(--color-border)",
+    background: "var(--bg-card)",
+    color: "var(--text-main)",
+    fontWeight: 800,
+    fontSize: "12px",
+    cursor: "pointer",
+  };
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+      <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 800, color: "var(--text-muted)", cursor: "pointer" }}>
+        <input type="checkbox" checked={allSelected} onChange={(e) => onToggleAll(e.target.checked)} />
+        Todas
+      </label>
+      {selectedCount > 0 ? (
+        <>
+          <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--text-main)" }}>{selectedCount}</span>
+          <button type="button" onClick={onMarkRead} style={actionStyle}>Leídas</button>
+          <button type="button" onClick={onMarkUnread} style={actionStyle}>No leídas</button>
+          <button
+            type="button"
+            title="Borrar"
+            onClick={onDelete}
+            style={{ width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "99px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", cursor: "pointer" }}
+          >
+            <Trash2 size={14} />
+          </button>
+        </>
+      ) : hasUnread ? (
+        <button type="button" onClick={onMarkAllRead} style={actionStyle}>Marcar todas leídas</button>
+      ) : null}
+    </div>
+  );
+}
+
 type Profile = {
   id: string;
   email: string | null;
@@ -735,20 +794,6 @@ function MePageContent() {
     await supabase.from("fanzone_notifications").update({ read }).in("id", ids);
   };
 
-  const markAsUnread = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: false } : n));
-    await supabase.from("notifications").update({ read: false }).eq("id", id);
-    window.dispatchEvent(new Event("update_notifications"));
-  };
-
-  const markAsReadFromButton = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    await supabase.from("notifications").update({ read: true }).eq("id", id);
-    window.dispatchEvent(new Event("update_notifications"));
-  };
-
   const deleteNotice = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -808,20 +853,7 @@ function MePageContent() {
     await supabase.from("fanzone_notifications").delete().in("id", ids);
   };
 
-  const markFanzoneAsUnread = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setFanzoneNotices((prev) =>
-      prev.map((n) => (String(n.id) === id ? { ...n, read: false } : n))
-    );
-    const { error } = await supabase
-      .from("fanzone_notifications")
-      .update({ read: false })
-      .eq("id", id);
-    if (error) console.warn("fanzone unread single", error.message);
-  };
-
-  const markFanzoneAsRead = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const markFanzoneAsRead = async (id: string) => {
     setFanzoneNotices((prev) =>
       prev.map((n) => (String(n.id) === id ? { ...n, read: true } : n))
     );
@@ -2552,30 +2584,19 @@ function MePageContent() {
                       {fanzoneReadFilter === "unread" ? "No hay avisos sin leer." : "No hay avisos leídos."}
                     </p>
                   ) : null}
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 800, color: "var(--text-muted)" }}>
-                      <input
-                        type="checkbox"
-                        checked={visibleFanzoneNotices.length > 0 && visibleFanzoneNotices.every((n) => selectedFanzoneNotices.has(String(n.id)))}
-                        onChange={(e) => handleSelectAllFanzone(e.target.checked)}
-                      />
-                      Seleccionar todo
-                    </label>
-                    <button type="button" onClick={markFanzoneSelectedAsRead} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Seleccionadas leídas</button>
-                    <button type="button" onClick={markFanzoneSelectedAsUnread} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Seleccionadas no leídas</button>
-                    <button type="button" onClick={() => void markVisibleFanzone(true)} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Todas leídas</button>
-                    <button type="button" onClick={() => void markVisibleFanzone(false)} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Todas no leídas</button>
-                    <button
-                      type="button"
-                      title="Borrar seleccionadas"
-                      onClick={deleteFanzoneSelected}
-                      style={{ width: 34, height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", cursor: "pointer" }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                  <NoticeSelectBar
+                    total={visibleFanzoneNotices.length}
+                    selectedCount={selectedFanzoneNotices.size}
+                    allSelected={visibleFanzoneNotices.length > 0 && visibleFanzoneNotices.every((n) => selectedFanzoneNotices.has(String(n.id)))}
+                    hasUnread={visibleFanzoneNotices.some((n) => n.read === false)}
+                    onToggleAll={handleSelectAllFanzone}
+                    onMarkRead={() => void markFanzoneSelectedAsRead()}
+                    onMarkUnread={() => void markFanzoneSelectedAsUnread()}
+                    onMarkAllRead={() => void markVisibleFanzone(true)}
+                    onDelete={() => void deleteFanzoneSelected()}
+                  />
                   {visibleFanzoneNotices.map((n: any) => (
-                    <div key={`fz-${n.id}`} onClick={() => router.push("/fanzone")} style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid var(--color-border)", background: n.read === false ? "var(--bg-soft)" : "var(--bg-card)", cursor: "pointer" }}>
+                    <div key={`fz-${n.id}`} onClick={() => { if (n.read === false) void markFanzoneAsRead(String(n.id)); router.push("/fanzone"); }} style={{ padding: "12px 14px", borderRadius: "12px", border: "1px solid var(--color-border)", background: n.read === false ? "var(--bg-soft)" : "var(--bg-card)", cursor: "pointer" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
                         <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer" }} onClick={(e) => e.stopPropagation()}>
                           <input
@@ -2583,27 +2604,19 @@ function MePageContent() {
                             checked={selectedFanzoneNotices.has(String(n.id))}
                             onChange={(e) => toggleFanzoneSelection(String(n.id), e)}
                           />
+                          {n.read === false ? <span style={{ width: 8, height: 8, borderRadius: "99px", background: "var(--color-primary)", flexShrink: 0 }} /> : null}
                           <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--text-main)" }}>
                             @{n.actor_profile?.display_name || "Usuario"} · {String(n.type || "activity")}
                           </span>
                         </label>
-                        <div style={{ display: "inline-flex", gap: "8px" }}>
-                          <button
-                            type="button"
-                            onClick={(e) => (n.read === false ? markFanzoneAsRead(String(n.id), e) : markFanzoneAsUnread(String(n.id), e))}
-                            style={{ border: "1px solid var(--color-border)", background: "var(--bg-main)", borderRadius: "8px", padding: "4px 8px", fontSize: "11px", fontWeight: 800, cursor: "pointer" }}
-                          >
-                            {n.read === false ? "Leído" : "No leído"}
-                          </button>
-                          <button
-                            type="button"
-                            title="Borrar"
-                            onClick={(e) => deleteFanzoneNotice(String(n.id), e)}
-                            style={{ width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--text-main)", borderRadius: "8px", cursor: "pointer" }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          title="Borrar"
+                          onClick={(e) => deleteFanzoneNotice(String(n.id), e)}
+                          style={{ width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--text-main)", borderRadius: "8px", cursor: "pointer" }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                       <div style={{ marginTop: "6px", fontSize: "11px", color: "var(--text-muted)", fontWeight: 700 }}>
                         {new Date(n.created_at).toLocaleString()}
@@ -2667,28 +2680,17 @@ function MePageContent() {
                       {noticeReadFilter === "unread" ? "No hay notificaciones sin leer." : "No hay notificaciones leídas."}
                     </p>
                   ) : null}
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 800, color: "var(--text-muted)" }}>
-                      <input
-                        type="checkbox"
-                        checked={visibleNotices.length > 0 && visibleNotices.every((n) => selectedNotices.has(n.id))}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                      />
-                      Seleccionar todo
-                    </label>
-                    <button type="button" onClick={markSelectedAsRead} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Seleccionadas leídas</button>
-                    <button type="button" onClick={markSelectedAsUnread} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Seleccionadas no leídas</button>
-                    <button type="button" onClick={() => void markVisibleNotices(true)} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Todas leídas</button>
-                    <button type="button" onClick={() => void markVisibleNotices(false)} style={{ padding: "8px 12px", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 800, cursor: "pointer" }}>Todas no leídas</button>
-                    <button
-                      type="button"
-                      title="Borrar seleccionadas"
-                      onClick={deleteSelectedNotices}
-                      style={{ width: 34, height: 34, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "10px", border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", cursor: "pointer" }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+                  <NoticeSelectBar
+                    total={visibleNotices.length}
+                    selectedCount={selectedNotices.size}
+                    allSelected={visibleNotices.length > 0 && visibleNotices.every((n) => selectedNotices.has(n.id))}
+                    hasUnread={visibleNotices.some((n) => !n.read)}
+                    onToggleAll={handleSelectAll}
+                    onMarkRead={() => void markSelectedAsRead()}
+                    onMarkUnread={() => void markSelectedAsUnread()}
+                    onMarkAllRead={() => void markVisibleNotices(true)}
+                    onDelete={() => void deleteSelectedNotices()}
+                  />
                   {visibleNotices.map((n) => (
                     <div key={n.id} onClick={() => handleNoticeRowClick(n)} style={{ padding: "14px 16px", borderRadius: "14px", border: "1px solid var(--color-border)", background: n.read ? "var(--bg-card)" : "var(--bg-soft)", cursor: "pointer" }}
                     >
@@ -2699,25 +2701,17 @@ function MePageContent() {
                             checked={selectedNotices.has(n.id)}
                             onChange={(e) => toggleSelection(n.id, e)}
                           />
+                          {!n.read ? <span style={{ width: 8, height: 8, borderRadius: "99px", background: "var(--me-tab-accent)", flexShrink: 0 }} /> : null}
                           <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 800 }}>{new Date(n.created_at).toLocaleString()}</span>
                         </label>
-                        <div style={{ display: "inline-flex", gap: "8px" }}>
-                          <button
-                            type="button"
-                            onClick={(e) => (n.read ? markAsUnread(n.id, e) : markAsReadFromButton(n.id, e))}
-                            style={{ border: "1px solid var(--color-border)", background: "var(--bg-main)", borderRadius: "8px", padding: "4px 8px", fontSize: "11px", fontWeight: 800, cursor: "pointer" }}
-                          >
-                            {n.read ? "No leído" : "Leído"}
-                          </button>
-                          <button
-                            type="button"
-                            title="Borrar"
-                            onClick={(e) => deleteNotice(n.id, e)}
-                            style={{ width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--text-main)", borderRadius: "8px", cursor: "pointer" }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          title="Borrar"
+                          onClick={(e) => deleteNotice(n.id, e)}
+                          style={{ width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--text-main)", borderRadius: "8px", cursor: "pointer" }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                       <div style={{ fontWeight: 800, marginTop: "4px", color: "var(--text-main)" }}>{n.sender_profile?.display_name || "MKB"}</div>
                       <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", marginTop: "6px" }}>
