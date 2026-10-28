@@ -3917,7 +3917,8 @@ async function doModalUndo(): Promise<void> {
   // Determinamos qué estamos deshaciendo para el pop-up/status
   let actionDesc = "cambio";
   
-  if (modalAssigned?.is_custom) {
+  const undoCustom = Boolean(modalAssigned?.is_custom) || String((modalAssigned as { version?: string | null } | null)?.version || "") === "personal";
+  if (undoCustom) {
       actionDesc = "PC personalizada"; 
   } else {
       // Comparamos el estado actual con el anterior para ser específicos
@@ -3940,12 +3941,12 @@ async function doModalUndo(): Promise<void> {
   
   setRefreshTick((t: number) => t + 1);
  // ✅ CUSTOM PC
- if (modalAssigned?.is_custom && modalSlotIndex != null) {
+ if (undoCustom && modalSlotIndex != null) {
   setSlotItems((map) => ({
    ...map,
    [modalSlotIndex]: {
     ...(map[modalSlotIndex] ?? {}),
-    is_custom: true,
+    is_custom: Boolean(modalAssigned?.is_custom),
     custom_text: prev.customText ?? "",
     custom_image_url: prev.customImageUrl ?? null,
    },
@@ -7662,8 +7663,15 @@ if (!itemsRes.error) {
   } else if (r.item_id) {
     const it = itemsById.get(Number(r.item_id));
     map[si] = it
-      ? ({ ...it, member_id: (r as any).member_id, is_wanted: (r as any).is_wanted } as any)
-      : ({ id: r.item_id, name: null, image_url: null, back_image_url: null, member_id: (r as any).member_id, is_wanted: (r as any).is_wanted } as any);
+      ? ({
+          ...it,
+          member_id: (r as any).member_id,
+          is_wanted: (r as any).is_wanted,
+          custom_text: r.custom_text ?? it.custom_text ?? null,
+          custom_image_url: r.custom_image_url ?? it.custom_image_url ?? null,
+          custom_back_image_url: (r as any).custom_back_image_url ?? it.custom_back_image_url ?? null,
+        } as any)
+      : ({ id: r.item_id, name: null, image_url: null, back_image_url: null, member_id: (r as any).member_id, is_wanted: (r as any).is_wanted, custom_text: r.custom_text ?? null, custom_image_url: r.custom_image_url ?? null, custom_back_image_url: (r as any).custom_back_image_url ?? null } as any);
   }
   }
 
@@ -9002,7 +9010,7 @@ useEffect(() => {
   if (modalAssigned != null) setModalAssignedStable(modalAssigned);
 }, [modalAssigned]);
 
-const modalIsCustom = Boolean(modalAssigned?.is_custom);
+const modalIsCustom = Boolean(modalAssigned?.is_custom) || String((modalAssigned as { version?: string | null } | null)?.version || "") === "personal";
 
 const modalCounts = useMemo(() => {
   if (!modalAssigned || modalIsCustom) return emptyCounts();
@@ -12974,9 +12982,9 @@ color: "var(--text-main)",
     {(() => {
       const sleeveRot = ((rot % 360) + 360) % 360;
       const rotScale = sleeveRot % 180 !== 0 ? 0.72 : 1;
-      const fImg = isCustom ? customImageUrl : (meta?.image_url ?? null);
+      const fImg = isCustom ? (customImageUrl || assigned?.image_url || null) : (meta?.image_url ?? null);
       const bImg = isCustom
-        ? ((assigned as any)?.custom_back_image_url ?? DEFAULT_BACK_URL)
+        ? ((assigned as any)?.custom_back_image_url || assigned?.back_image_url || DEFAULT_BACK_URL)
         : resolveMockPcBackUrl(meta?.image_url ?? assigned?.image_url, meta?.back_image_url ?? assigned?.back_image_url);
       return (
         <>
@@ -15487,7 +15495,7 @@ const isDraggingMe = pageDragFromId === p.id;
   onPrev={handleModalPrev}
   onNext={handleModalNext}
  notes={
-  !modalAssigned?.is_custom && typeof modalItemId === "number"
+  !modalIsCustom && typeof modalItemId === "number"
    ? (notesByItem[modalItemId] ?? "")
    : ""
  }
