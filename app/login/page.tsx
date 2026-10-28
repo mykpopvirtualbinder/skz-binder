@@ -74,7 +74,8 @@ export default function LoginPage() {
       }
     }
 
-    router.push("/me");
+    const next = new URLSearchParams(window.location.search).get("next") || "";
+    router.push(next.startsWith("/admin-panel") ? next : "/me");
   };
 
   const handleResetPassword = async () => {

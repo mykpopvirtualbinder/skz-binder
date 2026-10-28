@@ -1033,7 +1033,7 @@ export default function Header() {
       /* ignore */
     }
     await supabase.auth.signOut();
-    window.location.assign("/admin-panel");
+    window.location.assign("/login?next=/admin-panel");
   };
 
   if (!mounted) {
