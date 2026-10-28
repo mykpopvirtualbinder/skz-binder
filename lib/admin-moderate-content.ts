@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { prettyMemberLabel } from "@/lib/member-labels";
+import { resolveMockPcImageUrl } from "@/lib/mock-pc-url";
 import { SITE_ADMIN_USER_ID } from "@/lib/site-admin-stock";
 
 type Admin = SupabaseClient;
@@ -161,7 +162,8 @@ async function notifyListingRemoved(
   const { data: profile } = await admin.from("profiles").select("language").eq("user_id", userId).maybeSingle();
   const item = await listingItem(admin, itemType, itemId, fallback);
   const content = listingRemovedText(String(profile?.language || "es"), listingType.toUpperCase(), item.label, reason);
-  const image = item.image && (item.image.startsWith("/") || item.image.startsWith("http")) ? item.image : null;
+  const rawImage = item.image && (item.image.startsWith("/") || item.image.startsWith("http")) ? item.image : null;
+  const image = rawImage ? resolveMockPcImageUrl(rawImage) || rawImage : null;
   const payload = {
     user_id: userId,
     sender_id: SITE_ADMIN_USER_ID,

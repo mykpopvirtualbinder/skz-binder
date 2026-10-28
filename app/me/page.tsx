@@ -36,6 +36,7 @@ import { offerItems, offerKoinsAmount, offerPreviewText, parseChatOffer, type Ch
 import { parseChatDeal, serializeChatDeal, newDealId, offerFromTerms, dealPreviewText, type ChatDealPayload, type DealAction, type DealTerms } from "@/lib/chat-deal-payload";
 import { saveNoticeReturn, readNoticeReturn, clearNoticeReturn } from "@/lib/notice-return";
 import OfferDealModal from "./OfferDealModal";
+import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
 
 type TabKey = "home" | "groups" | "fanzone" | "notices";
 
@@ -2721,7 +2722,7 @@ function MePageContent() {
                       <div style={{ fontWeight: 800, marginTop: "4px", color: "var(--text-main)" }}>{n.sender_profile?.display_name || "MKB"}</div>
                       <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", marginTop: "6px" }}>
                         {n.type === "admin_message" && n.image_url && (n.image_url.startsWith("/") || n.image_url.startsWith("http")) ? (
-                          <img src={n.image_url} alt="" style={{ width: 54, height: 72, objectFit: "cover", borderRadius: 8, border: "1px solid var(--color-border)", flexShrink: 0 }} />
+                          <ImageWithExtensionFallback src={n.image_url} alt="" style={{ width: 54, height: 72, objectFit: "cover", borderRadius: 8, border: "1px solid var(--color-border)", flexShrink: 0 }} />
                         ) : null}
                         <div style={{ fontSize: "14px", whiteSpace: "pre-wrap" }}>
                           {dealPreviewText(n.content, {
@@ -2857,7 +2858,9 @@ function MePageContent() {
                   return (
                     <div key={msg.id} id={`chat-msg-${msg.id}`} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
                       <div style={{ background: isMe ? "var(--color-primary)" : "var(--bg-card)", color: isMe ? "white" : "var(--text-main)", padding: "12px 16px", borderRadius: "16px", border: isMe ? "none" : "1px solid var(--color-border)", maxWidth: "80%", boxShadow: "0 2px 8px var(--shadow-card)" }}>
-                        {msg.image_url && <img src={msg.image_url} style={{ maxWidth: "100%", borderRadius: "8px", marginBottom: "8px", border: "1px solid var(--color-border)" }} alt="Adjunto" />}
+                        {msg.image_url ? (
+                          <ImageWithExtensionFallback src={msg.image_url} alt="" style={{ display: "block", width: "100%", maxWidth: 180, maxHeight: 240, objectFit: "cover", borderRadius: "8px", marginBottom: "8px", border: "1px solid var(--color-border)" }} />
+                        ) : null}
                         {renderMessage(msg, isMe)}
                         {!isMe && !String(msg.content || "").startsWith("[APP_") && (
                           <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed var(--color-border)" }}>
