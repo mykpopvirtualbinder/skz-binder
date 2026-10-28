@@ -2,7 +2,7 @@ import { ADMIN_TEAM_EMAILS } from "@/lib/admin-emails";
 import { SITE_ADMIN_USER_ID } from "@/lib/site-admin-stock";
 import { sendMail } from "@/lib/site-mail";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
-import { applyCatalogRemoval, planCatalogRemoval, removalCounts, type RemovalPlan, type RemovalTarget } from "@/lib/catalog-removal";
+import { applyCatalogRemoval, copyImageToPersonal, planCatalogRemoval, removalCounts, type RemovalPlan, type RemovalTarget } from "@/lib/catalog-removal";
 
 const BUCKET = "catalog-private";
 const PATH = "admin/catalog-removals.json";
@@ -156,12 +156,6 @@ export async function scheduleCatalogRemoval(admin: Admin, target: RemovalTarget
   await deliverJobNotices(admin, job);
   await writeQueue(admin, queue);
   return { scheduled: true as const, holders: holderIds.length, executeAt: job.executeAt, ...removalCounts(plan) };
-}
-
-function personalImageUrl(url: string | null, token: string) {
-  const value = String(url || "").trim();
-  if (!value) return null;
-  return `${value}${value.includes("?") ? "&" : "?"}personal=${token}`;
 }
 
 function pieceKey(kind: "item" | "merch", id: string | number) {
@@ -411,6 +405,8 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
     if (error) throw new Error(error.message);
     if (!item) throw new Error("Esa ficha ya no está.");
     const token = crypto.randomUUID();
+    const imageUrl = await copyImageToPersonal(admin, item.image_url, token, "front");
+    const backImageUrl = await copyImageToPersonal(admin, item.back_image_url, token, "back");
     const copy = await admin
       .from("items")
       .insert({
@@ -424,8 +420,8 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
           ? String(item.version).split("-").filter(Boolean).map((word) => word.slice(0, 1).toUpperCase() + word.slice(1)).join(" ")
           : null),
         name: item.name,
-        image_url: personalImageUrl(item.image_url, token),
-        back_image_url: personalImageUrl(item.back_image_url, token),
+        image_url: imageUrl,
+        back_image_url: backImageUrl,
       })
       .select("id")
       .maybeSingle();
@@ -440,14 +436,14 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
       for (const ids of chunk(pageIds, 80)) {
         const slots = await admin.from("page_slots").select("id, face").in("page_id", ids).eq("item_id", itemId);
         for (const slot of slots.data ?? []) {
-          const back = String(slot.face || "") === "back";
-          await admin.from("page_slots").update({
-            is_custom: true,
+          const moved = await admin.from("page_slots").update({
+            is_custom: false,
             item_id: newId,
-            custom_text: item.name || "PC personalizada",
-            custom_image_url: back ? item.back_image_url || item.image_url : item.image_url,
-            custom_back_image_url: back ? item.image_url : item.back_image_url,
+            custom_text: null,
+            custom_image_url: null,
+            custom_back_image_url: null,
           }).eq("id", slot.id);
+          if (moved.error) throw new Error(moved.error.message);
         }
       }
     }
@@ -456,13 +452,14 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
     if (error) throw new Error(error.message);
     if (!merch) throw new Error("Esa pieza ya no está.");
     const token = crypto.randomUUID();
+    const imageUrl = await copyImageToPersonal(admin, merch.image_url, token, "front");
     const copy = await admin
       .from("merch_items")
       .insert({
         name: merch.name,
         category: merch.category,
         group_name: merch.group_name,
-        image_url: personalImageUrl(merch.image_url, token),
+        image_url: imageUrl,
         rarity: merch.rarity,
         album_title: merch.album_title,
         album_type: merch.album_type,

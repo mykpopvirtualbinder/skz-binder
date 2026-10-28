@@ -7954,20 +7954,13 @@ const wishFlag = wish > 0;
 
   const itRes = await supabase
  .from("items")
- .select("id, name, image_url, back_image_url, member_id, group_id, album_id, version, member")
+ .select("id, name, image_url, back_image_url, member_id, group_id, album_id, member")
  .eq("id", itemId)
  .single();
 
 const itemMemberId =
  !itRes.error && itRes.data && (itRes.data as any).member_id != null
   ? Number((itRes.data as any).member_id)
-  : null;
-const personal = !itRes.error && String((itRes.data as any)?.version || "") === "personal";
-const personalImages = personal
-  ? withResolvedPcImages({
-      image_url: (itRes.data as any)?.image_url ?? null,
-      back_image_url: (itRes.data as any)?.back_image_url ?? null,
-    })
   : null;
 
 const up = await supabase
@@ -7980,10 +7973,10 @@ const up = await supabase
   member_id: itemMemberId,
   rot: 0,
   flip_h: false,
-  is_custom: personal,
-  custom_text: personal ? ((itRes.data as any)?.name || "PC personalizada") : null,
-  custom_image_url: personal ? personalImages?.image_url ?? null : null,
-  custom_back_image_url: personal ? personalImages?.back_image_url ?? null : null,
+  is_custom: false,
+  custom_text: null,
+  custom_image_url: null,
+  custom_back_image_url: null,
  },
  { onConflict: "page_id,slot_index" }
  );
@@ -8005,27 +7998,14 @@ if (!itRes.error && itRes.data) {
  });
  setSlotItems((prev) => ({
   ...prev,
-  [slotIndex]: personal
-    ? {
-        id: it.id,
-        name: it.name || "PC personalizada",
-        image_url: resolved.image_url ?? null,
-        back_image_url: resolved.back_image_url ?? null,
-        is_custom: true,
-        custom_text: it.name || "PC personalizada",
-        custom_image_url: resolved.image_url ?? null,
-        custom_back_image_url: resolved.back_image_url ?? null,
-        member_id: it.member_id ?? null,
-        member: it.member ?? null,
-      }
-    : {
-        id: it.id,
-        name: it.name,
-        image_url: resolved.image_url ?? null,
-        back_image_url: resolved.back_image_url ?? null,
-        member_id: it.member_id ?? null,
-        member: it.member ?? null,
-      },
+  [slotIndex]: {
+    id: it.id,
+    name: it.name,
+    image_url: resolved.image_url ?? null,
+    back_image_url: resolved.back_image_url ?? null,
+    member_id: it.member_id ?? null,
+    member: it.member ?? null,
+  },
 }));
 } else {
  setSlotItems((prev) => ({
@@ -8190,7 +8170,7 @@ const placeSelectedItems = async (rawIds: number[]) => {
 
   const itRes = await supabase
     .from("items")
-    .select("id, name, image_url, back_image_url, member_id, member, version")
+    .select("id, name, image_url, back_image_url, member_id, member")
     .in("id", pairs.map((pair) => pair.itemId));
   const byId = new Map<number, DbItemRow & { member_id?: number | null; member?: string | null }>();
   if (!itRes.error) {
@@ -8202,10 +8182,6 @@ const placeSelectedItems = async (rawIds: number[]) => {
   const up = await supabase.from("page_slots").upsert(
     pairs.map((pair) => {
       const item = byId.get(pair.itemId);
-      const personal = String((item as { version?: string | null } | undefined)?.version || "") === "personal";
-      const images = personal
-        ? withResolvedPcImages({ image_url: item?.image_url ?? null, back_image_url: item?.back_image_url ?? null })
-        : null;
       return {
         page_id: pair.pageId,
         slot_index: pair.slotIndex,
@@ -8213,10 +8189,10 @@ const placeSelectedItems = async (rawIds: number[]) => {
         member_id: item?.member_id ?? null,
         rot: 0,
         flip_h: false,
-        is_custom: personal,
-        custom_text: personal ? (item?.name || "PC personalizada") : null,
-        custom_image_url: personal ? images?.image_url ?? null : null,
-        custom_back_image_url: personal ? images?.back_image_url ?? null : null,
+        is_custom: false,
+        custom_text: null,
+        custom_image_url: null,
+        custom_back_image_url: null,
       };
     }),
     { onConflict: "page_id,slot_index" },
@@ -8232,32 +8208,18 @@ const placeSelectedItems = async (rawIds: number[]) => {
     for (const pair of pairs) {
       if (pair.pageId !== pageId) continue;
       const item = byId.get(pair.itemId);
-      const personal = String((item as { version?: string | null } | undefined)?.version || "") === "personal";
       const resolved = withResolvedPcImages({
         image_url: item?.image_url ?? null,
         back_image_url: item?.back_image_url ?? null,
       });
-      next[pair.slotIndex] = personal
-        ? {
-            id: pair.itemId,
-            name: item?.name || "PC personalizada",
-            image_url: resolved.image_url ?? null,
-            back_image_url: resolved.back_image_url ?? null,
-            is_custom: true,
-            custom_text: item?.name || "PC personalizada",
-            custom_image_url: resolved.image_url ?? null,
-            custom_back_image_url: resolved.back_image_url ?? null,
-            member_id: item?.member_id ?? null,
-            member: item?.member ?? null,
-          }
-        : {
-            id: pair.itemId,
-            name: item?.name ?? null,
-            image_url: resolved.image_url ?? null,
-            back_image_url: resolved.back_image_url ?? null,
-            member_id: item?.member_id ?? null,
-            member: item?.member ?? null,
-          };
+      next[pair.slotIndex] = {
+        id: pair.itemId,
+        name: item?.name ?? null,
+        image_url: resolved.image_url ?? null,
+        back_image_url: resolved.back_image_url ?? null,
+        member_id: item?.member_id ?? null,
+        member: item?.member ?? null,
+      };
     }
     return next;
   });

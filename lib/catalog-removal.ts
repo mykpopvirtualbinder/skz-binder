@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "fs";
+import { extname, join } from "path";
 import { canonicalMerchGroupDisplayName } from "@/lib/merch-group-display";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
@@ -56,6 +58,160 @@ function catalogObjectPath(url: string | null | undefined): string | null {
 function pushPath(paths: string[], url: string | null | undefined) {
   const path = catalogObjectPath(url);
   if (path && !paths.includes(path)) paths.push(path);
+}
+
+function imageContentType(ext: string) {
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  return "image/jpeg";
+}
+
+function imageExt(url: string) {
+  const ext = extname(url.split("?")[0]).replace(/^\./, "").toLowerCase();
+  if (ext === "png" || ext === "webp" || ext === "gif") return ext;
+  if (ext === "jpg" || ext === "jpeg") return "jpg";
+  return "jpg";
+}
+
+function mockPcFile(url: string) {
+  const pathOnly = url.split("?")[0];
+  if (pathOnly.startsWith("/mock-pcs/")) return pathOnly.slice(1);
+  try {
+    const parsed = new URL(pathOnly);
+    if (parsed.pathname.startsWith("/mock-pcs/")) return decodeURIComponent(parsed.pathname.slice(1));
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+/** Copia la foto a `personal/…` para que el borrado del catálogo no se la lleve. */
+export async function copyImageToPersonal(
+  admin: Admin,
+  url: string | null | undefined,
+  token: string,
+  side: "front" | "back",
+): Promise<string | null> {
+  const value = String(url || "").trim();
+  if (!value) return null;
+  const current = catalogObjectPath(value);
+  if (current?.startsWith("personal/")) {
+    return admin.storage.from(BUCKET).getPublicUrl(current).data.publicUrl || value.split("?")[0];
+  }
+
+  let bytes: Buffer | null = null;
+  let contentType = imageContentType(imageExt(value));
+  if (current) {
+    const downloaded = await admin.storage.from(BUCKET).download(current);
+    if (!downloaded.error && downloaded.data) {
+      bytes = Buffer.from(await downloaded.data.arrayBuffer());
+      if (downloaded.data.type && downloaded.data.type !== "application/octet-stream") contentType = downloaded.data.type;
+    }
+  } else {
+    const rel = mockPcFile(value);
+    if (rel) {
+      const abs = join(process.cwd(), "public", rel);
+      if (existsSync(abs)) {
+        bytes = readFileSync(abs);
+        contentType = imageContentType(imageExt(rel));
+      }
+    }
+  }
+  if (!bytes?.length) return value;
+
+  const path = `personal/${token}/${side}.${imageExt(value)}`;
+  const uploaded = await admin.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: true });
+  if (uploaded.error) throw new Error(uploaded.error.message);
+  const publicUrl = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  if (!publicUrl) throw new Error("No se pudo guardar la foto personalizada.");
+  return publicUrl;
+}
+
+async function personalStoragePaths(admin: Admin) {
+  const paths = new Set<string>();
+  await eachPage<{ image_url: string | null; back_image_url: string | null }>(
+    admin,
+    "items",
+    "image_url, back_image_url",
+    (query) => query.eq("version", "personal"),
+    (row) => {
+      const front = catalogObjectPath(row.image_url);
+      const back = catalogObjectPath(row.back_image_url);
+      if (front) paths.add(front);
+      if (back) paths.add(back);
+    },
+  );
+  await eachPage<{ image_url: string | null }>(
+    admin,
+    "merch_items",
+    "image_url",
+    (query) => query.eq("album_version", "personal"),
+    (row) => {
+      const path = catalogObjectPath(row.image_url);
+      if (path) paths.add(path);
+    },
+  );
+  return paths;
+}
+
+export async function repairPersonalImages(admin: Admin) {
+  let copied = 0;
+  let missing = 0;
+  const items: { id: number; name: string | null; image_url: string | null; back_image_url: string | null }[] = [];
+  await eachPage<{ id: number; name: string | null; image_url: string | null; back_image_url: string | null }>(
+    admin,
+    "items",
+    "id, name, image_url, back_image_url",
+    (query) => query.eq("version", "personal"),
+    (row) => items.push(row),
+  );
+  for (const row of items) {
+    const token = `items/${row.id}`;
+    const frontPath = catalogObjectPath(row.image_url);
+    const backPath = catalogObjectPath(row.back_image_url);
+    const nextFront = frontPath?.startsWith("personal/")
+      ? row.image_url
+      : await copyImageToPersonal(admin, row.image_url, token, "front");
+    const nextBack = !row.back_image_url || backPath?.startsWith("personal/")
+      ? row.back_image_url
+      : await copyImageToPersonal(admin, row.back_image_url, token, "back");
+    if (row.image_url && nextFront === row.image_url && !frontPath?.startsWith("personal/")) missing += 1;
+    if (row.back_image_url && nextBack === row.back_image_url && !backPath?.startsWith("personal/")) missing += 1;
+    if (nextFront === row.image_url && nextBack === row.back_image_url) continue;
+    const updated = await admin.from("items").update({ image_url: nextFront, back_image_url: nextBack }).eq("id", row.id);
+    if (updated.error) throw new Error(updated.error.message);
+    if (row.image_url && nextFront && nextFront !== row.image_url) {
+      await admin.from("page_slots").update({ custom_image_url: nextFront }).eq("custom_image_url", row.image_url);
+      await admin.from("page_slots").update({ custom_back_image_url: nextFront }).eq("custom_back_image_url", row.image_url);
+    }
+    if (row.back_image_url && nextBack && nextBack !== row.back_image_url) {
+      await admin.from("page_slots").update({ custom_back_image_url: nextBack }).eq("custom_back_image_url", row.back_image_url);
+      await admin.from("page_slots").update({ custom_image_url: nextBack }).eq("custom_image_url", row.back_image_url);
+    }
+    copied += 1;
+  }
+  const merch: { id: string; image_url: string | null }[] = [];
+  await eachPage<{ id: string; image_url: string | null }>(
+    admin,
+    "merch_items",
+    "id, image_url",
+    (query) => query.eq("album_version", "personal"),
+    (row) => merch.push(row),
+  );
+  for (const row of merch) {
+    const path = catalogObjectPath(row.image_url);
+    if (!row.image_url || path?.startsWith("personal/")) continue;
+    const next = await copyImageToPersonal(admin, row.image_url, `merch/${row.id}`, "front");
+    if (next === row.image_url) {
+      missing += 1;
+      continue;
+    }
+    const updated = await admin.from("merch_items").update({ image_url: next }).eq("id", row.id);
+    if (updated.error) throw new Error(updated.error.message);
+    copied += 1;
+  }
+  return { copied, missing };
 }
 
 async function eachPage<T extends Record<string, unknown>>(
@@ -297,8 +453,10 @@ export async function applyCatalogRemoval(admin: Admin, plan: RemovalPlan) {
     const { error } = await admin.from("groups").delete().eq("id", plan.groupId);
     if (error) throw new Error(error.message);
   }
-  for (let i = 0; i < plan.storagePaths.length; i += 50) {
-    const chunk = plan.storagePaths.slice(i, i + 50);
+  const held = await personalStoragePaths(admin);
+  const removable = plan.storagePaths.filter((path) => !held.has(path));
+  for (let i = 0; i < removable.length; i += 50) {
+    const chunk = removable.slice(i, i + 50);
     const removed = await admin.storage.from(BUCKET).remove(chunk);
     if (removed.error) return;
   }
