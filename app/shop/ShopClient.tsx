@@ -6,6 +6,7 @@ import { useGlobal } from "../context/GlobalContext";
 import { supabase } from "@/lib/supabase";
 
 import Footer from "../components/footer";
+import AdRailLayout from "../components/AdRailLayout";
 import { 
   ShoppingBag, Crown, Plus, X, Sparkles, CheckCircle2,
   LayoutGrid, Image as ImageIcon, BookOpen, Bookmark, CreditCard, Info
@@ -537,6 +538,7 @@ export default function ShopClient() {
       className="shop-page-shell"
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column", transition: "background-color 0.3s ease" }}
     >
+      <AdRailLayout section="shop">
       <main className="shop-main" style={{ flex: 1, width: "100%", maxWidth: 1120, margin: "0 auto", padding: isMobile ? "20px 15px" : "40px 20px" }}>
 
         <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
@@ -704,6 +706,7 @@ export default function ShopClient() {
       )}
 
       </main>
+      </AdRailLayout>
       <Footer />
     </div>
   );

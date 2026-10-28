@@ -2,7 +2,7 @@
 
 import AdRailLayout from "../components/AdRailLayout";
 import Footer from "../components/footer";
-import React, { useState, useEffect, useMemo, type ReactNode } from "react";
+import React, { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { supabase } from "@/lib/supabase";
@@ -25,7 +25,7 @@ import { albumRowMatchesMerchGroupFilter, canonicalMerchGroupDisplayName } from 
 import { merchRowMatchesQuery } from "@/lib/merch-item-search";
 import { compareMerchAlbumCatalogItems } from "@/lib/merch-album-catalog-sort";
 import { stockStatusRank } from "@/lib/catalog-sort";
-import { merchAlbumCardBreadcrumbLine, merchAlbumCardHeading } from "@/lib/merch-album-card-display";
+import { merchAlbumCardHeading } from "@/lib/merch-album-card-display";
 import { avisarFavoritos } from "@/lib/avisos";
 import { resolveWtsKoins, stripWtsKoinsMark, withWtsListingMarks, parseWtsListingExtras } from "@/lib/wts-koins-mark";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
@@ -47,8 +47,8 @@ import {
   type MerchGoodsKind,
 } from "@/lib/merch-collection-meta";
 import {
-  Search, Package, CheckCircle2, Star, Loader2,
-  Repeat2, DollarSign, LayoutGrid, Archive, Truck, X, Info, Coins, Users, Disc3, Mic2, Layers, MapPin, ArrowUpDown,
+  Search, Package, Loader2,
+  LayoutGrid, Archive, X, Coins, Users, Disc3, Mic2, Layers, MapPin, ArrowUpDown,
   ChevronLeft, ChevronRight, ChevronDown, ZoomIn, SlidersHorizontal,
 } from "lucide-react";
 
@@ -235,13 +235,6 @@ const MERCH_CATEGORY_OPTIONS = [
   { id: "albums", dbValue: MERCH_ALBUM_DB_CATEGORY, labelKey: "merch.categories.albums", fallback: "Álbumes" },
   { id: "inclusions", dbValue: MERCH_INCLUSIONS_DB_CATEGORY, labelKey: "market.cat_inclusion", fallback: "Inclusiones" },
 ] as const;
-
-function nonAlbumMerchCardBreadcrumbLine(item: Pick<MerchItem, "group_name" | "category">, t: (key: string) => string): string {
-  const g = canonicalMerchGroupDisplayName(item.group_name);
-  const row = MERCH_CATEGORY_OPTIONS.find((c) => c.dbValue === item.category);
-  const cat = row ? t(row.labelKey) : item.category;
-  return `${g} · ${cat}`;
-}
 
 const MERCH_STOCK_FILTER_STATUSES = ["Todos", "HAVE", "OTW", "WTT", "WTS", "WISHLIST"] as const;
 
@@ -462,6 +455,170 @@ const MERCH_ALBUM_FILTER_SELECT: React.CSSProperties = {
   background: "var(--bg-card)",
   boxSizing: "border-box",
 };
+
+function MerchSlotCard({
+  imageUrl,
+  infoLines,
+  inv,
+  markTour,
+  selectMode,
+  selected,
+  locked,
+  onOpen,
+  onToggleSelected,
+  onQuickHave,
+  onCommit,
+  t,
+}: {
+  imageUrl: string;
+  infoLines: string[];
+  inv: { have: number; wtt: number; wts: number; otw: number; wishlist: number };
+  markTour?: boolean;
+  selectMode?: boolean;
+  selected?: boolean;
+  locked?: boolean;
+  onOpen: () => void;
+  onToggleSelected: () => void;
+  onQuickHave: () => void;
+  onCommit: (next: { have: number; wtt: number; wts: number; otw: number; wishlist: number }) => Promise<void>;
+  t: (key: string) => string;
+}) {
+  const [showInfo, setShowInfo] = useState(false);
+  const [hover, setHover] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(inv);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const owned = (inv.have || 0) + (inv.wtt || 0) + (inv.wts || 0) + (inv.otw || 0);
+  const total = owned;
+  const frameColor = inv.otw > 0 ? "var(--border-otw)" : inv.wishlist > 0 && owned === 0 ? "var(--border-wish)" : "var(--state-disabled-border)";
+
+  useEffect(() => {
+    if (!open) setDraft(inv);
+  }, [inv, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const bump = (key: "have" | "wtt" | "wts" | "otw" | "wishlist", delta: number) => {
+    setDraft((prev) => {
+      const nextVal = Math.max(0, (prev[key] || 0) + delta);
+      const next = { ...prev, [key]: nextVal };
+      if (key === "wishlist" && nextVal > 0) return { have: 0, wtt: 0, wts: 0, otw: 0, wishlist: nextVal };
+      if (key !== "wishlist" && nextVal > 0) next.wishlist = 0;
+      return next;
+    });
+  };
+
+  const rows: Array<["have" | "wtt" | "wts" | "otw" | "wishlist", string]> = [
+    ["have", t("library.status_have")],
+    ["wtt", "WTT"],
+    ["wts", "WTS"],
+    ["otw", t("library.status_otw")],
+    ["wishlist", t("library.status_wish")],
+  ];
+
+  return (
+    <div style={{ width: 120, position: "relative", zIndex: open ? 30 : 1, opacity: locked ? 0.62 : 1 }}>
+      <div
+        data-tour={markTour ? "merch-card" : undefined}
+        onClick={() => (selectMode ? onToggleSelected() : onOpen())}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{
+          width: "100%",
+          height: showInfo ? "auto" : 190,
+          minHeight: 190,
+          borderRadius: 14,
+          border: `2px solid ${frameColor}`,
+          background: "var(--bg-card)",
+          position: "relative",
+          overflow: "hidden",
+          cursor: "pointer",
+          boxShadow: frameColor !== "var(--state-disabled-border)" ? `0 0 0 2px ${frameColor}, 0 8px 24px color-mix(in srgb, var(--text-main) 6%, transparent)` : "0 8px 24px color-mix(in srgb, var(--text-main) 6%, transparent)",
+          outline: selectMode && selected ? "3px solid var(--color-primary)" : undefined,
+        }}
+      >
+        {!showInfo && (selectMode ? (
+          <button type="button" aria-pressed={selected} onClick={(event) => { event.stopPropagation(); onToggleSelected(); }} style={{ position: "absolute", top: 6, left: 6, zIndex: 6, width: 26, height: 26, borderRadius: 999, border: "2px solid var(--color-primary)", background: selected ? "var(--color-primary)" : "var(--bg-card)", color: "#111", fontWeight: 900, cursor: "pointer" }}>{selected ? "✓" : ""}</button>
+        ) : (
+          <button type="button" aria-label={t("library.quick_have")} title={t("library.quick_have")} disabled={locked} onClick={(event) => { event.stopPropagation(); onQuickHave(); }} style={{ position: "absolute", top: 6, left: 6, zIndex: 6, width: 26, height: 26, borderRadius: 999, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: locked ? "not-allowed" : "pointer" }}>+</button>
+        ))}
+        {showInfo ? (
+          <div style={{ width: "100%", height: "100%", padding: 12, background: "linear-gradient(180deg, var(--bg-card), var(--bg-soft))", display: "flex", flexDirection: "column", gap: 8, textAlign: "left" }}>
+            {infoLines.filter(Boolean).map((line, index) => (
+              <span key={`${line}-${index}`} style={{ fontSize: 11, color: "var(--text-main)", fontWeight: 800, lineHeight: 1.3 }}>{line}</span>
+            ))}
+            <div style={{ height: 1, background: "var(--color-border)" }} />
+            <div style={{ fontSize: 11, color: "var(--text-main)", lineHeight: 1.55 }}>
+              {t("binders.statuses.have")}: <b>{inv.have || 0}</b><br />
+              WTT: <b>{inv.wtt || 0}</b><br />
+              WTS: <b>{inv.wts || 0}</b><br />
+              {t("library.status_otw")}: <b>{inv.otw || 0}</b><br />
+              {t("library.status_wish")}: <b>{inv.wishlist || 0}</b>
+            </div>
+          </div>
+        ) : (
+          <ImageWithExtensionFallback src={imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        )}
+        {hover && !showInfo && !open && (
+          <div style={{ position: "absolute", left: 8, right: 8, bottom: 8, zIndex: 5, background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "6px 8px", fontSize: 10, fontWeight: 800, color: "var(--text-main)", lineHeight: 1.4 }}>
+            {t("binders.statuses.have")} {inv.have || 0} · WTT {inv.wtt || 0} · WTS {inv.wts || 0}
+          </div>
+        )}
+      </div>
+      <div ref={boxRef} style={{ marginTop: 8, position: "relative" }}>
+        <button
+          type="button"
+          data-tour={markTour ? "merch-card-stock" : undefined}
+          disabled={locked}
+          onClick={() => setOpen((value) => !value)}
+          style={{ width: "100%", height: 38, display: "flex", alignItems: "center", gap: 8, padding: "0 10px", borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-card)", cursor: locked ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 950, color: "var(--library-stock-trigger-fg)" }}
+        >
+          <span>{t("library.stock_title")}</span>
+          <span style={{ color: "var(--text-main)", background: "var(--bg-soft)", padding: "2px 8px", borderRadius: 8 }}>{total}</span>
+          <span style={{ marginLeft: "auto" }}>{open ? "▲" : "▼"}</span>
+        </button>
+        {open && (
+          <div style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 1000, width: 260, background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 20, padding: 16, boxShadow: "0 15px 40px color-mix(in srgb, var(--color-primary) 18%, transparent)" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {rows.map(([key, label]) => (
+                <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 900 }}>{label}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <button type="button" onClick={() => bump(key, -1)} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--bg-main)", cursor: "pointer" }}>−</button>
+                    <b style={{ minWidth: 16, textAlign: "center" }}>{draft[key] || 0}</b>
+                    <button type="button" onClick={() => bump(key, 1)} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid var(--color-border)", background: "var(--bg-main)", cursor: "pointer" }}>+</button>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => setOpen(false)} style={{ flex: 1, padding: 8, borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-main)", fontWeight: 900, cursor: "pointer" }}>{t("common.cancel")}</button>
+              <button type="button" onClick={() => { void onCommit(draft).then(() => setOpen(false)); }} style={{ flex: 1, padding: 8, borderRadius: 12, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: "pointer" }}>{t("common.save")}</button>
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{ marginTop: 8, display: "flex", justifyContent: "center" }}>
+        <button
+          type="button"
+          data-tour={markTour ? "merch-info" : undefined}
+          onClick={() => setShowInfo((value) => !value)}
+          style={{ width: 28, height: 28, borderRadius: 10, border: "1px solid var(--color-border)", background: "var(--surface-float)", color: "var(--library-card-action-info-fg)", fontSize: 14, cursor: "pointer", fontWeight: 900 }}
+          title={t("library.card.info")}
+        >
+          i
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function MerchClient({ variant = "merch" }: { variant?: "merch" | "albums" }) {
   const { profile, showAlert, t } = useGlobal(); // 👈 Añadido el 't' de traducciones
@@ -1710,12 +1867,6 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
     showAlert(t("merch.alert_loaded_title"), t("merch.alert_loaded_msg"));
   };
 
-  const Badge = ({ label, colorObj }: { label: string, colorObj: any }) => (
-    <span style={{ background: colorObj.bg, color: colorObj.text, border: `1px solid ${colorObj.border}`, fontSize: "9px", padding: "2px 6px", borderRadius: "6px", fontWeight: 900 }}>
-      {label}
-    </span>
-  );
-
  return (
     <div className="merch-root" style={{ minHeight: variant === "albums" ? undefined : "100vh", backgroundColor: "var(--bg-main)", display: "flex", flexDirection: "column", color: "var(--text-main)" }}>
       <AdRailLayout section="merch">
@@ -2145,105 +2296,60 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
               </div>
             </div>
           )}
-          <div className="merch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(195px, 1fr))", gap: "14px", paddingBottom: "80px" }}>
+          <div className="merch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))", gap: "18px 12px", paddingBottom: "80px", justifyItems: "center" }}>
             {filteredMerch.map((item, cardIndex) => {
               const inv = myInventory[item.id] || { have: 0, wtt: 0, wts: 0, wishlist: 0, otw: 0 };
-              const isWish = inv.wishlist > 0;
               const merchLocked = Boolean(lockedByMerch[item.id]) && inv.have + inv.otw + inv.wtt + inv.wts <= 0;
               const albumHeading = isAlbumItem(item) ? merchAlbumCardHeading(item) : item.name;
-              const posterTitle =
-                (wishMeta[item.id]?.posterTitle || albumHeading || "").trim() || albumHeading;
+              const groupLine = canonicalMerchGroupDisplayName(item.group_name);
+              const albumTitle = formatCollectionOptionLabel(item.album_title);
+              const albumType = item.album_type ? formatMerchAlbumTypeDisplay(item.album_title, item.album_type) : "";
+              const albumSlot = merchAlbumSlot4Value(item);
+              const categoryRow = MERCH_CATEGORY_OPTIONS.find((row) => row.dbValue === item.category);
+              const infoLines = isAlbumItem(item)
+                ? [groupLine, albumTitle, [albumType, albumSlot].filter((part) => part && part !== albumTitle).join(" · ")]
+                : [groupLine, item.name, categoryRow ? t(categoryRow.labelKey) : item.category];
 
               return (
-                <div key={item.id} style={{ backgroundColor: "var(--bg-card)", borderRadius: "20px", overflow: "hidden", border: "1px solid var(--color-border)", display: "flex", flexDirection: "column", boxShadow: "0 8px 20px var(--shadow-card)", position: "relative" }}>
-                  <div style={{ width: "100%", height: "200px", position: "relative", backgroundColor: "var(--bg-soft)", padding: "8px", overflow: "hidden" }}>
-                    <div
-                      onClick={() => {
-                        if (!merchSelect) {
-                          setInfoModal(item);
-                          return;
-                        }
-                        setMerchSelected((prev) => (prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]));
-                      }}
-                      style={{ width: "100%", height: "100%", borderRadius: "12px", overflow: "hidden", position: "relative", cursor: "pointer", outline: merchSelect && merchSelected.includes(item.id) ? "3px solid var(--color-primary)" : undefined }}
-                    >
-                      {isWish && wishMeta[item.id]?.wantedPoster ? (
-                        <MerchWesternWantedFrame name={posterTitle} variant="card">
-                          <ImageWithExtensionFallback src={item.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                        </MerchWesternWantedFrame>
-                      ) : (
-                        <ImageWithExtensionFallback src={item.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                      )}
-                      {isWish && !wishMeta[item.id]?.wantedPoster && (
-                        <div style={{ position: "absolute", top: "25px", left: "-35px", background: "var(--bg-wish)", color: "var(--text-wish)", fontWeight: 900, fontSize: "14px", padding: "6px 45px", transform: "rotate(-45deg)", boxShadow: "0 4px 10px var(--overlay-soft)", letterSpacing: "3px", border: "2px dashed var(--border-wish)", zIndex: 10, pointerEvents: "none" }}>{t("merch.badge_wanted")}</div>
-                      )}
-                    </div>
-                    
-                    {profile?.id && (merchSelect ? (
-                      <button type="button" aria-pressed={merchSelected.includes(item.id)} onClick={() => setMerchSelected((prev) => (prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]))} style={{ position: "absolute", top: 15, left: 15, zIndex: 6, width: 28, height: 28, borderRadius: 999, border: "2px solid var(--color-primary)", background: merchSelected.includes(item.id) ? "var(--color-primary)" : "var(--bg-card)", fontWeight: 900, cursor: "pointer" }}>{merchSelected.includes(item.id) ? "✓" : ""}</button>
-                    ) : (
-                      <button type="button" aria-label={t("library.quick_have")} title={t("library.quick_have")} onClick={() => void updateMerchStatus(item.id, "have", 1)} style={{ position: "absolute", top: 15, left: 15, zIndex: 6, width: 28, height: 28, borderRadius: 999, border: "none", background: "var(--color-primary)", color: "#111", fontWeight: 900, cursor: "pointer" }}>+</button>
-                    ))}
-                    <button data-tour={cardIndex === 0 ? "merch-info" : undefined} onClick={() => setInfoModal(item)} style={{ position: "absolute", top: "15px", right: "15px", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: "50%", padding: "6px", cursor: "pointer", boxShadow: "0 2px 5px var(--shadow-card)" }}><Info size={16} color="var(--accent-vibe-cyan)"/></button>
-                    
-                    <div style={{ position: "absolute", bottom: "15px", left: "15px", display: "flex", gap: "5px", flexWrap: "wrap" }}>
-                      {inv.have > 0 && <Badge label={t("merch.inv_badge_have").replace("{{count}}", String(inv.have))} colorObj={COLORS.have} />}
-                      {inv.otw > 0 && <Badge label={t("merch.inv_badge_otw").replace("{{count}}", String(inv.otw))} colorObj={COLORS.otw} />}
-                      {inv.wtt > 0 && <Badge label={t("merch.inv_badge_wtt").replace("{{count}}", String(inv.wtt))} colorObj={COLORS.wtt} />}
-                      {inv.wts > 0 && <Badge label={t("merch.inv_badge_wts").replace("{{count}}", String(inv.wts))} colorObj={COLORS.wts} />}
-                      {isWish && <Badge label={t("merch.inv_badge_wish")} colorObj={COLORS.wish} />}
-                    </div>
-                  </div>
-
-                  <div style={{ padding: "15px", flex: 1, display: "flex", flexDirection: "column" }}>
-                    <span style={{ fontSize: "10px", fontWeight: 800, color: "var(--accent-vibe-pink)", lineHeight: 1.35 }}>
-                      {isAlbumItem(item)
-                        ? merchAlbumCardBreadcrumbLine(item, t("merch.categories.albums"))
-                        : nonAlbumMerchCardBreadcrumbLine(item, t)}
-                    </span>
-                    <h3 style={{ color: "var(--accent-vibe-violet)", fontWeight: 900, fontSize: "15px", margin: "5px 0 15px 0", lineHeight: "1.2" }}>{albumHeading}</h3>
-
-                    <div data-tour={cardIndex === 0 ? "merch-card-stock" : undefined} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "auto", marginBottom: "8px", opacity: merchLocked ? 0.45 : 1 }}>
-                      <button disabled={merchLocked} onClick={() => updateMerchStatus(item.id, 'have', 1)} style={{ background: "transparent", color: "var(--accent-vibe-green)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: merchLocked ? "not-allowed" : "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.have > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-green) 55%, transparent)" : "none" }}><CheckCircle2 size={12}/> {t("merch.label_have")}</button>
-                      <button disabled={merchLocked} onClick={() => updateMerchStatus(item.id, 'otw', 1)} style={{ background: "transparent", color: "var(--accent-vibe-cyan)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: merchLocked ? "not-allowed" : "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.otw > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-cyan) 55%, transparent)" : "none" }}><Truck size={12}/> {t("merch.label_otw")}</button>
-                      <button disabled={merchLocked} onClick={() => openMerchWttPicker(item)} style={{ background: "transparent", color: "var(--accent-vibe-violet)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: merchLocked ? "not-allowed" : "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.wtt > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-violet) 55%, transparent)" : "none" }}><Repeat2 size={12}/> {t("merch.label_wtt")}</button>
-                      <button disabled={merchLocked} onClick={() => setWtsModal(item)} style={{ background: "transparent", color: "var(--accent-vibe-orange)", border: "1px solid transparent", padding: "6px", borderRadius: "8px", fontWeight: 900, cursor: merchLocked ? "not-allowed" : "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px", textShadow: inv.wts > 0 ? "0 0 8px color-mix(in srgb, var(--accent-vibe-orange) 55%, transparent)" : "none" }}><DollarSign size={12}/> {t("merch.label_wts")}</button>
-                    </div>
-                    {merchLocked && (
-                      <button
-                        type="button"
-                        onClick={() => setLockInfoMerchId((current) => current === item.id ? null : item.id)}
-                        style={{ background: "var(--bg-soft)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "8px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", marginBottom: "8px" }}
-                      >
-                        {t("library.removal_locked_info")}
-                      </button>
-                    )}
-                    {merchLocked && lockInfoMerchId === item.id && (
-                      <p style={{ margin: "0 0 8px", fontSize: 11, lineHeight: 1.4, color: "var(--text-main)", fontWeight: 700 }}>
-                        {t("library.removal_locked", {
-                          date: new Date(lockedByMerch[item.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }),
-                        })}
-                      </p>
-                    )}
-                    {removalByMerch[item.id] && (
-                      <button
-                        type="button"
-                        disabled={convertingMerchId === item.id}
-                        onClick={() => void convertMerchPersonal(item.id)}
-                        style={{ background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px", borderRadius: "8px", fontWeight: 900, cursor: convertingMerchId === item.id ? "wait" : "pointer", fontSize: "11px", marginBottom: "8px", opacity: convertingMerchId === item.id ? 0.7 : 1 }}
-                      >
-                        {convertingMerchId === item.id
-                          ? t("merch.convert_working")
-                          : `${t("merch.removal_on", {
-                              date: new Date(removalByMerch[item.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }),
-                            })} · ${t("merch.convert_personal")}`}
-                      </button>
-                    )}
-
-                    <button onClick={() => updateMerchStatus(item.id, 'wishlist', isWish ? -1 : 1, { defaultTitle: albumHeading })} style={{ background: isWish ? "color-mix(in srgb, #ffe88a 35%, var(--bg-card))" : "color-mix(in srgb, #ffe88a 18%, var(--bg-card))", border: `1px ${isWish ? 'solid' : 'dashed'} color-mix(in srgb, #ffe88a 60%, var(--color-border))`, color: "#ffe88a", padding: "8px", borderRadius: "8px", fontWeight: 900, cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
-                       <Star size={14} color="#ffe88a" fill={isWish ? "#ffe88a" : "none"}/> {isWish ? t("merch.in_wishlist") : t("merch.add_wishlist")}
+                <div key={item.id} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <MerchSlotCard
+                    imageUrl={item.image_url}
+                    infoLines={infoLines}
+                    inv={inv}
+                    markTour={cardIndex === 0}
+                    selectMode={merchSelect}
+                    selected={merchSelected.includes(item.id)}
+                    locked={merchLocked}
+                    onOpen={() => setInfoModal(item)}
+                    onToggleSelected={() => setMerchSelected((prev) => (prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]))}
+                    onQuickHave={() => void updateMerchStatus(item.id, "have", 1)}
+                    onCommit={async (next) => {
+                      const openedWtt = next.wtt > 0 && (inv.wtt || 0) === 0;
+                      const openedWts = next.wts > 0 && (inv.wts || 0) === 0;
+                      for (const key of ["have", "wtt", "wts", "otw", "wishlist"] as const) {
+                        if ((next[key] || 0) === (inv[key] || 0)) continue;
+                        await updateMerchStatus(item.id, key, 0, { absoluteQty: next[key] || 0, defaultTitle: albumHeading });
+                      }
+                      if (openedWtt) openMerchWttPicker(item);
+                      if (openedWts) setWtsModal(item);
+                    }}
+                    t={t}
+                  />
+                  {merchLocked && (
+                    <button type="button" onClick={() => setLockInfoMerchId((current) => current === item.id ? null : item.id)} style={{ width: 120, marginTop: 6, background: "var(--bg-soft)", color: "var(--text-main)", border: "1px solid var(--color-border)", padding: "6px", borderRadius: 8, fontWeight: 900, cursor: "pointer", fontSize: 10 }}>
+                      {t("library.removal_locked_info")}
                     </button>
-                  </div>
+                  )}
+                  {merchLocked && lockInfoMerchId === item.id && (
+                    <p style={{ width: 140, margin: "6px 0 0", fontSize: 10, lineHeight: 1.35, color: "var(--text-main)", fontWeight: 700, textAlign: "center" }}>
+                      {t("library.removal_locked", { date: new Date(lockedByMerch[item.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }) })}
+                    </p>
+                  )}
+                  {removalByMerch[item.id] && (
+                    <button type="button" disabled={convertingMerchId === item.id} onClick={() => void convertMerchPersonal(item.id)} style={{ width: 120, marginTop: 6, background: "var(--bg-soft)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "6px", borderRadius: 8, fontWeight: 900, cursor: convertingMerchId === item.id ? "wait" : "pointer", fontSize: 10 }}>
+                      {convertingMerchId === item.id ? t("merch.convert_working") : t("merch.convert_personal")}
+                    </button>
+                  )}
                 </div>
               );
             })}

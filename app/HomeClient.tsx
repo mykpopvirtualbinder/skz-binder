@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useGlobal } from "./context/GlobalContext";
 
 import Footer from "./components/footer";
+import AdRailLayout from "./components/AdRailLayout";
 import {
   Users,
   Flame,
@@ -192,6 +193,7 @@ function HomeContent() {
         color: "var(--text-body)"
       }}
     >
+      <AdRailLayout section="home">
       <main
         className="home-main"
         style={{
@@ -398,6 +400,7 @@ function HomeContent() {
           </div>
         </div>
       </main>
+      </AdRailLayout>
 
       <Footer />
 

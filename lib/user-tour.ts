@@ -440,7 +440,7 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='merch-info']",
         title: "Ficha de la edición",
-        text: "La i abre el álbum: portada, versión y el stock de esa pieza. Es el mismo tipo de ventana que en merch.",
+        text: "La i enseña el grupo, la edición y los contadores en la propia ficha, igual que en una photocard. La foto abre la ventana grande.",
         side: "left",
       },
       {
@@ -448,7 +448,7 @@ const stepsFor = (id: string): TourStep[] => {
         title: "Info del álbum",
         text: "Grupo, edición y los contadores de stock. Guardar los deja en tu inventario. La X cierra.",
         side: "left",
-        clickBefore: "[data-tour='merch-info']",
+        clickBefore: "[data-tour='merch-card']",
         wait: 500,
       },
       {
@@ -533,13 +533,13 @@ const stepsFor = (id: string): TourStep[] => {
       {
         selector: "[data-tour='merch-card-stock']",
         title: "Stock de la pieza",
-        text: "Tengo, en camino, WTT y WTS suman de uno en uno. Si guardas un WTT o un WTS, el anuncio se publica igual que desde una photocard de la biblioteca. La estrella es la wishlist.",
+        text: "El mismo desplegable que en una photocard: tengo, WTT, WTS, en camino y wishlist. Si subes un WTT o un WTS y guardas, se abre el anuncio.",
         side: "top",
       },
       {
         selector: "[data-tour='merch-info']",
         title: "Info del item",
-        text: "La i abre la ficha: foto, datos y los contadores para editarlos con calma.",
+        text: "La i enseña el grupo, el nombre y los contadores en la propia ficha, igual que en una photocard. La foto abre la ventana grande.",
         side: "left",
       },
       {
@@ -547,7 +547,7 @@ const stepsFor = (id: string): TourStep[] => {
         title: "Ficha de merch",
         text: "La misma ventana que en una photocard. Flechas para la pieza anterior y la siguiente. La X cierra.",
         side: "left",
-        clickBefore: "[data-tour='merch-info']",
+        clickBefore: "[data-tour='merch-card']",
         wait: 500,
       },
       {
