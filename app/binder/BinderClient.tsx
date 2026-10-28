@@ -939,14 +939,15 @@ const albumOptions = useMemo(() => {
     const set = new Set<string>();
     for (const it of items) {
       if (group !== "" && (it.group_id ?? null) !== group) continue;
-      if (album === "personal") {
-        if (String(it.version || "") !== "personal") continue;
-      } else if (album !== "") {
-        if (String(it.version || "") === "personal") continue;
-        if ((it.album_id ?? null) !== album) continue;
+      if (String(it.version || "") === "personal") {
+        if (album !== "personal") continue;
+      } else if (album === "personal") {
+        continue;
+      } else if (album !== "" && (it.album_id ?? null) !== album) {
+        continue;
       }
       const v = String(it.version || "") === "personal"
-        ? (it.version_name || "").trim()
+        ? ""
         : (it.version_name_display ?? it.version_name ?? "").trim();
       if (v) set.add(v);
     }

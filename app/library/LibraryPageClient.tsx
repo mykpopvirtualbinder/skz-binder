@@ -1658,6 +1658,13 @@ function ItemModal({
 
   const niceMembers = prettyMemberLabel(item.member);
   const title = niceMembers || "Photocard";
+  const isPersonalCard = String(item.version || "") === "personal";
+  const [personalNote, setPersonalNote] = useState("");
+  useEffect(() => {
+    if (!isPersonalCard) return;
+    const saved = typeof window !== "undefined" ? localStorage.getItem(`binder:notes:${item.id}`) : null;
+    setPersonalNote(saved ?? item.name ?? "");
+  }, [isPersonalCard, item.id, item.name]);
 
   const DEFAULT_BACK_URL = "/mock-pcs/groups/default-back.png";
   const imgUrl =
@@ -1871,12 +1878,18 @@ function ItemModal({
           }}
         >
           <div data-tour="pc-modal-meta" className="library-item-modal-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0, flex: 1, alignItems: "center" }}>
+            {isPersonalCard ? (
+              <div style={{ fontWeight: 950, color: "var(--text-main)", lineHeight: 1.15 }}>{t("binders.custom_pc.title")}</div>
+            ) : (
+              <>
             <MetaRow icon={<Users size={16} strokeWidth={2.2} />} label={t("binders.picker.group")} value={prettySlug(groupName)} />
             <MetaRow icon={collectionChipIcon(collectionKind)} label={collectionLabel} value={prettyAlbumDisplay(albumName)} />
             <MetaRow icon={<Mic2 size={16} strokeWidth={2.2} />} label={t("binders.picker.version")} value={prettySlugTitle(item.version ?? "")} />
             <MetaRow icon={<User size={16} strokeWidth={2.2} />} label={t("binders.picker.member")} value={title || "-"} />
             <MetaRow icon={<Layers size={16} strokeWidth={2.2} />} label={t("binders.picker.type")} value={unitLabel} />
             {!hideBinder && inBinder > 0 && <PinBadge t={t} />}
+              </>
+            )}
           </div>
 
           <div className="library-item-modal-nav" style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
@@ -2043,7 +2056,7 @@ function ItemModal({
             </div>
 
             {/* UPLOAD */}
-            <div style={{ marginTop: 12, padding: 14, width: "100%", ...subtleCard }}>
+            {!isPersonalCard && <div style={{ marginTop: 12, padding: 14, width: "100%", ...subtleCard }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <div style={{ minWidth: 0, textAlign: "left" }}>
                   <div style={{ fontWeight: 950, color: "var(--color-primary)", lineHeight: 1.15 }}>{t('library.modal.improve_image')}</div>
@@ -2083,7 +2096,7 @@ function ItemModal({
                   {uploadMsg}
                 </div>
               )}
-            </div>
+            </div>}
             <div className="library-item-modal-more-hint" aria-hidden>
               <ChevronDown size={18} strokeWidth={2.4} />
               <ChevronDown size={18} strokeWidth={2.4} style={{ marginTop: -10, opacity: 0.55 }} />
@@ -2091,7 +2104,22 @@ function ItemModal({
               </div>
           {/* DER: INFO, STOCK, NOTAS Y WTT */}
           <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
-            
+            {isPersonalCard ? (
+              <div style={{ padding: 14, ...subtleCard }}>
+                <div style={{ fontWeight: 950, color: "var(--text-main)", lineHeight: 1.15 }}>{t("binders.custom_pc.title")}</div>
+                <textarea
+                  value={personalNote}
+                  onChange={(e) => setPersonalNote(e.target.value)}
+                  onBlur={() => {
+                    try { localStorage.setItem(`binder:notes:${item.id}`, personalNote); } catch { /* ignore */ }
+                  }}
+                  placeholder={t("binders.custom_pc.placeholder")}
+                  rows={3}
+                  style={{ width: "100%", marginTop: 10, padding: "10px 12px", borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", resize: "none", fontWeight: 800, boxSizing: "border-box" }}
+                />
+              </div>
+            ) : (
+            <>
             {/* STOCK Y PRECIO */}
             <div data-tour="pc-modal-stock" style={{ padding: 14, ...subtleCard }}>
               <div className="library-item-stock-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
@@ -2294,6 +2322,8 @@ function ItemModal({
               </div>
 
             </div>
+            </>
+            )}
           </div>
         </div>
       </div>
@@ -3256,6 +3286,7 @@ const albumOptions = useMemo(() => {
       const name = String(albumById[id]?.name ?? "");
       if (removedAlbumKeys.has(compactFolderKey(name))) return false;
       if (fCollectionKind === "personal") return idsFromPersonal.has(id);
+      if (!loadingMore && items.length > 0 && !idsFromItems.has(id)) return false;
       if (fCollectionKind === "all") return !isNonAlbumCollectionTitle(name);
       return dbAlbumCollectionKind(name) === fCollectionKind;
     });
@@ -3283,7 +3314,7 @@ const albumOptions = useMemo(() => {
     seen.add(key);
     return true;
   });
-}, [universeForAlbum, albumById, fGroup, groupNameById, fCollectionKind, folderTree.removedAlbumKeys, personalItems]);
+}, [universeForAlbum, albumById, fGroup, groupNameById, fCollectionKind, folderTree.removedAlbumKeys, personalItems, loadingMore, items.length]);
 
 const folderAlbumOptions = useMemo(() => {
   if (fCollectionKind === "personal") return [];
@@ -3303,6 +3334,19 @@ const folderAlbumOptions = useMemo(() => {
     if (catalog === "inclusions" && !folderIsLibraryInclusionsCollection(f)) continue;
     if (catalog === "photocards" && !folderIsLibraryPhotocardsCollection(f)) continue;
     if (fCollectionKind !== "all" && folderLibraryCollectionKind(f) !== fCollectionKind) continue;
+    const hasCatalogItems = items.some((it) => {
+      if (String(it.version || "") === "personal") return false;
+      const albumName = it.album_id != null ? albumById[it.album_id]?.name ?? "" : "";
+      return Boolean(albumName) && folderAlbumMatchesTitle(f, albumName);
+    });
+    const claimedByPersonal = personalItems.some((it) => {
+      const albumName = it.album_id != null ? albumById[it.album_id]?.name ?? "" : "";
+      if (albumName && folderAlbumMatchesTitle(f, albumName)) return true;
+      const versionKey = compactFolderKey(it.version_name || "");
+      if (!versionKey) return false;
+      return [...f.photocardsVersions, ...f.pobVersions, ...f.inclusionVersions].some((version) => compactFolderKey(version) === versionKey);
+    });
+    if (!hasCatalogItems && claimedByPersonal) continue;
     const titleKey = compactFolderKey(f.album_title);
     const slugKey = compactFolderKey(f.album_slug);
     const dedupeKey = collectionOptionDedupeKey(f.album_title, null, f.region);
@@ -3324,7 +3368,7 @@ const folderAlbumOptions = useMemo(() => {
   }
   extra.sort((a, b) => a.album_title.localeCompare(b.album_title, "es", { sensitivity: "base", numeric: true }));
   return extra;
-}, [folderTree, albumOptions, albumById, fGroup, groupNameById, catalog, fCollectionKind]);
+}, [folderTree, albumOptions, albumById, fGroup, groupNameById, catalog, fCollectionKind, items, personalItems]);
 
 const albumMenuOptions = useMemo(() => {
   const selectedGroupName = fGroup === "all" ? null : groupNameById[fGroup] ?? null;
@@ -3404,6 +3448,9 @@ const versionOptions = useMemo(() => {
     const v = (it.version ?? "").trim();
     if (v) s.add(v);
   }
+  const personalVersionKeys = new Set(
+    personalItems.map((it) => compactFolderKey(it.version_name || "")).filter(Boolean),
+  );
   const fromFolders = selectedFolderAlbums.flatMap((f) => {
     if (catalog === "inclusions") return f.inclusionVersions;
     const pobFolders = [
@@ -3413,9 +3460,15 @@ const versionOptions = useMemo(() => {
     if (fPobKind === "pob") return pobFolders;
     if (fPobKind === "regular") return f.photocardsVersions.filter((version) => !isPobVersionSlug(version));
     return [...f.photocardsVersions, ...f.pobVersions];
+  }).filter((version) => {
+    const hasCatalog = universeForVersion.some((it) => String(it.version || "") !== "personal" && folderVersionMatches(it.version, version));
+    if (hasCatalog) return true;
+    const key = compactFolderKey(version);
+    if (key && personalVersionKeys.has(key)) return false;
+    return true;
   });
   return mergeVersionLabels(Array.from(s), fromFolders);
-}, [universeForVersion, fPobKind, selectedFolderAlbums, catalog]);
+}, [universeForVersion, fPobKind, selectedFolderAlbums, catalog, personalItems]);
 useEffect(() => {
   if (fVersion === "all") return;
   if (!versionOptions.some((v) => folderVersionMatches(v, fVersion))) setFVersion("all");
