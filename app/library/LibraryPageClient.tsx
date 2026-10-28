@@ -1506,6 +1506,7 @@ function ItemModal({
   memberNames,
   stockLocked,
   lockNote,
+  allowCustomUpload = false,
 }: {
   item: ItemRow;
   counts: StatusCounts;
@@ -1530,6 +1531,7 @@ function ItemModal({
   memberNames?: Record<string, string>;
   stockLocked?: boolean;
   lockNote?: string;
+  allowCustomUpload?: boolean;
 }) {
   const [face, setFace] = useState<"front" | "back">("front");
   const [rot, setRot] = useState(0);
@@ -1660,15 +1662,110 @@ function ItemModal({
   const title = niceMembers || "Photocard";
   const isPersonalCard = String(item.version || "") === "personal";
   const [personalNote, setPersonalNote] = useState("");
+  const [personalFront, setPersonalFront] = useState<string | null>(item.image_url);
+  const [personalBack, setPersonalBack] = useState<string | null>(item.back_image_url);
+  const [personalBias, setPersonalBias] = useState(false);
+  const [personalBusy, setPersonalBusy] = useState(false);
+  const [personalSlot, setPersonalSlot] = useState<{ page_id: number; slot_index: number } | null>(null);
   useEffect(() => {
     if (!isPersonalCard) return;
-    const saved = typeof window !== "undefined" ? localStorage.getItem(`binder:notes:${item.id}`) : null;
-    setPersonalNote(saved ?? item.name ?? "");
-  }, [isPersonalCard, item.id, item.name]);
+    let cancelled = false;
+    const noteKey = `binder:notes:${item.id}`;
+    const frontKey = `personalPc:front:${item.id}`;
+    const backKey = `personalPc:back:${item.id}`;
+    const biasKey = `customPc:bias:item:${item.id}`;
+    const savedNote = typeof window !== "undefined" ? localStorage.getItem(noteKey) : null;
+    const savedFront = typeof window !== "undefined" ? localStorage.getItem(frontKey) : null;
+    const savedBack = typeof window !== "undefined" ? localStorage.getItem(backKey) : null;
+    const savedBias = typeof window !== "undefined" ? localStorage.getItem(biasKey) : null;
+    setPersonalNote(savedNote ?? item.name ?? "");
+    setPersonalFront(savedFront !== null ? savedFront || null : item.image_url);
+    setPersonalBack(savedBack !== null ? savedBack || null : item.back_image_url);
+    if (savedBias !== null) setPersonalBias(savedBias === "true");
+    if (!viewingUserId || isViewingOtherUser) return;
+    void (async () => {
+      const bindersRes = await supabase.from("binders").select("id").eq("user_id", viewingUserId);
+      const binderIds = (bindersRes.data ?? []).map((row) => Number(row.id)).filter((id) => id > 0);
+      if (!binderIds.length || cancelled) return;
+      const pagesRes = await supabase.from("binder_pages").select("id").in("binder_id", binderIds);
+      const pageIds = (pagesRes.data ?? []).map((row) => Number(row.id)).filter((id) => id > 0);
+      if (!pageIds.length || cancelled) return;
+      const slotRes = await supabase
+        .from("page_slots")
+        .select("page_id, slot_index, custom_text, custom_image_url, custom_back_image_url, member_id")
+        .eq("item_id", item.id)
+        .in("page_id", pageIds)
+        .limit(1);
+      const slot = slotRes.data?.[0];
+      if (!slot || cancelled) return;
+      setPersonalSlot({ page_id: Number(slot.page_id), slot_index: Number(slot.slot_index) });
+      if (slot.custom_text) setPersonalNote(String(slot.custom_text));
+      if (slot.custom_image_url) setPersonalFront(String(slot.custom_image_url));
+      if (slot.custom_back_image_url) setPersonalBack(String(slot.custom_back_image_url));
+      if (savedBias === null) setPersonalBias(Number(slot.member_id) === 999);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isPersonalCard, item.id, item.name, item.image_url, item.back_image_url, viewingUserId, isViewingOtherUser]);
+
+  const persistPersonal = async (next: { note: string; front: string | null; back: string | null; bias: boolean }) => {
+    try {
+      localStorage.setItem(`binder:notes:${item.id}`, next.note);
+      localStorage.setItem(`personalPc:front:${item.id}`, next.front || "");
+      localStorage.setItem(`personalPc:back:${item.id}`, next.back || "");
+      localStorage.setItem(`customPc:bias:item:${item.id}`, String(next.bias));
+    } catch {
+      /* ignore */
+    }
+    if (!personalSlot || isViewingOtherUser) return;
+    await supabase
+      .from("page_slots")
+      .update({
+        item_id: item.id,
+        is_custom: false,
+        custom_text: next.note,
+        custom_image_url: next.front,
+        custom_back_image_url: next.back,
+        member_id: next.bias ? 999 : null,
+      })
+      .eq("page_id", personalSlot.page_id)
+      .eq("slot_index", personalSlot.slot_index);
+  };
+
+  const uploadPersonalImage = async (file: File, side: "front" | "back") => {
+    if (!viewingUserId || isViewingOtherUser || personalBusy) return;
+    setPersonalBusy(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const safeExt = /^(png|jpg|jpeg|webp)$/.test(ext) ? ext : "jpg";
+      const path = `${viewingUserId}/personal/${item.id}/${side}_${Date.now()}.${safeExt}`;
+      const up = await supabase.storage.from("binder_custom").upload(path, file, {
+        upsert: true,
+        contentType: file.type || "image/jpeg",
+        cacheControl: "3600",
+      });
+      if (up.error) {
+        onAlert?.(t("common.error"), up.error.message);
+        return;
+      }
+      const publicUrl = supabase.storage.from("binder_custom").getPublicUrl(path).data.publicUrl;
+      if (!publicUrl) return;
+      const nextFront = side === "front" ? publicUrl : personalFront;
+      const nextBack = side === "back" ? publicUrl : personalBack;
+      if (side === "front") setPersonalFront(publicUrl);
+      else setPersonalBack(publicUrl);
+      setFace(side);
+      await persistPersonal({ note: personalNote, front: nextFront, back: nextBack, bias: personalBias });
+    } finally {
+      setPersonalBusy(false);
+    }
+  };
 
   const DEFAULT_BACK_URL = "/mock-pcs/groups/default-back.png";
-  const imgUrl =
-    face === "front" ? item.image_url : (item.back_image_url ?? DEFAULT_BACK_URL);
+  const shownFront = isPersonalCard ? personalFront : item.image_url;
+  const shownBack = isPersonalCard ? (personalBack || DEFAULT_BACK_URL) : (item.back_image_url ?? DEFAULT_BACK_URL);
+  const imgUrl = face === "front" ? shownFront : shownBack;
 
   const isQuarterTurn = rot % 180 !== 0;
   const rotScale = isQuarterTurn ? 0.72 : 1;
@@ -1677,7 +1774,7 @@ function ItemModal({
   const unitLabel = unitType === "ot8" ? t('library.filters.ot8') : unitType === "unit" ? t('library.filters.unit') : t('library.filters.single');
   const collectionKind = collectionKindForItem(item, albumName);
   const collectionLabel = collectionChipLabel(collectionKind, t);
-  const inspectSrc = (face === "front" ? item.image_url : (item.back_image_url ?? DEFAULT_BACK_URL)) || "";
+  const inspectSrc = (face === "front" ? shownFront : shownBack) || "";
 
   const uiWttDisplay = counts.wtt;
   const uiWishlist = counts.wish;
@@ -1878,18 +1975,12 @@ function ItemModal({
           }}
         >
           <div data-tour="pc-modal-meta" className="library-item-modal-meta-chips" style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0, flex: 1, alignItems: "center" }}>
-            {isPersonalCard ? (
-              <div style={{ fontWeight: 950, color: "var(--text-main)", lineHeight: 1.15 }}>{t("binders.custom_pc.title")}</div>
-            ) : (
-              <>
             <MetaRow icon={<Users size={16} strokeWidth={2.2} />} label={t("binders.picker.group")} value={prettySlug(groupName)} />
             <MetaRow icon={collectionChipIcon(collectionKind)} label={collectionLabel} value={prettyAlbumDisplay(albumName)} />
-            <MetaRow icon={<Mic2 size={16} strokeWidth={2.2} />} label={t("binders.picker.version")} value={prettySlugTitle(item.version ?? "")} />
+            <MetaRow icon={<Mic2 size={16} strokeWidth={2.2} />} label={t("binders.picker.version")} value={isPersonalCard ? (prettySlugTitle(item.version_name || "") || t("binders.picker.personal")) : prettySlugTitle(item.version ?? "")} />
             <MetaRow icon={<User size={16} strokeWidth={2.2} />} label={t("binders.picker.member")} value={title || "-"} />
             <MetaRow icon={<Layers size={16} strokeWidth={2.2} />} label={t("binders.picker.type")} value={unitLabel} />
             {!hideBinder && inBinder > 0 && <PinBadge t={t} />}
-              </>
-            )}
           </div>
 
           <div className="library-item-modal-nav" style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
@@ -1985,10 +2076,10 @@ function ItemModal({
               >
                 {/* FRONT */}
                 <div style={{ position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14, overflow: "hidden" }}>
-                  {item.image_url ? (
+                  {shownFront ? (
                     <ImageWithExtensionFallback
-                      key={`lib-modal-f-${item.id}-${item.image_url}`}
-                      src={item.image_url}
+                      key={`lib-modal-f-${item.id}-${shownFront}`}
+                      src={shownFront}
                       alt=""
                       style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", background: "var(--bg-card)", transform: `rotate(${rot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }}
                     />
@@ -2000,11 +2091,11 @@ function ItemModal({
                 </div>
                 {/* BACK */}
                 <div style={{ position: "absolute", inset: 0, transform: "rotateY(180deg) translateZ(1px)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 14, overflow: "hidden" }}>
-                  {(item.back_image_url ?? DEFAULT_BACK_URL) ? (
+                  {shownBack ? (
                     <ImageWithExtensionFallback
-                      key={`lib-modal-b-${item.id}-${item.back_image_url ?? DEFAULT_BACK_URL}`}
-                      src={item.back_image_url ?? DEFAULT_BACK_URL}
-                      frontSrcForBack={item.image_url ?? undefined}
+                      key={`lib-modal-b-${item.id}-${shownBack}`}
+                      src={shownBack}
+                      frontSrcForBack={isPersonalCard ? undefined : shownFront ?? undefined}
                       fallbackSrc={DEFAULT_BACK_URL}
                       alt=""
                       style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", background: "var(--bg-card)", transform: `rotate(${rot}deg) scale(${rotScale})`, transition: "transform 160ms ease", transformOrigin: "center center" }}
@@ -2105,18 +2196,105 @@ function ItemModal({
           {/* DER: INFO, STOCK, NOTAS Y WTT */}
           <div style={{ padding: 16, overflowY: "auto", height: "100%", minHeight: 0, minWidth: 0, width: "100%" }}>
             {isPersonalCard ? (
-              <div style={{ padding: 14, ...subtleCard }}>
-                <div style={{ fontWeight: 950, color: "var(--text-main)", lineHeight: 1.15 }}>{t("binders.custom_pc.title")}</div>
-                <textarea
-                  value={personalNote}
-                  onChange={(e) => setPersonalNote(e.target.value)}
-                  onBlur={() => {
-                    try { localStorage.setItem(`binder:notes:${item.id}`, personalNote); } catch { /* ignore */ }
-                  }}
-                  placeholder={t("binders.custom_pc.placeholder")}
-                  rows={3}
-                  style={{ width: "100%", marginTop: 10, padding: "10px 12px", borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", resize: "none", fontWeight: 800, boxSizing: "border-box" }}
-                />
+              <div style={{ display: "grid", rowGap: 14, alignContent: "start" }}>
+                <div style={{ ...subtleCard, padding: 14 }}>
+                  <div style={{ fontWeight: 950, color: "var(--text-main)", lineHeight: 1.15 }}>{t("binders.custom_pc.title")}</div>
+                  <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                    <textarea
+                      value={personalNote}
+                      onChange={(e) => setPersonalNote(e.target.value)}
+                      onBlur={(e) => { void persistPersonal({ note: e.target.value, front: personalFront, back: personalBack, bias: personalBias }); }}
+                      placeholder={t("binders.custom_pc.placeholder")}
+                      rows={3}
+                      readOnly={isViewingOtherUser}
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", outline: "none", resize: "none", fontWeight: 800, boxSizing: "border-box" }}
+                    />
+                    {!isViewingOtherUser && (
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        {(["front", "back"] as const).map((side) => (
+                          <label
+                            key={side}
+                            style={{
+                              width: "100%",
+                              padding: "10px 12px",
+                              borderRadius: 12,
+                              border: "1px solid var(--color-border)",
+                              background: "var(--bg-card)",
+                              cursor: personalBusy ? "wait" : "pointer",
+                              fontWeight: 800,
+                              boxShadow: "0 8px 18px color-mix(in srgb, var(--text-main) 6%, transparent)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              textAlign: "center",
+                            }}
+                            title={t("common.upload_image")}
+                          >
+                            {side === "front" ? "Subir anverso" : "Subir reverso"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style={{ display: "none" }}
+                              disabled={personalBusy}
+                              onClick={(e) => {
+                                if (!allowCustomUpload) {
+                                  e.preventDefault();
+                                  onAlert?.("Ventaja VIP 👑", "Subir imágenes personalizadas es exclusivo para cuentas Premium.");
+                                }
+                              }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) void uploadPersonalImage(file, side);
+                                e.currentTarget.value = "";
+                              }}
+                            />
+                          </label>
+                        ))}
+                        <label
+                          style={{
+                            width: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                            padding: "12px",
+                            borderRadius: 12,
+                            border: personalBias ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
+                            background: personalBias ? "var(--bg-soft)" : "var(--bg-card)",
+                            cursor: "pointer",
+                            fontWeight: 800,
+                            boxShadow: personalBias ? "0 8px 18px color-mix(in srgb, var(--color-primary) 12%, transparent)" : "0 8px 18px color-mix(in srgb, var(--color-primary) 6%, transparent)",
+                          }}
+                          title={t("binders.custom_pc.is_bias")}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={personalBias}
+                            onChange={(e) => {
+                              const next = e.target.checked;
+                              setPersonalBias(next);
+                              void persistPersonal({ note: personalNote, front: personalFront, back: personalBack, bias: next });
+                            }}
+                            style={{ width: 18, height: 18, accentColor: "var(--color-primary)", cursor: "pointer" }}
+                          />
+                          <span style={{ fontSize: 14, color: personalBias ? "var(--color-primary)" : "var(--text-muted)" }}>💖 Esta PC es de mi Bias</span>
+                        </label>
+                        {personalFront ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPersonalFront(null);
+                              void persistPersonal({ note: personalNote, front: null, back: personalBack, bias: personalBias });
+                            }}
+                            style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--color-primary)", fontWeight: 800, cursor: "pointer" }}
+                          >
+                            Quitar imagen
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
             <>
@@ -2949,15 +3127,41 @@ const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
   })();
 
   if (!opts?.silent) setStatus("Cargando items...");
+  const noticeTask = (async () => {
+    const empty = { removal: {} as Record<number, string>, locked: {} as Record<number, string>, vacant: new Set<number>() };
+    if (!user || uParam) return empty;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return empty;
+      const noticeRes = await fetch("/api/catalog-removals/mine", { headers: { Authorization: `Bearer ${token}` } });
+      if (!noticeRes.ok) return empty;
+      const notice = (await noticeRes.json()) as {
+        items?: { id: number; executeAt: string }[];
+        lockedItems?: { id: number; executeAt: string }[];
+        vacantItemIds?: number[];
+      };
+      const removal: Record<number, string> = {};
+      for (const row of notice.items || []) removal[Number(row.id)] = String(row.executeAt || "");
+      const locked: Record<number, string> = {};
+      for (const row of notice.lockedItems || []) locked[Number(row.id)] = String(row.executeAt || "");
+      return { removal, locked, vacant: new Set((notice.vacantItemIds || []).map(Number).filter((id) => id > 0)) };
+    } catch {
+      return empty;
+    }
+  })();
   const all: any[] = [];
-  const first = await firstPromise;
+  const [first, notice] = await Promise.all([firstPromise, noticeTask]);
+  setRemovalByItem(notice.removal);
+  setLockedByItem(notice.locked);
+  const dropVacant = (rows: ItemRow[]) => (notice.vacant.size ? rows.filter((it) => !notice.vacant.has(it.id)) : rows);
   if (first.error) {
     setError(first.error.message);
     setLoading(false);
     return;
   }
   all.push(...(first.data ?? []));
-  let itemsData = mapCatalogItemRows(all, catalog);
+  let itemsData = dropVacant(mapCatalogItemRows(all, catalog));
   setItems(itemsData);
   setCardFace((prev) => {
     const next = { ...prev };
@@ -2982,7 +3186,7 @@ const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
       if (error) break;
       const batch = data ?? [];
       all.push(...batch);
-      itemsData = mapCatalogItemRows(all, catalog);
+      itemsData = dropVacant(mapCatalogItemRows(all, catalog));
       setItems(itemsData);
       setCardFace((prev) => {
         const next = { ...prev };
@@ -3019,27 +3223,6 @@ const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
   setPageFace("front");
   void Promise.all([treePromise, invPromise, restPromise, membersPromise]).then(async () => {
     if (user && !uParam) {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData.session?.access_token;
-        if (token) {
-          const noticeRes = await fetch("/api/catalog-removals/mine", { headers: { Authorization: `Bearer ${token}` } });
-          if (noticeRes.ok) {
-            const notice = (await noticeRes.json()) as {
-              items?: { id: number; executeAt: string }[];
-              lockedItems?: { id: number; executeAt: string }[];
-            };
-            const map: Record<number, string> = {};
-            for (const row of notice.items || []) map[Number(row.id)] = String(row.executeAt || "");
-            setRemovalByItem(map);
-            const locked: Record<number, string> = {};
-            for (const row of notice.lockedItems || []) locked[Number(row.id)] = String(row.executeAt || "");
-            setLockedByItem(locked);
-          }
-        }
-      } catch {
-        /* avisos opcionales */
-      }
       if (targetUid) {
         const { data: ownedRows } = await supabase.from("user_item_statuses").select("item_id").eq("user_id", targetUid);
         const ownedIds = [...new Set((ownedRows || []).map((row) => Number(row.item_id)).filter((id) => Number.isFinite(id) && id > 0))];
@@ -3268,11 +3451,6 @@ const groupOptions = useMemo(() => {
 
 const albumOptions = useMemo(() => {
   const removedAlbumKeys = new Set(folderTree.removedAlbumKeys || []);
-  const idsFromPersonal = new Set<number>();
-  for (const it of personalItems) {
-    const n = Number(it.album_id);
-    if (Number.isFinite(n) && n > 0) idsFromPersonal.add(n);
-  }
   const idsFromItems = new Set<number>();
   for (const it of universeForAlbum) {
     const n = Number(it.album_id);
@@ -3285,7 +3463,7 @@ const albumOptions = useMemo(() => {
     .filter((id) => {
       const name = String(albumById[id]?.name ?? "");
       if (removedAlbumKeys.has(compactFolderKey(name))) return false;
-      if (fCollectionKind === "personal") return idsFromPersonal.has(id);
+      if (fCollectionKind === "personal") return false;
       if (!loadingMore && items.length > 0 && !idsFromItems.has(id)) return false;
       if (fCollectionKind === "all") return !isNonAlbumCollectionTitle(name);
       return dbAlbumCollectionKind(name) === fCollectionKind;
@@ -3314,7 +3492,7 @@ const albumOptions = useMemo(() => {
     seen.add(key);
     return true;
   });
-}, [universeForAlbum, albumById, fGroup, groupNameById, fCollectionKind, folderTree.removedAlbumKeys, personalItems, loadingMore, items.length]);
+}, [universeForAlbum, albumById, fGroup, groupNameById, fCollectionKind, folderTree.removedAlbumKeys, loadingMore, items.length]);
 
 const folderAlbumOptions = useMemo(() => {
   if (fCollectionKind === "personal") return [];
@@ -4941,6 +5119,7 @@ return (
     t={t}
     onAlert={showAlert}
     uiLang={profile?.language ?? "es"}
+    allowCustomUpload={Boolean(profile?.is_premium) || isAdminTeamEmail(profile?.email)}
     onCommitStock={(next) => commitStockForItem(it.id, next)}
     stockLocked={Boolean(lockedByItem[it.id]) && totalOwnedQtyFromCounts(counts) <= 0 && inBinder <= 0}
     lockNote={lockedByItem[it.id]

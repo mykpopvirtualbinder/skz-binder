@@ -742,6 +742,7 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             const notice = (await noticeRes.json()) as {
               merch?: { id: string; executeAt: string }[];
               lockedMerch?: { id: string; executeAt: string }[];
+              vacantMerchIds?: string[];
             };
             const map: Record<string, string> = {};
             for (const row of notice.merch || []) map[String(row.id)] = String(row.executeAt || "");
@@ -749,6 +750,8 @@ export default function MerchClient({ variant = "merch" }: { variant?: "merch" |
             const locked: Record<string, string> = {};
             for (const row of notice.lockedMerch || []) locked[String(row.id)] = String(row.executeAt || "");
             setLockedByMerch(locked);
+            const vacant = new Set((notice.vacantMerchIds || []).map(String));
+            if (vacant.size) setMerchCatalog((prev) => prev.filter((row) => !vacant.has(row.id)));
           }
         }
         const ownedIds = [...new Set((inventory || []).map((row: { merch_id?: string }) => String(row.merch_id || "")).filter(Boolean))];

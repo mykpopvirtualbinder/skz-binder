@@ -359,12 +359,22 @@ export async function removalsForUser(admin: Admin, userId: string) {
   }
   const lockedItems: { id: number; executeAt: string }[] = [];
   const lockedMerch: { id: string; executeAt: string }[] = [];
+  const vacantItemIds: number[] = [];
+  const vacantMerchIds: string[] = [];
   for (const job of queue.jobs) {
     if (job.status !== "scheduled") continue;
     for (const id of job.plan.itemIds) lockedItems.push({ id, executeAt: job.executeAt });
     for (const id of job.plan.merchIds) lockedMerch.push({ id, executeAt: job.executeAt });
+    try {
+      const holders = await listHolderIds(admin, job.plan);
+      if (holders.length > 0) continue;
+      vacantItemIds.push(...job.plan.itemIds);
+      vacantMerchIds.push(...job.plan.merchIds);
+    } catch {
+      /* si no podemos comprobar el stock, la carpeta sigue visible */
+    }
   }
-  return { items, merch, lockedItems, lockedMerch };
+  return { items, merch, lockedItems, lockedMerch, vacantItemIds, vacantMerchIds };
 }
 
 export async function convertHeldPiece(admin: Admin, userId: string, kind: "item" | "merch", rawId: string) {
