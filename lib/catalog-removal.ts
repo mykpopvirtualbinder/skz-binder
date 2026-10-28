@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from "fs";
-import { extname, join } from "path";
 import { canonicalMerchGroupDisplayName } from "@/lib/merch-group-display";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
@@ -68,10 +66,17 @@ function imageContentType(ext: string) {
 }
 
 function imageExt(url: string) {
-  const ext = extname(url.split("?")[0]).replace(/^\./, "").toLowerCase();
+  const clean = url.split("?")[0];
+  const name = clean.slice(clean.lastIndexOf("/") + 1);
+  const dot = name.lastIndexOf(".");
+  const ext = (dot >= 0 ? name.slice(dot + 1) : "").toLowerCase();
   if (ext === "png" || ext === "webp" || ext === "gif") return ext;
   if (ext === "jpg" || ext === "jpeg") return "jpg";
   return "jpg";
+}
+
+function siteOrigin() {
+  return String(process.env.NEXT_PUBLIC_SITE_URL || "https://www.mykpopbinder.com").replace(/\/$/, "");
 }
 
 function mockPcFile(url: string) {
@@ -111,10 +116,12 @@ export async function copyImageToPersonal(
   } else {
     const rel = mockPcFile(value);
     if (rel) {
-      const abs = join(process.cwd(), "public", rel);
-      if (existsSync(abs)) {
-        bytes = readFileSync(abs);
-        contentType = imageContentType(imageExt(rel));
+      const target = `${siteOrigin()}/${rel.split("/").map((part) => encodeURIComponent(part)).join("/")}`;
+      const res = await fetch(target);
+      if (res.ok) {
+        bytes = Buffer.from(await res.arrayBuffer());
+        const type = res.headers.get("content-type") || "";
+        if (type.startsWith("image/")) contentType = type;
       }
     }
   }
