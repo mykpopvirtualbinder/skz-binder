@@ -3039,6 +3039,21 @@ const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
 
   const PAGE = 1000;
   const itemSelect = "id, name, image_url, back_image_url, group_id, album_id, type, version, version_name, member";
+  const personalRowsTask = (async () => {
+    const rows: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("items")
+        .select(itemSelect)
+        .eq("version", "personal")
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error || !data?.length) break;
+      rows.push(...data);
+      if (data.length < PAGE) break;
+    }
+    return rows;
+  })();
   const firstPromise = supabase.from("items").select(itemSelect).order("id", { ascending: true }).range(0, PAGE - 1);
 
   const treePromise = (async () => {
@@ -3108,6 +3123,33 @@ const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
     setUserId(null);
     setMyBiasIds([]);
     if (!uParam && !opts?.silent) setStatus("Modo catálogo: inicia sesión para gestionar tu stock");
+  }
+
+  if (user && !uParam && targetUid) {
+    void (async () => {
+      try {
+        const owned = new Set<number>();
+        for (let from = 0; ; from += PAGE) {
+          const { data, error } = await supabase
+            .from("user_item_statuses")
+            .select("item_id")
+            .eq("user_id", targetUid)
+            .range(from, from + PAGE - 1);
+          if (error || !data?.length) break;
+          for (const row of data) {
+            const id = Number(row.item_id);
+            if (id > 0) owned.add(id);
+          }
+          if (data.length < PAGE) break;
+        }
+        const rows = await personalRowsTask;
+        setPersonalItems(mapCatalogItemRows(rows, catalog, true).filter((it) => owned.has(it.id)));
+      } catch {
+        /* las personalizadas no bloquean el catálogo */
+      }
+    })();
+  } else if (!targetUid) {
+    setPersonalItems([]);
   }
 
   const invPromise = (async () => {
@@ -3222,21 +3264,7 @@ const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
 
   setPageFace("front");
   void Promise.all([treePromise, invPromise, restPromise, membersPromise]).then(async () => {
-    if (user && !uParam) {
-      if (targetUid) {
-        const { data: ownedRows } = await supabase.from("user_item_statuses").select("item_id").eq("user_id", targetUid);
-        const ownedIds = [...new Set((ownedRows || []).map((row) => Number(row.item_id)).filter((id) => Number.isFinite(id) && id > 0))];
-        const personal: ItemRow[] = [];
-        for (let i = 0; i < ownedIds.length; i += 80) {
-          const slice = ownedIds.slice(i, i + 80);
-          const { data } = await supabase.from("items").select(itemSelect).in("id", slice).eq("version", "personal");
-          if (data?.length) personal.push(...mapCatalogItemRows(data, catalog, true));
-        }
-        setPersonalItems(personal);
-      } else {
-        setPersonalItems([]);
-      }
-    } else {
+    if (!(user && !uParam)) {
       setRemovalByItem({});
       setLockedByItem({});
       setPersonalItems([]);
