@@ -62,7 +62,7 @@ type GlobalContextType = {
   refreshGlobal: () => void;
   checkIsBias: (memberId?: number | null, memberName?: string | null) => boolean;
   showAlert: (title: string, message: string, onClose?: () => void) => void;
-  showPrompt: (title: string, message: string, onConfirm: (reason: string, isAnonymous: boolean) => void) => void;
+  showPrompt: (title: string, message: string, onConfirm: (reason: string, isAnonymous: boolean) => void, options?: { hideAnonymous?: boolean; confirmLabel?: string; placeholder?: string }) => void;
   showConfirm: (title: string, message: string) => Promise<boolean>;
   t: (path: string, vars?: Record<string, string | number>) => string;
   uiLanguage: string;
@@ -79,7 +79,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   const [alertData, setAlertData] = useState<{ title: string, message: string, onClose?: () => void } | null>(null);
 
   // 🌟 ESTADOS PARA EL PROMPT BONITO 🌟
-  const [promptData, setPromptData] = useState<{ title: string, message: string, onConfirm: (r: string, a: boolean) => void } | null>(null);
+  const [promptData, setPromptData] = useState<{ title: string, message: string, onConfirm: (r: string, a: boolean) => void, hideAnonymous?: boolean, confirmLabel?: string, placeholder?: string } | null>(null);
   const [promptText, setPromptText] = useState("");
   const [promptAnon, setPromptAnon] = useState(false);
   const [confirmData, setConfirmData] = useState<{ title: string, message: string, resolve: (ok: boolean) => void } | null>(null);
@@ -140,10 +140,10 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // 🌟 FUNCIÓN PARA LANZAR EL PROMPT 🌟
-  const showPrompt = useCallback((title: string, message: string, onConfirm: (reason: string, isAnonymous: boolean) => void) => {
+  const showPrompt = useCallback((title: string, message: string, onConfirm: (reason: string, isAnonymous: boolean) => void, options?: { hideAnonymous?: boolean; confirmLabel?: string; placeholder?: string }) => {
     setPromptText(""); 
     setPromptAnon(false);
-    setPromptData({ title, message, onConfirm });
+    setPromptData({ title, message, onConfirm, hideAnonymous: options?.hideAnonymous, confirmLabel: options?.confirmLabel, placeholder: options?.placeholder });
   }, []);
 
   const showConfirm = useCallback((title: string, message: string) => {
@@ -398,17 +398,19 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
             <textarea
               value={promptText}
               onChange={e => setPromptText(e.target.value)}
-              placeholder={t('global_prompt.placeholder')}
+              placeholder={promptData.placeholder || t('global_prompt.placeholder')}
               rows={4}
-              style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", fontSize: "14px", fontFamily: "inherit", boxSizing: "border-box", marginBottom: "15px", backgroundColor: "var(--bg-main)", color: "var(--text-main)" }}
+              style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", outline: "none", resize: "none", fontSize: "14px", fontFamily: "inherit", boxSizing: "border-box", marginBottom: promptData.hideAnonymous ? "25px" : "15px", backgroundColor: "var(--bg-main)", color: "var(--text-main)" }}
             />
 
+            {promptData.hideAnonymous ? null : (
             <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", marginBottom: "25px", background: "var(--bg-soft)", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)" }}>
               <input type="checkbox" checked={promptAnon} onChange={e => setPromptAnon(e.target.checked)} style={{ accentColor: "var(--color-primary)", width: "18px", height: "18px", cursor: "pointer" }} />
               <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--color-primary)" }}>
                 {t('global_prompt.anonymous_report')}
               </span>
             </label>
+            )}
 
             <div style={{ display: "flex", gap: "10px" }}>
               <button data-kbd="cancel" onClick={() => setPromptData(null)} style={{ flex: 1, background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: "pointer" }}>
@@ -420,7 +422,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
                 onClick={() => { promptData.onConfirm(promptText, promptAnon); setPromptData(null); }} 
                 style={{ flex: 1, background: "var(--color-primary)", color: "white", border: "none", padding: "12px", borderRadius: "99px", fontWeight: 900, cursor: promptText.trim() ? "pointer" : "not-allowed", opacity: promptText.trim() ? 1 : 0.5 }}
               >
-                {t('global_prompt.send_report')}
+                {promptData.confirmLabel || t('global_prompt.send_report')}
               </button>
             </div>
           </div>

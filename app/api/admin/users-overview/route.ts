@@ -166,7 +166,7 @@ export async function POST(req: Request) {
   try {
     const result = await adminRemoveContent(createServiceRoleClient(), body);
     if (!result.ok) return NextResponse.json({ error: result.message }, { status: 400 });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, noticeFailed: "noticeFailed" in result ? result.noticeFailed : undefined });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error";
     return NextResponse.json({ error: msg }, { status: 500 });

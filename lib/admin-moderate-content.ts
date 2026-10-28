@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { SITE_ADMIN_USER_ID } from "@/lib/site-admin-stock";
 
 type Admin = SupabaseClient;
 
@@ -10,7 +11,13 @@ export type AdminRemovalBody = {
   itemType?: "pc" | "merch";
   itemId?: string | number;
   listingType?: "wtt" | "wts";
+  reason?: string;
+  label?: string;
 };
+
+function clip(value: unknown, max: number) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
+}
 
 function idsOf(body: AdminRemovalBody) {
   const ids = [...(body.ids || []), body.id || ""].map((id) => String(id || "").trim()).filter(Boolean);
@@ -57,6 +64,33 @@ async function removeListing(admin: Admin, body: AdminRemovalBody) {
   if (itemType === "merch") {
     await admin.from(table).delete().eq("user_id", userId).eq(itemCol, itemId).eq("status", "wishlist");
   }
+  const noticed = await notifyListingRemoved(admin, userId, listingType, clip(body.reason, 500), clip(body.label, 140));
+  return noticed;
+}
+
+async function notifyListingRemoved(admin: Admin, userId: string, listingType: "wtt" | "wts", reason: string, label: string) {
+  const { data: profile } = await admin.from("profiles").select("language").eq("user_id", userId).maybeSingle();
+  const english = String(profile?.language || "").toLowerCase().startsWith("en");
+  const piece = label ? ` (${label})` : "";
+  const content = english
+    ? `We removed your ${listingType.toUpperCase()} listing${piece} from the market. Reason: ${reason}. The copies move to Have.`
+    : `Hemos quitado tu anuncio ${listingType.toUpperCase()}${piece} del mercado. Motivo: ${reason}. Las copias pasan a Tengo.`;
+  const payload = {
+    user_id: userId,
+    sender_id: SITE_ADMIN_USER_ID,
+    type: "admin_message",
+    content,
+    read: false,
+  };
+  const note = await admin.from("notifications").insert(payload);
+  if (!note.error) return null;
+  const retry = await admin.from("notifications").insert({
+    user_id: userId,
+    type: "admin_message",
+    content,
+    read: false,
+  });
+  if (retry.error) return "El anuncio se ha quitado, pero no se ha podido avisar a quien lo publicó.";
   return null;
 }
 
@@ -98,7 +132,10 @@ export async function adminRemoveContent(admin: Admin, body: AdminRemovalBody) {
   const kind = String(body.kind || "");
   const ids = idsOf(body);
   if (kind === "listing") {
-    const message = await removeListing(admin, body);
+    const reason = clip(body.reason, 500);
+    if (!reason) return { ok: false as const, message: "Escribe el motivo." };
+    const message = await removeListing(admin, { ...body, reason });
+    if (message?.startsWith("El anuncio se ha quitado")) return { ok: true as const, noticeFailed: message };
     return message ? { ok: false as const, message } : { ok: true as const };
   }
   if (kind === "fanart" || kind === "obra") {

@@ -1346,6 +1346,10 @@
       "log_failed": "The listing is off the market, but the reason could not be saved.",
       "failed": "The listing could not be removed. Try again.",
       "admin_confirm": "This listing belongs to someone else. Remove it from the market? The copies move to Have.",
+      "admin_reason_title": "Reason for removal",
+      "admin_reason_lead": "This listing belongs to someone else. Write why you are removing it. The person who published it gets a notification with this reason. The copies move to Have.",
+      "admin_reason_placeholder": "Write the reason",
+      "admin_notice_failed": "The listing is off the market, but the person who published it could not be notified.",
       "admin_any": "Remove this from the site? It comes down even if someone else published it.",
       "missing": "That listing is already gone."
     },

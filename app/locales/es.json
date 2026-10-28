@@ -1346,6 +1346,10 @@
       "log_failed": "El anuncio ya no está en el mercado, pero el motivo no se ha podido guardar.",
       "failed": "No se ha podido quitar el anuncio. Prueba otra vez.",
       "admin_confirm": "Este anuncio es de otra persona. ¿Lo quitas del mercado? Las copias pasan a Tengo.",
+      "admin_reason_title": "Motivo de la eliminación",
+      "admin_reason_lead": "Este anuncio es de otra persona. Escribe por qué lo quitas. Quien lo publicó recibirá una notificación con este motivo. Las copias pasan a Tengo.",
+      "admin_reason_placeholder": "Escribe el motivo",
+      "admin_notice_failed": "El anuncio ya no está en el mercado, pero no se ha podido avisar a quien lo publicó.",
       "admin_any": "¿Quitas este contenido? Sale de la web aunque lo haya publicado otra persona.",
       "missing": "Ese anuncio ya no está."
     },

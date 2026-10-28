@@ -431,7 +431,7 @@ const PriceConverter = ({
 
 function MarketContent() {
   const router = useRouter();
-  const { t, showAlert, showConfirm, profile } = useGlobal();
+  const { t, showAlert, showPrompt, profile } = useGlobal();
   const canModerate = isAdminTeamEmail(profile?.email);
   const searchParams = useSearchParams();
  
@@ -958,23 +958,42 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
 
   const isOwnAd = (ad: MarketAd) => Boolean(currentUserId && ad.user_id === currentUserId);
 
-  const removeForeignListing = async (ad: MarketAd) => {
-    const ok = await showConfirm(t("common.confirm"), t("market.withdraw.admin_confirm"));
-    if (!ok) return;
-    const result = await adminRemoveContent({
-      kind: "listing",
-      userId: ad.user_id,
-      itemType: ad.itemType === "merch" ? "merch" : "pc",
-      itemId: ad.item_id,
-      listingType: ad.type,
-    });
-    if (!result.ok) {
-      showAlert(t("common.error"), result.message === "login" ? t("market.withdraw.failed") : result.message);
-      return;
-    }
-    setAds((prev) => prev.filter((row) => row.id !== ad.id));
-    setSelectedAd((cur) => (cur?.id === ad.id ? null : cur));
-    showAlert(t("common.deleted"), t("market.withdraw.done"));
+  const removeForeignListing = (ad: MarketAd) => {
+    const label = [ad.member, ad.pcName, ad.group_name]
+      .map((part) => String(part || "").trim())
+      .filter((part, index, all) => part && all.indexOf(part) === index)
+      .slice(0, 3)
+      .join(" · ");
+    showPrompt(
+      t("market.withdraw.admin_reason_title"),
+      t("market.withdraw.admin_reason_lead"),
+      async (reason) => {
+        const result = await adminRemoveContent({
+          kind: "listing",
+          userId: ad.user_id,
+          itemType: ad.itemType === "merch" ? "merch" : "pc",
+          itemId: ad.item_id,
+          listingType: ad.type,
+          reason,
+          label,
+        });
+        if (!result.ok) {
+          showAlert(t("common.error"), result.message === "login" ? t("market.withdraw.failed") : result.message);
+          return;
+        }
+        setAds((prev) => prev.filter((row) => row.id !== ad.id));
+        setSelectedAd((cur) => (cur?.id === ad.id ? null : cur));
+        showAlert(
+          t("common.deleted"),
+          result.noticeFailed ? t("market.withdraw.admin_notice_failed") : t("market.withdraw.done"),
+        );
+      },
+      {
+        hideAnonymous: true,
+        confirmLabel: t("market.withdraw.btn"),
+        placeholder: t("market.withdraw.admin_reason_placeholder"),
+      },
+    );
   };
 
   const openWithdraw = (ad: MarketAd) => {
