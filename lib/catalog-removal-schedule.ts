@@ -2,7 +2,8 @@ import { ADMIN_TEAM_EMAILS } from "@/lib/admin-emails";
 import { SITE_ADMIN_USER_ID } from "@/lib/site-admin-stock";
 import { sendMail } from "@/lib/site-mail";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
-import { applyCatalogRemoval, copyImageToPersonal, planCatalogRemoval, removalCounts, type RemovalPlan, type RemovalTarget } from "@/lib/catalog-removal";
+import { applyCatalogRemoval, copyImageToPersonal, planCatalogRemoval, removalCounts, type CatalogTombstone, type RemovalPlan, type RemovalTarget } from "@/lib/catalog-removal";
+import { appendTombstone } from "@/lib/catalog-removal-tombstones";
 
 const BUCKET = "catalog-private";
 const PATH = "admin/catalog-removals.json";
@@ -26,7 +27,7 @@ export type RemovalJob = {
   notices: { n: 1 | 2 | 3; sendAt: string }[];
 };
 
-type QueueFile = { jobs: RemovalJob[] };
+type QueueFile = { jobs: RemovalJob[]; tombstones: CatalogTombstone[] };
 
 function chunk<T>(rows: T[], size: number) {
   const out: T[][] = [];
@@ -36,12 +37,15 @@ function chunk<T>(rows: T[], size: number) {
 
 async function readQueue(admin: Admin): Promise<QueueFile> {
   const { data, error } = await admin.storage.from(BUCKET).download(PATH);
-  if (error || !data) return { jobs: [] };
+  if (error || !data) return { jobs: [], tombstones: [] };
   try {
-    const parsed = JSON.parse(await data.text()) as QueueFile;
-    return { jobs: Array.isArray(parsed.jobs) ? parsed.jobs : [] };
+    const parsed = JSON.parse(await data.text()) as Partial<QueueFile>;
+    return {
+      jobs: Array.isArray(parsed.jobs) ? parsed.jobs : [],
+      tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [],
+    };
   } catch {
-    return { jobs: [] };
+    return { jobs: [], tombstones: [] };
   }
 }
 
@@ -133,6 +137,9 @@ export async function scheduleCatalogRemoval(admin: Admin, target: RemovalTarget
   const holderIds = await listHolderIds(admin, plan);
   if (!holderIds.length) {
     await applyCatalogRemoval(admin, plan);
+    const done = await readQueue(admin);
+    done.tombstones = appendTombstone(done.tombstones, plan.tombstone);
+    await writeQueue(admin, done);
     return { scheduled: false as const, holders: 0, ...removalCounts(plan) };
   }
   const queue = await readQueue(admin);
@@ -301,6 +308,7 @@ export async function runDueCatalogRemovals(admin: Admin) {
     if (!due && holders.length) continue;
     await applyCatalogRemoval(admin, job.plan);
     job.status = "done";
+    queue.tombstones = appendTombstone(queue.tombstones, job.plan.tombstone);
     if (!due) {
       try {
         await notifyAdminsCleared(admin, job);
@@ -349,7 +357,14 @@ export async function removalsForUser(admin: Admin, userId: string) {
       if (!done.has(pieceKey("merch", id))) merch.push({ id, label: job.label, executeAt: job.executeAt });
     }
   }
-  return { items, merch };
+  const lockedItems: { id: number; executeAt: string }[] = [];
+  const lockedMerch: { id: string; executeAt: string }[] = [];
+  for (const job of queue.jobs) {
+    if (job.status !== "scheduled") continue;
+    for (const id of job.plan.itemIds) lockedItems.push({ id, executeAt: job.executeAt });
+    for (const id of job.plan.merchIds) lockedMerch.push({ id, executeAt: job.executeAt });
+  }
+  return { items, merch, lockedItems, lockedMerch };
 }
 
 export async function convertHeldPiece(admin: Admin, userId: string, kind: "item" | "merch", rawId: string) {
@@ -395,6 +410,7 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
     if (inserted.error) throw new Error(inserted.error.message);
   };
 
+  let createdId: number | string | null = null;
   if (kind === "item") {
     const itemId = Number(rawId);
     const { data: item, error } = await admin
@@ -427,6 +443,7 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
       .maybeSingle();
     if (copy.error || !copy.data) throw new Error(copy.error?.message || "No se pudo crear la pieza personalizada.");
     const newId = Number(copy.data.id);
+    createdId = newId;
     await foldTradeQty("user_item_statuses", "item_id", itemId, newId);
     const binders = await admin.from("binders").select("id").eq("user_id", userId);
     const binderIds = (binders.data ?? []).map((row) => Number(row.id));
@@ -468,6 +485,7 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
       .select("id")
       .maybeSingle();
     if (copy.error || !copy.data) throw new Error(copy.error?.message || "No se pudo crear la pieza personalizada.");
+    createdId = String(copy.data.id);
     await foldTradeQty("user_merch_statuses", "merch_id", rawId, copy.data.id);
   }
 
@@ -477,6 +495,7 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
   if (!holders.length) {
     await applyCatalogRemoval(admin, job.plan);
     job.status = "done";
+    queue.tombstones = appendTombstone(queue.tombstones, job.plan.tombstone);
     try {
       await notifyAdminsCleared(admin, job);
     } catch (err) {
@@ -484,5 +503,5 @@ export async function convertHeldPiece(admin: Admin, userId: string, kind: "item
     }
   }
   await writeQueue(admin, queue);
-  return { ok: true, already: false, cleared: holders.length === 0 };
+  return { ok: true, already: false, cleared: holders.length === 0, newId: createdId };
 }

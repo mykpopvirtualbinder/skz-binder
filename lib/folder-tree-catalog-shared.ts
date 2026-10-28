@@ -26,7 +26,7 @@ export type FolderAlbumSource =
   | "collabs"
   | "other";
 
-export type LibraryCollectionKind = "all" | FolderAlbumSource;
+export type LibraryCollectionKind = "all" | FolderAlbumSource | "personal";
 
 export const LIBRARY_COLLECTION_KIND_ORDER: Exclude<LibraryCollectionKind, "all">[] = [
   "albums",
@@ -59,6 +59,7 @@ export type FolderTreeAlbum = {
 
 export type FolderTreeCatalog = {
   albums: FolderTreeAlbum[];
+  removedAlbumKeys?: string[];
 };
 
 export function compactFolderKey(s: string): string {
@@ -229,6 +230,7 @@ export function itemLibraryCollectionKind(item: {
   image_url?: string | null;
   version?: string | null;
 }): Exclude<LibraryCollectionKind, "all"> {
+  if (String(item.version || "").trim() === "personal") return "personal";
   const { url, blob } = itemCatalogBlob(item);
   const path = blob.replace(/\\/g, "/");
 

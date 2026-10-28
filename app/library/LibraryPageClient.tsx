@@ -81,6 +81,7 @@ import {
   ZoomOut,
   ArrowUpDown,
   MapPin,
+  Info,
 } from "lucide-react";
 const filterLabelStyle: React.CSSProperties = {
   fontSize: 12,
@@ -465,6 +466,7 @@ function collectionKindLabel(kind: Exclude<LibraryCollectionKind, "all">, t: (ke
     collabs: "library.filters.kind_collabs",
     events: "library.filters.kind_events",
     other: "library.filters.kind_other",
+    personal: "library.filters.kind_personal",
   };
   const fallbacks: Record<Exclude<LibraryCollectionKind, "all">, string> = {
     albums: "Album photocards",
@@ -476,6 +478,7 @@ function collectionKindLabel(kind: Exclude<LibraryCollectionKind, "all">, t: (ke
     collabs: "Collabs",
     events: "Eventos",
     other: "Otros",
+    personal: "Personalizadas",
   };
   return t(keys[kind]) || fallbacks[kind];
 }
@@ -491,6 +494,7 @@ function collectionNameFilterLabel(kind: Exclude<LibraryCollectionKind, "all">, 
     collabs: "library.filters.pick_collab",
     events: "library.filters.pick_event",
     other: "library.filters.pick_other",
+    personal: "library.filters.pick_personal",
   };
   return t(keys[kind]) || collectionKindLabel(kind, t);
 }
@@ -1105,6 +1109,8 @@ function LibraryItemCard({
   removalNote,
   onMakePersonal,
   converting,
+  stockLocked,
+  lockNote,
   memberNames,
   t,
 }: {
@@ -1129,11 +1135,14 @@ function LibraryItemCard({
   removalNote?: string;
   onMakePersonal?: () => void;
   converting?: boolean;
+  stockLocked?: boolean;
+  lockNote?: string;
   memberNames?: Record<string, string>;
   t: (k: string) => string;
 }) {
  
   const [hover, setHover] = useState(false);
+  const [lockInfoOpen, setLockInfoOpen] = useState(false);
   const total = totalOwnedQtyFromCounts(counts);
   const available = total > 0 ? 1 : 0;
   const tooltipLines = formatTooltipLines(counts, inBinder, hideBinder);
@@ -1171,7 +1180,7 @@ function LibraryItemCard({
 
   return (
 <div
-  style={{ width: showInfo ? 140 : 120, transition: "width 0.2s ease", position: "relative" }}
+  style={{ width: showInfo ? 140 : 120, transition: "width 0.2s ease", position: "relative", opacity: stockLocked ? 0.62 : 1 }}
 >      <div
         data-tour={markTour ? "lib-card" : undefined}
         onClick={() => {
@@ -1209,6 +1218,19 @@ function LibraryItemCard({
             style={{ position: "absolute", top: 6, left: 6, zIndex: 6, width: 26, height: 26, borderRadius: 999, border: "2px solid var(--color-primary)", background: selected ? "var(--color-primary)" : "var(--bg-card)", color: "#111", fontWeight: 900, cursor: "pointer" }}
           >
             {selected ? "✓" : ""}
+          </button>
+        ) : stockLocked ? (
+          <button
+            type="button"
+            aria-label={t("library.removal_locked_info")}
+            title={t("library.removal_locked_info")}
+            onClick={(event) => {
+              event.stopPropagation();
+              setLockInfoOpen((open) => !open);
+            }}
+            style={{ position: "absolute", top: 6, left: 6, zIndex: 6, width: 26, height: 26, borderRadius: 999, border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--text-main)", fontWeight: 900, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <Info size={14} />
           </button>
         ) : (
           <button
@@ -1368,10 +1390,13 @@ function LibraryItemCard({
       {/* FILA 1: Stock */}
       <div style={{ marginTop: 8, display: "flex", justifyContent: "center", width: 120 }}>
         <div style={{ width: 120 }}>
-  <StockDropdown counts={counts} onCommit={onCommitStock} disabled={disableEdits} markTour={markTour} t={t} />
+  <StockDropdown counts={counts} onCommit={onCommitStock} disabled={disableEdits || stockLocked} markTour={markTour} t={t} />
         </div>
       </div>
-      {removalNote && onMakePersonal && !disableEdits && (
+      {stockLocked && lockInfoOpen && lockNote && (
+        <p style={{ width: 140, margin: "6px 0 0", fontSize: 10, lineHeight: 1.35, color: "var(--text-main)", fontWeight: 700, textAlign: "center" }}>{lockNote}</p>
+      )}
+      {removalNote && onMakePersonal && !disableEdits && !stockLocked && (
         <div style={{ width: 120, marginTop: 6 }}>
           <p style={{ margin: "0 0 4px", fontSize: 10, lineHeight: 1.3, color: "var(--state-danger-fg, #b42318)", fontWeight: 700, textAlign: "center" }}>{removalNote}</p>
           <button
@@ -1479,6 +1504,8 @@ function ItemModal({
   hideBinder,
   onCommitStock,
   memberNames,
+  stockLocked,
+  lockNote,
 }: {
   item: ItemRow;
   counts: StatusCounts;
@@ -1501,6 +1528,8 @@ function ItemModal({
   hideBinder?: boolean;
   onCommitStock?: (next: Record<PersistStatus, number>) => Promise<void>;
   memberNames?: Record<string, string>;
+  stockLocked?: boolean;
+  lockNote?: string;
 }) {
   const [face, setFace] = useState<"front" | "back">("front");
   const [rot, setRot] = useState(0);
@@ -1648,7 +1677,7 @@ function ItemModal({
   const wttDisabled = isViewingOtherUser || uiWishlist > 0;
   const stockBaseline = stockDraftFromCounts(counts);
   const stockDirty = (Object.keys(stockBaseline) as PersistStatus[]).some((k) => stockDraft[k] !== stockBaseline[k]);
-  const stockEditsDisabled = isViewingOtherUser || !onCommitStock || stockSaving;
+  const stockEditsDisabled = isViewingOtherUser || !onCommitStock || stockSaving || Boolean(stockLocked);
 
   const saveStockDraft = async () => {
     if (!onCommitStock || isViewingOtherUser || stockSaving) return;
@@ -2068,6 +2097,9 @@ function ItemModal({
               <div className="library-item-stock-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
                 <div>
                   <div style={{ fontWeight: 950, marginBottom: 12, color: "var(--color-primary)" }}>{t('library.stock_title')}</div>
+                  {stockLocked && lockNote && (
+                    <p style={{ margin: "0 0 12px", fontSize: 12, lineHeight: 1.4, color: "var(--text-main)", fontWeight: 700 }}>{lockNote}</p>
+                  )}
                   <StockQtyRows
                     draft={stockDraft}
                     disabled={stockEditsDisabled}
@@ -2542,6 +2574,8 @@ function LibraryContent() {
         const [selectMode, setSelectMode] = useState(false);
         const [selectedIds, setSelectedIds] = useState<number[]>([]);
         const [removalByItem, setRemovalByItem] = useState<Record<number, string>>({});
+        const [lockedByItem, setLockedByItem] = useState<Record<number, string>>({});
+        const [personalItems, setPersonalItems] = useState<ItemRow[]>([]);
         const [convertingId, setConvertingId] = useState<number | null>(null);
         const [catalogMembers, setCatalogMembers] = useState<{ slug: string; name: string; group_id: number | null }[]>([]);
         const [bulkOpen, setBulkOpen] = useState(false);
@@ -2961,17 +2995,38 @@ const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
         if (token) {
           const noticeRes = await fetch("/api/catalog-removals/mine", { headers: { Authorization: `Bearer ${token}` } });
           if (noticeRes.ok) {
-            const notice = (await noticeRes.json()) as { items?: { id: number; executeAt: string }[] };
+            const notice = (await noticeRes.json()) as {
+              items?: { id: number; executeAt: string }[];
+              lockedItems?: { id: number; executeAt: string }[];
+            };
             const map: Record<number, string> = {};
             for (const row of notice.items || []) map[Number(row.id)] = String(row.executeAt || "");
             setRemovalByItem(map);
+            const locked: Record<number, string> = {};
+            for (const row of notice.lockedItems || []) locked[Number(row.id)] = String(row.executeAt || "");
+            setLockedByItem(locked);
           }
         }
       } catch {
         /* avisos opcionales */
       }
+      if (targetUid) {
+        const { data: ownedRows } = await supabase.from("user_item_statuses").select("item_id").eq("user_id", targetUid);
+        const ownedIds = [...new Set((ownedRows || []).map((row) => Number(row.item_id)).filter((id) => Number.isFinite(id) && id > 0))];
+        const personal: ItemRow[] = [];
+        for (let i = 0; i < ownedIds.length; i += 80) {
+          const slice = ownedIds.slice(i, i + 80);
+          const { data } = await supabase.from("items").select(itemSelect).in("id", slice).eq("version", "personal");
+          if (data?.length) personal.push(...mapCatalogItemRows(data, catalog, true));
+        }
+        setPersonalItems(personal);
+      } else {
+        setPersonalItems([]);
+      }
     } else {
       setRemovalByItem({});
+      setLockedByItem({});
+      setPersonalItems([]);
     }
     if (!opts?.silent) setStatus(user ? "Inventario listo ✅" : "Catálogo listo ✅");
     setLoadingMore(false);
@@ -3086,6 +3141,8 @@ function itemBelongsToFolderAlbum(it: ItemRow, folder: FolderTreeAlbum): boolean
 }
 
 function itemMatchesCollectionKind(it: ItemRow, kind: LibraryCollectionKind): boolean {
+  if (String(it.version || "") === "personal") return kind === "personal";
+  if (kind === "personal") return false;
   if (kind === "all") return true;
   if (itemLibraryCollectionKind(it) === kind) return true;
   if (it.album_id != null) {
@@ -3180,6 +3237,12 @@ const groupOptions = useMemo(() => {
 }, [universeForGroup]);
 
 const albumOptions = useMemo(() => {
+  const removedAlbumKeys = new Set(folderTree.removedAlbumKeys || []);
+  const idsFromPersonal = new Set<number>();
+  for (const it of personalItems) {
+    const n = Number(it.album_id);
+    if (Number.isFinite(n) && n > 0) idsFromPersonal.add(n);
+  }
   const idsFromItems = new Set<number>();
   for (const it of universeForAlbum) {
     const n = Number(it.album_id);
@@ -3191,6 +3254,8 @@ const albumOptions = useMemo(() => {
     .filter((n) => Number.isFinite(n) && n > 0)
     .filter((id) => {
       const name = String(albumById[id]?.name ?? "");
+      if (removedAlbumKeys.has(compactFolderKey(name))) return false;
+      if (fCollectionKind === "personal") return idsFromPersonal.has(id);
       if (fCollectionKind === "all") return !isNonAlbumCollectionTitle(name);
       return dbAlbumCollectionKind(name) === fCollectionKind;
     });
@@ -3218,9 +3283,10 @@ const albumOptions = useMemo(() => {
     seen.add(key);
     return true;
   });
-}, [universeForAlbum, albumById, fGroup, groupNameById, fCollectionKind]);
+}, [universeForAlbum, albumById, fGroup, groupNameById, fCollectionKind, folderTree.removedAlbumKeys, personalItems]);
 
 const folderAlbumOptions = useMemo(() => {
+  if (fCollectionKind === "personal") return [];
   const groupName = fGroup === "all" ? null : groupNameById[fGroup] ?? null;
   const albumOptionIdSet = new Set(albumOptions);
   const covered = new Set<string>();
@@ -3298,7 +3364,7 @@ const collectionKindOptions = useMemo(() => {
     present.add(dbAlbumCollectionKind(album.name));
     void idStr;
   }
-  return LIBRARY_COLLECTION_KIND_ORDER.filter((k) => present.has(k));
+  return [...LIBRARY_COLLECTION_KIND_ORDER.filter((k) => present.has(k)), "personal" as const];
 }, [folderTree, items, albumById, fGroup, groupNameById, catalog]);
 
 useEffect(() => {
@@ -3422,6 +3488,7 @@ function itemSearchExtra(it: ItemRow) {
     collabs: "collab collabs colaboracion",
     events: "event events evento eventos",
     other: "other otros",
+    personal: "personal personalizada personalizadas",
   };
   return [groupName, albumName, prettyAlbumDisplay(albumName), kind.replace(/-/g, " "), collectionKindLabel(kind, t), kindWords[kind]].join(" ");
 }
@@ -3483,7 +3550,8 @@ if (skip !== "pobKind" && opts.fPobKind !== "all") {
   return true;
 }
 const filtered = useMemo(() => {
-  const list = items.filter((it) => {
+  const source = fCollectionKind === "personal" ? personalItems : items;
+  const list = source.filter((it) => {
     const counts = invByItem[it.id] ?? emptyCounts();
 
     if (fStatus !== "all") {
@@ -3541,7 +3609,7 @@ const filtered = useMemo(() => {
     return (priceScoreByItem[b.id] ?? 0) - (priceScoreByItem[a.id] ?? 0);
   });
   return copy;
-}, [items, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, fInBinder, placedByItem, placedReady, folderTree, albumById, groupNameById, catalogSort, stockDateByItem, priceScoreByItem]);
+}, [items, personalItems, invByItem, q, fStatus, fGroup, fCollectionKind, fAlbum, fAlbumMatchingIds, fVersion, fMember, fUnit, fPobKind, fInBinder, placedByItem, placedReady, folderTree, albumById, groupNameById, catalogSort, stockDateByItem, priceScoreByItem]);
 
   const selectedFolderHasNoItems = useMemo(() => {
     if (fAlbum === "all" && fCollectionKind === "all" && fVersion === "all" && fPobKind === "all") return false;
@@ -3555,10 +3623,11 @@ const filtered = useMemo(() => {
   }, [items, fAlbum, fCollectionKind, fVersion, fPobKind, folderTree, albumById, fAlbumMatchingIds]);
 
   const showContributeEmpty = useMemo(() => {
+    if (fCollectionKind === "personal") return false;
     if (!selectedFolderHasNoItems) return false;
     if (q.trim()) return false;
     return true;
-  }, [selectedFolderHasNoItems, q]);
+  }, [selectedFolderHasNoItems, q, fCollectionKind]);
 
   const contributeFolderLabel = useMemo(() => {
     const folderHit = typeof fAlbum === "string" ? findFolderAlbumByFilterKey(folderTree, fAlbum) : undefined;
@@ -3797,7 +3866,18 @@ const commitStockForItem = useCallback(
       wts: Math.max(0, Math.floor(next.wts ?? 0)),
       on_its_way: Math.max(0, Math.floor(next.on_its_way ?? 0)),
       wishlist: Math.max(0, Math.floor(next.wishlist ?? 0)),
-    }; 
+    };
+    const lockDate = lockedByItem[itemId];
+    if (lockDate) {
+      const prevCounts = invByItem[itemId] ?? emptyCounts();
+      const owned = totalOwnedQtyFromCounts(prevCounts) > 0 || (placedByItem[itemId] ?? 0) > 0;
+      const adding = cleaned.have + cleaned.wtt + cleaned.wts + cleaned.on_its_way > 0;
+      if (!owned && adding) {
+        const date = new Date(lockDate).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" });
+        showAlert(t("library.removal_locked_title"), t("library.removal_locked", { date }));
+        return;
+      }
+    } 
 
     // 2. Lógica para detectar si se acaba de añadir a WTS (Venta)
     const prevCounts = invByItem[itemId] ?? emptyCounts(); 
@@ -3893,7 +3973,7 @@ const commitStockForItem = useCallback(
       writeWttOffer(itemId, 0, []); 
     }
   },
-  [userId, invByItem, readWttOffer, wttOfferByItem, writeWttOffer, setWtsListingItemId, setWtsListingModalOpen]
+  [userId, invByItem, readWttOffer, wttOfferByItem, writeWttOffer, setWtsListingItemId, setWtsListingModalOpen, lockedByItem, placedByItem, profile?.language, showAlert, t]
 );
 
   const quickHave = useCallback((itemId: number) => {
@@ -4626,6 +4706,12 @@ const commitStockForItem = useCallback(
                       : undefined}
                     memberNames={memberNames}
                     converting={convertingId === it.id}
+                    stockLocked={Boolean(lockedByItem[it.id]) && totalOwnedQtyFromCounts(counts) <= 0 && !(placedByItem[it.id] > 0)}
+                    lockNote={lockedByItem[it.id]
+                      ? t("library.removal_locked", {
+                          date: new Date(lockedByItem[it.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }),
+                        })
+                      : undefined}
                     onMakePersonal={() => {
                       if (convertingId != null) return;
                       void (async () => {
@@ -4639,15 +4725,47 @@ const commitStockForItem = useCallback(
                             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
                             body: JSON.stringify({ kind: "item", id: it.id }),
                           });
-                          const json = (await res.json().catch(() => ({}))) as { error?: string };
+                          const json = (await res.json().catch(() => ({}))) as { error?: string; cleared?: boolean; newId?: number | string | null };
                           if (!res.ok) throw new Error(json.error || t("library.convert_failed"));
                           setRemovalByItem((prev) => {
                             const next = { ...prev };
                             delete next[it.id];
                             return next;
                           });
+                          setLockedByItem((prev) => {
+                            const next = { ...prev };
+                            delete next[it.id];
+                            return next;
+                          });
+                          setItems((prev) =>
+                            json.cleared
+                              ? prev.filter((row) => !(row.album_id === it.album_id && folderVersionMatches(row.version, it.version)))
+                              : prev.filter((row) => row.id !== it.id),
+                          );
+                          const newId = Number(json.newId);
+                          if (Number.isFinite(newId) && newId > 0) {
+                            setPersonalItems((prev) => (prev.some((row) => row.id === newId) ? prev : [...prev, { ...it, id: newId, version: "personal" }]));
+                            setInvByItem((prev) => {
+                              const moved = prev[it.id];
+                              if (!moved) return prev;
+                              const next = { ...prev };
+                              delete next[it.id];
+                              next[newId] = moved;
+                              return next;
+                            });
+                          }
+                          if (json.cleared) {
+                            try {
+                              const treeRes = await fetch("/api/folder-tree-catalog");
+                              if (treeRes.ok) {
+                                const tree = (await treeRes.json()) as FolderTreeCatalog;
+                                if (tree && Array.isArray(tree.albums)) setFolderTree(tree);
+                              }
+                            } catch {
+                              /* el filtro se actualiza en la próxima carga */
+                            }
+                          }
                           showAlert(t("library.convert_done_title"), t("library.convert_done"));
-                          void loadAll({ silent: true });
                         } catch (err: any) {
                           showAlert(t("library.convert_failed"), err?.message || t("library.convert_failed"));
                         } finally {
@@ -4719,7 +4837,7 @@ const commitStockForItem = useCallback(
           {/* 👆 FIN PAGINACIÓN 👆 */}
       {openItemId !== null &&
         (() => {
-          const it = items.find((x) => x.id === openItemId);
+          const it = items.find((x) => x.id === openItemId) ?? personalItems.find((x) => x.id === openItemId);
           if (!it) return null;
 
           const counts = invByItem[it.id] ?? emptyCounts();
@@ -4771,6 +4889,12 @@ return (
     onAlert={showAlert}
     uiLang={profile?.language ?? "es"}
     onCommitStock={(next) => commitStockForItem(it.id, next)}
+    stockLocked={Boolean(lockedByItem[it.id]) && totalOwnedQtyFromCounts(counts) <= 0 && inBinder <= 0}
+    lockNote={lockedByItem[it.id]
+      ? t("library.removal_locked", {
+          date: new Date(lockedByItem[it.id]).toLocaleDateString(profile?.language === "en" ? "en" : "es", { day: "numeric", month: "long", year: "numeric" }),
+        })
+      : undefined}
   />
 );
 

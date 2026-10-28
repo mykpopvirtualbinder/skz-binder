@@ -9,6 +9,7 @@ import {
 } from "@/lib/catalog-removal-schedule";
 import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
+import { recordCatalogTombstone } from "@/lib/catalog-removal-tombstones";
 import { canonicalMerchGroupDisplayName } from "@/lib/merch-group-display";
 
 const targets = new Set<RemovalTarget>(["group", "member", "album", "folder", "item", "merch"]);
@@ -121,6 +122,7 @@ export async function POST(req: Request) {
       });
     }
     await applyCatalogRemoval(admin, plan);
+    await recordCatalogTombstone(admin, plan.tombstone);
     return NextResponse.json({ ok: true, scheduled: false, holders: 0, ...removalCounts(plan) });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "No se pudo quitar del catálogo.";

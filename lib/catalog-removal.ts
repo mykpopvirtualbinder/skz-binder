@@ -5,6 +5,15 @@ const BUCKET = (process.env.SUPABASE_CATALOG_STORAGE_BUCKET || "catalog").trim()
 
 export type RemovalTarget = "group" | "member" | "album" | "folder" | "item" | "merch";
 
+export type CatalogTombstone = {
+  kind: "folder" | "album" | "group";
+  albumTitle?: string;
+  albumSlug?: string;
+  versionSlug?: string;
+  groupName?: string;
+  groupSlug?: string;
+};
+
 export type RemovalPlan = {
   label: string;
   itemIds: number[];
@@ -14,6 +23,7 @@ export type RemovalPlan = {
   versionIds: number[];
   groupId: number | null;
   storagePaths: string[];
+  tombstone?: CatalogTombstone | null;
 };
 
 export type AlbumFolder = {
@@ -304,7 +314,7 @@ export async function planCatalogRemoval(admin: Admin, target: RemovalTarget, id
       slug = "";
     }
     if (!Number.isFinite(albumId) || albumId <= 0 || !slug || slug === "personal") throw new Error("Elige una carpeta.");
-    const { data: album, error: albumError } = await admin.from("albums").select("id, name").eq("id", albumId).maybeSingle();
+    const { data: album, error: albumError } = await admin.from("albums").select("id, name, slug").eq("id", albumId).maybeSingle();
     if (albumError) throw new Error(albumError.message);
     if (!album) throw new Error("Ese álbum no está en el catálogo.");
     const { data: versionRow, error: versionError } = await admin
@@ -330,6 +340,12 @@ export async function planCatalogRemoval(admin: Admin, target: RemovalTarget, id
     const pretty = String(versionRow?.name || "").trim();
     plan.label = pretty || slug.split("-").filter(Boolean).map((word) => word.slice(0, 1).toUpperCase() + word.slice(1)).join(" ");
     if (versionRow?.id != null) plan.versionIds = [Number(versionRow.id)];
+    plan.tombstone = {
+      kind: "folder",
+      albumTitle: String(album.name || ""),
+      albumSlug: String(album.slug || ""),
+      versionSlug: slug,
+    };
     return plan;
   }
 
@@ -342,6 +358,11 @@ export async function planCatalogRemoval(admin: Admin, target: RemovalTarget, id
     const { data: group } = await admin.from("groups").select("id, name, slug").eq("id", album.group_id).maybeSingle();
     plan.label = String(album.name || album.slug || `Álbum ${albumId}`);
     plan.albumIds = [albumId];
+    plan.tombstone = {
+      kind: "album",
+      albumTitle: String(album.name || ""),
+      albumSlug: String(album.slug || ""),
+    };
     await eachPage<{ id: number; image_url: string | null; back_image_url: string | null }>(
       admin,
       "items",
@@ -403,6 +424,11 @@ export async function planCatalogRemoval(admin: Admin, target: RemovalTarget, id
   if (!group) throw new Error("Ese grupo no está en el catálogo.");
   plan.label = String(group.name || group.slug || `Grupo ${groupId}`);
   plan.groupId = groupId;
+  plan.tombstone = {
+    kind: "group",
+    groupName: String(group.name || ""),
+    groupSlug: String(group.slug || ""),
+  };
   await eachPage<{ id: number; image_url: string | null; back_image_url: string | null }>(
     admin,
     "items",
