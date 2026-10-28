@@ -2719,14 +2719,19 @@ function MePageContent() {
                         </div>
                       </div>
                       <div style={{ fontWeight: 800, marginTop: "4px", color: "var(--text-main)" }}>{n.sender_profile?.display_name || "MKB"}</div>
-                      <div style={{ fontSize: "14px", marginTop: "6px", whiteSpace: "pre-wrap" }}>
-                        {dealPreviewText(n.content, {
-                          accept: t("me.deal_accept"),
-                          reject: t("me.deal_reject"),
-                          counter: t("me.deal_counter"),
-                          settled: t("me.deal_settled"),
-                          confirm: t("me.deal_confirm_success"),
-                        }) || offerPreviewText(n.content, { wts: t("me.wts_offer"), trade: t("me.trade_offer") })}
+                      <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", marginTop: "6px" }}>
+                        {n.type === "admin_message" && n.image_url && (n.image_url.startsWith("/") || n.image_url.startsWith("http")) ? (
+                          <img src={n.image_url} alt="" style={{ width: 54, height: 72, objectFit: "cover", borderRadius: 8, border: "1px solid var(--color-border)", flexShrink: 0 }} />
+                        ) : null}
+                        <div style={{ fontSize: "14px", whiteSpace: "pre-wrap" }}>
+                          {dealPreviewText(n.content, {
+                            accept: t("me.deal_accept"),
+                            reject: t("me.deal_reject"),
+                            counter: t("me.deal_counter"),
+                            settled: t("me.deal_settled"),
+                            confirm: t("me.deal_confirm_success"),
+                          }) || offerPreviewText(n.content, { wts: t("me.wts_offer"), trade: t("me.trade_offer") })}
+                        </div>
                       </div>
                     </div>
                   ))}

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { prettyMemberLabel } from "@/lib/member-labels";
 import { SITE_ADMIN_USER_ID } from "@/lib/site-admin-stock";
 
 type Admin = SupabaseClient;
@@ -64,49 +65,128 @@ async function removeListing(admin: Admin, body: AdminRemovalBody) {
   if (itemType === "merch") {
     await admin.from(table).delete().eq("user_id", userId).eq(itemCol, itemId).eq("status", "wishlist");
   }
-  const noticed = await notifyListingRemoved(admin, userId, listingType, clip(body.reason, 500), clip(body.label, 140));
+  const noticed = await notifyListingRemoved(admin, userId, listingType, itemType, itemId, clip(body.reason, 500), clip(body.label, 180));
   return noticed;
 }
 
-const LISTING_REMOVED: Record<string, (type: string, piece: string, reason: string) => string> = {
-  es: (type, piece, reason) => `Hemos quitado tu anuncio ${type}${piece} del mercado. Motivo: ${reason}. Las copias pasan a Tengo.`,
-  en: (type, piece, reason) => `We removed your ${type} listing${piece} from the market. Reason: ${reason}. The copies move to Have.`,
-  fr: (type, piece, reason) => `Nous avons retiré ton annonce ${type}${piece} du marché. Motif : ${reason}. Les exemplaires passent dans J'ai.`,
-  de: (type, piece, reason) => `Wir haben deine ${type}-Anzeige${piece} vom Markt genommen. Grund: ${reason}. Die Exemplare liegen jetzt bei Habe ich.`,
-  it: (type, piece, reason) => `Abbiamo tolto il tuo annuncio ${type}${piece} dal mercato. Motivo: ${reason}. Le copie passano a Ce l'ho.`,
-  pt: (type, piece, reason) => `Tirámos o teu anúncio ${type}${piece} do mercado. Motivo: ${reason}. As cópias passam para Tenho.`,
-  id: (type, piece, reason) => `Kami menurunkan iklan ${type} milikmu${piece} dari market. Alasan: ${reason}. Salinannya pindah ke Punya.`,
-  th: (type, piece, reason) => `เราเอารายการ ${type}${piece} ของคุณออกจากตลาดแล้ว เหตุผล: ${reason} สำเนาไปอยู่ที่ มีแล้ว`,
-  ja: (type, piece, reason) => `あなたの${type}出品${piece}をマーケットから取り下げました。理由: ${reason}。枚数は「持っている」に移ります。`,
-  ko: (type, piece, reason) => `회원님의 ${type} 글${piece}을 마켓에서 내렸습니다. 사유: ${reason}. 수량은 보유로 옮겨집니다.`,
-  zh: (type, piece, reason) => `我们已将你的 ${type} 公告${piece}从市场移除。原因：${reason}。副本已转入「已有」。`,
+const LISTING_REMOVED: Record<string, (type: string, itemLine: string, reason: string) => string> = {
+  es: (type, itemLine, reason) => `Hemos quitado tu anuncio ${type} del mercado.\n${itemLine}Motivo: ${reason}.\nLas copias pasan a Tengo.`,
+  en: (type, itemLine, reason) => `We removed your ${type} listing from the market.\n${itemLine}Reason: ${reason}.\nThe copies move to Have.`,
+  fr: (type, itemLine, reason) => `Nous avons retiré ton annonce ${type} du marché.\n${itemLine}Motif : ${reason}.\nLes exemplaires passent dans J'ai.`,
+  de: (type, itemLine, reason) => `Wir haben deine ${type}-Anzeige vom Markt genommen.\n${itemLine}Grund: ${reason}.\nDie Exemplare liegen jetzt bei Habe ich.`,
+  it: (type, itemLine, reason) => `Abbiamo tolto il tuo annuncio ${type} dal mercato.\n${itemLine}Motivo: ${reason}.\nLe copie passano a Ce l'ho.`,
+  pt: (type, itemLine, reason) => `Tirámos o teu anúncio ${type} do mercado.\n${itemLine}Motivo: ${reason}.\nAs cópias passam para Tenho.`,
+  id: (type, itemLine, reason) => `Kami menurunkan iklan ${type} milikmu dari market.\n${itemLine}Alasan: ${reason}.\nSalinannya pindah ke Punya.`,
+  th: (type, itemLine, reason) => `เราเอารายการ ${type} ของคุณออกจากตลาดแล้ว\n${itemLine}เหตุผล: ${reason}\nสำเนาไปอยู่ที่ มีแล้ว`,
+  ja: (type, itemLine, reason) => `あなたの${type}出品をマーケットから取り下げました。\n${itemLine}理由: ${reason}。\n枚数は「持っている」に移ります。`,
+  ko: (type, itemLine, reason) => `회원님의 ${type} 글을 마켓에서 내렸습니다.\n${itemLine}사유: ${reason}.\n수량은 보유로 옮겨집니다.`,
+  zh: (type, itemLine, reason) => `我们已将你的 ${type} 公告从市场移除。\n${itemLine}原因：${reason}。\n副本已转入「已有」。`,
 };
 
-function listingRemovedText(language: string, type: string, piece: string, reason: string) {
+const ITEM_WORD: Record<string, string> = {
+  es: "Ítem",
+  en: "Item",
+  fr: "Pièce",
+  de: "Stück",
+  it: "Pezzo",
+  pt: "Item",
+  id: "Item",
+  th: "ชิ้น",
+  ja: "アイテム",
+  ko: "아이템",
+  zh: "物品",
+};
+
+function listingRemovedText(language: string, type: string, label: string, reason: string) {
   const code = language.toLowerCase().split("-")[0];
-  return (LISTING_REMOVED[code] || LISTING_REMOVED.es)(type, piece, reason);
+  const word = ITEM_WORD[code] || ITEM_WORD.es;
+  const itemLine = label ? `${word}: ${label}.\n` : "";
+  return (LISTING_REMOVED[code] || LISTING_REMOVED.es)(type, itemLine, reason);
 }
 
-async function notifyListingRemoved(admin: Admin, userId: string, listingType: "wtt" | "wts", reason: string, label: string) {
+function joinParts(parts: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of parts) {
+    const text = String(part || "").replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+  }
+  return out.join(" · ").slice(0, 220);
+}
+
+function plainVersion(value: string | null | undefined) {
+  const text = String(value || "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!text || text !== text.toLowerCase()) return text;
+  return text.replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
+
+async function listingItem(admin: Admin, itemType: "pc" | "merch", itemId: string | number, fallback: string) {
+  if (itemType === "merch") {
+    const { data } = await admin.from("merch_items").select("name, group_name, album_title, album_version, category, image_url").eq("id", itemId).maybeSingle();
+    const row = data as { name?: string | null; group_name?: string | null; album_title?: string | null; album_version?: string | null; category?: string | null; image_url?: string | null } | null;
+    const label = joinParts([row?.name, row?.group_name, row?.album_title, plainVersion(row?.album_version), row?.category]) || fallback;
+    return { label, image: row?.image_url || null };
+  }
+  const { data } = await admin.from("items").select("name, member, version, group_id, album_id, image_url").eq("id", itemId).maybeSingle();
+  const row = data as { name?: string | null; member?: string | null; version?: string | null; group_id?: number | null; album_id?: number | null; image_url?: string | null } | null;
+  if (!row) return { label: fallback, image: null };
+  const member = prettyMemberLabel(row.member) || String(row.member || "").trim();
+  let group = "";
+  let album = "";
+  if (row.group_id) {
+    const found = await admin.from("groups").select("name").eq("id", row.group_id).maybeSingle();
+    group = String((found.data as { name?: string } | null)?.name || "");
+  }
+  if (row.album_id) {
+    const found = await admin.from("albums").select("name").eq("id", row.album_id).maybeSingle();
+    album = plainVersion(String((found.data as { name?: string } | null)?.name || ""));
+  }
+  const label = joinParts([member, album, plainVersion(row.version), group]) || fallback;
+  return { label, image: row.image_url || null };
+}
+
+async function notifyListingRemoved(
+  admin: Admin,
+  userId: string,
+  listingType: "wtt" | "wts",
+  itemType: "pc" | "merch",
+  itemId: string | number,
+  reason: string,
+  fallback: string,
+) {
   const { data: profile } = await admin.from("profiles").select("language").eq("user_id", userId).maybeSingle();
-  const piece = label ? ` (${label})` : "";
-  const content = listingRemovedText(String(profile?.language || "es"), listingType.toUpperCase(), piece, reason);
+  const item = await listingItem(admin, itemType, itemId, fallback);
+  const content = listingRemovedText(String(profile?.language || "es"), listingType.toUpperCase(), item.label, reason);
+  const image = item.image && (item.image.startsWith("/") || item.image.startsWith("http")) ? item.image : null;
   const payload = {
     user_id: userId,
     sender_id: SITE_ADMIN_USER_ID,
     type: "admin_message",
     content,
+    image_url: image,
     read: false,
   };
   const note = await admin.from("notifications").insert(payload);
   if (!note.error) return null;
   const retry = await admin.from("notifications").insert({
     user_id: userId,
+    sender_id: SITE_ADMIN_USER_ID,
     type: "admin_message",
     content,
     read: false,
   });
-  if (retry.error) return "El anuncio se ha quitado, pero no se ha podido avisar a quien lo publicó.";
+  if (!retry.error) return null;
+  const plain = await admin.from("notifications").insert({
+    user_id: userId,
+    type: "admin_message",
+    content,
+    read: false,
+  });
+  if (plain.error) return "El anuncio se ha quitado, pero no se ha podido avisar a quien lo publicó.";
   return null;
 }
 
