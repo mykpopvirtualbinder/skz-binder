@@ -587,8 +587,10 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
           if (profile.is_restricted) return; // Si está restringido, saltamos este anuncio
           
           const inclusion = isInclusionPc(row.item?.type, row.item?.image_url);
+          const pcItemId = row.item?.id || row.item_id;
+          const pcCardId = `pc-${row.user_id}-${pcItemId}-${row.status}`;
           const baseAd: MarketAd = { 
-            id: `pc-${row.id}`, itemType: "pc", item_id: row.item?.id || row.item_id, type: row.status,
+            id: pcCardId, itemType: "pc", item_id: pcItemId, type: row.status,
             user_id: row.user_id, username: profile.display_name || t("global.default_user_name"), avatar_url: profile.avatar_url || "https://ui-avatars.com/api/?name=U",
             country: row.origin_country || "España", pcImage: row.item?.image_url || "/mock-pcs/groups/not-available.png", pcName: row.item?.name || t("common.photocard"),
             group_id: row.item?.group_id || null, group_name: null, album_id: row.item?.album_id || null, version: row.item?.version || "", member: row.item?.member || "",
@@ -604,7 +606,7 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
           if (row.status === "wtt" && row.wtt_ids && row.wtt_ids.length > 0) {
             row.wtt_ids.forEach((targetId: number) => {
               targetPcIdsToFetch.add(targetId);
-              expandedAds.push({ ...baseAd, id: `pc-${row.id}-${targetId}`, target_wtt_id: targetId });
+              expandedAds.push({ ...baseAd, id: `${pcCardId}-${targetId}`, target_wtt_id: targetId });
             });
           } else { expandedAds.push(baseAd); }
         });
@@ -981,8 +983,8 @@ const [currentUserId, setCurrentUserId] = useState<string | null>(null); // Para
           showAlert(t("common.error"), result.message === "login" ? t("market.withdraw.failed") : result.message);
           return;
         }
-        setAds((prev) => prev.filter((row) => row.id !== ad.id));
-        setSelectedAd((cur) => (cur?.id === ad.id ? null : cur));
+        setAds((prev) => prev.filter((row) => !(row.statusRowId === ad.statusRowId && row.itemType === ad.itemType)));
+        setSelectedAd((cur) => (cur && cur.statusRowId === ad.statusRowId && cur.itemType === ad.itemType ? null : cur));
         showAlert(
           t("common.deleted"),
           result.noticeFailed ? t("market.withdraw.admin_notice_failed") : t("market.withdraw.done"),
