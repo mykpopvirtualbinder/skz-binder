@@ -11,6 +11,7 @@ import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { Sparkles, ArrowLeft, Instagram, Youtube, Info, Send, User, Heart, ImageIcon, X, Loader2, Flag, Reply, ShieldAlert } from "lucide-react";
 import { useGlobal } from "../context/GlobalContext";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { artistCopy } from "@/lib/editorial-copy";
 import { adminRemoveContent } from "@/lib/admin-moderate-client";
 
 function ArtistContent() {
@@ -21,7 +22,8 @@ function ArtistContent() {
   const isAdmin = searchParams.get('admin') === 'true';
   const denunciaId = searchParams.get('denunciaId');
 
-const { profile, showAlert, showPrompt, showConfirm, t } = useGlobal();
+const { profile, showAlert, showPrompt, showConfirm, t, uiLanguage } = useGlobal();
+  const story = artistCopy(uiLanguage);
   const canModerate = isAdminTeamEmail(profile?.email);
 // El perfil en las dependencias de los efectos asegura que si el usuario
 // cambia el idioma en el Header, el contenido de esta página se refresque.
@@ -372,24 +374,30 @@ const { profile, showAlert, showPrompt, showConfirm, t } = useGlobal();
                 {groupLogo ? <img src={groupLogo} alt="Logo" style={{ height: "40px", objectFit: "contain", maxWidth: "200px" }} /> : <div style={{ height: "40px", width: "120px", background: "var(--bg-soft)", borderRadius: "8px" }} />}
                 <h2 style={{ color: "var(--color-primary)", fontSize: "24px", fontWeight: 900, margin: 0 }}>{t('artist_month.history_title')}</h2>
               </div>
-              <p style={{ color: "var(--text-main)", fontSize: "16px", lineHeight: "1.8", fontWeight: 500 }}>{t('artist_month.history_p1')}</p>
-              <div style={{ margin: "25px 0", borderRadius: "16px", overflow: "hidden", border: "1px solid var(--color-border)" }}>
-                <img src="https://spanish.korea.net/upload/content/editImage/20251202110216185_AUBNJ5NY.jpg" alt="Artist" style={{ width: "100%", display: "block", objectFit: "cover", height: isMobile ? "200px" : "350px" }} />
+              <h3 className="tan-font" style={{ color: "var(--text-main)", fontSize: isMobile ? "28px" : "34px", lineHeight: 1.15, margin: "0 0 16px" }}>{story.headline}</h3>
+              {story.history.slice(0, 2).map((paragraph) => (
+                <p key={paragraph.slice(0, 32)} style={{ color: "var(--text-main)", fontSize: "16px", lineHeight: "1.8", fontWeight: 500 }}>{paragraph}</p>
+              ))}
+              <div style={{ margin: "25px 0", borderRadius: "16px", overflow: "hidden", border: "1px solid var(--color-border)", background: "#fff" }}>
+                <img src="/branding/artist-month-history.png" alt="Stray Kids" style={{ width: "100%", display: "block", height: "auto" }} />
               </div>
-              <p style={{ color: "var(--text-main)", fontSize: "16px", lineHeight: "1.8", fontWeight: 500 }}>{t('artist_month.history_p2')}</p>
+              {story.history.slice(2).map((paragraph) => (
+                <p key={paragraph.slice(0, 32)} style={{ color: "var(--text-main)", fontSize: "16px", lineHeight: "1.8", fontWeight: 500 }}>{paragraph}</p>
+              ))}
             </section>
 
-            <section style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "20px" }}>
+            <section style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
               <div style={{ background: "var(--bg-soft)", padding: "25px", borderRadius: "24px", border: "1px dashed var(--color-border)" }}>
                 <h3 style={{ color: "var(--color-primary)", fontSize: "18px", fontWeight: 900, marginTop: 0, display: "flex", alignItems: "center", gap: "8px" }}><Info size={20} color="var(--color-border)" /> {t('artist_month.facts_title')}</h3>
-                <ul style={{ color: "var(--text-main)", fontSize: "14px", lineHeight: "1.6", fontWeight: 600, paddingLeft: "20px", margin: 0 }}>
-                  <li style={{ marginBottom: "10px" }}>{t('artist_month.fact_1')}</li>
-                  <li>{t('artist_month.fact_2')}</li>
-                </ul>
+                <p style={{ color: "var(--text-main)", fontSize: "14px", lineHeight: "1.7", fontWeight: 600, margin: 0 }}>{story.fact}</p>
               </div>
               <div style={{ background: "var(--bg-soft)", padding: "25px", borderRadius: "24px", border: "1px dashed var(--color-primary)" }}>
                 <h3 style={{ color: "var(--color-primary)", fontSize: "18px", fontWeight: 900, marginTop: 0, display: "flex", alignItems: "center", gap: "8px" }}><Sparkles size={20} color="var(--color-primary)" /> {t('artist_month.news_title')}</h3>
-                <p style={{ color: "var(--text-main)", fontSize: "14px", lineHeight: "1.6", fontWeight: 600 }}>{t('artist_month.news_text')}</p>
+                <div style={{ display: "grid", gap: 12 }}>
+                  {story.news.map((paragraph) => (
+                    <p key={paragraph.slice(0, 32)} style={{ color: "var(--text-main)", fontSize: "14px", lineHeight: "1.7", fontWeight: 600, margin: 0 }}>{paragraph}</p>
+                  ))}
+                </div>
               </div>
             </section>
           </div>

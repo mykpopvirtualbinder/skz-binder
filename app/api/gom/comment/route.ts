@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   const profiles = await listGomProfiles(admin);
   const gom = profiles.find((row) => row.id === gomId);
   if (!gom || gom.status !== "approved") return NextResponse.json({ error: "missing" }, { status: 404 });
-  if (gom.userId === user.id) return NextResponse.json({ error: "own" }, { status: 400 });
+  if ((gom.siteUserId || gom.userId) === user.id) return NextResponse.json({ error: "own" }, { status: 400 });
   try {
     await commentGom(admin, gomId, user.id, text);
   } catch (err) {

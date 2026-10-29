@@ -22,6 +22,8 @@ function card(row: GomRecord) {
     goTypes: row.goTypes,
     requirements: row.requirements,
     howItWorks: row.howItWorks,
+    siteUserId: row.siteUserId,
+    siteName: row.siteName,
     status: row.status,
     createdAt: row.createdAt,
   };
@@ -34,6 +36,12 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   try {
     const rows = await listGomProfiles(admin);
+    const missing = [...new Set(rows.filter((row) => !row.siteName).map((row) => row.siteUserId).filter(Boolean))];
+    if (missing.length) {
+      const { data: accounts } = await admin.from("profiles").select("user_id, display_name").in("user_id", missing);
+      const names = new Map((accounts || []).map((account) => [account.user_id, String(account.display_name || "")]));
+      for (const row of rows) if (!row.siteName) row.siteName = names.get(row.siteUserId) || "";
+    }
     if (url.searchParams.get("count") === "1") {
       return NextResponse.json({ pending: rows.filter((row) => row.status === "pending").length });
     }

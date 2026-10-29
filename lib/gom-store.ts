@@ -30,6 +30,8 @@ export type GomRecord = {
   goTypes: string;
   requirements: string;
   howItWorks: string;
+  siteUserId: string;
+  siteName: string;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
 };
@@ -68,6 +70,8 @@ function readRecord(row: Box): GomRecord | null {
     goTypes: clip(parsed.goTypes, 2000),
     requirements: clip(parsed.requirements, 2000),
     howItWorks: clip(parsed.howItWorks, 2000),
+    siteUserId: clip(parsed.siteUserId, 80) || row.user_id,
+    siteName: clip(parsed.siteName, 80),
     status: asStatus(parsed.review),
     createdAt: row.created_at,
   };
@@ -100,6 +104,8 @@ export async function saveGomProfile(admin: SupabaseClient, userId: string, inpu
     goTypes: input.goTypes,
     requirements: input.requirements,
     howItWorks: input.howItWorks,
+    siteUserId: input.siteUserId,
+    siteName: input.siteName,
     review: "pending",
   });
   const email = `gom:${userId}`;

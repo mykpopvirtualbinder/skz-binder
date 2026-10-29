@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
-import { SITE_ADMIN_EMAIL } from "@/lib/admin-emails";
+import { isAdminTeamEmail, SITE_ADMIN_EMAIL } from "@/lib/admin-emails";
 import { SITE_ADMIN_USER_ID } from "@/lib/site-admin-stock";
 import { sendMail } from "@/lib/site-mail";
 import { GOM_SOCIALS, type GomSocialKey } from "@/lib/gom";
@@ -17,7 +17,7 @@ function publicProfile(
   const avg = ratings.length ? ratings.reduce((sum, rating) => sum + rating.score, 0) / ratings.length : 0;
   return {
     id: row.id,
-    userId: row.userId,
+    userId: row.siteUserId || row.userId,
     displayName: row.displayName,
     photoUrl: row.photoUrl || "",
     socials: row.socials,
@@ -26,6 +26,7 @@ function publicProfile(
     requirements: row.requirements,
     howItWorks: row.howItWorks,
     createdAt: row.createdAt,
+    siteName: row.siteName,
     ratingAvg: Math.round(avg * 10) / 10,
     ratingCount: ratings.length,
     myRating: mine[0]?.score || 0,
@@ -36,15 +37,35 @@ function publicProfile(
 export async function GET(req: Request) {
   const viewer = await userFromBearer(req);
   const admin = createServiceRoleClient();
+  const userq = new URL(req.url).searchParams.get("userq");
+  if (userq !== null) {
+    if (!viewer) return NextResponse.json({ error: "auth" }, { status: 401 });
+    const q = clip(userq, 40).replace(/[%_]/g, "");
+    if (q.length < 2) return NextResponse.json({ users: [] });
+    const { data } = await admin.from("profiles").select("user_id, display_name, avatar_url").ilike("display_name", `%${q}%`).limit(8);
+    return NextResponse.json({
+      users: (data || []).flatMap((row) => {
+        const name = clip(row.display_name, 80);
+        if (!row.user_id || !name) return [];
+        return [{ id: row.user_id, name, avatar: row.avatar_url || null }];
+      }),
+    });
+  }
   try {
     const all = await listGomProfiles(admin);
     const rows = all.filter((row) => row.status === "approved");
     const { ratings, comments } = await listGomFeedback(admin);
     const authorIds = [...new Set(comments.map((comment) => comment.userId))];
-    const { data: authors } = authorIds.length
-      ? await admin.from("profiles").select("user_id, display_name, avatar_url").in("user_id", authorIds)
+    const contactIds = [...new Set(rows.map((row) => row.siteUserId || row.userId))];
+    const profileIds = [...new Set([...authorIds, ...contactIds])];
+    const { data: authors } = profileIds.length
+      ? await admin.from("profiles").select("user_id, display_name, avatar_url").in("user_id", profileIds)
       : { data: [] as { user_id: string; display_name: string | null; avatar_url: string | null }[] };
     const names = new Map((authors || []).map((author) => [author.user_id, author]));
+    for (const row of rows) {
+      const account = names.get(row.siteUserId || row.userId);
+      if (account?.display_name) row.siteName = account.display_name;
+    }
     const profiles = rows.map((row) => {
       const rowRatings = ratings.filter((rating) => rating.gomId === row.id).map((rating) => ({ user_id: rating.userId, score: rating.score }));
       const rowComments = comments
@@ -115,6 +136,14 @@ export async function POST(req: Request) {
     photoUrl = admin.storage.from("avatars").getPublicUrl(path).data.publicUrl;
   }
   if (!photoUrl) return NextResponse.json({ error: "photo" }, { status: 400 });
+  const siteUserId = clip(form.get("siteUserId"), 80);
+  if (!siteUserId) return NextResponse.json({ error: "user" }, { status: 400 });
+  const { data: siteAccount } = await admin.from("profiles").select("user_id, display_name").eq("user_id", siteUserId).maybeSingle();
+  const siteName = clip(siteAccount?.display_name, 80);
+  if (!siteAccount?.user_id || !siteName) return NextResponse.json({ error: "user" }, { status: 400 });
+  if (siteAccount.user_id !== user.id && !isAdminTeamEmail(user.email)) {
+    return NextResponse.json({ error: "user" }, { status: 400 });
+  }
 
   try {
     await saveGomProfile(admin, user.id, {
@@ -128,6 +157,8 @@ export async function POST(req: Request) {
       goTypes,
       requirements,
       howItWorks,
+      siteUserId: siteAccount.user_id,
+      siteName,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "save";

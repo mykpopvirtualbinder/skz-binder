@@ -17,6 +17,8 @@ type Row = {
   goTypes: string;
   requirements: string;
   howItWorks: string;
+  siteUserId: string;
+  siteName: string;
   status: string;
   createdAt: string;
 };
@@ -77,6 +79,7 @@ export default function GomReview() {
             {row.photoUrl ? <img src={row.photoUrl} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 14 }} /> : null}
             <div style={{ flex: 1 }}>
               <strong>{row.displayName}</strong>
+              {row.siteName ? <div style={{ fontSize: 13, fontWeight: 800 }}><a href={`/user/${row.siteUserId}`} style={{ color: "#8C659C" }}>{row.siteName}</a></div> : null}
               <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text-muted)" }}>{label(row.status)} · {new Date(row.createdAt).toLocaleString()}</div>
             </div>
             {row.status === "pending" ? (

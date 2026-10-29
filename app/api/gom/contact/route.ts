@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 import { clip, userFromBearer } from "@/lib/gom-server";
+import { listGomProfiles } from "@/lib/gom-store";
 
 export async function POST(req: Request) {
   const user = await userFromBearer(req);
@@ -10,11 +11,19 @@ export async function POST(req: Request) {
   const text = clip(body?.text, 2000);
   if (!gomId || text.length < 2) return NextResponse.json({ error: "missing" }, { status: 400 });
   const admin = createServiceRoleClient();
-  const { data: gom } = await admin.from("gom_profiles").select("id, user_id, status, display_name").eq("id", gomId).maybeSingle();
+  let gom;
+  try {
+    const profiles = await listGomProfiles(admin);
+    gom = profiles.find((row) => row.id === gomId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "save";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
   if (!gom || gom.status !== "approved") return NextResponse.json({ error: "missing" }, { status: 404 });
-  if (gom.user_id === user.id) return NextResponse.json({ error: "own" }, { status: 400 });
+  const recipient = gom.siteUserId || gom.userId;
+  if (recipient === user.id) return NextResponse.json({ error: "own" }, { status: 400 });
   const { error } = await admin.from("notifications").insert({
-    user_id: gom.user_id,
+    user_id: recipient,
     sender_id: user.id,
     type: "gom_message",
     content: text,

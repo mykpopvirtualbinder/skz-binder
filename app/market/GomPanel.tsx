@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
 import { requireLoggedIn } from "@/lib/auth-gate";
+import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { GOM_SOCIALS, emptyGomSocials, socialHref, websiteHref, type GomSocials } from "@/lib/gom";
 
 type Comment = { id: string; userId: string; body: string; createdAt: string; name: string; avatar: string | null };
@@ -17,6 +18,7 @@ type GomCard = {
   goTypes: string;
   requirements: string;
   howItWorks: string;
+  siteName: string;
   ratingAvg: number;
   ratingCount: number;
   myRating: number;
@@ -91,6 +93,9 @@ export default function GomPanel({ search }: { search: string }) {
   });
   const [message, setMessage] = useState("");
   const [comment, setComment] = useState("");
+  const [siteUser, setSiteUser] = useState<{ id: string; name: string; avatar: string | null } | null>(null);
+  const [userQuery, setUserQuery] = useState("");
+  const [userHits, setUserHits] = useState<{ id: string; name: string; avatar: string | null }[]>([]);
 
   const load = async () => {
     const { data } = await supabase.auth.getSession();
@@ -113,6 +118,34 @@ export default function GomPanel({ search }: { search: string }) {
     return { Authorization: `Bearer ${token}` };
   };
 
+  useEffect(() => {
+    if (!formOpen) {
+      setSiteUser(null);
+      setUserQuery("");
+      setUserHits([]);
+      return;
+    }
+    if (profile?.id) {
+      setSiteUser({ id: profile.id, name: profile.display_name || "MKBees", avatar: profile.avatar_url || null });
+    }
+  }, [formOpen, profile?.id, profile?.display_name, profile?.avatar_url]);
+
+  useEffect(() => {
+    const q = userQuery.trim();
+    if (!formOpen || q.length < 2) {
+      setUserHits([]);
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      const headers = await authHeaders();
+      if (!headers) return;
+      const res = await fetch(`/api/gom?userq=${encodeURIComponent(q)}`, { headers });
+      const json = await res.json().catch(() => null);
+      setUserHits(Array.isArray(json?.users) ? json.users : []);
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [userQuery, formOpen]);
+
   const needLogin = () => requireLoggedIn(profile?.id, showAlert, t);
 
   const query = search.trim().toLowerCase();
@@ -126,6 +159,10 @@ export default function GomPanel({ search }: { search: string }) {
   const submit = async () => {
     if (!needLogin() || busy) return;
     const hasSocial = GOM_SOCIALS.some((field) => form.socials[field.key].trim());
+    if (!siteUser) {
+      showAlert(t("market.gom.signup"), t("market.gom.err_user"));
+      return;
+    }
     if (!form.displayName.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.phone.trim() || !form.goTypes.trim() || !form.requirements.trim() || !form.howItWorks.trim() || !form.photo) {
       showAlert(t("market.gom.signup"), t("market.gom.err_form"));
       return;
@@ -142,6 +179,7 @@ export default function GomPanel({ search }: { search: string }) {
     body.set("lastName", form.lastName);
     body.set("phone", form.phone);
     body.set("url", form.url);
+    body.set("siteUserId", siteUser.id);
     body.set("goTypes", form.goTypes);
     body.set("requirements", form.requirements);
     body.set("howItWorks", form.howItWorks);
@@ -153,7 +191,7 @@ export default function GomPanel({ search }: { search: string }) {
     if (!res.ok) {
       const json = await res.json().catch(() => null);
       const code = json?.error;
-      const key = code === "photo" ? "market.gom.err_photo" : code === "social" ? "market.gom.err_social" : code === "missing" ? "market.gom.err_form" : code === "auth" ? "auth.login_required_body" : "market.gom.err_save";
+      const key = code === "photo" ? "market.gom.err_photo" : code === "social" ? "market.gom.err_social" : code === "user" ? "market.gom.err_user" : code === "missing" ? "market.gom.err_form" : code === "auth" ? "auth.login_required_body" : "market.gom.err_save";
       showAlert(t("market.gom.signup"), t(key));
       return;
     }
@@ -172,7 +210,8 @@ export default function GomPanel({ search }: { search: string }) {
       body: JSON.stringify({ gomId, score }),
     });
     if (!res.ok) {
-      showAlert(t("market.gom.rate"), t("market.gom.err_own"));
+      const json = await res.json().catch(() => null);
+      showAlert(t("market.gom.rate"), t(json?.error === "own" ? "market.gom.err_own" : "market.gom.err_save"));
       return;
     }
     await load();
@@ -209,7 +248,8 @@ export default function GomPanel({ search }: { search: string }) {
     });
     setBusy(false);
     if (!res.ok) {
-      showAlert(t("market.gom.contact"), t("market.gom.err_own"));
+      const json = await res.json().catch(() => null);
+      showAlert(t("market.gom.contact"), t(json?.error === "own" ? "market.gom.err_own" : "market.gom.err_save"));
       return;
     }
     setMessage("");
@@ -274,13 +314,14 @@ export default function GomPanel({ search }: { search: string }) {
                 <img src={row.photoUrl} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 16, background: "var(--bg-soft)", flexShrink: 0 }} />
                 <span style={{ minWidth: 0 }}>
                   <strong style={{ display: "block", fontSize: 18 }}>{row.displayName}</strong>
+                  {row.siteName ? <span style={{ display: "block", marginTop: 2, color: "#8C659C", fontWeight: 800, fontSize: 13 }}>{row.siteName}</span> : null}
                   <span style={{ display: "block", marginTop: 4, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.goTypes}</span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-                    <ScoreRow value={Math.round(row.ratingAvg)} />
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)" }}>{row.ratingCount}</span>
-                  </span>
                 </span>
               </button>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <ScoreRow value={row.myRating || Math.round(row.ratingAvg)} onPick={row.userId === profile?.id ? undefined : (score) => void rate(row.id, score)} />
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)" }}>{row.ratingCount}</span>
+              </span>
               <button type="button" onClick={() => { if (!needLogin()) return; setContactId(row.id); setMessage(""); }} style={{ border: "1px solid #8C659C", background: "transparent", color: "#8C659C", borderRadius: 999, padding: "10px 14px", fontWeight: 900, cursor: "pointer", flexShrink: 0 }}>
                 {t("market.gom.contact")}
               </button>
@@ -296,6 +337,7 @@ export default function GomPanel({ search }: { search: string }) {
               <img src={open.photoUrl} alt="" style={{ width: 88, height: 88, objectFit: "cover", borderRadius: 18 }} />
               <div style={{ flex: 1 }}>
                 <h3 className="tan-font" style={{ margin: 0, fontSize: 28, color: "var(--color-primary)" }}>{open.displayName}</h3>
+                {open.siteName ? <a href={`/user/${open.userId}`} style={{ color: "#8C659C", fontWeight: 800, fontSize: 14 }}>{open.siteName}</a> : null}
                 <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
                   <ScoreRow value={open.myRating} onPick={open.userId === profile?.id ? undefined : (score) => void rate(open.id, score)} />
                   <span style={{ fontWeight: 800, color: "var(--text-muted)" }}>{open.ratingAvg || "–"} · {open.ratingCount}</span>
@@ -364,6 +406,23 @@ export default function GomPanel({ search }: { search: string }) {
             <p style={{ margin: "0 0 14px", fontWeight: 700, color: "var(--text-muted)" }}>{t("market.gom.private_note")}</p>
             {mine?.status === "approved" ? <p style={{ fontWeight: 800 }}>{t("market.gom.edit_hides")}</p> : null}
             <div style={{ display: "grid", gap: 10 }}>
+              <label style={{ fontWeight: 800, fontSize: 13 }}>{t("market.gom.site_user")}</label>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "var(--text-muted)" }}>{t("market.gom.site_user_hint")}</p>
+              {siteUser ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: "1px solid #8C659C", borderRadius: 12, padding: "8px 12px" }}>
+                  <strong>{siteUser.name}</strong>
+                  {isAdminTeamEmail(profile?.email) ? <button type="button" onClick={() => setSiteUser(null)} style={{ border: "none", background: "transparent", color: "#8C659C", fontWeight: 800, cursor: "pointer" }}>{t("common.close")}</button> : null}
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 6 }}>
+                  <input value={userQuery} placeholder={t("market.gom.site_user")} style={fieldStyle} onChange={(e) => setUserQuery(e.target.value)} />
+                  {userHits.map((hit) => (
+                    <button key={hit.id} type="button" onClick={() => { setSiteUser(hit); setUserQuery(""); setUserHits([]); }} style={{ textAlign: "left", border: "1px solid var(--color-border)", background: "var(--bg-card)", borderRadius: 12, padding: "8px 12px", fontWeight: 800, cursor: "pointer", color: "inherit" }}>
+                      {hit.name}
+                    </button>
+                  ))}
+                </div>
+              )}
               <input required value={form.displayName} placeholder={t("market.gom.known_as")} style={fieldStyle} onChange={(e) => setForm({ ...form, displayName: e.target.value })} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <input required value={form.firstName} placeholder={t("market.gom.first_name")} style={fieldStyle} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
@@ -399,7 +458,7 @@ export default function GomPanel({ search }: { search: string }) {
         <div data-kbd-root role="dialog" aria-modal="true" style={overlay}>
           <form style={{ ...sheet, width: "min(480px, 100%)" }} onSubmit={(e) => { e.preventDefault(); void sendContact(); }}>
             <h3 className="tan-font" style={{ marginTop: 0, color: "var(--color-primary)" }}>{t("market.gom.contact_title")}</h3>
-            <p style={{ fontWeight: 800 }}>{contact.displayName}</p>
+            <p style={{ fontWeight: 800 }}>{contact.siteName || contact.displayName}</p>
             <textarea required value={message} onChange={(e) => setMessage(e.target.value)} placeholder={t("market.gom.contact_placeholder")} style={{ ...fieldStyle, minHeight: 120 }} />
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
               <button type="button" data-kbd="cancel" onClick={() => setContactId(null)} style={{ border: "1px solid var(--color-border)", background: "transparent", borderRadius: 999, padding: "10px 16px", fontWeight: 800, cursor: "pointer" }}>{t("common.close")}</button>
