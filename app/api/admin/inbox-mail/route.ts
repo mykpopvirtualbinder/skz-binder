@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 import { SITE_ADMIN_EMAIL } from "@/lib/admin-emails";
+import { SIGNATURE_URL, signatureHtml } from "@/lib/mail-signature";
 
 const KINDS = {
   denuncia: { table: "denuncias", title: "Nueva denuncia" },
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
         <p><strong>De:</strong> ${who}</p>
         <p style="white-space:pre-wrap">${detail}</p>
         <p style="font-size:12px;color:#8C659C">Está en el panel de admin para marcarla como leída y gestionarla.</p>
+        ${signatureHtml(SIGNATURE_URL)}
       </div>`,
     });
     if (error) return NextResponse.json({ ok: true, mailed: false, warning: error.message });

@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
 import { SITE_ADMIN_EMAIL } from "@/lib/admin-emails";
+import { SIGNATURE_URL, signatureHtml, signatureImage, withSignatureText } from "@/lib/mail-signature";
 
 export type AuthMailKind = "signup" | "recovery";
 
@@ -151,12 +152,12 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function mailHtml(text: string, link: string) {
+function mailHtml(text: string, link: string, imageSrc: string) {
   const safe = escapeHtml(text).replace(
     escapeHtml(link),
     `<a href="${escapeHtml(link)}">${escapeHtml(link)}</a>`,
   );
-  return `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${safe}</div>`;
+  return `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${safe}</div>${signatureHtml(imageSrc)}`;
 }
 
 export async function sendAuthLinkEmail(opts: {
@@ -168,14 +169,18 @@ export async function sendAuthLinkEmail(opts: {
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error("RESEND_MISSING");
   const copy = COPY[normalizeAuthLanguage(opts.language)][opts.kind];
-  const text = copy.text.replace("{{link}}", opts.link);
+  const body = copy.text.replace("{{link}}", opts.link);
+  const image = signatureImage();
   const resend = new Resend(key);
   const payload = {
     from: `My K-pop Binder <${SITE_ADMIN_EMAIL}>`,
     to: opts.to,
     subject: copy.subject,
-    text,
-    html: mailHtml(text, opts.link),
+    text: withSignatureText(body),
+    html: mailHtml(body, opts.link, image ? "cid:staff-signature" : SIGNATURE_URL),
+    attachments: image
+      ? [{ filename: "signature.jpg", content: image, contentType: "image/jpeg", contentId: "staff-signature" }]
+      : undefined,
   };
   const messageId = `<${randomUUID()}@mykpopbinder.com>`;
   const first = await resend.emails.send({

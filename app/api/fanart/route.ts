@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { createServiceRoleClient } from '@/lib/supabase-admin';
+import { SIGNATURE_URL, signatureHtml } from '@/lib/mail-signature';
 
 export async function POST(req: Request) {
   try {
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
         <p style="font-size: 12px; color: #b17eac; margin-top: 30px; border-top: 1px dashed #F3C7DA; paddingTop: 10px;">
           <em>Aviso: Las muestras de arte originales se encuentran adjuntas y registradas en el Panel Admin.</em>
         </p>
+        ${signatureHtml(SIGNATURE_URL)}
       </div>
     `;
 

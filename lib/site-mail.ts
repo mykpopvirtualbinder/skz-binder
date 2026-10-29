@@ -1,35 +1,19 @@
 import { timingSafeEqual } from "crypto";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { simpleParser, type AddressObject } from "mailparser";
 import { Resend } from "resend";
 import { SITE_ADMIN_EMAIL } from "@/lib/admin-emails";
+import { SIGNATURE_TEXT, SIGNATURE_URL, signatureHtml, signatureImage } from "@/lib/mail-signature";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
 const ACCOUNT = SITE_ADMIN_EMAIL;
 const LIST_LIMIT = 40;
-const SIGNATURE_URL = "https://www.mykpopbinder.com/branding/mailing/signature.jpg";
-const SIGNATURE_TEXT = [
-  "",
-  "--",
-  "STAFF My K-Pop Binder",
-  "Collect · Trade · Connect",
-  "Instagram: @mykpopbinder",
-  "https://www.mykpopbinder.com",
-  ACCOUNT,
-].join("\n");
 
 function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function mailHtml(text: string, imageSrc: string) {
-  const img = `<img src="${imageSrc}" alt="STAFF My K-Pop Binder · Collect · Trade · Connect" width="193" height="352" style="width:193px;max-width:100%;height:auto;border:0;display:block;" />`;
-  return `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${escapeHtml(text)}</div><p style="margin:28px 0 0;">${img}</p>`;
-}
-
-function signatureFile() {
-  return readFileSync(join(process.cwd(), "public/branding/mailing/signature.jpg"));
+  return `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${escapeHtml(text)}</div>${signatureHtml(imageSrc)}`;
 }
 
 export type MailSummary = {
@@ -388,12 +372,7 @@ export async function sendMail(input: {
   const key = (process.env.RESEND_API_KEY || "").trim();
   if (!key) throw new Error("MISSING_RESEND");
   const plain = `${message}${attached}${SIGNATURE_TEXT}`;
-  let image: Buffer | null = null;
-  try {
-    image = signatureFile();
-  } catch {
-    image = null;
-  }
+  const image = signatureImage();
   const html = mailHtml(`${message}${attached}`, image ? "cid:staff-signature" : SIGNATURE_URL);
   const resend = new Resend(key);
   const { data, error } = await resend.emails.send({
