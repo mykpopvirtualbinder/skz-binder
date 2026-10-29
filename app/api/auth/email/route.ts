@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { rememberAccountCountry } from "@/lib/account-country";
 import { allowedAuthRedirect, sendAuthLinkEmail, type AuthMailKind } from "@/lib/auth-link-mail";
 import { countryFromRequest } from "@/lib/request-country";
+import { normalizeSiteLanguage } from "@/lib/site-language";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
 const PASSWORD_OK = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -65,12 +66,11 @@ export async function POST(req: Request) {
     }
 
     const country = countryFromRequest(req);
-    if (country) {
-      try {
-        await rememberAccountCountry(admin, userId, country, "signup");
-      } catch {
-        /* El alta sigue aunque no se pueda anotar el país. */
-      }
+    try {
+      await admin.from("profiles").update({ language: normalizeSiteLanguage(language) }).eq("user_id", userId);
+      if (country) await rememberAccountCountry(admin, userId, country, "signup");
+    } catch {
+      /* El alta sigue aunque no se pueda anotar el país o el idioma. */
     }
 
     const link = actionLink(data.properties);

@@ -9,6 +9,7 @@ import { fetchAdminPendingByArea, fetchArsysUnseen, type AdminPendingByArea } fr
 import Footer from "../components/footer";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { countryLabel } from "@/lib/request-country";
+import { siteLanguageLabel } from "@/lib/site-language";
 import { adminRemoveContent } from "@/lib/admin-moderate-client";
 import { clearAdminActingAs, rememberAdminActingAs } from "@/lib/admin-acting-as";
 import { useGlobal } from "../context/GlobalContext";
@@ -93,6 +94,7 @@ type AdminOverviewUser = {
   plan_type: string;
   signup_country?: string | null;
   last_seen_country?: string | null;
+  language?: string | null;
 };
 
 function deriveUserBucket(u: AdminOverviewUser): AdminAccountBucket {
@@ -1376,7 +1378,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     if (!matchesUsersOverviewFilter(u, usersOverviewFilter)) return false;
     const q = usersOverviewSearch.trim().toLowerCase();
     if (!q) return true;
-    const haystack = `${u.display_name || ""} ${u.email || ""} ${u.user_id} ${countryLabel(u.signup_country) || ""} ${countryLabel(u.last_seen_country) || ""}`.toLowerCase();
+    const haystack = `${u.display_name || ""} ${u.email || ""} ${u.user_id} ${countryLabel(u.signup_country) || ""} ${countryLabel(u.last_seen_country) || ""} ${siteLanguageLabel(u.language) || ""}`.toLowerCase();
     return haystack.includes(q);
   });
 
@@ -3100,6 +3102,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               {p.email || tr("Sin email")} · Alta: {formatAdminDate(p.created_at)} · Último acceso: {formatAdminDate(p.last_sign_in_at)}
               {countryLabel(p.signup_country) ? ` · Alta en ${countryLabel(p.signup_country)}` : ""}
               {countryLabel(p.last_seen_country) ? ` · Entra desde ${countryLabel(p.last_seen_country)}` : ""}
+              {` · ${siteLanguageLabel(p.language) ? tr("Idioma: {name}", { name: siteLanguageLabel(p.language) || "" }) : tr("Idioma sin elegir")}`}
             </div>
           </div>
           <button

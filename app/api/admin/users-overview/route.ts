@@ -26,6 +26,7 @@ export type OverviewUser = {
   plan_type: string;
   signup_country: string | null;
   last_seen_country: string | null;
+  language: string | null;
 };
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -99,7 +100,7 @@ export async function GET(req: Request) {
       const { data: profs, error: pErr } = await admin
         .from("profiles")
         .select(
-          "user_id,display_name,avatar_url,is_restricted,is_premium,is_artist,is_featured_artist,puntos,strikes,plan_type",
+          "user_id,display_name,avatar_url,is_restricted,is_premium,is_artist,is_featured_artist,puntos,strikes,plan_type,language",
         )
         .in("user_id", idChunk);
       if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 });
@@ -140,6 +141,7 @@ export async function GET(req: Request) {
         plan_type: asString(p?.plan_type) || "free",
         signup_country: asCountry(appMeta.signup_country),
         last_seen_country: asCountry(appMeta.last_seen_country),
+        language: asString(p?.language),
       };
     });
 

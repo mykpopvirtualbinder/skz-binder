@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { resolveMemberAvatarUrl } from "@/lib/member-image-url";
 import { Check, Heart } from "lucide-react";
 import { useGlobal } from "@/app/context/GlobalContext";
+import { normalizeSiteLanguage } from "@/lib/site-language";
 import { useRouter } from "next/navigation";
 
 const LANGUAGES = [
@@ -93,7 +94,7 @@ export function OnboardingForm({
   }) => void;
 }) {
   const router = useRouter();
-  const { profile, t } = useGlobal(); // 👈 Añadido la 't' aquí
+  const { profile, t, uiLanguage } = useGlobal();
   const userId = profile?.id || null;
 
   const [step, setStep] = useState(1);
@@ -105,8 +106,13 @@ export function OnboardingForm({
   
   const [birthdate, setBirthdate] = useState("");
   const [hasConsent, setHasConsent] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState("es"); // 👈 NUEVO: Idioma por defecto
+  const [selectedLanguage, setSelectedLanguage] = useState("es");
+  const [languagePicked, setLanguagePicked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!languagePicked) setSelectedLanguage(normalizeSiteLanguage(uiLanguage));
+  }, [uiLanguage, languagePicked]);
 
   useEffect(() => {
     async function loadGroups() {
@@ -237,7 +243,7 @@ export function OnboardingForm({
             </label>
             <select 
               value={selectedLanguage} 
-              onChange={e => setSelectedLanguage(e.target.value)} 
+              onChange={e => { setLanguagePicked(true); setSelectedLanguage(e.target.value); }} 
               style={{ width: '100%', padding: '14px', borderRadius: '14px', border: '2px solid var(--color-border)', color: 'var(--text-main)', fontFamily: 'inherit', fontSize: '16px', outline: 'none', boxSizing: 'border-box', backgroundColor: 'var(--bg-card)', cursor: 'pointer' }}
             >
               {LANGUAGES.map(lang => (

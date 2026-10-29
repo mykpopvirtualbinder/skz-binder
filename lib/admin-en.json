@@ -872,5 +872,7 @@
   "Desde dónde entran": "Where they sign in from",
   "Se anota cuando vuelven a abrir la web. No guardamos la IP.": "Recorded when they open the site again. The IP is not stored.",
   "Todavía no hay países anotados.": "No countries recorded yet.",
-  "Sin dato": "No data"
+  "Sin dato": "No data",
+  "Idioma: {name}": "Language: {name}",
+  "Idioma sin elegir": "No language chosen"
 }
