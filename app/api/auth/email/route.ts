@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { rememberAccountCountry } from "@/lib/account-country";
 import { allowedAuthRedirect, sendAuthLinkEmail, type AuthMailKind } from "@/lib/auth-link-mail";
+import { countryFromRequest } from "@/lib/request-country";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
 const PASSWORD_OK = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -60,6 +62,15 @@ export async function POST(req: Request) {
         return NextResponse.json({ code: "already_registered" }, { status: 409 });
       }
       return NextResponse.json({ error: message || "No se pudo crear la cuenta." }, { status: 500 });
+    }
+
+    const country = countryFromRequest(req);
+    if (country) {
+      try {
+        await rememberAccountCountry(admin, userId, country, "signup");
+      } catch {
+        /* El alta sigue aunque no se pueda anotar el país. */
+      }
     }
 
     const link = actionLink(data.properties);

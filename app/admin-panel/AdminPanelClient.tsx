@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchAdminPendingByArea, fetchArsysUnseen, type AdminPendingByArea } from "@/lib/admin-pending-count";
 import Footer from "../components/footer";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { countryLabel } from "@/lib/request-country";
 import { adminRemoveContent } from "@/lib/admin-moderate-client";
 import { clearAdminActingAs, rememberAdminActingAs } from "@/lib/admin-acting-as";
 import { useGlobal } from "../context/GlobalContext";
@@ -90,6 +91,8 @@ type AdminOverviewUser = {
   puntos: number;
   strikes: number;
   plan_type: string;
+  signup_country?: string | null;
+  last_seen_country?: string | null;
 };
 
 function deriveUserBucket(u: AdminOverviewUser): AdminAccountBucket {
@@ -97,6 +100,72 @@ function deriveUserBucket(u: AdminOverviewUser): AdminAccountBucket {
   if (!u.email_confirmed) return "pendiente";
   if (u.is_restricted) return "restringido";
   return "alta";
+}
+
+function countryCounts(users: AdminOverviewUser[], field: "signup_country" | "last_seen_country") {
+  const counts = new Map<string, number>();
+  let unknown = 0;
+  for (const user of users) {
+    if (user.is_deleted) continue;
+    const code = user[field];
+    if (!code) {
+      unknown += 1;
+      continue;
+    }
+    counts.set(code, (counts.get(code) || 0) + 1);
+  }
+  const rows = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return { rows, unknown };
+}
+
+function CountryStats({ users, loading }: { users: AdminOverviewUser[]; loading: boolean }) {
+  const blocks = [
+    {
+      title: tr("Dónde se inscriben"),
+      hint: tr("País de la conexión en el alta. Las cuentas anteriores salen sin dato."),
+      data: countryCounts(users, "signup_country"),
+    },
+    {
+      title: tr("Desde dónde entran"),
+      hint: tr("Se anota cuando vuelven a abrir la web. No guardamos la IP."),
+      data: countryCounts(users, "last_seen_country"),
+    },
+  ];
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px" }}>
+      {blocks.map((block) => {
+        const max = Math.max(1, ...block.data.rows.map((row) => row[1]));
+        return (
+          <div key={block.title} style={{ background: "var(--bg-main)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "18px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", marginBottom: "4px" }}>{block.title}</div>
+            <p style={{ margin: "0 0 12px", fontSize: "12px", color: "var(--text-muted)", fontWeight: 700 }}>{block.hint}</p>
+            {loading && users.length === 0 ? (
+              <div style={{ fontSize: "13px", fontWeight: 800, color: "var(--text-muted)" }}>…</div>
+            ) : block.data.rows.length === 0 ? (
+              <div style={{ fontSize: "13px", fontWeight: 800, color: "var(--text-muted)" }}>{tr("Todavía no hay países anotados.")}</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {block.data.rows.map(([code, count]) => (
+                  <div key={code}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: 800, color: "var(--text-main)", marginBottom: "4px" }}>
+                      <span>{countryLabel(code)}</span>
+                      <span style={{ color: "var(--color-primary)" }}>{count}</span>
+                    </div>
+                    <div style={{ height: "10px", borderRadius: "99px", background: "var(--bg-soft)", overflow: "hidden" }}>
+                      <div style={{ width: `${Math.round((count / max) * 100)}%`, height: "100%", background: "var(--color-primary)", borderRadius: "99px" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {block.data.unknown > 0 && (
+              <div style={{ marginTop: "10px", fontSize: "12px", fontWeight: 700, color: "var(--text-muted)" }}>{tr("Sin dato")}: {block.data.unknown}</div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function compactActionStyle(kind: "default" | "danger" | "success" | "warning" | "primary" = "default"): React.CSSProperties {
@@ -1307,7 +1376,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     if (!matchesUsersOverviewFilter(u, usersOverviewFilter)) return false;
     const q = usersOverviewSearch.trim().toLowerCase();
     if (!q) return true;
-    const haystack = `${u.display_name || ""} ${u.email || ""} ${u.user_id}`.toLowerCase();
+    const haystack = `${u.display_name || ""} ${u.email || ""} ${u.user_id} ${countryLabel(u.signup_country) || ""} ${countryLabel(u.last_seen_country) || ""}`.toLowerCase();
     return haystack.includes(q);
   });
 
@@ -3029,6 +3098,8 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
             </div>
             <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 700, marginTop: "2px" }}>
               {p.email || tr("Sin email")} · Alta: {formatAdminDate(p.created_at)} · Último acceso: {formatAdminDate(p.last_sign_in_at)}
+              {countryLabel(p.signup_country) ? ` · Alta en ${countryLabel(p.signup_country)}` : ""}
+              {countryLabel(p.last_seen_country) ? ` · Entra desde ${countryLabel(p.last_seen_country)}` : ""}
             </div>
           </div>
           <button
@@ -3611,6 +3682,8 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                     >
                       {usersOverviewLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}{tr("Actualizar")}</button>
                   </div>
+
+                  <CountryStats users={usersOverview} loading={usersOverviewLoading} />
 
                   <div style={{ background: "var(--bg-main)", border: "1px solid var(--color-border)", borderRadius: "16px", padding: "18px" }}>
                     <div style={{ fontSize: "12px", fontWeight: 900, color: "var(--color-primary)", marginBottom: "12px" }}>{tr("Distribución de cuentas")}</div>

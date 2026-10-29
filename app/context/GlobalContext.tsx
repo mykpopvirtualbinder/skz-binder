@@ -14,6 +14,7 @@ import th from "../locales/th.json";
 import ja from "../locales/ja.json";
 import ko from "../locales/ko.json";
 import zh from "../locales/zh.json";
+import { readAdminActingAs } from "@/lib/admin-acting-as";
 import { hasComplimentaryAccess } from "@/lib/equipo-vip";
 import { normalizeThemeId } from "@/lib/theme-unlocks";
 import { persistTheme, themeIdFromUnknown } from "@/lib/theme-persist";
@@ -69,6 +70,28 @@ type GlobalContextType = {
 };
 
 const GlobalContext = createContext<GlobalContextType | null>(null);
+
+function noteCountryVisit(accessToken: string | undefined) {
+  if (!accessToken || typeof window === "undefined" || readAdminActingAs()) return;
+  try {
+    if (sessionStorage.getItem("mkb:country-visit") === "1") return;
+  } catch {
+    return;
+  }
+  void fetch("/api/account/visit", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+    .then((res) => {
+      if (!res.ok) return;
+      try {
+        sessionStorage.setItem("mkb:country-visit", "1");
+      } catch {
+        /* ignore */
+      }
+    })
+    .catch(() => {});
+}
 
 export function GlobalProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -202,6 +225,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
 
       const { data: authData } = await supabase.auth.getUser();
       const user = authData?.user ?? sessionWrap.session.user;
+      noteCountryVisit(sessionWrap.session.access_token);
 
       if (user) {
         const { data: profileData } = await supabase

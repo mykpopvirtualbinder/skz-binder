@@ -866,5 +866,11 @@
   "No se borra hoy. El {date} se quitará «{label}». {holders} personas tienen stock o un hueco. Recibirán 3 correos y 3 avisos en la web para pulsar «Convertir en personalizada».": "It is not deleted today. On {date}, “{label}” will be removed. {holders} people have stock or a slot. They will get 3 emails and 3 notices on the site to press “Make it personal”.",
   "Se quitará «{label}». Nadie lo tiene en stock ni en un binder, así que se borra ahora. Desaparecen {items} fichas, {albums} álbumes, {members} miembros y {merch} merch.": "“{label}” will be removed. Nobody has it in stock or in a binder, so it is deleted now. {items} cards, {albums} albums, {members} members and {merch} merch disappear.",
   "Programado: «{label}». El {date} se borra. {holders} personas recibirán 3 correos y 3 avisos en la web.": "Scheduled: “{label}”. It is deleted on {date}. {holders} people will get 3 emails and 3 notices on the site.",
-  "Si nadie la tiene, se borra al momento. Si alguien tiene stock o un hueco de binder, elige la fecha y se avisa tres veces para que la pasen a personalizada.": "If nobody holds it, it is deleted right away. If someone has stock or a binder slot, pick the date and they are warned three times so they can make it personal."
+  "Si nadie la tiene, se borra al momento. Si alguien tiene stock o un hueco de binder, elige la fecha y se avisa tres veces para que la pasen a personalizada.": "If nobody holds it, it is deleted right away. If someone has stock or a binder slot, pick the date and they are warned three times so they can make it personal.",
+  "Dónde se inscriben": "Where they sign up",
+  "País de la conexión en el alta. Las cuentas anteriores salen sin dato.": "Country of the connection at signup. Older accounts have no data.",
+  "Desde dónde entran": "Where they sign in from",
+  "Se anota cuando vuelven a abrir la web. No guardamos la IP.": "Recorded when they open the site again. The IP is not stored.",
+  "Todavía no hay países anotados.": "No countries recorded yet.",
+  "Sin dato": "No data"
 }

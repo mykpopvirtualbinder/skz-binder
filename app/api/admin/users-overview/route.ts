@@ -24,6 +24,8 @@ export type OverviewUser = {
   puntos: number;
   strikes: number;
   plan_type: string;
+  signup_country: string | null;
+  last_seen_country: string | null;
 };
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -38,6 +40,10 @@ function getRecord(v: unknown): Record<string, unknown> {
 
 function asString(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v : null;
+}
+
+function asCountry(v: unknown): string | null {
+  return typeof v === "string" && /^[A-Z]{2}$/.test(v) ? v : null;
 }
 
 function asNumber(v: unknown): number {
@@ -103,6 +109,7 @@ export async function GET(req: Request) {
     const rows: OverviewUser[] = users.map((u) => {
       const userId = String(u.id);
       const p = profileMap[userId];
+      const appMeta = getRecord(u.app_metadata);
       const restricted = Boolean(p?.is_restricted);
       const { banned, deleted } = isBannedOrDeleted(u);
       const emailConfirmed = Boolean(asString(u.email_confirmed_at) || asString(u.confirmed_at));
@@ -131,6 +138,8 @@ export async function GET(req: Request) {
         puntos: Math.max(0, asNumber(p?.puntos)),
         strikes: Math.min(99, Math.max(0, asNumber(p?.strikes))),
         plan_type: asString(p?.plan_type) || "free",
+        signup_country: asCountry(appMeta.signup_country),
+        last_seen_country: asCountry(appMeta.last_seen_country),
       };
     });
 
