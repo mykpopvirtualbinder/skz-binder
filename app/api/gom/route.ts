@@ -1,11 +1,41 @@
+import { readdirSync } from "fs";
+import path from "path";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 import { isAdminTeamEmail, SITE_ADMIN_EMAIL } from "@/lib/admin-emails";
 import { SITE_ADMIN_USER_ID } from "@/lib/site-admin-stock";
 import { sendMail } from "@/lib/site-mail";
 import { GOM_SOCIALS, type GomSocialKey } from "@/lib/gom";
+import { cleanGomAreas, cleanGomGroups } from "@/lib/gom-areas";
+import { canonicalMerchGroupDisplayName } from "@/lib/merch-group-display";
 import { clip, userFromBearer } from "@/lib/gom-server";
 import { listGomFeedback, listGomProfiles, saveGomProfile, type GomRecord } from "@/lib/gom-store";
+
+function parseList(value: FormDataEntryValue | null) {
+  try {
+    const parsed = JSON.parse(String(value || "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+let groupNames: string[] | null = null;
+
+function catalogGroupNames() {
+  if (groupNames) return groupNames;
+  try {
+    const dir = path.join(process.cwd(), "public", "mock-pcs", "groups");
+    groupNames = readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name !== "templates" && !entry.name.startsWith("silvia") && !entry.name.startsWith("."))
+      .map((entry) => canonicalMerchGroupDisplayName(entry.name))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, "es"));
+  } catch {
+    groupNames = [];
+  }
+  return groupNames;
+}
 
 function publicProfile(
   row: GomRecord,
@@ -25,6 +55,8 @@ function publicProfile(
     goTypes: row.goTypes,
     requirements: row.requirements,
     howItWorks: row.howItWorks,
+    areas: row.areas,
+    groups: row.groups,
     createdAt: row.createdAt,
     siteName: row.siteName,
     ratingAvg: Math.round(avg * 10) / 10,
@@ -85,7 +117,8 @@ export async function GET(req: Request) {
     });
     const own = viewer ? all.find((row) => row.userId === viewer.id) : null;
     const mine = own ? { status: own.status, displayName: own.displayName } : null;
-    return NextResponse.json({ profiles, mine });
+    const groups = [...new Set([...catalogGroupNames(), ...profiles.flatMap((row) => row.groups)])].sort((a, b) => a.localeCompare(b, "es"));
+    return NextResponse.json({ profiles, mine, groups });
   } catch (err) {
     const message = err instanceof Error ? err.message : "save";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -104,6 +137,8 @@ export async function POST(req: Request) {
   const goTypes = clip(form.get("goTypes"), 2000);
   const requirements = clip(form.get("requirements"), 2000);
   const howItWorks = clip(form.get("howItWorks"), 2000);
+  const areas = cleanGomAreas(parseList(form.get("areas")));
+  const groups = cleanGomGroups(parseList(form.get("groups")));
   if (!displayName || !firstName || !lastName || !phone || !goTypes || !requirements || !howItWorks) {
     return NextResponse.json({ error: "missing" }, { status: 400 });
   }
@@ -112,6 +147,8 @@ export async function POST(req: Request) {
   if (!GOM_SOCIALS.some((field) => socials[field.key])) {
     return NextResponse.json({ error: "social" }, { status: 400 });
   }
+  if (!areas.length) return NextResponse.json({ error: "areas" }, { status: 400 });
+  if (!groups.length) return NextResponse.json({ error: "groups" }, { status: 400 });
 
   const admin = createServiceRoleClient();
   const file = form.get("photo");
@@ -157,6 +194,8 @@ export async function POST(req: Request) {
       goTypes,
       requirements,
       howItWorks,
+      areas,
+      groups,
       siteUserId: siteAccount.user_id,
       siteName,
     });

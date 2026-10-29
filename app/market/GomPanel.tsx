@@ -6,6 +6,7 @@ import { useGlobal } from "../context/GlobalContext";
 import { requireLoggedIn } from "@/lib/auth-gate";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { GOM_SOCIALS, emptyGomSocials, socialHref, websiteHref, type GomSocials } from "@/lib/gom";
+import { GOM_CONTINENTS, GOM_COUNTRIES, cleanGomGroup, gomAreaMatches } from "@/lib/gom-areas";
 
 type Comment = { id: string; userId: string; body: string; createdAt: string; name: string; avatar: string | null };
 type GomCard = {
@@ -18,6 +19,8 @@ type GomCard = {
   goTypes: string;
   requirements: string;
   howItWorks: string;
+  areas: string[];
+  groups: string[];
   siteName: string;
   ratingAvg: number;
   ratingCount: number;
@@ -26,8 +29,9 @@ type GomCard = {
 };
 type Mine = { status: string; displayName: string } | null;
 
-function PhotocardMark({ filled }: { filled: boolean }) {
-  return (
+function PhotocardMark({ fill }: { fill: number }) {
+  const amount = Math.max(0, Math.min(1, fill));
+  const svg = (filled: boolean) => (
     <svg width="22" height="26" viewBox="0 0 22 26" aria-hidden>
       <rect x="1.2" y="1.2" width="19.6" height="23.6" rx="3" fill={filled ? "#8C659C" : "transparent"} stroke="#8C659C" strokeWidth="1.6" />
       <path
@@ -36,13 +40,22 @@ function PhotocardMark({ filled }: { filled: boolean }) {
       />
     </svg>
   );
+  return (
+    <span style={{ position: "relative", display: "inline-block", width: 22, height: 26, lineHeight: 0 }}>
+      {svg(false)}
+      <span style={{ position: "absolute", left: 0, top: 0, width: `${amount * 100}%`, height: "100%", overflow: "hidden" }}>
+        {svg(true)}
+      </span>
+    </span>
+  );
 }
 
 function ScoreRow({ value, onPick }: { value: number; onPick?: (score: number) => void }) {
   return (
     <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
       {[1, 2, 3, 4, 5].map((score) => {
-        const mark = <PhotocardMark filled={score <= value} />;
+        const fill = onPick ? (score <= value ? 1 : 0) : Math.max(0, Math.min(1, value - (score - 1)));
+        const mark = <PhotocardMark fill={fill} />;
         if (!onPick) return <span key={score} style={{ lineHeight: 0 }}>{mark}</span>;
         return (
           <button
@@ -75,6 +88,10 @@ const fieldStyle: React.CSSProperties = {
 export default function GomPanel({ search }: { search: string }) {
   const { t, showAlert, profile } = useGlobal();
   const [rows, setRows] = useState<GomCard[]>([]);
+  const [groupOptions, setGroupOptions] = useState<string[]>([]);
+  const [areaFilter, setAreaFilter] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
+  const [textFilter, setTextFilter] = useState("");
   const [mine, setMine] = useState<Mine>(null);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -90,6 +107,8 @@ export default function GomPanel({ search }: { search: string }) {
     goTypes: "",
     requirements: "",
     howItWorks: "",
+    areas: [] as string[],
+    groups: [] as string[],
     socials: emptyGomSocials(),
     photo: null as File | null,
     preview: "",
@@ -102,6 +121,7 @@ export default function GomPanel({ search }: { search: string }) {
   const [siteUser, setSiteUser] = useState<{ id: string; name: string; avatar: string | null } | null>(null);
   const [userQuery, setUserQuery] = useState("");
   const [userHits, setUserHits] = useState<{ id: string; name: string; avatar: string | null }[]>([]);
+  const [groupDraft, setGroupDraft] = useState("");
 
   const load = async () => {
     const { data } = await supabase.auth.getSession();
@@ -109,6 +129,7 @@ export default function GomPanel({ search }: { search: string }) {
     const res = await fetch("/api/gom", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     const json = await res.json().catch(() => null);
     setRows(Array.isArray(json?.profiles) ? json.profiles : []);
+    setGroupOptions(Array.isArray(json?.groups) ? json.groups : []);
     setMine(json?.mine || null);
     setLoading(false);
   };
@@ -154,11 +175,30 @@ export default function GomPanel({ search }: { search: string }) {
 
   const needLogin = () => requireLoggedIn(profile?.id, showAlert, t);
 
-  const query = search.trim().toLowerCase();
+  const query = `${search} ${textFilter}`.trim().toLowerCase();
   const visible = rows.filter((row) => {
+    if (areaFilter && !gomAreaMatches(row.areas || [], areaFilter)) return false;
+    if (groupFilter && !(row.groups || []).some((name) => name.toLowerCase() === groupFilter.toLowerCase())) return false;
     if (!query) return true;
-    return `${row.displayName} ${row.goTypes} ${row.requirements}`.toLowerCase().includes(query);
+    const haystack = `${row.displayName} ${row.siteName} ${row.goTypes} ${row.requirements} ${(row.groups || []).join(" ")}`.toLowerCase();
+    return haystack.includes(query);
   });
+  const areaLabel = (id: string) => {
+    if (id === "worldwide") return t("market.gom.area_worldwide");
+    if ((GOM_CONTINENTS as readonly string[]).includes(id)) return t(`market.gom.area_${id.replace("-", "_")}`);
+    const country = GOM_COUNTRIES.find((item) => item.code === id);
+    return country ? `${country.name} ${country.flag}` : id;
+  };
+  const addGroup = () => {
+    const name = cleanGomGroup(groupDraft);
+    if (!name || form.groups.some((have) => have.toLowerCase() === name.toLowerCase())) return;
+    setForm({ ...form, groups: [...form.groups, name] });
+    setGroupDraft("");
+  };
+  const addArea = (id: string) => {
+    if (!id || form.areas.includes(id)) return;
+    setForm({ ...form, areas: [...form.areas, id] });
+  };
   const open = rows.find((row) => row.id === openId) || null;
   const contact = rows.find((row) => row.id === contactId) || null;
   const review = rows.find((row) => row.id === reviewId) || null;
@@ -169,6 +209,14 @@ export default function GomPanel({ search }: { search: string }) {
     const hasSocial = GOM_SOCIALS.some((field) => form.socials[field.key].trim());
     if (!siteUser) {
       showAlert(t("market.gom.signup"), t("market.gom.err_user"));
+      return;
+    }
+    if (!form.areas.length) {
+      showAlert(t("market.gom.signup"), t("market.gom.err_areas"));
+      return;
+    }
+    if (!form.groups.length) {
+      showAlert(t("market.gom.signup"), t("market.gom.err_groups"));
       return;
     }
     if (!form.displayName.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.phone.trim() || !form.goTypes.trim() || !form.requirements.trim() || !form.howItWorks.trim() || !form.photo) {
@@ -191,6 +239,8 @@ export default function GomPanel({ search }: { search: string }) {
     body.set("goTypes", form.goTypes);
     body.set("requirements", form.requirements);
     body.set("howItWorks", form.howItWorks);
+    body.set("areas", JSON.stringify(form.areas));
+    body.set("groups", JSON.stringify(form.groups));
     for (const field of GOM_SOCIALS) body.set(field.key, form.socials[field.key]);
     if (form.photo) body.set("photo", form.photo);
     setBusy(true);
@@ -199,7 +249,7 @@ export default function GomPanel({ search }: { search: string }) {
     if (!res.ok) {
       const json = await res.json().catch(() => null);
       const code = json?.error;
-      const key = code === "photo" ? "market.gom.err_photo" : code === "social" ? "market.gom.err_social" : code === "user" ? "market.gom.err_user" : code === "missing" ? "market.gom.err_form" : code === "auth" ? "auth.login_required_body" : "market.gom.err_save";
+      const key = code === "photo" ? "market.gom.err_photo" : code === "social" ? "market.gom.err_social" : code === "user" ? "market.gom.err_user" : code === "areas" ? "market.gom.err_areas" : code === "groups" ? "market.gom.err_groups" : code === "missing" ? "market.gom.err_form" : code === "auth" ? "auth.login_required_body" : "market.gom.err_save";
       showAlert(t("market.gom.signup"), t(key));
       return;
     }
@@ -324,11 +374,25 @@ export default function GomPanel({ search }: { search: string }) {
         </button>
       </div>
 
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <select value={areaFilter} aria-label={t("market.gom.filter_country")} onChange={(e) => setAreaFilter(e.target.value)} style={{ ...fieldStyle, width: "auto", minWidth: 180 }}>
+          <option value="">{t("market.gom.area_all")}</option>
+          <option value="worldwide">{t("market.gom.area_worldwide")}</option>
+          {GOM_CONTINENTS.map((id) => <option key={id} value={id}>{t(`market.gom.area_${id.replace("-", "_")}`)}</option>)}
+          {GOM_COUNTRIES.map((country) => <option key={country.code} value={country.code}>{country.name} {country.flag}</option>)}
+        </select>
+        <select value={groupFilter} aria-label={t("market.gom.filter_group")} onChange={(e) => setGroupFilter(e.target.value)} style={{ ...fieldStyle, width: "auto", minWidth: 180 }}>
+          <option value="">{t("market.gom.filter_all_groups")}</option>
+          {groupOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
+        <input value={textFilter} placeholder={t("market.gom.search")} aria-label={t("market.gom.search")} onChange={(e) => setTextFilter(e.target.value)} style={{ ...fieldStyle, width: "min(280px, 100%)" }} />
+      </div>
+
       {loading ? (
         <p style={{ fontWeight: 800, color: "var(--text-muted)" }}>{t("common.page_loading_title")}</p>
       ) : visible.length === 0 ? (
         <div style={{ textAlign: "center", padding: "36px 16px", border: "1px dashed var(--color-border)", borderRadius: 20, fontWeight: 800, color: "var(--color-primary)" }}>
-          {t("market.gom.empty")}
+          {rows.length === 0 ? t("market.gom.empty") : t("market.gom.filter_empty")}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -339,12 +403,13 @@ export default function GomPanel({ search }: { search: string }) {
                 <span style={{ minWidth: 0 }}>
                   <strong style={{ display: "block", fontSize: 18 }}>{row.displayName}</strong>
                   {row.siteName ? <span style={{ display: "block", marginTop: 2, color: "#8C659C", fontWeight: 800, fontSize: 13 }}>{row.siteName}</span> : null}
-                  <span style={{ display: "block", marginTop: 4, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.goTypes}</span>
+                  <span style={{ display: "block", marginTop: 4, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(row.groups || []).join(" · ") || row.goTypes}</span>
                 </span>
               </button>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                <button type="button" aria-label={t("market.gom.rate")} onClick={() => openReview(row)} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", lineHeight: 0 }}>
-                  <ScoreRow value={Math.round(row.ratingAvg)} />
+                <button type="button" aria-label={`${t("market.gom.avg", { n: Number(row.ratingAvg || 0).toFixed(1) })}`} onClick={() => openReview(row)} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "transparent", padding: 0, cursor: "pointer", color: "#8C659C", fontWeight: 900 }}>
+                  <ScoreRow value={Number(row.ratingAvg) || 0} />
+                  <span>{Number(row.ratingAvg || 0).toFixed(1)}</span>
                 </button>
                 <button type="button" aria-label={t("market.gom.comments")} onClick={() => setCommentsId(row.id)} style={{ border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "#8C659C", borderRadius: 999, minWidth: 36, height: 36, padding: "0 10px", fontWeight: 900, cursor: "pointer" }}>
                   {row.comments.length}
@@ -367,8 +432,9 @@ export default function GomPanel({ search }: { search: string }) {
                 <h3 className="tan-font" style={{ margin: 0, fontSize: 28, color: "var(--color-primary)" }}>{open.displayName}</h3>
                 {open.siteName ? <a href={`/user/${open.userId}`} style={{ color: "#8C659C", fontWeight: 800, fontSize: 14 }}>{open.siteName}</a> : null}
                 <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                  <button type="button" aria-label={t("market.gom.rate")} onClick={() => openReview(open)} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", lineHeight: 0 }}>
-                    <ScoreRow value={Math.round(open.ratingAvg)} />
+                  <button type="button" aria-label={`${t("market.gom.avg", { n: Number(open.ratingAvg || 0).toFixed(1) })}`} onClick={() => openReview(open)} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "transparent", padding: 0, cursor: "pointer", color: "#8C659C", fontWeight: 900 }}>
+                    <ScoreRow value={Number(open.ratingAvg) || 0} />
+                    <span>{Number(open.ratingAvg || 0).toFixed(1)}</span>
                   </button>
                   <button type="button" aria-label={t("market.gom.comments")} onClick={() => setCommentsId(open.id)} style={{ border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "#8C659C", borderRadius: 999, minWidth: 36, height: 32, padding: "0 10px", fontWeight: 900, cursor: "pointer" }}>
                     {open.comments.length}
@@ -392,6 +458,12 @@ export default function GomPanel({ search }: { search: string }) {
                 );
               })}
             </div>
+            {(open.groups || []).length ? (
+              <p style={{ margin: "14px 0 0", fontWeight: 800 }}>{t("market.gom.groups")}: {open.groups.join(" · ")}</p>
+            ) : null}
+            {(open.areas || []).length ? (
+              <p style={{ margin: "8px 0 0", fontWeight: 800 }}>{t("market.gom.areas")}: {open.areas.map(areaLabel).join(" · ")}</p>
+            ) : null}
             {[
               [t("market.gom.go_types"), open.goTypes],
               [t("market.gom.requirements"), open.requirements],
@@ -500,6 +572,54 @@ export default function GomPanel({ search }: { search: string }) {
                   <input key={field.key} value={form.socials[field.key]} placeholder={field.label} style={fieldStyle} onChange={(e) => setForm({ ...form, socials: { ...form.socials, [field.key]: e.target.value } })} />
                 ))}
               </div>
+              <label style={{ fontWeight: 800, fontSize: 13 }}>{t("market.gom.areas")}</label>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "var(--text-muted)" }}>{t("market.gom.areas_hint")}</p>
+              <select value="" aria-label={t("market.gom.areas")} onChange={(e) => addArea(e.target.value)} style={fieldStyle}>
+                <option value="">{t("market.gom.area_pick")}</option>
+                <option value="worldwide">{t("market.gom.area_worldwide")}</option>
+                {GOM_CONTINENTS.map((id) => <option key={id} value={id}>{t(`market.gom.area_${id.replace("-", "_")}`)}</option>)}
+                {GOM_COUNTRIES.map((country) => <option key={country.code} value={country.code}>{country.name} {country.flag}</option>)}
+              </select>
+              {form.areas.length ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {form.areas.map((id) => (
+                    <button key={id} type="button" onClick={() => setForm({ ...form, areas: form.areas.filter((item) => item !== id) })} style={{ border: "1px solid #8C659C", background: "transparent", color: "#8C659C", borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>
+                      {areaLabel(id)} ×
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <label style={{ fontWeight: 800, fontSize: 13 }}>{t("market.gom.groups")}</label>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "var(--text-muted)" }}>{t("market.gom.groups_hint")}</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  data-kbd-add=""
+                  value={groupDraft}
+                  list="gom-group-options"
+                  placeholder={t("market.gom.group_placeholder")}
+                  style={fieldStyle}
+                  onChange={(e) => setGroupDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    addGroup();
+                  }}
+                />
+                <button type="button" onClick={addGroup} style={{ border: "1px solid #8C659C", background: "transparent", color: "#8C659C", borderRadius: 12, padding: "0 14px", fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>{t("market.gom.group_add")}</button>
+              </div>
+              <datalist id="gom-group-options">
+                {groupOptions.map((name) => <option key={name} value={name} />)}
+              </datalist>
+              {form.groups.length ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {form.groups.map((name) => (
+                    <button key={name} type="button" onClick={() => setForm({ ...form, groups: form.groups.filter((item) => item !== name) })} style={{ border: "1px solid #8C659C", background: "transparent", color: "#8C659C", borderRadius: 999, padding: "6px 10px", fontWeight: 800, cursor: "pointer" }}>
+                      {name} ×
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <textarea required value={form.goTypes} placeholder={t("market.gom.go_types")} style={{ ...fieldStyle, minHeight: 80 }} onChange={(e) => setForm({ ...form, goTypes: e.target.value })} />
               <textarea required value={form.requirements} placeholder={t("market.gom.requirements")} style={{ ...fieldStyle, minHeight: 80 }} onChange={(e) => setForm({ ...form, requirements: e.target.value })} />
               <textarea required value={form.howItWorks} placeholder={t("market.gom.how_hint")} style={{ ...fieldStyle, minHeight: 100 }} onChange={(e) => setForm({ ...form, howItWorks: e.target.value })} />

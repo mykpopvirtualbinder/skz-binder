@@ -75,6 +75,7 @@ export function applySiteKeyboard(event: KeyboardEvent) {
   }
 
   if (event.shiftKey) return;
+  if (event.target instanceof HTMLElement && event.target.hasAttribute("data-kbd-add")) return;
   const typing = typingTarget(event.target);
   if (typing === "SELECT" || typing === "BUTTON" || typing === "A" || typing === "checkbox" || typing === "radio" || typing === "file") return;
   const confirm = confirmButton(layer);

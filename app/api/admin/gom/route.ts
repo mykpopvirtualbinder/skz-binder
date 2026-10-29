@@ -22,6 +22,8 @@ function card(row: GomRecord) {
     goTypes: row.goTypes,
     requirements: row.requirements,
     howItWorks: row.howItWorks,
+    areas: row.areas,
+    groups: row.groups,
     siteUserId: row.siteUserId,
     siteName: row.siteName,
     read: row.read,

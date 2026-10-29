@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { GOM_SOCIALS, emptyGomSocials, type GomSocials } from "@/lib/gom";
+import { cleanGomAreas, cleanGomGroups } from "@/lib/gom-areas";
 import { clip } from "@/lib/gom-server";
 
 const PROFILE = "gom-profile";
@@ -30,6 +31,8 @@ export type GomRecord = {
   goTypes: string;
   requirements: string;
   howItWorks: string;
+  areas: string[];
+  groups: string[];
   siteUserId: string;
   siteName: string;
   read: boolean;
@@ -71,6 +74,8 @@ function readRecord(row: Box): GomRecord | null {
     goTypes: clip(parsed.goTypes, 2000),
     requirements: clip(parsed.requirements, 2000),
     howItWorks: clip(parsed.howItWorks, 2000),
+    areas: cleanGomAreas(parsed.areas),
+    groups: cleanGomGroups(parsed.groups),
     siteUserId: clip(parsed.siteUserId, 80) || row.user_id,
     siteName: clip(parsed.siteName, 80),
     read: parsed.read === true,
@@ -106,6 +111,8 @@ export async function saveGomProfile(admin: SupabaseClient, userId: string, inpu
     goTypes: input.goTypes,
     requirements: input.requirements,
     howItWorks: input.howItWorks,
+    areas: input.areas,
+    groups: input.groups,
     siteUserId: input.siteUserId,
     siteName: input.siteName,
     read: false,

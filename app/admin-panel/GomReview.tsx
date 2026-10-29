@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { tr } from "@/lib/admin-i18n";
 import { useGlobal } from "../context/GlobalContext";
 import { GOM_SOCIALS, socialHref, websiteHref, type GomSocials } from "@/lib/gom";
+import { GOM_CONTINENTS, GOM_COUNTRIES } from "@/lib/gom-areas";
 import { QueueTrashButton, ReadSelectionBar, UnreadDot } from "./AdminQueueBar";
 
 type Row = {
@@ -19,6 +20,8 @@ type Row = {
   goTypes: string;
   requirements: string;
   howItWorks: string;
+  areas: string[];
+  groups: string[];
   siteUserId: string;
   siteName: string;
   read: boolean;
@@ -27,7 +30,7 @@ type Row = {
 };
 
 export default function GomReview() {
-  const { showConfirm } = useGlobal();
+  const { showConfirm, t } = useGlobal();
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
@@ -201,6 +204,13 @@ export default function GomReview() {
               );
             })}
           </div>
+          <p style={{ margin: 0 }}><b>{tr("Grupos")}:</b> {(row.groups || []).join(", ") || "—"}</p>
+          <p style={{ margin: 0 }}><b>{tr("Países de operación")}:</b> {(row.areas || []).map((id) => {
+            if (id === "worldwide") return t("market.gom.area_worldwide");
+            if ((GOM_CONTINENTS as readonly string[]).includes(id)) return t(`market.gom.area_${id.replace("-", "_")}`);
+            const country = GOM_COUNTRIES.find((item) => item.code === id);
+            return country ? `${country.name} ${country.flag}` : id;
+          }).join(", ") || "—"}</p>
           <p style={{ margin: 0, whiteSpace: "pre-wrap" }}><b>{tr("Tipo de GO")}:</b> {row.goTypes}</p>
           <p style={{ margin: 0, whiteSpace: "pre-wrap" }}><b>{tr("Requisitos")}:</b> {row.requirements}</p>
           <p style={{ margin: 0, whiteSpace: "pre-wrap" }}><b>{tr("Funcionamiento")}:</b> {row.howItWorks}</p>
