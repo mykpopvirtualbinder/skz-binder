@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as { gomId?: string; text?: string } | null;
   const gomId = String(body?.gomId || "");
   const text = clip(body?.text, 800);
-  if (!gomId || text.length < 2) return NextResponse.json({ error: "missing" }, { status: 400 });
+  if (!gomId || text.length < 1) return NextResponse.json({ error: "missing" }, { status: 400 });
   const admin = createServiceRoleClient();
   const profiles = await listGomProfiles(admin);
   const gom = profiles.find((row) => row.id === gomId);

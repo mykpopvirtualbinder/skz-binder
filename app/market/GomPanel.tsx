@@ -41,18 +41,21 @@ function PhotocardMark({ filled }: { filled: boolean }) {
 function ScoreRow({ value, onPick }: { value: number; onPick?: (score: number) => void }) {
   return (
     <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
-      {[1, 2, 3, 4, 5].map((score) => (
-        <button
-          key={score}
-          type="button"
-          aria-label={String(score)}
-          disabled={!onPick}
-          onClick={() => onPick?.(score)}
-          style={{ border: "none", background: "transparent", padding: 0, cursor: onPick ? "pointer" : "default", lineHeight: 0 }}
-        >
-          <PhotocardMark filled={score <= value} />
-        </button>
-      ))}
+      {[1, 2, 3, 4, 5].map((score) => {
+        const mark = <PhotocardMark filled={score <= value} />;
+        if (!onPick) return <span key={score} style={{ lineHeight: 0 }}>{mark}</span>;
+        return (
+          <button
+            key={score}
+            type="button"
+            aria-label={String(score)}
+            onClick={() => onPick(score)}
+            style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", lineHeight: 0 }}
+          >
+            {mark}
+          </button>
+        );
+      })}
     </span>
   );
 }
@@ -92,7 +95,10 @@ export default function GomPanel({ search }: { search: string }) {
     preview: "",
   });
   const [message, setMessage] = useState("");
-  const [comment, setComment] = useState("");
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [commentsId, setCommentsId] = useState<string | null>(null);
+  const [draftScore, setDraftScore] = useState(0);
+  const [draftComment, setDraftComment] = useState("");
   const [siteUser, setSiteUser] = useState<{ id: string; name: string; avatar: string | null } | null>(null);
   const [userQuery, setUserQuery] = useState("");
   const [userHits, setUserHits] = useState<{ id: string; name: string; avatar: string | null }[]>([]);
@@ -155,6 +161,8 @@ export default function GomPanel({ search }: { search: string }) {
   });
   const open = rows.find((row) => row.id === openId) || null;
   const contact = rows.find((row) => row.id === contactId) || null;
+  const review = rows.find((row) => row.id === reviewId) || null;
+  const commentList = rows.find((row) => row.id === commentsId) || null;
 
   const submit = async () => {
     if (!needLogin() || busy) return;
@@ -200,39 +208,55 @@ export default function GomPanel({ search }: { search: string }) {
     await load();
   };
 
-  const rate = async (gomId: string, score: number) => {
+  const openReview = (row: GomCard) => {
     if (!needLogin()) return;
-    const headers = await authHeaders();
-    if (!headers) return;
-    const res = await fetch("/api/gom/rate", {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ gomId, score }),
-    });
-    if (!res.ok) {
-      const json = await res.json().catch(() => null);
-      showAlert(t("market.gom.rate"), t(json?.error === "own" ? "market.gom.err_own" : "market.gom.err_save"));
+    if (row.userId === profile?.id) {
+      showAlert(t("market.gom.rate"), t("market.gom.err_own"));
       return;
     }
-    await load();
+    setDraftScore(row.myRating || 0);
+    setDraftComment("");
+    setReviewId(row.id);
   };
 
-  const sendComment = async () => {
-    if (!open || !needLogin() || busy) return;
+  const publishReview = async () => {
+    if (!review || busy) return;
+    if (draftScore < 1) {
+      showAlert(t("market.gom.rate"), t("market.gom.err_form"));
+      return;
+    }
     const headers = await authHeaders();
     if (!headers) return;
     setBusy(true);
-    const res = await fetch("/api/gom/comment", {
+    const rated = await fetch("/api/gom/rate", {
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ gomId: open.id, text: comment }),
+      body: JSON.stringify({ gomId: review.id, score: draftScore }),
     });
-    setBusy(false);
-    if (!res.ok) {
-      showAlert(t("market.gom.comments"), t("market.gom.err_own"));
+    if (!rated.ok) {
+      setBusy(false);
+      const json = await rated.json().catch(() => null);
+      showAlert(t("market.gom.rate"), t(json?.error === "own" ? "market.gom.err_own" : "market.gom.err_save"));
       return;
     }
-    setComment("");
+    const text = draftComment.trim();
+    if (text) {
+      const noted = await fetch("/api/gom/comment", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ gomId: review.id, text }),
+      });
+      if (!noted.ok) {
+        setBusy(false);
+        const json = await noted.json().catch(() => null);
+        showAlert(t("market.gom.comments"), t(json?.error === "own" ? "market.gom.err_own" : "market.gom.err_save"));
+        await load();
+        return;
+      }
+    }
+    setBusy(false);
+    setReviewId(null);
+    setDraftComment("");
     await load();
   };
 
@@ -309,7 +333,7 @@ export default function GomPanel({ search }: { search: string }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {visible.map((row) => (
-            <article key={row.id} style={{ display: "flex", gap: 16, alignItems: "center", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 20, padding: 14 }}>
+            <article key={row.id} style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", background: "var(--bg-card)", border: "1px solid var(--color-border)", borderRadius: 20, padding: 14 }}>
               <button type="button" onClick={() => setOpenId(row.id)} style={{ display: "flex", gap: 14, alignItems: "center", flex: 1, minWidth: 0, border: "none", background: "transparent", color: "inherit", textAlign: "left", cursor: "pointer", padding: 0 }}>
                 <img src={row.photoUrl} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 16, background: "var(--bg-soft)", flexShrink: 0 }} />
                 <span style={{ minWidth: 0 }}>
@@ -318,9 +342,13 @@ export default function GomPanel({ search }: { search: string }) {
                   <span style={{ display: "block", marginTop: 4, color: "var(--text-muted)", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.goTypes}</span>
                 </span>
               </button>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <ScoreRow value={row.myRating || Math.round(row.ratingAvg)} onPick={row.userId === profile?.id ? undefined : (score) => void rate(row.id, score)} />
-                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text-muted)" }}>{row.ratingCount}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <button type="button" aria-label={t("market.gom.rate")} onClick={() => openReview(row)} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", lineHeight: 0 }}>
+                  <ScoreRow value={Math.round(row.ratingAvg)} />
+                </button>
+                <button type="button" aria-label={t("market.gom.comments")} onClick={() => setCommentsId(row.id)} style={{ border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "#8C659C", borderRadius: 999, minWidth: 36, height: 36, padding: "0 10px", fontWeight: 900, cursor: "pointer" }}>
+                  {row.comments.length}
+                </button>
               </span>
               <button type="button" onClick={() => { if (!needLogin()) return; setContactId(row.id); setMessage(""); }} style={{ border: "1px solid #8C659C", background: "transparent", color: "#8C659C", borderRadius: 999, padding: "10px 14px", fontWeight: 900, cursor: "pointer", flexShrink: 0 }}>
                 {t("market.gom.contact")}
@@ -339,8 +367,12 @@ export default function GomPanel({ search }: { search: string }) {
                 <h3 className="tan-font" style={{ margin: 0, fontSize: 28, color: "var(--color-primary)" }}>{open.displayName}</h3>
                 {open.siteName ? <a href={`/user/${open.userId}`} style={{ color: "#8C659C", fontWeight: 800, fontSize: 14 }}>{open.siteName}</a> : null}
                 <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                  <ScoreRow value={open.myRating} onPick={open.userId === profile?.id ? undefined : (score) => void rate(open.id, score)} />
-                  <span style={{ fontWeight: 800, color: "var(--text-muted)" }}>{open.ratingAvg || "–"} · {open.ratingCount}</span>
+                  <button type="button" aria-label={t("market.gom.rate")} onClick={() => openReview(open)} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", lineHeight: 0 }}>
+                    <ScoreRow value={Math.round(open.ratingAvg)} />
+                  </button>
+                  <button type="button" aria-label={t("market.gom.comments")} onClick={() => setCommentsId(open.id)} style={{ border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "#8C659C", borderRadius: 999, minWidth: 36, height: 32, padding: "0 10px", fontWeight: 900, cursor: "pointer" }}>
+                    {open.comments.length}
+                  </button>
                 </div>
               </div>
             </div>
@@ -370,24 +402,50 @@ export default function GomPanel({ search }: { search: string }) {
                 <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.5, fontWeight: 700 }}>{text}</p>
               </section>
             ))}
-            <section style={{ marginTop: 18 }}>
-              <h4 style={{ margin: "0 0 8px", color: "#8C659C" }}>{t("market.gom.comments")}</h4>
-              {open.comments.length === 0 ? <p style={{ fontWeight: 700, color: "var(--text-muted)" }}>{t("market.gom.no_comments")}</p> : open.comments.map((item) => (
-                <div key={item.id} style={{ padding: "10px 0", borderTop: "1px solid var(--color-border)" }}>
-                  <strong>{item.name}</strong>
-                  <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}>{item.body}</p>
-                </div>
-              ))}
-              {open.userId !== profile?.id ? (
-                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("market.gom.comment_placeholder")} style={{ ...fieldStyle, minHeight: 72 }} />
-                  <button type="button" data-kbd="confirm" disabled={busy} onClick={() => void sendComment()} style={{ border: "none", background: "#8C659C", color: "#fff", borderRadius: 12, padding: "0 14px", fontWeight: 900, cursor: "pointer" }}>{t("market.gom.comment_send")}</button>
-                </div>
-              ) : null}
-            </section>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <button type="button" data-kbd="cancel" onClick={() => setOpenId(null)} style={{ border: "1px solid var(--color-border)", background: "transparent", borderRadius: 999, padding: "10px 16px", fontWeight: 800, cursor: "pointer" }}>{t("common.close")}</button>
               <button type="button" onClick={() => { setOpenId(null); setContactId(open.id); setMessage(""); }} style={{ border: "none", background: "#8C659C", color: "#fff", borderRadius: 999, padding: "10px 16px", fontWeight: 800, cursor: "pointer" }}>{t("market.gom.contact")}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {review ? (
+        <div data-kbd-root role="dialog" aria-modal="true" style={{ ...overlay, zIndex: 820000 }}>
+          <form
+            style={{ ...sheet, width: "min(480px, 100%)" }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void publishReview();
+            }}
+          >
+            <h3 className="tan-font" style={{ marginTop: 0, color: "var(--color-primary)" }}>{t("market.gom.rate")}</h3>
+            <p style={{ margin: "0 0 12px", fontWeight: 800 }}>{review.displayName}</p>
+            <ScoreRow value={draftScore} onPick={setDraftScore} />
+            <textarea value={draftComment} onChange={(e) => setDraftComment(e.target.value)} placeholder={t("market.gom.comment_placeholder")} style={{ ...fieldStyle, minHeight: 120, marginTop: 16 }} />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+              <button type="button" data-kbd="cancel" onClick={() => setReviewId(null)} style={{ border: "1px solid var(--color-border)", background: "transparent", borderRadius: 999, padding: "10px 16px", fontWeight: 800, cursor: "pointer" }}>{t("common.close")}</button>
+              <button type="submit" data-kbd="confirm" disabled={busy} style={{ border: "none", background: "#8C659C", color: "#fff", borderRadius: 999, padding: "10px 16px", fontWeight: 800, cursor: "pointer" }}>{t("market.gom.comment_send")}</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {commentList ? (
+        <div data-kbd-root role="dialog" aria-modal="true" style={{ ...overlay, zIndex: 820000 }}>
+          <div style={{ ...sheet, width: "min(520px, 100%)" }}>
+            <h3 className="tan-font" style={{ marginTop: 0, color: "var(--color-primary)" }}>{t("market.gom.comments")}</h3>
+            <p style={{ margin: "0 0 12px", fontWeight: 800 }}>{commentList.displayName}</p>
+            {commentList.comments.length === 0 ? (
+              <p style={{ fontWeight: 700, color: "var(--text-muted)" }}>{t("market.gom.no_comments")}</p>
+            ) : commentList.comments.map((item) => (
+              <div key={item.id} style={{ padding: "10px 0", borderTop: "1px solid var(--color-border)" }}>
+                <strong>{item.name}</strong>
+                <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}>{item.body}</p>
+              </div>
+            ))}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+              <button type="button" data-kbd="cancel" onClick={() => setCommentsId(null)} style={{ border: "1px solid var(--color-border)", background: "transparent", borderRadius: 999, padding: "10px 16px", fontWeight: 800, cursor: "pointer" }}>{t("common.close")}</button>
             </div>
           </div>
         </div>
