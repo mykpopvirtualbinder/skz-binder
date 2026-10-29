@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
 import { sendAuthLinkEmail } from "@/lib/auth-link-mail";
+import { saveUserInviteCode } from "@/lib/invite-code";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
 const ACTIONS = [
@@ -11,6 +12,7 @@ const ACTIONS = [
   "confirm_email",
   "sign_out_all",
   "enter_profile",
+  "set_invite",
 ] as const;
 
 type AuthAction = (typeof ACTIONS)[number];
@@ -65,9 +67,9 @@ export async function POST(req: Request) {
   const gate = await requireAdminFromRequest(req);
   if (gate instanceof NextResponse) return gate;
 
-  let body: { user_id?: string; action?: string };
+  let body: { user_id?: string; action?: string; invite_code?: string; referrer_koins?: number; friend_koins?: number };
   try {
-    body = (await req.json()) as { user_id?: string; action?: string };
+    body = (await req.json()) as typeof body;
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -173,6 +175,26 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: linkErr?.message || "No se pudo abrir esa cuenta." }, { status: 500 });
       }
       return NextResponse.json({ ok: true, token_hash: tokenHash });
+    }
+
+    if (action === "set_invite") {
+      try {
+        const saved = await saveUserInviteCode(
+          admin,
+          userId,
+          typeof body.invite_code === "string" ? body.invite_code : "",
+          body.referrer_koins,
+          body.friend_koins,
+        );
+        return NextResponse.json({
+          ok: true,
+          ...saved,
+          message: saved.code ? `Código ${saved.code} guardado.` : "Código de invitación quitado.",
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "No se pudo guardar el código.";
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
     }
 
     if (action === "confirm_email") {

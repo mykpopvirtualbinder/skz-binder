@@ -20,7 +20,7 @@ export default function RegisterPage() {
   
   const [formData, setFormData] = useState({
     username: "", firstName: "", lastName: "", email: "",
-    password: "", phone: "", address: "", acceptTerms: false
+    password: "", phone: "", address: "", inviteCode: "", acceptTerms: false
   });
 
   useEffect(() => {
@@ -37,6 +37,7 @@ export default function RegisterPage() {
         password: String(parsed?.password ?? prev.password),
         phone: String(parsed?.phone ?? prev.phone),
         address: String(parsed?.address ?? prev.address),
+        inviteCode: String(parsed?.inviteCode ?? prev.inviteCode),
         acceptTerms: Boolean(parsed?.acceptTerms ?? prev.acceptTerms),
       }));
     } catch {
@@ -93,6 +94,7 @@ export default function RegisterPage() {
           password: formData.password,
           redirectTo: `${window.location.origin}/login`,
           language: onboardingData.language || uiLanguage,
+          inviteCode: formData.inviteCode,
         }),
       });
       const mailBody = (await mailRes.json().catch(() => ({}))) as {
@@ -102,6 +104,9 @@ export default function RegisterPage() {
       };
       if (mailRes.status === 409 || mailBody.code === "already_registered") {
         throw new Error(t("register.alert_email_taken"));
+      }
+      if (mailBody.code === "invite_invalid") {
+        throw new Error(t("register.alert_invite_invalid"));
       }
       const userId = typeof mailBody.userId === "string" ? mailBody.userId : null;
       if (!mailRes.ok && mailRes.status !== 502) {
@@ -226,6 +231,7 @@ export default function RegisterPage() {
               
               <input value={formData.phone} placeholder={t("register.placeholder_phone")} style={inputStyle} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
               <textarea value={formData.address} placeholder={t("register.placeholder_address")} style={{ ...inputStyle, height: "60px", resize: "none" }} onChange={(e) => setFormData({...formData, address: e.target.value})} />
+              <input value={formData.inviteCode} placeholder={t("register.placeholder_invite")} autoComplete="off" style={inputStyle} onChange={(e) => setFormData({...formData, inviteCode: e.target.value})} />
 
               <label style={{ display: "flex", gap: "10px", alignItems: "start", cursor: "pointer", marginTop: "10px" }}>
                 <input type="checkbox" checked={formData.acceptTerms} required onChange={(e) => setFormData({...formData, acceptTerms: e.target.checked})} />

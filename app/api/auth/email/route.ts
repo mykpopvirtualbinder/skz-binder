@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { rememberAccountCountry } from "@/lib/account-country";
+import { attachPendingInvite, findInviterByCode, normalizeInviteCode } from "@/lib/invite-code";
 import { allowedAuthRedirect, sendAuthLinkEmail, type AuthMailKind } from "@/lib/auth-link-mail";
 import { countryFromRequest } from "@/lib/request-country";
 import { normalizeSiteLanguage } from "@/lib/site-language";
@@ -19,7 +20,7 @@ function actionLink(properties: unknown): string | null {
 }
 
 export async function POST(req: Request) {
-  let body: { action?: string; email?: string; password?: string; redirectTo?: string; language?: string };
+  let body: { action?: string; email?: string; password?: string; redirectTo?: string; language?: string; inviteCode?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -50,6 +51,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Contraseña no válida." }, { status: 400 });
     }
 
+    const inviteCode = normalizeInviteCode(body.inviteCode);
+    if (typeof body.inviteCode === "string" && body.inviteCode.trim() && !inviteCode) {
+      return NextResponse.json({ code: "invite_invalid" }, { status: 400 });
+    }
+    if (inviteCode) {
+      const inviter = await findInviterByCode(admin, inviteCode);
+      const inviterEmail = (inviter?.email || "").trim().toLowerCase();
+      if (!inviter || inviterEmail === email) {
+        return NextResponse.json({ code: "invite_invalid" }, { status: 400 });
+      }
+    }
+
     const { data, error } = await admin.auth.admin.generateLink({
       type: "signup",
       email,
@@ -69,6 +82,7 @@ export async function POST(req: Request) {
     try {
       await admin.from("profiles").update({ language: normalizeSiteLanguage(language) }).eq("user_id", userId);
       if (country) await rememberAccountCountry(admin, userId, country, "signup");
+      if (inviteCode) await attachPendingInvite(admin, userId, inviteCode);
     } catch {
       /* El alta sigue aunque no se pueda anotar el país o el idioma. */
     }

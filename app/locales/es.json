@@ -1964,7 +1964,9 @@
     "alert_title_verify_email": "Confirma tu correo",
     "alert_verify_email": "Te hemos enviado un enlace de confirmación. Cuando lo confirmes e inicies sesión, completaremos tu perfil automáticamente. Hasta entonces la cuenta no queda activa.",
     "alert_verify_email_with_issue": "Tu cuenta se ha creado, pero no se pudo enviar el correo de confirmación en este momento ({error}). Intenta iniciar sesión y usa \"reenviar confirmación\" si hace falta.",
-    "alert_email_taken": "Este correo ya tiene una cuenta. Inicia sesión o restablece la contraseña."
+    "alert_email_taken": "Este correo ya tiene una cuenta. Inicia sesión o restablece la contraseña.",
+    "placeholder_invite": "Código de invitación (opcional)",
+    "alert_invite_invalid": "Ese código de invitación no existe. Revísalo o déjalo vacío."
   },
   "report": {
     "title_part1": "REPORTAR",

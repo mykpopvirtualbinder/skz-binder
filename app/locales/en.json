@@ -1964,7 +1964,9 @@
     "alert_title_verify_email": "Confirm your email",
     "alert_verify_email": "We’ve sent you a confirmation link. Your profile will be completed automatically after you confirm and log in. Until then, the account is not active.",
     "alert_verify_email_with_issue": "Your account was created, but we couldn't send the confirmation email right now ({error}). Try signing in and use \"resend confirmation\" if needed.",
-    "alert_email_taken": "This email already has an account. Log in or reset the password."
+    "alert_email_taken": "This email already has an account. Log in or reset the password.",
+    "placeholder_invite": "Invitation code (optional)",
+    "alert_invite_invalid": "That invitation code doesn't exist. Check it or leave it empty."
   },
   "report": {
     "title_part1": "REPORTING",

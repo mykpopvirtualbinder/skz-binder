@@ -27,6 +27,10 @@ export type OverviewUser = {
   signup_country: string | null;
   last_seen_country: string | null;
   language: string | null;
+  invite_code: string | null;
+  invite_referrer_koins: number;
+  invite_friend_koins: number;
+  invite_signups: number;
 };
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -45,6 +49,10 @@ function asString(v: unknown): string | null {
 
 function asCountry(v: unknown): string | null {
   return typeof v === "string" && /^[A-Z]{2}$/.test(v) ? v : null;
+}
+
+function asInviteCode(v: unknown): string | null {
+  return typeof v === "string" && /^[A-Z0-9][A-Z0-9-]{2,14}[A-Z0-9]$/.test(v) ? v : null;
 }
 
 function asNumber(v: unknown): number {
@@ -142,6 +150,10 @@ export async function GET(req: Request) {
         signup_country: asCountry(appMeta.signup_country),
         last_seen_country: asCountry(appMeta.last_seen_country),
         language: asString(p?.language),
+        invite_code: asInviteCode(appMeta.invite_code),
+        invite_referrer_koins: appMeta.invite_referrer_koins == null ? 100 : Math.max(0, asNumber(appMeta.invite_referrer_koins)),
+        invite_friend_koins: appMeta.invite_friend_koins == null ? 100 : Math.max(0, asNumber(appMeta.invite_friend_koins)),
+        invite_signups: Math.max(0, asNumber(appMeta.invite_signups)),
       };
     });
 

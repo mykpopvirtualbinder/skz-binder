@@ -1776,7 +1776,9 @@
     "alert_title_verify_email": "Confirme ton email",
     "alert_verify_email": "Nous t'avons envoyé un lien de confirmation. Une fois confirmé et connecté, ton profil sera complété automatiquement. Jusque-là, le compte reste inactif.",
     "alert_verify_email_with_issue": "Ton compte a bien été créé, mais nous n'avons pas pu envoyer l'email de confirmation pour le moment ({error}). Essaie de te connecter et utilise \"Renvoyer la confirmation\" si nécessaire.",
-    "alert_email_taken": "Cet e-mail a déjà un compte. Connecte-toi ou réinitialise le mot de passe."
+    "alert_email_taken": "Cet e-mail a déjà un compte. Connecte-toi ou réinitialise le mot de passe.",
+    "placeholder_invite": "Code d'invitation (facultatif)",
+    "alert_invite_invalid": "Ce code d'invitation n'existe pas. Vérifie-le ou laisse le champ vide."
   },
   "report": {
     "title_part1": "SIGNALER",

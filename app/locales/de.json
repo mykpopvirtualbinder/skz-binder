@@ -1776,7 +1776,9 @@
     "alert_title_verify_email": "Bestätige deine E-Mail",
     "alert_verify_email": "Wir haben dir einen Bestätigungslink gesendet. Sobald du bestätigst und dich anmeldest, vervollständigen wir dein Profil automatisch. Bis dahin ist das Konto nicht aktiv.",
     "alert_verify_email_with_issue": "Dein Konto wurde erstellt, aber wir konnten die Bestätigungs-E-Mail gerade nicht senden ({error}). Versuche dich anzumelden und nutze bei Bedarf \"Bestätigung erneut senden\".",
-    "alert_email_taken": "Diese E-Mail hat bereits ein Konto. Melde dich an oder setze das Passwort zurück."
+    "alert_email_taken": "Diese E-Mail hat bereits ein Konto. Melde dich an oder setze das Passwort zurück.",
+    "placeholder_invite": "Einladungscode (optional)",
+    "alert_invite_invalid": "Dieser Einladungscode existiert nicht. Prüfe ihn oder lass das Feld leer."
   },
   "report": {
     "title_part1": "MISSBRAUCH",

@@ -95,6 +95,10 @@ type AdminOverviewUser = {
   signup_country?: string | null;
   last_seen_country?: string | null;
   language?: string | null;
+  invite_code?: string | null;
+  invite_referrer_koins?: number;
+  invite_friend_koins?: number;
+  invite_signups?: number;
 };
 
 function deriveUserBucket(u: AdminOverviewUser): AdminAccountBucket {
@@ -1542,6 +1546,42 @@ const levantarSancion = async (userId: string, ticketId: string) => {
         }
       }
     });
+  };
+
+  const guardarCodigoInvitacion = async (p: AdminOverviewUser) => {
+    setLoading(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
+      const code = (document.getElementById(`invite-${p.user_id}`) as HTMLInputElement | null)?.value || "";
+      const referrer = parseInt((document.getElementById(`invite-ref-${p.user_id}`) as HTMLInputElement | null)?.value || "100", 10);
+      const friend = parseInt((document.getElementById(`invite-friend-${p.user_id}`) as HTMLInputElement | null)?.value || "100", 10);
+      const res = await fetch("/api/admin/user-auth", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: p.user_id,
+          action: "set_invite",
+          invite_code: code,
+          referrer_koins: referrer,
+          friend_koins: friend,
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; code?: string | null; referrerKoins?: number; friendKoins?: number; signups?: number };
+      if (!res.ok) throw new Error(json.error || tr("No se pudo guardar el código."));
+      sincronizarCambioUsuario(p.user_id, {
+        invite_code: json.code || null,
+        invite_referrer_koins: json.referrerKoins,
+        invite_friend_koins: json.friendKoins,
+        invite_signups: json.signups || 0,
+      });
+      showAlert(tr("Código guardado"), json.code ? tr("El código {code} ya se puede usar en el alta.", { code: json.code }) : tr("Esta cuenta ya no tiene código de invitación."));
+    } catch (err: any) {
+      showAlert(tr("Error"), err?.message || tr("No se pudo guardar el código."));
+    } finally {
+      setLoading(false);
+    }
   };
 
   /** Un clic: persiste el estado actual de la fila (incl. K-oins del input si lo editaste). */
@@ -3103,6 +3143,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               {countryLabel(p.signup_country) ? ` · Alta en ${countryLabel(p.signup_country)}` : ""}
               {countryLabel(p.last_seen_country) ? ` · Entra desde ${countryLabel(p.last_seen_country)}` : ""}
               {` · ${siteLanguageLabel(p.language) ? tr("Idioma: {name}", { name: siteLanguageLabel(p.language) || "" }) : tr("Idioma sin elegir")}`}
+              {p.invite_code ? ` · ${tr("Código {code}", { code: p.invite_code })} · ${tr("{n} altas", { n: p.invite_signups || 0 })}` : ""}
             </div>
           </div>
           <button
@@ -3246,6 +3287,45 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               >
                 OK
               </button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center", width: "100%" }}>
+              <span style={{ fontSize: "10px", fontWeight: 900, color: "var(--color-primary)" }}>{tr("Código")}</span>
+              <input
+                id={`invite-${p.user_id}`}
+                defaultValue={p.invite_code || ""}
+                placeholder="AKU-FAN"
+                style={{ width: "110px", fontWeight: 800, border: "1px solid var(--color-border)", borderRadius: "4px", padding: "4px 6px", fontSize: "11px" }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span style={{ fontSize: "10px", fontWeight: 800, color: "var(--text-muted)" }}>{tr("Quien invita")}</span>
+              <input
+                id={`invite-ref-${p.user_id}`}
+                type="number"
+                min={0}
+                max={500}
+                defaultValue={p.invite_referrer_koins ?? 100}
+                style={{ width: "52px", textAlign: "center", fontWeight: 800, border: "1px solid var(--color-border)", borderRadius: "4px", padding: "4px 6px", fontSize: "11px" }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span style={{ fontSize: "10px", fontWeight: 800, color: "var(--text-muted)" }}>{tr("Quien se apunta")}</span>
+              <input
+                id={`invite-friend-${p.user_id}`}
+                type="number"
+                min={0}
+                max={500}
+                defaultValue={p.invite_friend_koins ?? 100}
+                style={{ width: "52px", textAlign: "center", fontWeight: 800, border: "1px solid var(--color-border)", borderRadius: "4px", padding: "4px 6px", fontSize: "11px" }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <button
+                type="button"
+                data-kbd="confirm"
+                onClick={(e) => { e.stopPropagation(); void guardarCodigoInvitacion(p); }}
+                style={compactActionStyle("primary")}
+              >
+                {tr("Guardar código")}
+              </button>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)" }}>{tr("{n} altas con este código", { n: p.invite_signups || 0 })}</span>
             </div>
           </AdminUserActionGroup>
 

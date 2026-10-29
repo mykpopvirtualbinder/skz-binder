@@ -874,5 +874,16 @@
   "Todavía no hay países anotados.": "No countries recorded yet.",
   "Sin dato": "No data",
   "Idioma: {name}": "Language: {name}",
-  "Idioma sin elegir": "No language chosen"
+  "Idioma sin elegir": "No language chosen",
+  "Código {code}": "Code {code}",
+  "{n} altas": "{n} signups",
+  "Código": "Code",
+  "Quien invita": "Inviter",
+  "Quien se apunta": "New account",
+  "Guardar código": "Save code",
+  "{n} altas con este código": "{n} signups with this code",
+  "No se pudo guardar el código.": "The code could not be saved.",
+  "Código guardado": "Code saved",
+  "El código {code} ya se puede usar en el alta.": "The code {code} can now be used at signup.",
+  "Esta cuenta ya no tiene código de invitación.": "This account no longer has an invitation code."
 }

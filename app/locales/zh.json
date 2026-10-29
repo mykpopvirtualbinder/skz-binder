@@ -1740,7 +1740,9 @@
     "alert_title_verify_email": "请确认您的邮箱",
     "alert_verify_email": "我们已向您发送确认链接。确认并登录后，您的个人资料将自动完善。在此之前，账户不会激活。",
     "alert_verify_email_with_issue": "您的账户已创建，但当前无法发送确认邮件（{error}）。请尝试登录，必要时使用“重新发送验证邮件”。",
-    "alert_email_taken": "这个邮箱已经有账户。请登录或重置密码。"
+    "alert_email_taken": "这个邮箱已经有账户。请登录或重置密码。",
+    "placeholder_invite": "邀请码（可选）",
+    "alert_invite_invalid": "这个邀请码不存在。请检查或留空。"
   },
   "report": {
     "title_part1": "举报",
