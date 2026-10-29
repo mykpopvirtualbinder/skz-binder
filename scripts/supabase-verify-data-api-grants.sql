@@ -20,7 +20,8 @@ WITH app_tables AS (
     'fanarts', 'fanart_likes', 'fanart_comments', 'fanart_comment_likes',
     'obras', 'capitulos', 'traducciones', 'solicitudes_artistas',
     'ad_campaigns', 'market_ads', 'market_listing_withdrawals', 'follows', 'stripe_fulfillments',
-    'emails', 'email_folders', 'email_attachments', 'email_inbound_chunks'
+    'emails', 'email_folders', 'email_attachments', 'email_inbound_chunks',
+    'gom_profiles', 'gom_ratings', 'gom_comments'
   ]) AS table_name
 ),
 existing AS (
@@ -76,7 +77,8 @@ WHERE t.table_schema = 'public'
     'fanarts', 'fanart_likes', 'fanart_comments', 'fanart_comment_likes',
     'obras', 'capitulos', 'traducciones', 'solicitudes_artistas',
     'ad_campaigns', 'market_ads', 'market_listing_withdrawals', 'follows', 'stripe_fulfillments',
-    'emails', 'email_folders', 'email_attachments', 'email_inbound_chunks'
+    'emails', 'email_folders', 'email_attachments', 'email_inbound_chunks',
+    'gom_profiles', 'gom_ratings', 'gom_comments'
   )
 ORDER BY t.table_name;
 

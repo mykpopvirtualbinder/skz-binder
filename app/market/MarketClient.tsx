@@ -5,6 +5,7 @@ import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { resolveWtsKoins, stripWtsKoinsMark, parseWtsListingExtras } from "@/lib/wts-koins-mark";
+import GomPanel from "./GomPanel";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import ItemPicker from "../components/ItemPicker";
@@ -439,7 +440,7 @@ function MarketContent() {
   // Ahora, en todos tus supabase.from(...).select(...).eq('user_id', ...)
   // USA targetUserId en lugar de currentUserId.
 
-  const [tab, setTab] = useState<"wtt" | "wts">("wtt");
+  const [tab, setTab] = useState<"wtt" | "wts" | "gom">("wtt");
   const [search, setSearch] = useState("");
   const [searchMode, setSearchMode] = useState<"offered" | "wanted">("offered");
   const [isCompactViewport, setIsCompactViewport] = useState(false);
@@ -450,7 +451,7 @@ function MarketContent() {
     const urlTab = searchParams.get("tab");
     const urlItem = searchParams.get("item");
 
-    if (urlTab === "wtt" || urlTab === "wts") {
+    if (urlTab === "wtt" || urlTab === "wts" || urlTab === "gom") {
       setTab(urlTab);
     }
 
@@ -1401,7 +1402,7 @@ const openPublicProfile = async (userId: string) => {
        {/* ========================================= */}
           {/* INICIO DE LOS FILTROS                     */}
           {/* ========================================= */}
-          <div style={{ marginBottom: "30px" }}>
+          <div style={{ marginBottom: "30px", display: tab === "gom" ? "none" : undefined }}>
             {isCompactViewport && (
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
                 <button onClick={() => setShowCompactFilters((v) => !v)} style={{ border: "1px solid var(--color-border)", background: "var(--bg-card)", color: "var(--color-primary)", borderRadius: "99px", padding: "10px 14px", fontWeight: 900, cursor: "pointer" }}>
@@ -1650,10 +1651,31 @@ const openPublicProfile = async (userId: string) => {
           >
             WTS
           </button>
+          <button
+            data-tour="market-gom"
+            onClick={() => {
+              setTab("gom");
+              setSearchMode("offered");
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              borderBottom: tab === "gom" ? `3px solid ${ACC.purple}` : "3px solid transparent",
+              fontSize: "16px",
+              fontWeight: 900,
+              cursor: "pointer",
+              paddingBottom: 6,
+              color: tab === "gom" ? ACC.purple : "var(--text-muted)",
+            }}
+          >
+            GOM
+          </button>
         </div>
           </div>
 
-        {loading ? (
+        {tab === "gom" ? (
+          <GomPanel search={search} />
+        ) : loading ? (
           <CatalogLoadingFun title={t("common.page_loading_title")} />
         ) : (
           <div

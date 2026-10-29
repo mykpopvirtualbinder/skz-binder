@@ -1,5 +1,6 @@
 const PEER_MESSAGE_TYPES = new Set([
   "chat_message",
+  "gom_message",
   "wtt_message",
   "wts_message",
   "offer_message",

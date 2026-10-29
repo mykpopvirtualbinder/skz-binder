@@ -95,7 +95,12 @@ DECLARE
     'emails|SELECT,INSERT,UPDATE,DELETE|service_role',
     'email_folders|SELECT,INSERT,UPDATE,DELETE|service_role',
     'email_attachments|SELECT,INSERT,UPDATE,DELETE|service_role',
-    'email_inbound_chunks|SELECT,INSERT,UPDATE,DELETE|service_role'
+    'email_inbound_chunks|SELECT,INSERT,UPDATE,DELETE|service_role',
+
+    -- GOM: datos personales, solo el servidor
+    'gom_profiles|SELECT,INSERT,UPDATE,DELETE|service_role',
+    'gom_ratings|SELECT,INSERT,UPDATE,DELETE|service_role',
+    'gom_comments|SELECT,INSERT,UPDATE,DELETE|service_role'
   ];
   row text;
   parts text[];

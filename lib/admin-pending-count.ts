@@ -13,7 +13,23 @@ export type AdminPendingByArea = {
   denuncias: number;
   buzon: number;
   aportaciones: number;
+  gom: number;
 };
+
+async function countGomPending() {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return 0;
+  try {
+    const res = await fetch("/api/admin/gom?count=1", { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return 0;
+    const json = (await res.json()) as { pending?: number };
+    const pending = Number(json.pending);
+    return Number.isFinite(pending) && pending > 0 ? pending : 0;
+  } catch {
+    return 0;
+  }
+}
 
 /** Hilos abiertos que nadie del equipo ha abierto todavía. */
 async function countUnreadBuzon() {
@@ -46,11 +62,12 @@ async function countUnreadBuzon() {
 
 /** Los mismos criterios que el sobre del header, partido por área. El buzón cuenta solo lo no leído. */
 export async function fetchAdminPendingByArea(): Promise<AdminPendingByArea> {
-  const [buzon, aportaciones, denuncias, solicitudes] = await Promise.all([
+  const [buzon, aportaciones, denuncias, solicitudes, gom] = await Promise.all([
     countUnreadBuzon(),
     supabase.from("aportaciones_pcs").select("id", { count: "exact", head: true }).or(OPEN_STATUS),
     supabase.from("denuncias").select("id", { count: "exact", head: true }).or("estado.is.null,estado.neq.completada"),
     supabase.from("solicitudes_artistas").select("id", { count: "exact", head: true }),
+    countGomPending(),
   ]);
 
   return {
@@ -58,6 +75,7 @@ export async function fetchAdminPendingByArea(): Promise<AdminPendingByArea> {
     denuncias: countOf(denuncias),
     buzon,
     aportaciones: countOf(aportaciones),
+    gom,
   };
 }
 
@@ -82,5 +100,5 @@ export async function fetchArsysUnseen(): Promise<number> {
 /** Solicitudes, denuncias, buzón y aportaciones que siguen abiertas. */
 export async function fetchAdminPendingCount() {
   const areas = await fetchAdminPendingByArea();
-  return areas.solicitudes + areas.denuncias + areas.buzon + areas.aportaciones;
+  return areas.solicitudes + areas.denuncias + areas.buzon + areas.aportaciones + areas.gom;
 }

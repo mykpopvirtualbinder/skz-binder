@@ -886,5 +886,17 @@
   "No se pudo guardar el código.": "The code could not be saved.",
   "Código guardado": "Code saved",
   "El código {code} ya se puede usar en el alta.": "The code {code} can now be used at signup.",
-  "Esta cuenta ya no tiene código de invitación.": "This account no longer has an invitation code."
+  "Esta cuenta ya no tiene código de invitación.": "This account no longer has an invitation code.",
+  "GOM": "GOM",
+  "Solicitudes de GOM": "GOM applications",
+  "El nombre, los apellidos y el teléfono solo se ven aquí. En el market sale el nombre público.": "Legal name and phone are only shown here. The market shows the public name.",
+  "No se han podido cargar las solicitudes de GOM.": "The GOM applications could not be loaded.",
+  "No se ha podido guardar la revisión.": "The review could not be saved.",
+  "No hay solicitudes de GOM.": "There are no GOM applications.",
+  "Aprobar": "Approve",
+  "Rechazar": "Reject",
+  "Rechazada": "Rejected",
+  "Tipo de GO": "Kind of GO",
+  "Requisitos": "Requirements",
+  "Funcionamiento": "How it works"
 }

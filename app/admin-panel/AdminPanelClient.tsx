@@ -21,8 +21,9 @@ import {
   Trash2, ChevronLeft, ChevronRight, ExternalLink, Sparkles, UserX,
   ListFilter, Undo2, Search, RefreshCw,
   Crown, Ban, HelpCircle, MailOpen, ChevronDown, ChevronUp, Tags,
-  KeyRound, Unlock, Lock, LogOut
+  KeyRound, Unlock, Lock, LogOut, BookHeart
 } from "lucide-react";
+import GomReview from "./GomReview";
 import { useRouter, useSearchParams } from "next/navigation";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { splitTitleBody } from "@/lib/fanfic-translation";
@@ -305,7 +306,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
   // ESTADOS BUZÓN Y APORTACIONES
   const [buzon, setBuzon] = useState<any[]>([]);
   const [aportaciones, setAportaciones] = useState<any[]>([]);
-  const [areaPending, setAreaPending] = useState<AdminPendingByArea>({ solicitudes: 0, denuncias: 0, buzon: 0, aportaciones: 0 });
+  const [areaPending, setAreaPending] = useState<AdminPendingByArea>({ solicitudes: 0, denuncias: 0, buzon: 0, aportaciones: 0, gom: 0 });
   const [arsysUnseen, setArsysUnseen] = useState(0);
   const [queueCases, setQueueCases] = useState<Record<string, QueueCase>>({});
   const [queueLoaded, setQueueLoaded] = useState(false);
@@ -3379,6 +3380,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
       items: [
         { id: "usuarios", label: tr("Usuarios"), icon: Users },
         { id: "solicitudes", label: tr("Solicitudes"), icon: Mail },
+        { id: "gom", label: tr("GOM"), icon: BookHeart },
         { id: "denuncias", label: tr("Denuncias"), icon: ShieldAlert },
         { id: "buzon", label: tr("Buzón"), icon: MailOpen },
         { id: "aportaciones", label: tr("Aportaciones"), icon: ImagePlus },
@@ -3900,6 +3902,8 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               )}
             </div>
           )}
+
+          {activeTab === "gom" && <GomReview />}
 
           {/* PESTAÑA SOLICITUDES */}
           {activeTab === "solicitudes" && (
