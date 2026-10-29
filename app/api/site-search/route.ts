@@ -197,7 +197,7 @@ export async function GET(req: Request) {
       buckets.user.push({
         type: "user",
         id: String(row.user_id),
-        title: asString(row.display_name) || "Usuario",
+        title: asString(row.display_name) || "MKBees",
         subtitle: "Usuario",
         image: asString(row.avatar_url),
         href: `/user/${encodeURIComponent(String(row.user_id))}`,

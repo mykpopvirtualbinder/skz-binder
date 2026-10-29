@@ -126,7 +126,7 @@ export default function GomPanel({ search }: { search: string }) {
   const submit = async () => {
     if (!needLogin() || busy) return;
     const hasSocial = GOM_SOCIALS.some((field) => form.socials[field.key].trim());
-    if (!form.displayName.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.phone.trim() || !form.url.trim() || !form.goTypes.trim() || !form.requirements.trim() || !form.howItWorks.trim() || !form.photo) {
+    if (!form.displayName.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.phone.trim() || !form.goTypes.trim() || !form.requirements.trim() || !form.howItWorks.trim() || !form.photo) {
       showAlert(t("market.gom.signup"), t("market.gom.err_form"));
       return;
     }
@@ -370,7 +370,7 @@ export default function GomPanel({ search }: { search: string }) {
                 <input required value={form.lastName} placeholder={t("market.gom.last_name")} style={fieldStyle} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
               </div>
               <input required value={form.phone} placeholder={t("market.gom.phone")} style={fieldStyle} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              <input required value={form.url} placeholder={t("market.gom.url")} inputMode="url" style={fieldStyle} onChange={(e) => setForm({ ...form, url: e.target.value })} />
+              <input value={form.url} placeholder={t("market.gom.url_optional")} inputMode="url" style={fieldStyle} onChange={(e) => setForm({ ...form, url: e.target.value })} />
               <label style={{ fontWeight: 800, fontSize: 13 }}>{t("market.gom.photo")}</label>
               <input required={!form.preview} type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(e) => {
                 const file = e.target.files?.[0] || null;

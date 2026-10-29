@@ -56,7 +56,7 @@ export async function GET(req: Request) {
             userId: comment.userId,
             body: comment.body,
             createdAt: comment.createdAt,
-            name: author?.display_name || "Fan",
+            name: author?.display_name || "MKBees",
             avatar: author?.avatar_url || null,
           };
         });
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
   const goTypes = clip(form.get("goTypes"), 2000);
   const requirements = clip(form.get("requirements"), 2000);
   const howItWorks = clip(form.get("howItWorks"), 2000);
-  if (!displayName || !firstName || !lastName || !phone || !url || !goTypes || !requirements || !howItWorks) {
+  if (!displayName || !firstName || !lastName || !phone || !goTypes || !requirements || !howItWorks) {
     return NextResponse.json({ error: "missing" }, { status: 400 });
   }
   const socials = {} as Record<GomSocialKey, string>;

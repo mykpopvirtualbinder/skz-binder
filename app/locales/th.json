@@ -149,6 +149,7 @@
     "support_title": "ช่วยเหลือ",
     "faq": "คำถามที่พบบ่อย (FAQ)",
     "report_abuse": "รายงานการละเมิด (DSA)",
+    "about": "About us",
     "copyright_text": "My Kpop Binder. สร้างโดยแฟนคลับ เพื่อแฟนคลับ"
   },
   "artist_month": {
@@ -611,7 +612,7 @@
     "checkbox_anonymous": "ส่งรายงานแบบไม่ระบุตัวตน",
     "btn_cancel": "ยกเลิก",
     "btn_send_report": "ส่งรายงาน",
-    "default_user_name": "นักสะสม"
+    "default_user_name": "MKBees"
   },
   "copyright": {
     "title_part1": "ลิขสิทธิ์",
@@ -1177,6 +1178,7 @@
       "err_form": "ตรวจช่องที่จำเป็นแล้วลองอีกครั้ง",
       "err_own": "ให้คะแนน คอมเมนต์ หรือทักหาโปรไฟล์ตัวเองไม่ได้",
       "url": "URL (เว็บ, Linktree, แบบฟอร์ม…)",
+      "url_optional": "URL (ไม่บังคับ)",
       "social_hint": "ไม่ต้องกรอกทุกช่องโซเชียล แต่ต้องมีอย่างน้อยหนึ่งช่อง",
       "err_social": "ใส่โซเชียลอย่างน้อยหนึ่งช่อง",
       "err_save": "บันทึกคำขอไม่ได้ ลองอีกครั้ง"
@@ -2237,7 +2239,7 @@
       "logo_alt": "โลโก้ My Kpop Binder",
       "enter_btn": "เข้าสู่ระบบ"
     },
-    "default_user_name": "Coleccionista"
+    "default_user_name": "MKBees"
   },
   "home": {
     "banners": {

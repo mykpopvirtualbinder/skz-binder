@@ -451,6 +451,7 @@
     "guide": "How to use",
     "faq": "Frequently Asked Questions",
     "report_abuse": "Report Abuse (DSA)",
+    "about": "About us",
     "copyright_text": "My Kpop Binder. Made by fans for fans."
   },
   "artist_month": {
@@ -956,7 +957,7 @@
     "checkbox_anonymous": "Send report anonymously",
     "btn_cancel": "Cancel",
     "btn_send_report": "Send Report",
-    "default_user_name": "Collector"
+    "default_user_name": "MKBees"
   },
   "copyright": {
     "title_part1": "COPYRIGHT",
@@ -1353,6 +1354,7 @@
       "err_form": "Check the required fields and try again.",
       "err_own": "You cannot rate, comment on, or message your own profile.",
       "url": "URL (website, Linktree, form…)",
+      "url_optional": "URL (optional)",
       "social_hint": "You don't have to fill every network, but add at least one.",
       "err_social": "Add at least one social network.",
       "err_save": "The application could not be saved. Try again."
@@ -2475,7 +2477,7 @@
       "logo_alt": "My Kpop Binder Logo",
       "enter_btn": "ENTER"
     },
-    "default_user_name": "Collector"
+    "default_user_name": "MKBees"
   },
   "home": {
     "banners": {

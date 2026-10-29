@@ -149,6 +149,7 @@
     "support_title": "支持",
     "faq": "常见问题解答",
     "report_abuse": "举报违规 (DSA)",
+    "about": "About us",
     "copyright_text": "My Kpop Binder. 粉丝制作，为粉丝服务。"
   },
   "artist_month": {
@@ -611,7 +612,7 @@
     "checkbox_anonymous": "匿名发送举报",
     "btn_cancel": "取消",
     "btn_send_report": "发送举报",
-    "default_user_name": "收藏家"
+    "default_user_name": "MKBees"
   },
   "copyright": {
     "title_part1": "版权",
@@ -1177,6 +1178,7 @@
       "err_form": "请检查必填项后再试一次。",
       "err_own": "不能给自己的资料评分、评论或发消息。",
       "url": "URL（网站、Linktree、表单…）",
+      "url_optional": "URL（可选）",
       "social_hint": "不用填满每个社交账号，但至少填一个。",
       "err_social": "请至少填写一个社交账号。",
       "err_save": "申请没有保存成功。请再试一次。"
@@ -2237,7 +2239,7 @@
       "logo_alt": "My Kpop Binder Logo",
       "enter_btn": "进入"
     },
-    "default_user_name": "Coleccionista"
+    "default_user_name": "MKBees"
   },
   "home": {
     "banners": {

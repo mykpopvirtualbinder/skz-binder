@@ -357,6 +357,7 @@
     "support_title": "BANTUAN",
     "faq": "Pertanyaan yang Sering Diajukan (FAQ)",
     "report_abuse": "Laporkan Penyalahgunaan (DSA)",
+    "about": "About us",
     "copyright_text": "My Kpop Binder. Dibuat oleh fans untuk fans."
   },
   "artist_month": {
@@ -819,7 +820,7 @@
     "checkbox_anonymous": "Kirim laporan secara anonim",
     "btn_cancel": "Batal",
     "btn_send_report": "Kirim Laporan",
-    "default_user_name": "Kolektor"
+    "default_user_name": "MKBees"
   },
   "copyright": {
     "title_part1": "HAK",
@@ -1214,6 +1215,7 @@
       "err_form": "Periksa kolom wajib dan coba lagi.",
       "err_own": "Kamu tidak bisa menilai, mengomentari, atau mengirim pesan ke profilmu sendiri.",
       "url": "URL (situs, Linktree, formulir…)",
+      "url_optional": "URL (opsional)",
       "social_hint": "Tidak perlu mengisi semua jaringan, tapi isi minimal satu.",
       "err_social": "Isi minimal satu media sosial.",
       "err_save": "Pendaftaran tidak tersimpan. Coba lagi."
@@ -2273,7 +2275,7 @@
       "logo_alt": "Logo My Kpop Binder",
       "enter_btn": "MASUK"
     },
-    "default_user_name": "Kolektor"
+    "default_user_name": "MKBees"
   },
   "home": {
     "banners": {

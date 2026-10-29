@@ -1029,7 +1029,7 @@ function MePageContent() {
         const fallback = {
           id: auth.user.id,
           email: auth.user.email ?? null,
-          display_name: `User_${Math.floor(Math.random() * 1000)}`,
+          display_name: "MKBees",
           avatar_url: resolveProfileAvatarUrl(null, null),
           bio: "Cargando perfil...",
           puntos: 0,
@@ -1253,7 +1253,7 @@ function MePageContent() {
       setFanzoneNotices(
         data.map((n: any) => ({
           ...n,
-          actor_profile: actorMap[n.actor_id] || { display_name: "Usuario", avatar_url: null },
+          actor_profile: actorMap[n.actor_id] || { display_name: "MKBees", avatar_url: null },
         }))
       );
     } finally {
@@ -1293,7 +1293,7 @@ function MePageContent() {
         const { data: profData } = await supabase.from("profiles").select("user_id, display_name, avatar_url").in("user_id", senderIds);
         const pMap = Object.fromEntries((profData || []).map(p => [p.user_id, p]));
         setNotifications(data.map(n => ({
-          ...n, sender_profile: pMap[n.sender_id] || { display_name: "Usuario", avatar_url: null }
+          ...n, sender_profile: pMap[n.sender_id] || { display_name: "MKBees", avatar_url: null }
         })));
       } else {
         setNotifications([]);
@@ -1343,7 +1343,7 @@ function MePageContent() {
     }
     setActiveChatUser({
       id: userId,
-      name: profileHint?.display_name || "Usuario",
+      name: profileHint?.display_name || "MKBees",
       avatar: profileHint?.avatar_url || DEFAULT_AVATAR,
     });
     setTranslationErrorHint(null);
@@ -1359,7 +1359,7 @@ function MePageContent() {
     if (data) {
       setActiveChatUser({
         id: userId,
-        name: data.display_name || profileHint?.display_name || "Usuario",
+        name: data.display_name || profileHint?.display_name || "MKBees",
         avatar: data.avatar_url || profileHint?.avatar_url || DEFAULT_AVATAR,
       });
     }
@@ -1461,7 +1461,7 @@ function MePageContent() {
     void openChatByUserId(
       chatId,
       stored?.senderId === chatId
-        ? { display_name: stored.senderName || "Usuario", avatar_url: stored.senderAvatar || null }
+        ? { display_name: stored.senderName || "MKBees", avatar_url: stored.senderAvatar || null }
         : undefined,
       msgId || undefined,
     );
@@ -1841,7 +1841,7 @@ function MePageContent() {
     if (profile?.is_restricted) return showAlert(t("me.restricted_title"), t("me.restricted_post"));
     const text = wallPost.trim();
     if (!text) return;
-    const next = [{ id: `${Date.now()}`, text, createdAt: new Date().toISOString(), authorName: profile?.display_name || "Usuario", authorAvatar: profile?.avatar_url || null }, ...wall];
+    const next = [{ id: `${Date.now()}`, text, createdAt: new Date().toISOString(), authorName: profile?.display_name || "MKBees", authorAvatar: profile?.avatar_url || null }, ...wall];
     setWall(next);
     setWallPost("");
     persistFanStuff(favGroups, biasByGroup, next, collectionPrefs, wreckerByGroup);
@@ -2614,7 +2614,7 @@ function MePageContent() {
                           />
                           {n.read === false ? <span style={{ width: 8, height: 8, borderRadius: "99px", background: "var(--color-primary)", flexShrink: 0 }} /> : null}
                           <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--text-main)" }}>
-                            @{n.actor_profile?.display_name || "Usuario"} · {String(n.type || "activity")}
+                            @{n.actor_profile?.display_name || "MKBees"} · {String(n.type || "activity")}
                           </span>
                         </label>
                         <button

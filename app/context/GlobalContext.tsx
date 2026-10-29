@@ -262,7 +262,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
           const fullProfile = {
             id: user.id,
             email: user.email ?? null,
-            display_name: profileData.display_name || (user.user_metadata as any)?.display_name || "Coleccionista",
+            display_name: profileData.display_name || (user.user_metadata as any)?.display_name || "MKBees",
             avatar_url: resolveProfileAvatarUrl(
               profileData.avatar_url,
               (user.user_metadata as any)?.avatar_url,
@@ -312,7 +312,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
           setProfile({
             id: user.id,
             email: user.email ?? null,
-            display_name: (user.user_metadata as any)?.display_name || "Coleccionista",
+            display_name: (user.user_metadata as any)?.display_name || "MKBees",
             avatar_url: resolveProfileAvatarUrl(null, (user.user_metadata as any)?.avatar_url),
             is_premium: esVIP,
             is_artist: false,

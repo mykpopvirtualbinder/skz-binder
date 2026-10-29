@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { tr } from "@/lib/admin-i18n";
-import { GOM_SOCIALS, type GomSocials } from "@/lib/gom";
+import { GOM_SOCIALS, socialHref, websiteHref, type GomSocials } from "@/lib/gom";
 
 type Row = {
   id: string;
@@ -91,11 +91,21 @@ export default function GomReview() {
             )}
           </div>
           <div style={{ fontWeight: 700 }}>{row.firstName} {row.lastName} · {row.phone}</div>
-          {row.url ? <div style={{ fontWeight: 700 }}>{tr("URL")}: {row.url}</div> : null}
+          {row.url ? (
+            <div style={{ fontWeight: 700 }}>
+              {tr("URL")}: {websiteHref(row.url) ? <a href={websiteHref(row.url)} target="_blank" rel="noreferrer" style={{ color: "#8C659C" }}>{row.url}</a> : row.url}
+            </div>
+          ) : null}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 13, fontWeight: 700 }}>
-            {GOM_SOCIALS.filter((field) => row.socials[field.key]).map((field) => (
-              <span key={field.key}>{field.label}: {row.socials[field.key]}</span>
-            ))}
+            {GOM_SOCIALS.filter((field) => row.socials[field.key]).map((field) => {
+              const href = socialHref(field.key, row.socials[field.key]);
+              const label = `${field.label}: ${row.socials[field.key]}`;
+              return href ? (
+                <a key={field.key} href={href} target="_blank" rel="noreferrer" style={{ color: "#8C659C" }}>{label}</a>
+              ) : (
+                <span key={field.key}>{label}</span>
+              );
+            })}
           </div>
           <p style={{ margin: 0, whiteSpace: "pre-wrap" }}><b>{tr("Tipo de GO")}:</b> {row.goTypes}</p>
           <p style={{ margin: 0, whiteSpace: "pre-wrap" }}><b>{tr("Requisitos")}:</b> {row.requirements}</p>

@@ -42,6 +42,7 @@ export function socialHref(key: GomSocialKey, value: string) {
   const raw = value.trim();
   if (!raw) return "";
   if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.includes(".") && !raw.includes(" ")) return websiteHref(raw);
   const handle = raw.replace(/^@/, "").replace(/\s+/g, "");
   if (!handle) return "";
   if (key === "instagram") return `https://instagram.com/${handle}`;
@@ -51,6 +52,8 @@ export function socialHref(key: GomSocialKey, value: string) {
   if (key === "threads") return `https://www.threads.net/@${handle}`;
   if (key === "youtube") return `https://youtube.com/@${handle}`;
   if (key === "telegram") return `https://t.me/${handle}`;
+  if (key === "weverse") return `https://weverse.io/${handle}`;
+  if (key === "discord") return /^\d{6,}$/.test(handle) ? `https://discord.com/users/${handle}` : `https://discord.com/users/${encodeURIComponent(handle)}`;
   if (key === "whatsapp") {
     const digits = raw.replace(/\D/g, "");
     return digits ? `https://wa.me/${digits}` : "";

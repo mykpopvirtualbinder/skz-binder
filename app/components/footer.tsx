@@ -74,6 +74,7 @@ export default function Footer() {
           <p className="site-footer-desc" style={{ fontSize: "14px", fontWeight: 600, maxWidth: "250px", lineHeight: "1.5" }}>
             {t('footer.description')}
           </p>
+          <a href="/about" className="site-footer-link" data-nav="home" style={footerLinkStyle}>{t("footer.about")}</a>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column" }}>

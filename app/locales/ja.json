@@ -357,6 +357,7 @@
     "support_title": "サポート",
     "faq": "よくある質問 (FAQ)",
     "report_abuse": "不正行為を報告 (DSA)",
+    "about": "About us",
     "copyright_text": "My Kpop Binder. ファンによるファンのためのサイト。"
   },
   "artist_month": {
@@ -819,7 +820,7 @@
     "checkbox_anonymous": "匿名で報告を送信する",
     "btn_cancel": "キャンセル",
     "btn_send_report": "報告を送信",
-    "default_user_name": "コレクター"
+    "default_user_name": "MKBees"
   },
   "copyright": {
     "title_part1": "著作権",
@@ -1214,6 +1215,7 @@
       "err_form": "必須項目を確認してもう一度送ってください。",
       "err_own": "自分のプロフィールは評価、コメント、メッセージできません。",
       "url": "URL（サイト、Linktree、フォームなど）",
+      "url_optional": "URL（任意）",
       "social_hint": "すべてのSNSを埋める必要はありませんが、1つは入れてください。",
       "err_social": "SNSを1つ以上入れてください。",
       "err_save": "申請を保存できませんでした。もう一度試してください。"
@@ -2273,7 +2275,7 @@
       "logo_alt": "My Kpop Binder ロゴ",
       "enter_btn": "入る"
     },
-    "default_user_name": "コレクター"
+    "default_user_name": "MKBees"
   },
   "home": {
     "banners": {

@@ -731,7 +731,7 @@ function FanArtContent() {
                     onClick={() => router.push(`/me?u=${c.user_id}`)}
                     style={{ fontSize: "13px", fontWeight: 900, color: ACC.violet, cursor: "pointer", display: "block", marginBottom: "4px" }}
                   >
-                    {c.profiles?.display_name || "Usuario"}
+                    {c.profiles?.display_name || "MKBees"}
                   </span>
 
                   {canDelete && (
