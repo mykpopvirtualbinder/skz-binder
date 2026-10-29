@@ -32,6 +32,7 @@ export type GomRecord = {
   howItWorks: string;
   siteUserId: string;
   siteName: string;
+  read: boolean;
   status: "pending" | "approved" | "rejected";
   createdAt: string;
 };
@@ -72,6 +73,7 @@ function readRecord(row: Box): GomRecord | null {
     howItWorks: clip(parsed.howItWorks, 2000),
     siteUserId: clip(parsed.siteUserId, 80) || row.user_id,
     siteName: clip(parsed.siteName, 80),
+    read: parsed.read === true,
     status: asStatus(parsed.review),
     createdAt: row.created_at,
   };
@@ -92,7 +94,7 @@ export async function listGomProfiles(admin: SupabaseClient) {
   return list.map(readRecord).filter((row): row is GomRecord => Boolean(row));
 }
 
-export async function saveGomProfile(admin: SupabaseClient, userId: string, input: Omit<GomRecord, "id" | "userId" | "status" | "createdAt">) {
+export async function saveGomProfile(admin: SupabaseClient, userId: string, input: Omit<GomRecord, "id" | "userId" | "status" | "createdAt" | "read">) {
   const mensaje = JSON.stringify({
     displayName: input.displayName,
     photoUrl: input.photoUrl,
@@ -106,6 +108,7 @@ export async function saveGomProfile(admin: SupabaseClient, userId: string, inpu
     howItWorks: input.howItWorks,
     siteUserId: input.siteUserId,
     siteName: input.siteName,
+    read: false,
     review: "pending",
   });
   const email = `gom:${userId}`;
@@ -157,6 +160,42 @@ export async function setGomStatus(admin: SupabaseClient, id: string, status: Go
     .eq("id", id);
   if (error) throw new Error(error.message);
   return { id: current.id as string, user_id: current.user_id as string, mensaje: JSON.stringify(parsed) };
+}
+
+async function patchProfile(admin: SupabaseClient, id: string, patch: (parsed: Record<string, unknown>) => void) {
+  const { data: current, error: readError } = await admin
+    .from("buzon_colaboraciones")
+    .select("mensaje")
+    .eq("id", id)
+    .eq("asunto", PROFILE)
+    .maybeSingle();
+  if (readError) throw new Error(readError.message);
+  if (!current) return false;
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = JSON.parse(current.mensaje || "{}") as Record<string, unknown>;
+  } catch {
+    parsed = {};
+  }
+  patch(parsed);
+  const { error } = await admin.from("buzon_colaboraciones").update({ mensaje: JSON.stringify(parsed) }).eq("id", id);
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function setGomRead(admin: SupabaseClient, ids: string[], read: boolean) {
+  for (const id of ids) await patchProfile(admin, id, (parsed) => { parsed.read = read; });
+}
+
+export async function deleteGomProfiles(admin: SupabaseClient, ids: string[]) {
+  for (const id of ids) {
+    const { error: rateError } = await admin.from("buzon_colaboraciones").delete().eq("asunto", RATING).like("email", `rate:${id}:%`);
+    if (rateError) throw new Error(rateError.message);
+    const { error: commentError } = await admin.from("buzon_colaboraciones").delete().eq("asunto", COMMENT).eq("email", id);
+    if (commentError) throw new Error(commentError.message);
+    const { error } = await admin.from("buzon_colaboraciones").delete().eq("id", id).eq("asunto", PROFILE);
+    if (error) throw new Error(error.message);
+  }
 }
 
 export async function rateGom(admin: SupabaseClient, gomId: string, userId: string, score: number) {
