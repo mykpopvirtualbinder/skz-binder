@@ -1778,7 +1778,9 @@
     "alert_verify_email_with_issue": "Akun kamu sudah dibuat, tetapi email konfirmasi belum bisa dikirim saat ini ({error}). Coba login lalu gunakan \"Kirim ulang konfirmasi\" jika diperlukan.",
     "alert_email_taken": "Email ini sudah punya akun. Masuk atau atur ulang kata sandi.",
     "placeholder_invite": "Kode undangan (opsional)",
-    "alert_invite_invalid": "Kode undangan itu tidak ada. Periksa atau kosongkan."
+    "alert_invite_invalid": "Kode undangan itu tidak ada. Periksa atau kosongkan.",
+    "alert_invite_full": "Kode itu sudah dipakai 10 kali. Coba yang lain atau kosongkan.",
+    "alert_your_code": "Terima kasih sudah mendaftar. Kodemu adalah {code}. Kode ini unik dan paling banyak dipakai 10 kali. Setiap orang yang mendaftar dengannya menerima {friend} K-oins, dan kamu menerima {referrer} K-oins per orang."
   },
   "report": {
     "title_part1": "LAPORKAN",

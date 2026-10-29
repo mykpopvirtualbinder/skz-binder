@@ -1742,7 +1742,9 @@
     "alert_verify_email_with_issue": "계정은 생성되었지만 현재 인증 메일을 보낼 수 없었습니다 ({error}). 로그인을 시도하고 필요하면 \"인증 메일 다시 보내기\"를 이용해 주세요.",
     "alert_email_taken": "이 이메일에는 이미 계정이 있습니다. 로그인하거나 비밀번호를 재설정하세요.",
     "placeholder_invite": "초대 코드 (선택)",
-    "alert_invite_invalid": "없는 초대 코드입니다. 확인하거나 비워 두세요."
+    "alert_invite_invalid": "없는 초대 코드입니다. 확인하거나 비워 두세요.",
+    "alert_invite_full": "이 코드는 이미 10번 사용되었습니다. 다른 코드를 쓰거나 비워 두세요.",
+    "alert_your_code": "가입해 주셔서 감사합니다. 코드는 {code}입니다. 고유하며 최대 10번 사용할 수 있습니다. 이 코드로 가입한 사람은 {friend} K-oins를, 당신은 한 명당 {referrer} K-oins를 받습니다."
   },
   "report": {
     "title_part1": "신고",

@@ -1778,7 +1778,9 @@
     "alert_verify_email_with_issue": "Ton compte a bien été créé, mais nous n'avons pas pu envoyer l'email de confirmation pour le moment ({error}). Essaie de te connecter et utilise \"Renvoyer la confirmation\" si nécessaire.",
     "alert_email_taken": "Cet e-mail a déjà un compte. Connecte-toi ou réinitialise le mot de passe.",
     "placeholder_invite": "Code d'invitation (facultatif)",
-    "alert_invite_invalid": "Ce code d'invitation n'existe pas. Vérifie-le ou laisse le champ vide."
+    "alert_invite_invalid": "Ce code d'invitation n'existe pas. Vérifie-le ou laisse le champ vide.",
+    "alert_invite_full": "Ce code a déjà été utilisé 10 fois. Essaie un autre ou laisse le champ vide.",
+    "alert_your_code": "Merci pour ton inscription. Voici ton code : {code}. Il est unique et peut servir 10 fois au maximum. Chaque personne qui s'inscrit avec reçoit {friend} K-oins, et toi {referrer} K-oins par personne."
   },
   "report": {
     "title_part1": "SIGNALER",

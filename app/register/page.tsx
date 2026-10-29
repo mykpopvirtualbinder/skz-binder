@@ -101,12 +101,18 @@ export default function RegisterPage() {
         userId?: string;
         code?: string;
         error?: string;
+        inviteCode?: string | null;
+        friendKoins?: number;
+        referrerKoins?: number;
       };
       if (mailRes.status === 409 || mailBody.code === "already_registered") {
         throw new Error(t("register.alert_email_taken"));
       }
       if (mailBody.code === "invite_invalid") {
         throw new Error(t("register.alert_invite_invalid"));
+      }
+      if (mailBody.code === "invite_full") {
+        throw new Error(t("register.alert_invite_full"));
       }
       const userId = typeof mailBody.userId === "string" ? mailBody.userId : null;
       if (!mailRes.ok && mailRes.status !== 502) {
@@ -134,15 +140,23 @@ export default function RegisterPage() {
       };
       savePendingSignupProfile(pending);
       sessionStorage.removeItem("register:draft");
+      const ownCode = typeof mailBody.inviteCode === "string" ? mailBody.inviteCode : "";
+      const codeNote = ownCode
+        ? `\n\n${t("register.alert_your_code", {
+            code: ownCode,
+            friend: mailBody.friendKoins || 100,
+            referrer: mailBody.referrerKoins || 100,
+          })}`
+        : "";
       if (!mailFailed) {
-        showAlert(t("register.alert_title_verify_email"), t("register.alert_verify_email"), () => {
+        showAlert(t("register.alert_title_verify_email"), `${t("register.alert_verify_email")}${codeNote}`, () => {
           router.push("/login");
         });
       } else {
         setShowGoToLoginAfterSignupIssue(true);
         showAlert(
           t("register.alert_title_verify_email"),
-          t("register.alert_verify_email_with_issue").replace("{error}", t("common.error")),
+          `${t("register.alert_verify_email_with_issue").replace("{error}", t("common.error"))}${codeNote}`,
           () => {
             router.push("/login");
           },

@@ -1778,7 +1778,9 @@
     "alert_verify_email_with_issue": "Il tuo account è stato creato, ma al momento non siamo riusciti a inviare l'email di conferma ({error}). Prova ad accedere e usa \"Invia di nuovo la conferma\" se necessario.",
     "alert_email_taken": "Questa email ha già un account. Accedi o reimposta la password.",
     "placeholder_invite": "Codice invito (facoltativo)",
-    "alert_invite_invalid": "Questo codice invito non esiste. Controllalo o lascia il campo vuoto."
+    "alert_invite_invalid": "Questo codice invito non esiste. Controllalo o lascia il campo vuoto.",
+    "alert_invite_full": "Questo codice è già stato usato 10 volte. Prova un altro o lascia il campo vuoto.",
+    "alert_your_code": "Grazie per l'iscrizione. Il tuo codice è {code}. È unico e si può usare al massimo 10 volte. Chi si registra con esso riceve {friend} K-oins, e tu ricevi {referrer} K-oins per persona."
   },
   "report": {
     "title_part1": "SEGNALA",

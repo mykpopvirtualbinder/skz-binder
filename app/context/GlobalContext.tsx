@@ -398,9 +398,9 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
       {/* 🌟 EL PRECIOSO MODAL GLOBAL DE ALERTA (TEMATIZADO) 🌟 */}
       {alertData && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-strong)", zIndex: 1000000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={() => { if(alertData.onClose) alertData.onClose(); setAlertData(null); }}>
-          <div style={{ background: "var(--bg-card)", padding: "30px", borderRadius: "24px", maxWidth: "400px", width: "100%", textAlign: "center", border: "2px solid var(--color-border)", boxShadow: "0 20px 40px var(--shadow-card)" }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: "var(--bg-card)", padding: "30px", borderRadius: "24px", maxWidth: "460px", width: "100%", textAlign: "center", border: "2px solid var(--color-border)", boxShadow: "0 20px 40px var(--shadow-card)" }} onClick={e => e.stopPropagation()}>
             <h3 className="tan-font" style={{ color: "var(--color-primary)", margin: "0 0 15px 0", fontSize: "24px" }}>{alertData.title}</h3>
-            <p style={{ color: "var(--text-main)", fontSize: "15px", fontWeight: 600, marginBottom: "25px", lineHeight: "1.5" }}>{alertData.message}</p>
+            <p style={{ color: "var(--text-main)", fontSize: "15px", fontWeight: 600, marginBottom: "25px", lineHeight: "1.5", whiteSpace: "pre-line" }}>{alertData.message}</p>
             <button
               data-kbd="confirm"
               onClick={() => { if(alertData.onClose) alertData.onClose(); setAlertData(null); }}

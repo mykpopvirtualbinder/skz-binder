@@ -1742,7 +1742,9 @@
     "alert_verify_email_with_issue": "A tua conta foi criada, mas não foi possível enviar o email de confirmação agora ({error}). Tenta iniciar sessão e usa \"Reenviar confirmação\" se necessário.",
     "alert_email_taken": "Este email já tem uma conta. Inicia sessão ou repõe a palavra-passe.",
     "placeholder_invite": "Código de convite (opcional)",
-    "alert_invite_invalid": "Esse código de convite não existe. Confere ou deixa em branco."
+    "alert_invite_invalid": "Esse código de convite não existe. Confere ou deixa em branco.",
+    "alert_invite_full": "Esse código já foi usado 10 vezes. Tenta outro ou deixa em branco.",
+    "alert_your_code": "Obrigado por te registares. O teu código é {code}. É único e pode ser usado no máximo 10 vezes. Quem se registar com ele recebe {friend} K-oins, e tu recebes {referrer} K-oins por pessoa."
   },
   "report": {
     "title_part1": "DENUNCIAR",

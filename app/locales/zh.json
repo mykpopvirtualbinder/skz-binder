@@ -1742,7 +1742,9 @@
     "alert_verify_email_with_issue": "您的账户已创建，但当前无法发送确认邮件（{error}）。请尝试登录，必要时使用“重新发送验证邮件”。",
     "alert_email_taken": "这个邮箱已经有账户。请登录或重置密码。",
     "placeholder_invite": "邀请码（可选）",
-    "alert_invite_invalid": "这个邀请码不存在。请检查或留空。"
+    "alert_invite_invalid": "这个邀请码不存在。请检查或留空。",
+    "alert_invite_full": "这个邀请码已经用满 10 次。请换一个或留空。",
+    "alert_your_code": "感谢注册。你的邀请码是 {code}。它不会重复，最多使用 10 次。用它注册的人获得 {friend} 个 K-oins，你每带来一人获得 {referrer} 个 K-oins。"
   },
   "report": {
     "title_part1": "举报",

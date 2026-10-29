@@ -1966,7 +1966,9 @@
     "alert_verify_email_with_issue": "Tu cuenta se ha creado, pero no se pudo enviar el correo de confirmación en este momento ({error}). Intenta iniciar sesión y usa \"reenviar confirmación\" si hace falta.",
     "alert_email_taken": "Este correo ya tiene una cuenta. Inicia sesión o restablece la contraseña.",
     "placeholder_invite": "Código de invitación (opcional)",
-    "alert_invite_invalid": "Ese código de invitación no existe. Revísalo o déjalo vacío."
+    "alert_invite_invalid": "Ese código de invitación no existe. Revísalo o déjalo vacío.",
+    "alert_invite_full": "Ese código ya se ha usado 10 veces. Prueba con otro o déjalo vacío.",
+    "alert_your_code": "Gracias por darte de alta. Te facilitamos tu código: {code}. Es único y se puede usar 10 veces como máximo. Quien se registre con él recibe {friend} K-oins, y tú recibes {referrer} K-oins por cada persona."
   },
   "report": {
     "title_part1": "REPORTAR",

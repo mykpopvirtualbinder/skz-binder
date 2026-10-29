@@ -1778,7 +1778,9 @@
     "alert_verify_email_with_issue": "Dein Konto wurde erstellt, aber wir konnten die Bestätigungs-E-Mail gerade nicht senden ({error}). Versuche dich anzumelden und nutze bei Bedarf \"Bestätigung erneut senden\".",
     "alert_email_taken": "Diese E-Mail hat bereits ein Konto. Melde dich an oder setze das Passwort zurück.",
     "placeholder_invite": "Einladungscode (optional)",
-    "alert_invite_invalid": "Dieser Einladungscode existiert nicht. Prüfe ihn oder lass das Feld leer."
+    "alert_invite_invalid": "Dieser Einladungscode existiert nicht. Prüfe ihn oder lass das Feld leer.",
+    "alert_invite_full": "Dieser Code wurde schon 10-mal benutzt. Versuch einen anderen oder lass das Feld leer.",
+    "alert_your_code": "Danke für deine Anmeldung. Dein Code lautet {code}. Er ist einzigartig und gilt höchstens 10-mal. Wer sich damit anmeldet, erhält {friend} K-oins, und du erhältst {referrer} K-oins pro Person."
   },
   "report": {
     "title_part1": "MISSBRAUCH",

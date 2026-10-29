@@ -1966,7 +1966,9 @@
     "alert_verify_email_with_issue": "Your account was created, but we couldn't send the confirmation email right now ({error}). Try signing in and use \"resend confirmation\" if needed.",
     "alert_email_taken": "This email already has an account. Log in or reset the password.",
     "placeholder_invite": "Invitation code (optional)",
-    "alert_invite_invalid": "That invitation code doesn't exist. Check it or leave it empty."
+    "alert_invite_invalid": "That invitation code doesn't exist. Check it or leave it empty.",
+    "alert_invite_full": "That code has already been used 10 times. Try another one or leave it empty.",
+    "alert_your_code": "Thanks for signing up. Here is your code: {code}. It is unique and can be used 10 times at most. Each person who registers with it receives {friend} K-oins, and you receive {referrer} K-oins per person."
   },
   "report": {
     "title_part1": "REPORTING",

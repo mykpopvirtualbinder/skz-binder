@@ -882,6 +882,7 @@
   "Quien se apunta": "New account",
   "Guardar código": "Save code",
   "{n} altas con este código": "{n} signups with this code",
+  "{n} de 10 usos": "{n} of 10 uses",
   "No se pudo guardar el código.": "The code could not be saved.",
   "Código guardado": "Code saved",
   "El código {code} ya se puede usar en el alta.": "The code {code} can now be used at signup.",

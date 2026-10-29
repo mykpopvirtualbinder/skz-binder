@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rememberAccountCountry } from "@/lib/account-country";
-import { redeemInviteIfReady } from "@/lib/invite-code";
+import { announceOwnInviteCode, redeemInviteIfReady } from "@/lib/invite-code";
 import { countryFromRequest } from "@/lib/request-country";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
@@ -24,6 +24,7 @@ export async function POST(req: Request) {
   try {
     if (country) await rememberAccountCountry(admin, data.user.id, country, "visit");
     await redeemInviteIfReady(admin, data.user.id);
+    await announceOwnInviteCode(admin, data.user.id);
   } catch {
     return NextResponse.json({ ok: true });
   }

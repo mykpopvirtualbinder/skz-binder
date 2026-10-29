@@ -3143,7 +3143,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               {countryLabel(p.signup_country) ? ` · Alta en ${countryLabel(p.signup_country)}` : ""}
               {countryLabel(p.last_seen_country) ? ` · Entra desde ${countryLabel(p.last_seen_country)}` : ""}
               {` · ${siteLanguageLabel(p.language) ? tr("Idioma: {name}", { name: siteLanguageLabel(p.language) || "" }) : tr("Idioma sin elegir")}`}
-              {p.invite_code ? ` · ${tr("Código {code}", { code: p.invite_code })} · ${tr("{n} altas", { n: p.invite_signups || 0 })}` : ""}
+              {p.invite_code ? ` · ${tr("Código {code}", { code: p.invite_code })} · ${tr("{n} de 10 usos", { n: p.invite_signups || 0 })}` : ""}
             </div>
           </div>
           <button
@@ -3325,7 +3325,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               >
                 {tr("Guardar código")}
               </button>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)" }}>{tr("{n} altas con este código", { n: p.invite_signups || 0 })}</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)" }}>{tr("{n} de 10 usos", { n: p.invite_signups || 0 })}</span>
             </div>
           </AdminUserActionGroup>
 

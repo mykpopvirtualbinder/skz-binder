@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { rememberAccountCountry } from "@/lib/account-country";
-import { attachPendingInvite, findInviterByCode, normalizeInviteCode } from "@/lib/invite-code";
+import { attachPendingInvite, ensureOwnInviteCode, findInviterByCode, INVITE_USE_LIMIT, normalizeInviteCode } from "@/lib/invite-code";
 import { allowedAuthRedirect, sendAuthLinkEmail, type AuthMailKind } from "@/lib/auth-link-mail";
 import { countryFromRequest } from "@/lib/request-country";
 import { normalizeSiteLanguage } from "@/lib/site-language";
@@ -58,8 +58,12 @@ export async function POST(req: Request) {
     if (inviteCode) {
       const inviter = await findInviterByCode(admin, inviteCode);
       const inviterEmail = (inviter?.email || "").trim().toLowerCase();
+      const used = Math.max(0, Number(inviter?.app_metadata?.invite_signups) || 0);
       if (!inviter || inviterEmail === email) {
         return NextResponse.json({ code: "invite_invalid" }, { status: 400 });
+      }
+      if (used >= INVITE_USE_LIMIT) {
+        return NextResponse.json({ code: "invite_full" }, { status: 400 });
       }
     }
 
@@ -79,26 +83,29 @@ export async function POST(req: Request) {
     }
 
     const country = countryFromRequest(req);
+    let ownCode: string | null = null;
     try {
       await admin.from("profiles").update({ language: normalizeSiteLanguage(language) }).eq("user_id", userId);
       if (country) await rememberAccountCountry(admin, userId, country, "signup");
       if (inviteCode) await attachPendingInvite(admin, userId, inviteCode);
+      ownCode = await ensureOwnInviteCode(admin, userId);
     } catch {
-      /* El alta sigue aunque no se pueda anotar el país o el idioma. */
+      /* El alta sigue aunque no se pueda anotar el país, el idioma o el código. */
     }
 
+    const signupPayload = { userId, inviteCode: ownCode, friendKoins: 100, referrerKoins: 100 };
     const link = actionLink(data.properties);
     if (!link) {
-      return NextResponse.json({ code: "mail_failed", userId }, { status: 502 });
+      return NextResponse.json({ code: "mail_failed", ...signupPayload }, { status: 502 });
     }
 
     try {
       await sendAuthLinkEmail({ to: email, link, kind: "signup", language });
     } catch {
-      return NextResponse.json({ code: "mail_failed", userId }, { status: 502 });
+      return NextResponse.json({ code: "mail_failed", ...signupPayload }, { status: 502 });
     }
 
-    return NextResponse.json({ userId });
+    return NextResponse.json(signupPayload);
   }
 
   const kind: AuthMailKind = "recovery";
