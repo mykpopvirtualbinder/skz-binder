@@ -340,8 +340,8 @@ function HomeContent() {
                 </button>
               </div>
             </div>
-            <div style={{ flex: 0.8, minHeight: isMobile ? "250px" : "100%", background: "url('/branding/artist-month-home.png') center/cover no-repeat", position: "relative" }}>
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(0,0,0,0.35) -5%, transparent 50%)", display: isMobile ? "none" : "block" }} />
+            <div style={{ flex: "1 1 46%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 0 }}>
+              <img src="/branding/artist-month-home.png" alt={t("home.artist_month.title")} style={{ width: "100%", height: "auto", display: "block", objectFit: "contain" }} />
             </div>
           </div>
         </div>
