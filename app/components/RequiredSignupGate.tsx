@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useGlobal } from "@/app/context/GlobalContext";
+import { readAdminActingAs } from "@/lib/admin-acting-as";
 import { OnboardingForm } from "@/app/me/ui/OnboardingForm";
 import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 import { syncProfileBiasesAfterSignup } from "@/lib/onboarding-profile-biases";
@@ -27,8 +28,13 @@ export default function RequiredSignupGate() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [saving, setSaving] = useState(false);
+  const [adminInside, setAdminInside] = useState(false);
 
-  if (!mustFinishSignupForm(profile) || !profile) return null;
+  useEffect(() => {
+    setAdminInside(Boolean(readAdminActingAs()));
+  }, [profile?.id]);
+
+  if (adminInside || !mustFinishSignupForm(profile) || !profile) return null;
 
   const save = async (data: {
     biasesIds: number[];

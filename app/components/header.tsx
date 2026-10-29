@@ -1053,7 +1053,7 @@ export default function Header() {
   return (
     <>
       {actingAs ? (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1200, height: actingBar, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "0 16px", background: "var(--color-primary)", color: "var(--bg-card)", fontSize: "13px", fontWeight: 800 }}>
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 960000, height: actingBar, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "0 16px", background: "var(--color-primary)", color: "var(--bg-card)", fontSize: "13px", fontWeight: 800 }}>
           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             Estás dentro de la cuenta de {actingAs.name}. Lo que cambies se guarda en su cuenta.
           </span>
