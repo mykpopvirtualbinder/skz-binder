@@ -13,7 +13,6 @@ export const ADMIN_TEAM_EMAILS = [
   "mysafekspace@gmail.com",
   "sfckern@gmail.com",
   "paula.azules@gmail.com",
-  "jimena.esteban.martinez@gmail.com",
 ] as const;
 
 export function isAdminTeamEmail(email: string | null | undefined): boolean {

@@ -6,8 +6,7 @@ import {
   applyDiscountPercent,
   parseDiscountPercent,
 } from "@/lib/shop-catalog";
-import { isEquipoVipEmail } from "@/lib/equipo-vip";
-import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { hasComplimentaryAccess, isEquipoVipEmail } from "@/lib/equipo-vip";
 import { fetchShopUsageCounts } from "@/lib/shop-user-usage";
 import type { ShopProductId } from "@/lib/shop-catalog";
 import { createStripeClient } from "@/lib/stripe-server";
@@ -77,7 +76,7 @@ export async function POST(req: Request) {
 
   const email = user.email ?? null;
   const isUserVip = !!(profile.is_premium || isEquipoVipEmail(email));
-  const isAdmin = isAdminTeamEmail(email);
+  const isAdmin = hasComplimentaryAccess(email);
 
   const used = await fetchShopUsageCounts(supabaseAuth, user.id);
   const baseEuro = getShopEuroPriceForCheckout(product, profile, used, { isUserVip, isAdmin });

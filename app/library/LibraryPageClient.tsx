@@ -8,7 +8,7 @@ import { isMockPcBackPath, resolveMockPcBackUrl, resolveMockPcImageUrl } from "@
 import { memberIsIn, prettyMemberLabel as formatMemberLabel, queryLooksLikeIn } from "@/lib/member-labels";
 import { dedupeCatalogTwins } from "@/lib/catalog-twins";
 
-import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { hasComplimentaryAccess } from "@/lib/equipo-vip";
 import PhotoPageImport from "../binder/PhotoPageImport";
 import { useGlobal } from "../context/GlobalContext";
 import { requireLoggedIn } from "@/lib/auth-gate";
@@ -5147,7 +5147,7 @@ return (
     t={t}
     onAlert={showAlert}
     uiLang={profile?.language ?? "es"}
-    allowCustomUpload={Boolean(profile?.is_premium) || isAdminTeamEmail(profile?.email)}
+    allowCustomUpload={Boolean(profile?.is_premium) || hasComplimentaryAccess(profile?.email)}
     onCommitStock={(next) => commitStockForItem(it.id, next)}
     stockLocked={Boolean(lockedByItem[it.id]) && totalOwnedQtyFromCounts(counts) <= 0 && inBinder <= 0}
     lockNote={lockedByItem[it.id]
@@ -5491,14 +5491,14 @@ return (
       {scanOpen && userId && (
         <PhotoPageImport
           userId={userId}
-          isAdmin={isAdminTeamEmail(profile?.email)}
+          isAdmin={hasComplimentaryAccess(profile?.email)}
           onClose={() => setScanOpen(false)}
         />
       )}
       {placeOpen && userId && placePieces.length > 0 && (
         <PhotoPageImport
           userId={userId}
-          isAdmin={isAdminTeamEmail(profile?.email)}
+          isAdmin={hasComplimentaryAccess(profile?.email)}
           initialPieces={placePieces}
           onBack={() => {
             setPlaceOpen(false);

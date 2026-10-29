@@ -13,6 +13,7 @@ import {
   type VipBadgeSectionKey,
 } from "./ui/AvatarModalInsigniasSection";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { hasComplimentaryAccess } from "@/lib/equipo-vip";
 import { adminRemoveContent } from "@/lib/admin-moderate-client";
 import { isSiteAdminUser } from "@/lib/site-admin-stock";
 import { collectionCardQty, emptyCollectionCounts, loadCollectionSummary, type CollectionCounts } from "@/lib/collection-summary";
@@ -1038,7 +1039,7 @@ function MePageContent() {
         setProfile(fallback as Profile);
         setFormData({ ...fallback, given_name: "", family_name: "" });
       } else if (profileData) {
-        const esVIP = isAdminTeamEmail(auth.user.email);
+        const esVIP = hasComplimentaryAccess(auth.user.email);
         const fn = String(profileData.full_name || "").trim();
         const fnParts = fn.split(/\s+/).filter(Boolean);
         const given_name = fnParts[0] || "";

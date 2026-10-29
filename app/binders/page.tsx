@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { hasComplimentaryAccess } from "@/lib/equipo-vip";
 
 import Footer from "../components/footer";
 import { Plus, ShoppingBag, Loader2, BookText, Camera, ChevronLeft, Layers, BookOpen, Info, Search } from "lucide-react";
@@ -48,7 +48,7 @@ export default function BindersPage() {
   // ✅ 1. SOLUCIÓN AL ERROR "Cannot find name 't'"
   const { profile, showAlert, showConfirm, t } = useGlobal();
   
-  const isAdmin = isAdminTeamEmail(email);
+  const isAdmin = hasComplimentaryAccess(email);
 
   const isVip = profile?.is_premium || isAdmin || false;
   const [userPlan, setUserPlan] = useState("free");

@@ -14,7 +14,7 @@ import th from "../locales/th.json";
 import ja from "../locales/ja.json";
 import ko from "../locales/ko.json";
 import zh from "../locales/zh.json";
-import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { hasComplimentaryAccess } from "@/lib/equipo-vip";
 import { normalizeThemeId } from "@/lib/theme-unlocks";
 import { persistTheme, themeIdFromUnknown } from "@/lib/theme-persist";
 import { DEFAULT_SITE_PROFILE_AVATAR_URL, isUnsetProfileAvatar, resolveProfileAvatarUrl } from "@/lib/default-profile-avatar";
@@ -211,7 +211,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
           .single();
 
         if (profileData) {
-          const esVIP = isAdminTeamEmail(user.email);
+          const esVIP = hasComplimentaryAccess(user.email);
           const isPremiumUser = profileData.is_premium || esVIP;
 
           const raw = profileData as Record<string, unknown>;
@@ -283,7 +283,7 @@ export function GlobalProvider({ children }: { children: React.ReactNode }) {
           persistTheme(preferredTheme);
           
         } else if (!localProfileStr) {
-          const esVIP = isAdminTeamEmail(user.email);
+          const esVIP = hasComplimentaryAccess(user.email);
           
           setProfile({
             id: user.id,

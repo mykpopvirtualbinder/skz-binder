@@ -7,7 +7,7 @@ import { useState } from "react"; // 1. Asegúrate de tener useState importado
 import { useRouter, usePathname, useSearchParams } from "next/navigation"; // 2. Asegúrate de importar usePathname y useSearchParams
 import { supabase } from "@/lib/supabase";
 import { withWtsKoinsMark } from "@/lib/wts-koins-mark";
-import { isAdminTeamEmail } from "@/lib/admin-emails";
+import { hasComplimentaryAccess } from "@/lib/equipo-vip";
 import { useOverlayDismiss } from "@/lib/use-overlay-dismiss";
 import { 
   Trash2, ChevronLeft, ChevronRight, ChevronDown, Users, Disc3, PenLine, Mic2, User, Layers, 
@@ -3151,7 +3151,7 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const quota = resolveBinderQuota({
     planType: userPlan,
     isPremium: profile?.is_premium,
-    isAdmin: isAdminTeamEmail((profile as { email?: string | null } | null)?.email) || isAdminTeamEmail(email),
+    isAdmin: hasComplimentaryAccess((profile as { email?: string | null } | null)?.email) || hasComplimentaryAccess(email),
     extraPages,
     extraSeparators,
   });
@@ -3159,7 +3159,7 @@ const [binderTitle, setBinderTitle] = useState<string>(t('common.loading'));
   const MAX_ALLOWED_SEPARATORS = quota.maxSeparators;
  
 
-  const isAdmin = isAdminTeamEmail((profile as { email?: string | null } | null)?.email);
+  const isAdmin = hasComplimentaryAccess((profile as { email?: string | null } | null)?.email);
   const [isMobile, setIsMobile] = useState(false); // ✅ Única declaración
   const [viewportW, setViewportW] = useState(0);
   const [separatorSourceMode, setSeparatorSourceMode] = useState<null | "create" | "fill">(null);
@@ -9823,7 +9823,7 @@ const rawPlan = (profileData?.plan_type || "free").toLowerCase().trim();
   const liveQuota = resolveBinderQuota({
     planType: rawPlan,
     isPremium: profile?.is_premium,
-    isAdmin: isAdminTeamEmail(email),
+    isAdmin: hasComplimentaryAccess(email),
     extraPages: extrasP,
     extraSeparators: extrasS,
   });
@@ -9833,7 +9833,7 @@ const rawPlan = (profileData?.plan_type || "free").toLowerCase().trim();
   const realPagesCount = binderPages.filter(p => p.layout_type !== 'separator').length; 
   const sepCount = binderPages.filter(p => p.layout_type === 'separator').length; 
   
-  const isAdmin = isAdminTeamEmail(email);
+  const isAdmin = hasComplimentaryAccess(email);
 
   // 3. APLICAMOS EL BLOQUEO (CON INMUNIDAD ADMIN ACTIVADA 🛡️)
   if (finalLayout === 'separator') {
@@ -9957,7 +9957,7 @@ const commitSeparatorImages = async (picks: CoverImagePick[], mode: "create" | "
     const liveQuota = resolveBinderQuota({
       planType: (profileData?.plan_type || "free").toLowerCase().trim(),
       isPremium: profile?.is_premium,
-      isAdmin: isAdmin || isAdminTeamEmail(email),
+      isAdmin: isAdmin || hasComplimentaryAccess(email),
       extraPages: profileData?.extra_pages || 0,
       extraSeparators: profileData?.extra_separators || 0,
     });
@@ -14927,7 +14927,7 @@ const isDraggingMe = pageDragFromId === p.id;
       <button
         type="button"
         onClick={() => {
-          if (!isAdmin && !isAdminTeamEmail(email) && separatorsCount >= quota.maxSeparators) {
+          if (!isAdmin && !hasComplimentaryAccess(email) && separatorsCount >= quota.maxSeparators) {
             setBuySeparatorsOpen(true);
             return;
           }
