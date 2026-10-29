@@ -16,7 +16,7 @@ export default function RegisterPage() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showGoToLoginAfterSignupIssue, setShowGoToLoginAfterSignupIssue] = useState(false);
+  const [welcome, setWelcome] = useState<{ code: string; friend: number; referrer: number; mailFailed: boolean } | null>(null);
   
   const [formData, setFormData] = useState({
     username: "", firstName: "", lastName: "", email: "",
@@ -82,7 +82,6 @@ export default function RegisterPage() {
     language?: string;
   }) => {
     setLoading(true);
-    setShowGoToLoginAfterSignupIssue(false);
     try {
       const emailLower = formData.email.trim().toLowerCase();
       const mailRes = await fetch("/api/auth/email", {
@@ -140,28 +139,12 @@ export default function RegisterPage() {
       };
       savePendingSignupProfile(pending);
       sessionStorage.removeItem("register:draft");
-      const ownCode = typeof mailBody.inviteCode === "string" ? mailBody.inviteCode : "";
-      const codeNote = ownCode
-        ? `\n\n${t("register.alert_your_code", {
-            code: ownCode,
-            friend: mailBody.friendKoins || 100,
-            referrer: mailBody.referrerKoins || 100,
-          })}`
-        : "";
-      if (!mailFailed) {
-        showAlert(t("register.alert_title_verify_email"), `${t("register.alert_verify_email")}${codeNote}`, () => {
-          router.push("/login");
-        });
-      } else {
-        setShowGoToLoginAfterSignupIssue(true);
-        showAlert(
-          t("register.alert_title_verify_email"),
-          `${t("register.alert_verify_email_with_issue").replace("{error}", t("common.error"))}${codeNote}`,
-          () => {
-            router.push("/login");
-          },
-        );
-      }
+      setWelcome({
+        code: typeof mailBody.inviteCode === "string" ? mailBody.inviteCode : "",
+        friend: mailBody.friendKoins || 100,
+        referrer: mailBody.referrerKoins || 100,
+        mailFailed,
+      });
     } catch (err: any) {
       showAlert(t("common.error"), t("register.alert_error_prefix") + (err?.message || String(err)));
     } finally {
@@ -187,8 +170,36 @@ export default function RegisterPage() {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: "var(--bg-main)", transition: "background-color 0.3s ease" }}>
     
       <main style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", padding: isMobile ? "20px" : "40px 20px" }}>
+
+        {welcome && (
+          <div data-kbd-root role="dialog" aria-modal="true" style={formContainerStyle(isMobile)}>
+            <img src="/branding/logo.png" alt="My K-pop Binder" style={{ display: "block", width: "120px", height: "auto", margin: "0 auto 14px" }} />
+            <p style={{ margin: 0, textAlign: "center", letterSpacing: "0.18em", fontSize: "12px", fontWeight: 800, color: "var(--color-primary)" }}>MY K-POP BINDER</p>
+            <p style={{ margin: "6px 0 18px", textAlign: "center", fontStyle: "italic", fontWeight: 700, color: "var(--color-primary)" }}>Collect · Trade · Connect</p>
+            <h2 className="tan-font" style={{ color: "var(--color-primary)", fontSize: isMobile ? "26px" : "32px", textAlign: "center", margin: "0 0 12px" }}>
+              {t("register.alert_title_verify_email")}
+            </h2>
+              <p style={{ color: "var(--text-main)", fontSize: "15px", lineHeight: 1.55, fontWeight: 700, textAlign: "center", margin: "0 0 18px" }}>
+              {welcome.mailFailed
+                ? t("register.alert_verify_email_with_issue").replace("{error}", t("common.error"))
+                : t("register.alert_verify_email")}
+            </p>
+            {welcome.code ? (
+              <div style={{ background: "var(--bg-soft)", border: "1px solid var(--color-border)", borderRadius: "18px", padding: "16px", textAlign: "center", marginBottom: "18px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 900, letterSpacing: "0.12em", color: "var(--text-muted)", textTransform: "uppercase" }}>{t("register.confirm_code_label")}</div>
+                <div style={{ marginTop: "8px", fontSize: "22px", fontWeight: 900, letterSpacing: "0.08em", color: "var(--color-primary)" }}>{welcome.code}</div>
+                <p style={{ margin: "10px 0 0", fontSize: "13px", lineHeight: 1.45, fontWeight: 700, color: "var(--text-main)" }}>
+                  {t("register.confirm_code_hint", { friend: welcome.friend, referrer: welcome.referrer })}
+                </p>
+              </div>
+            ) : null}
+            <button type="button" data-kbd="confirm" className="tan-font" style={buttonStyle(isMobile)} onClick={() => router.push("/login")}>
+              {t("register.confirm_go_login")}
+            </button>
+          </div>
+        )}
         
-        {step === 1 && (
+        {step === 1 && !welcome && (
           <div style={formContainerStyle(isMobile)}>
             <h2 className="tan-font" style={{ color: "var(--color-primary)", fontSize: isMobile ? "24px" : "32px", textAlign: "center", marginBottom: "10px" }}>
               {t("register.step1_title")}
@@ -262,23 +273,9 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && !welcome && (
           <div style={{ width: "100%", maxWidth: "1000px" }}>
             <OnboardingForm onComplete={handleFinalRegister} />
-            {showGoToLoginAfterSignupIssue && (
-              <button
-                onClick={() => router.push("/login")}
-                style={{
-                  ...buttonStyle(isMobile),
-                  marginTop: "10px",
-                  background: "var(--bg-soft)",
-                  color: "var(--text-main)",
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                {t("login.submit_btn")}
-              </button>
-            )}
             <button onClick={() => setStep(1)} style={btnBackStyle}>
               {t("register.btn_back")}
             </button>

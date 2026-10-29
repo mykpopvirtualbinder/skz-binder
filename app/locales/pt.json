@@ -1744,7 +1744,10 @@
     "placeholder_invite": "Código de convite (opcional)",
     "alert_invite_invalid": "Esse código de convite não existe. Confere ou deixa em branco.",
     "alert_invite_full": "Esse código já foi usado 10 vezes. Tenta outro ou deixa em branco.",
-    "alert_your_code": "Obrigado por te registares. O teu código é {code}. É único e pode ser usado no máximo 10 vezes. Quem se registar com ele recebe {friend} K-oins, e tu recebes {referrer} K-oins por pessoa."
+    "alert_your_code": "Obrigado por te registares. O teu código é {code}. É único e pode ser usado no máximo 10 vezes. Quem se registar com ele recebe {friend} K-oins, e tu recebes {referrer} K-oins por pessoa.",
+    "confirm_code_label": "O teu código",
+    "confirm_code_hint": "É único e pode ser usado no máximo 10 vezes. Quem se registar com ele recebe {friend} K-oins, e tu recebes {referrer} K-oins por pessoa.",
+    "confirm_go_login": "Ir para entrar"
   },
   "report": {
     "title_part1": "DENUNCIAR",

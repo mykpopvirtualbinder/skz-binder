@@ -1744,7 +1744,10 @@
     "placeholder_invite": "초대 코드 (선택)",
     "alert_invite_invalid": "없는 초대 코드입니다. 확인하거나 비워 두세요.",
     "alert_invite_full": "이 코드는 이미 10번 사용되었습니다. 다른 코드를 쓰거나 비워 두세요.",
-    "alert_your_code": "가입해 주셔서 감사합니다. 코드는 {code}입니다. 고유하며 최대 10번 사용할 수 있습니다. 이 코드로 가입한 사람은 {friend} K-oins를, 당신은 한 명당 {referrer} K-oins를 받습니다."
+    "alert_your_code": "가입해 주셔서 감사합니다. 코드는 {code}입니다. 고유하며 최대 10번 사용할 수 있습니다. 이 코드로 가입한 사람은 {friend} K-oins를, 당신은 한 명당 {referrer} K-oins를 받습니다.",
+    "confirm_code_label": "내 코드",
+    "confirm_code_hint": "고유하며 최대 10번 사용할 수 있습니다. 이 코드로 가입한 사람은 {friend} K-oins를, 당신은 한 명당 {referrer} K-oins를 받습니다.",
+    "confirm_go_login": "로그인으로"
   },
   "report": {
     "title_part1": "신고",

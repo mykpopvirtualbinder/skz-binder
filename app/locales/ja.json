@@ -1780,7 +1780,10 @@
     "placeholder_invite": "招待コード（任意）",
     "alert_invite_invalid": "その招待コードは見つかりません。確認するか、空のままにしてください。",
     "alert_invite_full": "そのコードはすでに 10 回使われています。別のコードにするか、空のままにしてください。",
-    "alert_your_code": "登録ありがとうございます。あなたのコードは {code} です。重複せず、最大 10 回まで使えます。このコードで登録した人は {friend} K-oins、あなたは 1 人につき {referrer} K-oins を受け取ります。"
+    "alert_your_code": "登録ありがとうございます。あなたのコードは {code} です。重複せず、最大 10 回まで使えます。このコードで登録した人は {friend} K-oins、あなたは 1 人につき {referrer} K-oins を受け取ります。",
+    "confirm_code_label": "あなたのコード",
+    "confirm_code_hint": "重複せず、最大 10 回まで使えます。このコードで登録した人は {friend} K-oins、あなたは 1 人につき {referrer} K-oins を受け取ります。",
+    "confirm_go_login": "ログインへ"
   },
   "report": {
     "title_part1": "通報",

@@ -1780,7 +1780,10 @@
     "placeholder_invite": "Code d'invitation (facultatif)",
     "alert_invite_invalid": "Ce code d'invitation n'existe pas. Vérifie-le ou laisse le champ vide.",
     "alert_invite_full": "Ce code a déjà été utilisé 10 fois. Essaie un autre ou laisse le champ vide.",
-    "alert_your_code": "Merci pour ton inscription. Voici ton code : {code}. Il est unique et peut servir 10 fois au maximum. Chaque personne qui s'inscrit avec reçoit {friend} K-oins, et toi {referrer} K-oins par personne."
+    "alert_your_code": "Merci pour ton inscription. Voici ton code : {code}. Il est unique et peut servir 10 fois au maximum. Chaque personne qui s'inscrit avec reçoit {friend} K-oins, et toi {referrer} K-oins par personne.",
+    "confirm_code_label": "Ton code",
+    "confirm_code_hint": "Il est unique et peut servir 10 fois au maximum. Chaque personne qui s'inscrit avec reçoit {friend} K-oins, et toi {referrer} K-oins par personne.",
+    "confirm_go_login": "Aller à la connexion"
   },
   "report": {
     "title_part1": "SIGNALER",

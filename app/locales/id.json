@@ -1780,7 +1780,10 @@
     "placeholder_invite": "Kode undangan (opsional)",
     "alert_invite_invalid": "Kode undangan itu tidak ada. Periksa atau kosongkan.",
     "alert_invite_full": "Kode itu sudah dipakai 10 kali. Coba yang lain atau kosongkan.",
-    "alert_your_code": "Terima kasih sudah mendaftar. Kodemu adalah {code}. Kode ini unik dan paling banyak dipakai 10 kali. Setiap orang yang mendaftar dengannya menerima {friend} K-oins, dan kamu menerima {referrer} K-oins per orang."
+    "alert_your_code": "Terima kasih sudah mendaftar. Kodemu adalah {code}. Kode ini unik dan paling banyak dipakai 10 kali. Setiap orang yang mendaftar dengannya menerima {friend} K-oins, dan kamu menerima {referrer} K-oins per orang.",
+    "confirm_code_label": "Kodemu",
+    "confirm_code_hint": "Kode ini unik dan paling banyak dipakai 10 kali. Setiap orang yang mendaftar dengannya menerima {friend} K-oins, dan kamu menerima {referrer} K-oins per orang.",
+    "confirm_go_login": "Ke halaman masuk"
   },
   "report": {
     "title_part1": "LAPORKAN",

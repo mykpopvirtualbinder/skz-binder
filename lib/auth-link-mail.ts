@@ -152,12 +152,38 @@ function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function mailHtml(text: string, link: string, imageSrc: string) {
-  const safe = escapeHtml(text).replace(
-    escapeHtml(link),
-    `<a href="${escapeHtml(link)}">${escapeHtml(link)}</a>`,
-  );
-  return `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.5;color:#2a2440;white-space:pre-wrap;">${safe}</div>${signatureHtml(imageSrc)}`;
+const BUTTONS: Record<string, Record<AuthMailKind, { cta: string; fallback: string }>> = {
+  es: { signup: { cta: "Confirmar mi cuenta", fallback: "Si el botón no se abre, copia este enlace:" }, recovery: { cta: "Elegir contraseña nueva", fallback: "Si el botón no se abre, copia este enlace:" } },
+  en: { signup: { cta: "Confirm my account", fallback: "If the button does not open, copy this link:" }, recovery: { cta: "Choose a new password", fallback: "If the button does not open, copy this link:" } },
+  fr: { signup: { cta: "Confirmer mon compte", fallback: "Si le bouton ne s'ouvre pas, copie ce lien :" }, recovery: { cta: "Choisir un nouveau mot de passe", fallback: "Si le bouton ne s'ouvre pas, copie ce lien :" } },
+  de: { signup: { cta: "Konto bestätigen", fallback: "Wenn der Button sich nicht öffnet, kopiere diesen Link:" }, recovery: { cta: "Neues Passwort wählen", fallback: "Wenn der Button sich nicht öffnet, kopiere diesen Link:" } },
+  it: { signup: { cta: "Conferma il mio account", fallback: "Se il pulsante non si apre, copia questo link:" }, recovery: { cta: "Scegli una nuova password", fallback: "Se il pulsante non si apre, copia questo link:" } },
+  pt: { signup: { cta: "Confirmar a minha conta", fallback: "Se o botão não abrir, copia este link:" }, recovery: { cta: "Escolher uma palavra-passe nova", fallback: "Se o botão não abrir, copia este link:" } },
+  id: { signup: { cta: "Konfirmasi akun saya", fallback: "Jika tombol tidak terbuka, salin tautan ini:" }, recovery: { cta: "Pilih kata sandi baru", fallback: "Jika tombol tidak terbuka, salin tautan ini:" } },
+  th: { signup: { cta: "ยืนยันบัญชีของฉัน", fallback: "ถ้าปุ่มไม่เปิด ให้คัดลอกลิงก์นี้:" }, recovery: { cta: "ตั้งรหัสผ่านใหม่", fallback: "ถ้าปุ่มไม่เปิด ให้คัดลอกลิงก์นี้:" } },
+  ja: { signup: { cta: "アカウントを確認", fallback: "ボタンが開かない場合は、このリンクをコピーしてください。" }, recovery: { cta: "新しいパスワードを設定", fallback: "ボタンが開かない場合は、このリンクをコピーしてください。" } },
+  ko: { signup: { cta: "계정 확인", fallback: "버튼이 열리지 않으면 이 링크를 복사하세요." }, recovery: { cta: "새 비밀번호 설정", fallback: "버튼이 열리지 않으면 이 링크를 복사하세요." } },
+  zh: { signup: { cta: "确认我的账户", fallback: "如果按钮打不开，请复制这个链接：" }, recovery: { cta: "设置新密码", fallback: "如果按钮打不开，请复制这个链接：" } },
+};
+
+function mailHtml(opts: { intro: string; ignore: string; link: string; cta: string; fallback: string; imageSrc: string }) {
+  const link = escapeHtml(opts.link);
+  const intro = escapeHtml(opts.intro).replace(/\n/g, "<br>");
+  const ignore = escapeHtml(opts.ignore).replace(/\n/g, "<br>");
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f6f1f8;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f1f8;">
+<tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #eadff0;border-radius:24px;">
+<tr><td align="center" style="padding:32px 28px 0;"><img src="https://www.mykpopbinder.com/branding/logo.png" width="120" alt="My K-pop Binder" style="display:block;border:0;width:120px;height:auto;"></td></tr>
+<tr><td align="center" style="padding:14px 28px 0;font-family:Georgia,serif;font-size:12px;letter-spacing:0.18em;color:#8C659C;font-weight:700;">MY K-POP BINDER</td></tr>
+<tr><td align="center" style="padding:6px 28px 0;font-family:Georgia,serif;font-size:15px;font-style:italic;color:#8C659C;">Collect · Trade · Connect</td></tr>
+<tr><td align="center" style="padding:22px 32px 0;font-family:Georgia,serif;font-size:16px;line-height:1.6;color:#2a2440;">${intro}</td></tr>
+<tr><td align="center" style="padding:26px 28px 8px;"><a href="${link}" style="display:inline-block;background:#8C659C;color:#ffffff;text-decoration:none;font-family:Georgia,serif;font-size:15px;font-weight:700;padding:14px 28px;border-radius:999px;">${escapeHtml(opts.cta)}</a></td></tr>
+<tr><td align="center" style="padding:8px 32px 0;font-family:Georgia,serif;font-size:12px;line-height:1.5;color:#7a7088;">${escapeHtml(opts.fallback)}<br><a href="${link}" style="color:#8C659C;word-break:break-all;">${link}</a></td></tr>
+<tr><td align="center" style="padding:16px 32px 8px;font-family:Georgia,serif;font-size:13px;line-height:1.5;color:#7a7088;">${ignore}</td></tr>
+<tr><td align="center" style="padding:8px 28px 28px;">${signatureHtml(opts.imageSrc)}</td></tr>
+</table>
+</td></tr></table></body></html>`;
 }
 
 export async function sendAuthLinkEmail(opts: {
@@ -168,16 +194,26 @@ export async function sendAuthLinkEmail(opts: {
 }): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error("RESEND_MISSING");
-  const copy = COPY[normalizeAuthLanguage(opts.language)][opts.kind];
+  const lang = normalizeAuthLanguage(opts.language);
+  const copy = COPY[lang][opts.kind];
+  const buttons = BUTTONS[lang][opts.kind];
+  const [intro, ignore = ""] = copy.text.split("{{link}}");
   const body = copy.text.replace("{{link}}", opts.link);
   const image = signatureImage();
   const resend = new Resend(key);
   const payload = {
-    from: `My K-pop Binder <${SITE_ADMIN_EMAIL}>`,
+    from: `STAFF My K-Pop Binder <${SITE_ADMIN_EMAIL}>`,
     to: opts.to,
     subject: copy.subject,
     text: withSignatureText(body),
-    html: mailHtml(body, opts.link, image ? "cid:staff-signature" : SIGNATURE_URL),
+    html: mailHtml({
+      intro: intro.trim(),
+      ignore: ignore.trim(),
+      link: opts.link,
+      cta: buttons.cta,
+      fallback: buttons.fallback,
+      imageSrc: image ? "cid:staff-signature" : SIGNATURE_URL,
+    }),
     attachments: image
       ? [{ filename: "signature.jpg", content: image, contentType: "image/jpeg", contentId: "staff-signature" }]
       : undefined,

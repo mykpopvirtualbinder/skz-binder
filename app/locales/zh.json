@@ -1744,7 +1744,10 @@
     "placeholder_invite": "邀请码（可选）",
     "alert_invite_invalid": "这个邀请码不存在。请检查或留空。",
     "alert_invite_full": "这个邀请码已经用满 10 次。请换一个或留空。",
-    "alert_your_code": "感谢注册。你的邀请码是 {code}。它不会重复，最多使用 10 次。用它注册的人获得 {friend} 个 K-oins，你每带来一人获得 {referrer} 个 K-oins。"
+    "alert_your_code": "感谢注册。你的邀请码是 {code}。它不会重复，最多使用 10 次。用它注册的人获得 {friend} 个 K-oins，你每带来一人获得 {referrer} 个 K-oins。",
+    "confirm_code_label": "你的邀请码",
+    "confirm_code_hint": "它不会重复，最多使用 10 次。用它注册的人获得 {friend} 个 K-oins，你每带来一人获得 {referrer} 个 K-oins。",
+    "confirm_go_login": "去登录"
   },
   "report": {
     "title_part1": "举报",
