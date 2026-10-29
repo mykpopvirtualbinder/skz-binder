@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
-import { clearAdminActingAs, readAdminActingAs, type AdminActingAs } from "@/lib/admin-acting-as";
+import { clearAdminActingAs, readAdminActingAs, takeAdminReturnSession, type AdminActingAs } from "@/lib/admin-acting-as";
 import { fetchAdminPendingCount, fetchArsysUnseen } from "@/lib/admin-pending-count";
 import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 import {
@@ -1025,12 +1025,20 @@ export default function Header() {
   };
 
   const leaveActingAccount = async () => {
+    const saved = takeAdminReturnSession();
     clearAdminActingAs();
     setActingAs(null);
     try {
       localStorage.removeItem("me:profile");
     } catch {
       /* ignore */
+    }
+    if (saved) {
+      const { error } = await supabase.auth.setSession(saved);
+      if (!error) {
+        window.location.assign("/admin-panel");
+        return;
+      }
     }
     await supabase.auth.signOut();
     window.location.assign("/login?next=/admin-panel");

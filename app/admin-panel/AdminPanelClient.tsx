@@ -1584,14 +1584,16 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     const who = p.display_name || p.email || "este usuario";
     setConfirmDialog({
       title: tr("Ver perfil"),
-      message: `Vas a entrar en la cuenta de ${who}. Verás su stock, su binder, sus mensajes y sus ajustes, y lo que cambies se guarda en su cuenta. Para volver al panel tendrás que iniciar sesión otra vez como admin.`,
+      message: `Vas a entrar en la cuenta de ${who}. Verás su stock, su binder, sus mensajes y sus ajustes, y lo que cambies se guarda en su cuenta. Volver al admin recupera tu sesión, sin volver a escribir la contraseña.`,
       onConfirm: async () => {
         setLoading(true);
         try {
           const { data: sessionData } = await supabase.auth.getSession();
-          const accessToken = sessionData.session?.access_token;
-          if (!accessToken) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
-          if (sessionData.session?.user?.id === p.user_id) {
+          const session = sessionData.session;
+          const accessToken = session?.access_token;
+          const refreshToken = session?.refresh_token;
+          if (!accessToken || !refreshToken) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
+          if (session.user?.id === p.user_id) {
             window.location.assign("/me");
             return;
           }
@@ -1602,7 +1604,11 @@ const levantarSancion = async (userId: string, ticketId: string) => {
           });
           const json = (await res.json().catch(() => ({}))) as { error?: string; token_hash?: string };
           if (!res.ok || !json.token_hash) throw new Error(json.error || tr("No se pudo abrir esa cuenta."));
-          rememberAdminActingAs({ name: who });
+          rememberAdminActingAs({
+            name: who,
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
           try {
             localStorage.removeItem("me:profile");
             sessionStorage.removeItem("ui:language_override");
@@ -3017,7 +3023,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
               <span style={{ fontWeight: 900, color: p.is_restricted || p.is_banned ? "var(--state-danger-fg)" : "var(--text-main)", fontSize: "14px", textDecoration: p.is_restricted ? "line-through" : "none" }}>
-                {p.display_name || p.email || p.user_id.slice(0, 8)} {p.is_premium && <span title={tr("Usuario Premium")}>👑</span>} {p.is_artist && <span title={tr("Artista Verificado")}>✨</span>} {p.is_featured_artist && <span title={tr("Artista Estrella")}>🌟</span>} {p.is_restricted && <span title={tr("Cuenta Restringida")}>🛑</span>} {p.is_banned && <span title={tr("Login bloqueado")}>🔒</span>}
+                {p.display_name || p.email || p.user_id.slice(0, 8)} {isAdminTeamEmail(p.email) && <span title={tr("Equipo admin")} style={{ marginLeft: 6, fontSize: "11px", fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--bg-card)", background: "var(--text-main)", borderRadius: 999, padding: "2px 8px" }}>Admin</span>} {p.is_premium && <span title={tr("Usuario Premium")}>👑</span>} {p.is_artist && <span title={tr("Artista Verificado")}>✨</span>} {p.is_featured_artist && <span title={tr("Artista Estrella")}>🌟</span>} {p.is_restricted && <span title={tr("Cuenta Restringida")}>🛑</span>} {p.is_banned && <span title={tr("Login bloqueado")}>🔒</span>}
               </span>
               <span style={{ fontSize: "10px", fontWeight: 900, color: bucketColor }}>{bucketText}</span>
             </div>

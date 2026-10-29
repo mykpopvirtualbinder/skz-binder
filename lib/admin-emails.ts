@@ -11,6 +11,7 @@ export const ADMIN_TEAM_EMAILS = [
   "info@mykpopbinder.com",
   "anabmtnez78@hotmail.com",
   "mysafekspace@gmail.com",
+  "sfckern@gmail.com",
   "paula.azules@gmail.com",
   "jimena.esteban.martinez@gmail.com",
 ] as const;

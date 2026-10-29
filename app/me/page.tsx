@@ -12,7 +12,7 @@ import {
   AvatarModalInsigniasSection,
   type VipBadgeSectionKey,
 } from "./ui/AvatarModalInsigniasSection";
-import { isAdminTeamEmail, isSiteAdminSession } from "@/lib/admin-emails";
+import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { adminRemoveContent } from "@/lib/admin-moderate-client";
 import { isSiteAdminUser } from "@/lib/site-admin-stock";
 import { collectionCardQty, emptyCollectionCounts, loadCollectionSummary, type CollectionCounts } from "@/lib/collection-summary";
@@ -37,6 +37,8 @@ import { parseChatDeal, serializeChatDeal, newDealId, offerFromTerms, dealPrevie
 import { saveNoticeReturn, readNoticeReturn, clearNoticeReturn } from "@/lib/notice-return";
 import OfferDealModal from "./OfferDealModal";
 import ImageWithExtensionFallback from "../components/ImageWithExtensionFallback";
+import NoticeLetter from "./NoticeLetter";
+import { isUserToUserMessage } from "@/lib/user-message";
 
 type TabKey = "home" | "groups" | "fanzone" | "notices";
 
@@ -626,7 +628,7 @@ function MePageContent() {
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const isAdmin = isAdminTeamEmail(loggedSessionEmail);
-  const showAdminPanelShortcut = isSiteAdminSession(loggedSessionEmail);
+  const showAdminPanelShortcut = isAdmin;
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -721,6 +723,7 @@ function MePageContent() {
   const [newPassword, setNewPassword] = useState("");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [noticeReadFilter, setNoticeReadFilter] = useState<"all" | "unread" | "read">("all");
+  const [readingNotice, setReadingNotice] = useState<Notification | null>(null);
   const [fanzoneReadFilter, setFanzoneReadFilter] = useState<"all" | "unread" | "read">("all");
   const [fzFilter, setFzFilter] = useState('all');
   const [selectedNotices, setSelectedNotices] = useState<Set<string>>(new Set());
@@ -1263,7 +1266,7 @@ function MePageContent() {
       const newMsg = payload.new as Notification;
       fetchNotifications();
       window.dispatchEvent(new Event("update_notifications"));
-      if (activeChatUserRef.current && newMsg.sender_id === activeChatUserRef.current.id) {
+      if (activeChatUserRef.current && newMsg.sender_id === activeChatUserRef.current.id && isUserToUserMessage(newMsg.type)) {
         setChatHistory(prev => [...prev, newMsg]);
         supabase.from("notifications").update({ read: true }).eq("id", newMsg.id).then(() => {
           window.dispatchEvent(new Event("update_notifications"));
@@ -1313,7 +1316,7 @@ function MePageContent() {
         return acc;
       }, {});
       setTranslatedMessages((prev) => ({ ...cached, ...prev }));
-      setChatHistory(rows);
+      setChatHistory(rows.filter((row) => isUserToUserMessage(row.type)));
     }
     setIsLoadingChat(false);
   };
@@ -1439,7 +1442,11 @@ function MePageContent() {
       return;
     }
 
-    openChat(n);
+    if (isUserToUserMessage(n.type)) {
+      openChat(n);
+      return;
+    }
+    setReadingNotice(n);
   };
 
   useEffect(() => {
@@ -2736,6 +2743,23 @@ function MePageContent() {
           )}
         </div>
       </main>
+      {readingNotice ? (
+        <NoticeLetter
+          notice={readingNotice}
+          onClose={() => setReadingNotice(null)}
+          labels={{
+            close: t("common.close"),
+            from: t("me.notice_from"),
+            accept: t("me.deal_accept"),
+            reject: t("me.deal_reject"),
+            counter: t("me.deal_counter"),
+            settled: t("me.deal_settled"),
+            confirm: t("me.deal_confirm_success"),
+            wts: t("me.wts_offer"),
+            trade: t("me.trade_offer"),
+          }}
+        />
+      ) : null}
      {/* MODAL DE CHAT */}
       {activeChatUser && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "var(--overlay-strong)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 6000, padding: "20px", backdropFilter: "blur(4px)" }} onClick={closeChat}>
