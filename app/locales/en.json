@@ -2352,6 +2352,12 @@
     "alert_success": "Password updated! ✨ You can now log in.",
     "btn_submit": "CHANGE PASSWORD"
   },
+  "auth_confirm": {
+    "title": "Confirming your account",
+    "working": "One moment. We are activating this link.",
+    "error": "This link is no longer valid or has already been used. Sign in with your email and password, or request another one from the login page.",
+    "login": "Go to sign in"
+  },
   "public_profile": {
     "loading_msg": "✨ Entering the world of...",
     "premium_title": "Premium User",

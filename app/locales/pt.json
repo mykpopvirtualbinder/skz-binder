@@ -2114,6 +2114,12 @@
     "alert_success": "Senha atualizada! ✨ Já podes entrar.",
     "btn_submit": "MUDAR SENHA"
   },
+  "auth_confirm": {
+    "title": "A confirmar a conta",
+    "working": "Um momento. Estamos a ativar este link.",
+    "error": "Este link já não é válido ou já foi usado. Entra com o email e a palavra-passe, ou pede outro na página de início de sessão.",
+    "login": "Ir para o início de sessão"
+  },
   "public_profile": {
     "loading_msg": "✨ A entrar no mundo de...",
     "premium_title": "Utilizador Premium",

@@ -2114,6 +2114,12 @@
     "alert_success": "密码更新成功！✨ 现在你可以登录了。",
     "btn_submit": "更改密码"
   },
+  "auth_confirm": {
+    "title": "正在确认账户",
+    "working": "请稍等，正在激活这个链接。",
+    "error": "这个链接已失效或已经使用过。请用邮箱和密码登录，或在登录页再要一封。",
+    "login": "去登录"
+  },
   "public_profile": {
     "loading_msg": "✨ 正在进入属于TA的世界...",
     "premium_title": "Premium 尊享用户",

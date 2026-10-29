@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
-import { sendAuthLinkEmail } from "@/lib/auth-link-mail";
+import { buildAuthConfirmLink, sendAuthLinkEmail } from "@/lib/auth-link-mail";
 import { saveUserInviteCode } from "@/lib/invite-code";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
@@ -105,8 +105,9 @@ export async function POST(req: Request) {
         email,
         options: { redirectTo: recoveryRedirect },
       });
-      const actionLink = asRecord(linkData?.properties).action_link;
-      const recoveryLink = typeof actionLink === "string" ? actionLink : null;
+      const props = asRecord(linkData?.properties);
+      const tokenHash = typeof props.hashed_token === "string" ? props.hashed_token : "";
+      const recoveryLink = buildAuthConfirmLink(recoveryRedirect, tokenHash, "recovery");
       if (linkErr || !recoveryLink) {
         return NextResponse.json(
           { error: linkErr?.message || "No se pudo crear el enlace de recuperación." },

@@ -2150,6 +2150,12 @@
     "alert_success": "Passwort aktualisiert! ✨ Du kannst dich jetzt einloggen.",
     "btn_submit": "PASSWORT ÄNDERN"
   },
+  "auth_confirm": {
+    "title": "Konto wird bestätigt",
+    "working": "Einen Moment. Wir aktivieren diesen Link.",
+    "error": "Dieser Link ist nicht mehr gültig oder wurde schon verwendet. Melde dich mit E-Mail und Passwort an oder fordere auf der Anmeldeseite einen neuen an.",
+    "login": "Zur Anmeldung"
+  },
   "public_profile": {
     "loading_msg": "✨ Betrete die Welt von...",
     "premium_title": "Premium-Nutzer",

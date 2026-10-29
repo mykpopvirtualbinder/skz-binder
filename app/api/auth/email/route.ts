@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { rememberAccountCountry } from "@/lib/account-country";
 import { attachPendingInvite, ensureOwnInviteCode, findInviterByCode, INVITE_USE_LIMIT, normalizeInviteCode } from "@/lib/invite-code";
-import { allowedAuthRedirect, sendAuthLinkEmail, type AuthMailKind } from "@/lib/auth-link-mail";
+import { allowedAuthRedirect, buildAuthConfirmLink, sendAuthLinkEmail, type AuthMailKind } from "@/lib/auth-link-mail";
 import { countryFromRequest } from "@/lib/request-country";
 import { normalizeSiteLanguage } from "@/lib/site-language";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
@@ -13,10 +13,17 @@ function cleanEmail(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-function actionLink(properties: unknown): string | null {
+function confirmLink(
+  properties: unknown,
+  redirectTo: string,
+  fallback: "signup" | "recovery" | "magiclink",
+): string | null {
   if (!properties || typeof properties !== "object") return null;
-  const link = (properties as { action_link?: unknown }).action_link;
-  return typeof link === "string" && link.startsWith("http") ? link : null;
+  const record = properties as { hashed_token?: unknown; verification_type?: unknown };
+  const hash = typeof record.hashed_token === "string" ? record.hashed_token : "";
+  const reported = record.verification_type;
+  const type = reported === "signup" || reported === "recovery" || reported === "magiclink" ? reported : fallback;
+  return buildAuthConfirmLink(redirectTo, hash, type);
 }
 
 export async function POST(req: Request) {
@@ -94,7 +101,7 @@ export async function POST(req: Request) {
     }
 
     const signupPayload = { userId, inviteCode: ownCode, friendKoins: 100, referrerKoins: 100 };
-    const link = actionLink(data.properties);
+    const link = confirmLink(data.properties, redirectTo, "signup");
     if (!link) {
       return NextResponse.json({ code: "mail_failed", ...signupPayload }, { status: 502 });
     }
@@ -115,7 +122,7 @@ export async function POST(req: Request) {
     email,
     options: { redirectTo },
   });
-  const link = actionLink(data?.properties);
+  const link = confirmLink(data?.properties, redirectTo, linkType);
   if (error || !link) {
     return NextResponse.json({ ok: true });
   }

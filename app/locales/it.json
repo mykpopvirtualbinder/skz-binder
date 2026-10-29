@@ -2150,6 +2150,12 @@
     "alert_success": "Password aggiornata! ✨ Ora puoi accedere.",
     "btn_submit": "CAMBIA PASSWORD"
   },
+  "auth_confirm": {
+    "title": "Conferma dell'account",
+    "working": "Un momento. Stiamo attivando questo link.",
+    "error": "Questo link non è più valido oppure è già stato usato. Entra con email e password, oppure richiedine un altro dalla pagina di accesso.",
+    "login": "Vai all'accesso"
+  },
   "public_profile": {
     "loading_msg": "✨ Entrando nel mondo di...",
     "premium_title": "Utente Premium",

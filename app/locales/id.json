@@ -2150,6 +2150,12 @@
     "alert_success": "Kata sandi diperbarui! ✨ Kamu sekarang bisa masuk.",
     "btn_submit": "UBAH KATA SANDI"
   },
+  "auth_confirm": {
+    "title": "Mengonfirmasi akun",
+    "working": "Sebentar. Kami sedang mengaktifkan tautan ini.",
+    "error": "Tautan ini sudah tidak berlaku atau sudah dipakai. Masuk dengan email dan kata sandi, atau minta tautan baru dari halaman masuk.",
+    "login": "Ke halaman masuk"
+  },
   "public_profile": {
     "loading_msg": "✨ Memasuki dunia dari...",
     "premium_title": "Pengguna Premium",

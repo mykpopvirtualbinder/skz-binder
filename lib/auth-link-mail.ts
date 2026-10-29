@@ -135,6 +135,14 @@ export function normalizeAuthLanguage(value: string | null | undefined): string 
   return (LOCALES as readonly string[]).includes(base) ? base : "en";
 }
 
+const APEX_TO_WWW: Record<string, string> = {
+  "mykpopbinder.com": "www.mykpopbinder.com",
+  "mykpopbinder.es": "www.mykpopbinder.es",
+  "mykpopbinder.eu": "www.mykpopbinder.eu",
+};
+
+const OTP_TYPES = new Set(["signup", "recovery", "magiclink"]);
+
 export function allowedAuthRedirect(value: string): string | null {
   try {
     const url = new URL(value);
@@ -146,6 +154,23 @@ export function allowedAuthRedirect(value: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** Enlace de la web. Confirma el token aquí y no depende del redirect de Supabase. */
+export function buildAuthConfirmLink(redirectTo: string, tokenHash: string, type: string): string | null {
+  const hash = tokenHash.trim();
+  if (hash.length < 16 || hash.length > 2000 || !OTP_TYPES.has(type)) return null;
+  const allowed = allowedAuthRedirect(redirectTo);
+  if (!allowed) return null;
+  const target = new URL(allowed);
+  const host = APEX_TO_WWW[target.hostname.toLowerCase()] || target.hostname;
+  const origin = `${target.protocol}//${host}${target.port ? `:${target.port}` : ""}`;
+  const next = `${target.pathname}${target.search}`;
+  const link = new URL("/auth/confirm", origin);
+  link.searchParams.set("token_hash", hash);
+  link.searchParams.set("type", type);
+  if (next && next !== "/") link.searchParams.set("next", next);
+  return link.toString();
 }
 
 function escapeHtml(value: string) {

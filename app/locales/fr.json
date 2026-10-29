@@ -2150,6 +2150,12 @@
     "alert_success": "Mot de passe mis à jour ! ✨ Tu peux maintenant te connecter.",
     "btn_submit": "CHANGER LE MOT DE PASSE"
   },
+  "auth_confirm": {
+    "title": "Confirmation du compte",
+    "working": "Un instant. Nous activons ce lien.",
+    "error": "Ce lien n'est plus valable ou a déjà été utilisé. Connecte-toi avec ton e-mail et ton mot de passe, ou demande-en un autre depuis la page de connexion.",
+    "login": "Aller à la connexion"
+  },
   "public_profile": {
     "loading_msg": "✨ Entrée dans le monde de...",
     "premium_title": "Utilisateur Premium",

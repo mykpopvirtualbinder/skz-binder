@@ -2352,6 +2352,12 @@
     "alert_success": "¡Contraseña actualizada! ✨ Ya puedes entrar.",
     "btn_submit": "CAMBIAR CONTRASEÑA"
   },
+  "auth_confirm": {
+    "title": "Confirmando tu cuenta",
+    "working": "Un momento. Estamos activando el enlace.",
+    "error": "Este enlace ya no vale o ya se ha usado. Entra con tu correo y contraseña, o pide otro desde el inicio de sesión.",
+    "login": "Ir a iniciar sesión"
+  },
   "public_profile": {
     "loading_msg": "✨ Entrando en el mundo de...",
     "premium_title": "Usuario Premium",
