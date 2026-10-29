@@ -1351,7 +1351,11 @@
       "no_comments": "No comments yet.",
       "err_photo": "The photo must be JPG, PNG, or WEBP and under 4 MB.",
       "err_form": "Check the required fields and try again.",
-      "err_own": "You cannot rate, comment on, or message your own profile."
+      "err_own": "You cannot rate, comment on, or message your own profile.",
+      "url": "URL (website, Linktree, form…)",
+      "social_hint": "You don't have to fill every network, but add at least one.",
+      "err_social": "Add at least one social network.",
+      "err_save": "The application could not be saved. Try again."
     },
     "offered": "OFFERING",
     "wanted": "LOOKING FOR",

@@ -12,6 +12,7 @@ type Row = {
   firstName: string;
   lastName: string;
   phone: string;
+  url: string;
   socials: GomSocials;
   goTypes: string;
   requirements: string;
@@ -90,6 +91,7 @@ export default function GomReview() {
             )}
           </div>
           <div style={{ fontWeight: 700 }}>{row.firstName} {row.lastName} · {row.phone}</div>
+          {row.url ? <div style={{ fontWeight: 700 }}>{tr("URL")}: {row.url}</div> : null}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 13, fontWeight: 700 }}>
             {GOM_SOCIALS.filter((field) => row.socials[field.key]).map((field) => (
               <span key={field.key}>{field.label}: {row.socials[field.key]}</span>

@@ -428,7 +428,7 @@ const [menuEstadoDenuncia, setMenuEstadoDenuncia] = useState(false);
     const { data: bData } = await supabase.from('buzon_colaboraciones').select('*').order('created_at', { ascending: false });
     const { data: aData } = await supabase.from('aportaciones_pcs').select('*').order('created_at', { ascending: false });
 
-    const buzonList = bData || [];
+    const buzonList = (bData || []).filter((b) => !String(b.asunto || "").startsWith("gom-"));
     const aportacionesList = aData || [];
 
     const userIds = new Set<string>();

@@ -30,6 +30,14 @@ export function emptyGomSocials(): GomSocials {
   };
 }
 
+export function websiteHref(value: string) {
+  const raw = value.trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.includes(".")) return `https://${raw.replace(/^\/+/, "")}`;
+  return "";
+}
+
 export function socialHref(key: GomSocialKey, value: string) {
   const raw = value.trim();
   if (!raw) return "";

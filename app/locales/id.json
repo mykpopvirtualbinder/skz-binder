@@ -1212,7 +1212,11 @@
       "no_comments": "Belum ada komentar.",
       "err_photo": "Foto harus JPG, PNG, atau WEBP dan di bawah 4 MB.",
       "err_form": "Periksa kolom wajib dan coba lagi.",
-      "err_own": "Kamu tidak bisa menilai, mengomentari, atau mengirim pesan ke profilmu sendiri."
+      "err_own": "Kamu tidak bisa menilai, mengomentari, atau mengirim pesan ke profilmu sendiri.",
+      "url": "URL (situs, Linktree, formulir…)",
+      "social_hint": "Tidak perlu mengisi semua jaringan, tapi isi minimal satu.",
+      "err_social": "Isi minimal satu media sosial.",
+      "err_save": "Pendaftaran tidak tersimpan. Coba lagi."
     },
     "offered": "MENAWARKAN",
     "wanted": "MENCARI",

@@ -1212,7 +1212,11 @@
       "no_comments": "Pas encore de commentaires.",
       "err_photo": "La photo doit être en JPG, PNG ou WEBP et faire moins de 4 Mo.",
       "err_form": "Vérifie les champs obligatoires et réessaie.",
-      "err_own": "Tu ne peux pas noter, commenter ou t'écrire sur ton propre profil."
+      "err_own": "Tu ne peux pas noter, commenter ou t'écrire sur ton propre profil.",
+      "url": "URL (site, Linktree, formulaire…)",
+      "social_hint": "Pas besoin de remplir tous les réseaux, mais ajoute-en au moins un.",
+      "err_social": "Ajoute au moins un réseau social.",
+      "err_save": "La demande n'a pas pu être enregistrée. Réessaie."
     },
     "offered": "ILS OFFRENT",
     "wanted": "ILS CHERCHENT",

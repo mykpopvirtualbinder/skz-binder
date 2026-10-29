@@ -1175,7 +1175,11 @@
       "no_comments": "Ainda não há comentários.",
       "err_photo": "A foto tem de ser JPG, PNG ou WEBP e ter menos de 4 MB.",
       "err_form": "Revê os campos obrigatórios e tenta outra vez.",
-      "err_own": "Não podes avaliar, comentar ou escrever no teu próprio perfil."
+      "err_own": "Não podes avaliar, comentar ou escrever no teu próprio perfil.",
+      "url": "URL (site, Linktree, formulário…)",
+      "social_hint": "Não precisas de preencher todas as redes, mas põe pelo menos uma.",
+      "err_social": "Põe pelo menos uma rede social.",
+      "err_save": "Não foi possível guardar o pedido. Tenta outra vez."
     },
     "offered": "OFERECEM",
     "wanted": "PROCURAM",

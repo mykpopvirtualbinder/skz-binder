@@ -38,6 +38,7 @@ async function countUnreadBuzon() {
       .from("buzon_colaboraciones")
       .select("id")
       .neq("asunto", ADMIN_QUEUE_SUBJECT)
+      .not("asunto", "like", "gom-%")
       .or(OPEN_STATUS)
       .limit(1000),
     supabase

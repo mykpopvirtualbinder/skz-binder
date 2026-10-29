@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 import { userFromBearer } from "@/lib/gom-server";
+import { listGomProfiles, rateGom } from "@/lib/gom-store";
 
 export async function POST(req: Request) {
   const user = await userFromBearer(req);
@@ -12,13 +13,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "missing" }, { status: 400 });
   }
   const admin = createServiceRoleClient();
-  const { data: gom } = await admin.from("gom_profiles").select("id, user_id, status").eq("id", gomId).maybeSingle();
+  const profiles = await listGomProfiles(admin);
+  const gom = profiles.find((row) => row.id === gomId);
   if (!gom || gom.status !== "approved") return NextResponse.json({ error: "missing" }, { status: 404 });
-  if (gom.user_id === user.id) return NextResponse.json({ error: "own" }, { status: 400 });
-  const { error } = await admin.from("gom_ratings").upsert(
-    { gom_id: gomId, user_id: user.id, score },
-    { onConflict: "gom_id,user_id" },
-  );
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (gom.userId === user.id) return NextResponse.json({ error: "own" }, { status: 400 });
+  try {
+    await rateGom(admin, gomId, user.id, score);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "save";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

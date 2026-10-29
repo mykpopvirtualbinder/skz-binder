@@ -1212,7 +1212,11 @@
       "no_comments": "Ancora nessun commento.",
       "err_photo": "La foto deve essere JPG, PNG o WEBP e pesare meno di 4 MB.",
       "err_form": "Controlla i campi obbligatori e riprova.",
-      "err_own": "Non puoi valutare, commentare o scrivere al tuo stesso profilo."
+      "err_own": "Non puoi valutare, commentare o scrivere al tuo stesso profilo.",
+      "url": "URL (sito, Linktree, modulo…)",
+      "social_hint": "Non serve compilare tutti i social, ma mettine almeno uno.",
+      "err_social": "Inserisci almeno un social.",
+      "err_save": "La richiesta non si è salvata. Riprova."
     },
     "offered": "OFFRONO",
     "wanted": "CERCANO",

@@ -1212,7 +1212,11 @@
       "no_comments": "Noch keine Kommentare.",
       "err_photo": "Das Foto muss JPG, PNG oder WEBP sein und unter 4 MB liegen.",
       "err_form": "Prüfe die Pflichtfelder und versuch es noch einmal.",
-      "err_own": "Du kannst dein eigenes Profil nicht bewerten, kommentieren oder anschreiben."
+      "err_own": "Du kannst dein eigenes Profil nicht bewerten, kommentieren oder anschreiben.",
+      "url": "URL (Webseite, Linktree, Formular…)",
+      "social_hint": "Du musst nicht jedes Netzwerk ausfüllen, aber mindestens eines.",
+      "err_social": "Trag mindestens ein soziales Netzwerk ein.",
+      "err_save": "Die Anmeldung konnte nicht gespeichert werden. Versuch es noch einmal."
     },
     "offered": "BIETEN AN",
     "wanted": "SUCHEN",

@@ -1175,7 +1175,11 @@
       "no_comments": "还没有评论。",
       "err_photo": "照片需为 JPG、PNG 或 WEBP，且小于 4 MB。",
       "err_form": "请检查必填项后再试一次。",
-      "err_own": "不能给自己的资料评分、评论或发消息。"
+      "err_own": "不能给自己的资料评分、评论或发消息。",
+      "url": "URL（网站、Linktree、表单…）",
+      "social_hint": "不用填满每个社交账号，但至少填一个。",
+      "err_social": "请至少填写一个社交账号。",
+      "err_save": "申请没有保存成功。请再试一次。"
     },
     "offered": "出",
     "wanted": "收/求",

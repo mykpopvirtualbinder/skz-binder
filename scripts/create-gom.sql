@@ -10,6 +10,7 @@ create table if not exists public.gom_profiles (
   first_name text not null,
   last_name text not null,
   phone text not null,
+  url text not null default '',
   instagram text not null default '',
   tiktok text not null default '',
   whatsapp text not null default '',

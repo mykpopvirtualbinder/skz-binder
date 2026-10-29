@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useGlobal } from "../context/GlobalContext";
 import { requireLoggedIn } from "@/lib/auth-gate";
-import { GOM_SOCIALS, emptyGomSocials, socialHref, type GomSocials } from "@/lib/gom";
+import { GOM_SOCIALS, emptyGomSocials, socialHref, websiteHref, type GomSocials } from "@/lib/gom";
 
 type Comment = { id: string; userId: string; body: string; createdAt: string; name: string; avatar: string | null };
 type GomCard = {
@@ -13,6 +13,7 @@ type GomCard = {
   displayName: string;
   photoUrl: string;
   socials: GomSocials;
+  url: string;
   goTypes: string;
   requirements: string;
   howItWorks: string;
@@ -80,6 +81,7 @@ export default function GomPanel({ search }: { search: string }) {
     firstName: "",
     lastName: "",
     phone: "",
+    url: "",
     goTypes: "",
     requirements: "",
     howItWorks: "",
@@ -123,6 +125,15 @@ export default function GomPanel({ search }: { search: string }) {
 
   const submit = async () => {
     if (!needLogin() || busy) return;
+    const hasSocial = GOM_SOCIALS.some((field) => form.socials[field.key].trim());
+    if (!form.displayName.trim() || !form.firstName.trim() || !form.lastName.trim() || !form.phone.trim() || !form.url.trim() || !form.goTypes.trim() || !form.requirements.trim() || !form.howItWorks.trim() || !form.photo) {
+      showAlert(t("market.gom.signup"), t("market.gom.err_form"));
+      return;
+    }
+    if (!hasSocial) {
+      showAlert(t("market.gom.signup"), t("market.gom.err_social"));
+      return;
+    }
     const headers = await authHeaders();
     if (!headers) return;
     const body = new FormData();
@@ -130,6 +141,7 @@ export default function GomPanel({ search }: { search: string }) {
     body.set("firstName", form.firstName);
     body.set("lastName", form.lastName);
     body.set("phone", form.phone);
+    body.set("url", form.url);
     body.set("goTypes", form.goTypes);
     body.set("requirements", form.requirements);
     body.set("howItWorks", form.howItWorks);
@@ -140,7 +152,8 @@ export default function GomPanel({ search }: { search: string }) {
     setBusy(false);
     if (!res.ok) {
       const json = await res.json().catch(() => null);
-      const key = json?.error === "photo" ? "market.gom.err_photo" : json?.error === "auth" ? "auth.login_required_body" : "market.gom.err_form";
+      const code = json?.error;
+      const key = code === "photo" ? "market.gom.err_photo" : code === "social" ? "market.gom.err_social" : code === "missing" ? "market.gom.err_form" : code === "auth" ? "auth.login_required_body" : "market.gom.err_save";
       showAlert(t("market.gom.signup"), t(key));
       return;
     }
@@ -289,6 +302,11 @@ export default function GomPanel({ search }: { search: string }) {
                 </div>
               </div>
             </div>
+            {open.url ? (
+              <p style={{ margin: "14px 0 0", fontWeight: 800 }}>
+                <a href={websiteHref(open.url) || undefined} target="_blank" rel="noreferrer" style={{ color: "#8C659C" }}>{open.url}</a>
+              </p>
+            ) : null}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
               {GOM_SOCIALS.filter((field) => open.socials[field.key]).map((field) => {
                 const href = socialHref(field.key, open.socials[field.key]);
@@ -352,12 +370,14 @@ export default function GomPanel({ search }: { search: string }) {
                 <input required value={form.lastName} placeholder={t("market.gom.last_name")} style={fieldStyle} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
               </div>
               <input required value={form.phone} placeholder={t("market.gom.phone")} style={fieldStyle} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <input required value={form.url} placeholder={t("market.gom.url")} inputMode="url" style={fieldStyle} onChange={(e) => setForm({ ...form, url: e.target.value })} />
               <label style={{ fontWeight: 800, fontSize: 13 }}>{t("market.gom.photo")}</label>
-              <input required={!form.preview} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => {
+              <input required={!form.preview} type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(e) => {
                 const file = e.target.files?.[0] || null;
                 setForm({ ...form, photo: file, preview: file ? URL.createObjectURL(file) : "" });
               }} />
               {form.preview ? <img src={form.preview} alt="" style={{ width: 88, height: 88, objectFit: "cover", borderRadius: 16 }} /> : null}
+              <p style={{ margin: "4px 0 0", fontWeight: 800, fontSize: 13, color: "var(--text-muted)" }}>{t("market.gom.social_hint")}</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {GOM_SOCIALS.map((field) => (
                   <input key={field.key} value={form.socials[field.key]} placeholder={field.label} style={fieldStyle} onChange={(e) => setForm({ ...form, socials: { ...form.socials, [field.key]: e.target.value } })} />
