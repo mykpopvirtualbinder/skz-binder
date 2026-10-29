@@ -7,6 +7,7 @@ import Header from "./components/header";
 import IntroSplash from "./components/IntroSplash";
 import SiteJsonLd from "./components/SiteJsonLd";
 import UserTourHost from "./components/UserTourHost";
+import RequiredSignupGate from "./components/RequiredSignupGate";
 import { THEME_BOOT_SCRIPT, THEME_COOKIE, themeIdFromUnknown } from "@/lib/theme-persist";
 import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site-seo";
 
@@ -90,6 +91,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Header />
             <IntroSplash />
             <UserTourHost />
+            <RequiredSignupGate />
             
             {/* El contenido de las páginas carga aquí */}
             <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, width: "100%" }}>

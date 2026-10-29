@@ -1371,7 +1371,9 @@
     "minor_warning": "Ciao! Poiché sei minorenne, abbiamo bisogno che un adulto ti dia il permesso di utilizzare le funzionalità di compravendita e di vedere tutta l'arte della community. 🛑",
     "minor_consent": "Confermo di avere il permesso dei miei genitori o tutori legali per utilizzare My Kpop Binder, accedere al Market e a tutti i suoi contenuti sotto la loro supervisione.",
     "adult_consent": "Confermo di avere più di 18 anni e accetto di utilizzare My Kpop Binder, accedere al Market e a tutti i suoi contenuti sotto la mia responsabilità.",
-    "btn_start": "INIZIA A COLLEZIONARE! 💖"
+    "btn_start": "INIZIA A COLLEZIONARE! 💖",
+    "required_title": "Completa la registrazione",
+    "required_lead": "Per continuare a usare il sito, aggiungi i tuoi dati, i tuoi gruppi e il consenso."
   },
   "me": {
     "loading": "Caricamento...",

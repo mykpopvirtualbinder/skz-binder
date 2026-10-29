@@ -1371,7 +1371,9 @@
     "minor_warning": "Halo! Karena kamu masih di bawah umur, kami membutuhkan orang dewasa untuk memberikan izin agar kamu dapat menggunakan fitur jual/beli dan melihat semua karya komunitas. 🛑",
     "minor_consent": "Saya mengonfirmasi bahwa saya memiliki izin dari orang tua atau wali sah untuk menggunakan My Kpop Binder, mengakses Market dan seluruh kontennya di bawah pengawasan mereka.",
     "adult_consent": "Saya mengonfirmasi bahwa saya berusia di atas 18 tahun dan setuju untuk menggunakan My Kpop Binder, mengakses Market dan seluruh kontennya atas tanggung jawab saya sendiri.",
-    "btn_start": "MULAI MENGOLEKSI! 💖"
+    "btn_start": "MULAI MENGOLEKSI! 💖",
+    "required_title": "Selesaikan pendaftaranmu",
+    "required_lead": "Untuk tetap memakai situs ini, lengkapi datamu, grupmu, dan persetujuanmu."
   },
   "me": {
     "loading": "Memuat...",

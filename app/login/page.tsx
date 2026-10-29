@@ -5,6 +5,7 @@ import { useGlobal } from "../context/GlobalContext";
 import Footer from "../components/footer";
 import { supabase } from "@/lib/supabase";
 import { applyPendingSignupProfileIfAny } from "@/lib/pending-signup-profile";
+import { SIGNUP_FORM_REQUIRED_USER_ID } from "@/lib/required-signup-form";
 import { Eye, EyeOff, Check } from "lucide-react";
 
 const inputStyle: React.CSSProperties = { 
@@ -67,7 +68,7 @@ export default function LoginPage() {
     setShowResendConfirmation(false);
 
     const user = data.session?.user;
-    if (user) {
+    if (user && user.id !== SIGNUP_FORM_REQUIRED_USER_ID) {
       const pendingRes = await applyPendingSignupProfileIfAny(supabase, user);
       if (pendingRes.error) {
         console.error("applyPendingSignupProfileIfAny:", pendingRes.error);

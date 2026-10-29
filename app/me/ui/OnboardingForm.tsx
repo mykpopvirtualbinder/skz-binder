@@ -296,7 +296,9 @@ export function OnboardingForm({
             {t('common.back')}
           </button>
         )}
-        <button 
+        <button
+          type="button"
+          data-kbd="confirm"
           disabled={
             (step === 1 && selectedGroups.length === 0) || 
             (step === 3 && (!birthdate || !hasConsent)) ||
