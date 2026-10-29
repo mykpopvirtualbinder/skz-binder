@@ -6,7 +6,6 @@ export const EQUIPO_VIP_EMAILS = [
   "anabmtnez78@hotmail.com",
   "paula.azules@gmail.com",
   "mysafekspace@gmail.com",
-  "sfckern@gmail.com",
   "jimena.esteban.martinez@gmail.com",
 ] as const;
 
