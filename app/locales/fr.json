@@ -1772,7 +1772,8 @@
     "alert_title_validation": "Vérifie tes informations",
     "alert_title_verify_email": "Confirme ton email",
     "alert_verify_email": "Nous t'avons envoyé un lien de confirmation. Une fois confirmé et connecté, ton profil sera complété automatiquement. Jusque-là, le compte reste inactif.",
-    "alert_verify_email_with_issue": "Ton compte a bien été créé, mais nous n'avons pas pu envoyer l'email de confirmation pour le moment ({error}). Essaie de te connecter et utilise \"Renvoyer la confirmation\" si nécessaire."
+    "alert_verify_email_with_issue": "Ton compte a bien été créé, mais nous n'avons pas pu envoyer l'email de confirmation pour le moment ({error}). Essaie de te connecter et utilise \"Renvoyer la confirmation\" si nécessaire.",
+    "alert_email_taken": "Cet e-mail a déjà un compte. Connecte-toi ou réinitialise le mot de passe."
   },
   "report": {
     "title_part1": "SIGNALER",

@@ -24,7 +24,7 @@ const inputStyle: React.CSSProperties = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t, refreshGlobal, showAlert, showPrompt } = useGlobal();
+  const { t, refreshGlobal, showAlert, showPrompt, uiLanguage } = useGlobal();
   const [isMobile, setIsMobile] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -88,10 +88,17 @@ export default function LoginPage() {
       async (emailToReset) => {
         const target = emailToReset.trim();
         if (!target) return;
-        const { error } = await supabase.auth.resetPasswordForEmail(target, {
-          redirectTo: `${window.location.origin}/update-password`,
+        const res = await fetch("/api/auth/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "recovery",
+            email: target,
+            redirectTo: `${window.location.origin}/update-password`,
+            language: uiLanguage,
+          }),
         });
-        if (error) showAlert(t("login.error_title"), t("login.error_generic"));
+        if (!res.ok) showAlert(t("login.error_title"), t("login.error_generic"));
         else showAlert(t("login.sent_title"), t("login.reset_password_success"));
       },
       { hideAnonymous: true, confirmLabel: t("common.confirm"), placeholder: t("login.email_placeholder") },
@@ -104,14 +111,17 @@ export default function LoginPage() {
       showAlert(t("login.error_title"), t("login.resend_confirmation_need_email"));
       return;
     }
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email: targetEmail,
-      options: {
-        emailRedirectTo: `${window.location.origin}/login`,
-      },
+    const res = await fetch("/api/auth/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "resend",
+        email: targetEmail,
+        redirectTo: `${window.location.origin}/login`,
+        language: uiLanguage,
+      }),
     });
-    if (error) {
+    if (!res.ok) {
       showAlert(t("login.error_title"), t("login.error_generic"));
       return;
     }

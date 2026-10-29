@@ -1736,7 +1736,8 @@
     "alert_title_validation": "Verifica os dados",
     "alert_title_verify_email": "Confirma o teu email",
     "alert_verify_email": "Enviámos-te um link de confirmação. Depois de confirmares e iniciares sessão, completaremos o teu perfil automaticamente. Até lá, a conta não fica ativa.",
-    "alert_verify_email_with_issue": "A tua conta foi criada, mas não foi possível enviar o email de confirmação agora ({error}). Tenta iniciar sessão e usa \"Reenviar confirmação\" se necessário."
+    "alert_verify_email_with_issue": "A tua conta foi criada, mas não foi possível enviar o email de confirmação agora ({error}). Tenta iniciar sessão e usa \"Reenviar confirmação\" se necessário.",
+    "alert_email_taken": "Este email já tem uma conta. Inicia sessão ou repõe a palavra-passe."
   },
   "report": {
     "title_part1": "DENUNCIAR",

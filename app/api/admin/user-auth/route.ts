@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
+import { sendAuthLinkEmail } from "@/lib/auth-link-mail";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
 const ACTIONS = [
@@ -97,34 +98,38 @@ export async function POST(req: Request) {
     if (action === "reset_password") {
       if (!email) return NextResponse.json({ error: "Este usuario no tiene email." }, { status: 400 });
 
-      const { error: mailErr } = await admin.auth.resetPasswordForEmail(email, {
-        redirectTo: recoveryRedirect,
+      const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+        type: "recovery",
+        email,
+        options: { redirectTo: recoveryRedirect },
       });
+      const actionLink = asRecord(linkData?.properties).action_link;
+      const recoveryLink = typeof actionLink === "string" ? actionLink : null;
+      if (linkErr || !recoveryLink) {
+        return NextResponse.json(
+          { error: linkErr?.message || "No se pudo crear el enlace de recuperación." },
+          { status: 500 },
+        );
+      }
 
-      let recoveryLink: string | null = null;
-      if (mailErr) {
-        const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-          type: "recovery",
-          email,
-          options: { redirectTo: recoveryRedirect },
+      const { data: profile } = await admin.from("profiles").select("language").eq("user_id", userId).maybeSingle();
+      const language = typeof profile?.language === "string" ? profile.language : "es";
+      try {
+        await sendAuthLinkEmail({ to: email, link: recoveryLink, kind: "recovery", language });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "mail";
+        return NextResponse.json({
+          ok: true,
+          emailed: false,
+          recovery_link: recoveryLink,
+          message: `No se pudo enviar el email (${message}). Copia el enlace de recuperación y envíaselo al usuario.`,
         });
-        if (linkErr) {
-          return NextResponse.json(
-            { error: mailErr.message || linkErr.message },
-            { status: 500 },
-          );
-        }
-        const actionLink = asRecord(linkData?.properties).action_link;
-        recoveryLink = typeof actionLink === "string" ? actionLink : null;
       }
 
       return NextResponse.json({
         ok: true,
-        emailed: !mailErr,
-        recovery_link: recoveryLink,
-        message: mailErr
-          ? `No se pudo enviar el email (${mailErr.message}). Copia el enlace de recuperación y envíaselo al usuario.`
-          : `Hemos enviado un email de recuperación a ${email}.`,
+        emailed: true,
+        message: `Hemos enviado un email de recuperación a ${email}.`,
       });
     }
 

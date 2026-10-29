@@ -1772,7 +1772,8 @@
     "alert_title_validation": "Periksa data kamu",
     "alert_title_verify_email": "Konfirmasi email kamu",
     "alert_verify_email": "Kami sudah mengirim tautan konfirmasi. Setelah kamu konfirmasi dan login, profilmu akan dilengkapi otomatis. Sampai saat itu akun belum aktif.",
-    "alert_verify_email_with_issue": "Akun kamu sudah dibuat, tetapi email konfirmasi belum bisa dikirim saat ini ({error}). Coba login lalu gunakan \"Kirim ulang konfirmasi\" jika diperlukan."
+    "alert_verify_email_with_issue": "Akun kamu sudah dibuat, tetapi email konfirmasi belum bisa dikirim saat ini ({error}). Coba login lalu gunakan \"Kirim ulang konfirmasi\" jika diperlukan.",
+    "alert_email_taken": "Email ini sudah punya akun. Masuk atau atur ulang kata sandi."
   },
   "report": {
     "title_part1": "LAPORKAN",

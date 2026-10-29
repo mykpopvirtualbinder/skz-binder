@@ -4,16 +4,13 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
 import Footer from "../components/footer";
-import { supabase } from "@/lib/supabase";
-import { syncProfileBiasesAfterSignup } from "@/lib/onboarding-profile-biases";
 import { savePendingSignupProfile, type PendingSignupProfilePayload } from "@/lib/pending-signup-profile";
-import { DEFAULT_SITE_PROFILE_AVATAR_URL } from "@/lib/default-profile-avatar";
 import { OnboardingForm } from "../me/ui/OnboardingForm";
-import { useGlobal } from "../context/GlobalContext"; // 👈 Añadido para las traducciones
+import { useGlobal } from "../context/GlobalContext";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { t, refreshGlobal, showAlert } = useGlobal();
+  const { t, showAlert, uiLanguage } = useGlobal();
   const [step, setStep] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -87,109 +84,65 @@ export default function RegisterPage() {
     setShowGoToLoginAfterSignupIssue(false);
     try {
       const emailLower = formData.email.trim().toLowerCase();
-      const isConfirmationEmailSendError = (msg: string) =>
-        /error sending confirmation email|confirmation email|failed to send email|smtp|mailer/i.test(msg);
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email.trim(),
-        password: formData.password,
-        options: {
-          emailRedirectTo:
-            typeof window !== "undefined" ? `${window.location.origin}/login` : undefined,
-        },
+      const mailRes = await fetch("/api/auth/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "signup",
+          email: formData.email.trim(),
+          password: formData.password,
+          redirectTo: `${window.location.origin}/login`,
+          language: onboardingData.language || uiLanguage,
+        }),
       });
-      const user = authData.user;
-      const authErrorMsg = authError?.message || "";
-      const confirmEmailIssue = Boolean(authError && isConfirmationEmailSendError(authErrorMsg));
-      if (authError && !user && !confirmEmailIssue) throw authError;
-      if (!user && !confirmEmailIssue) throw new Error(t("register.alerts.error_profile"));
+      const mailBody = (await mailRes.json().catch(() => ({}))) as {
+        userId?: string;
+        code?: string;
+        error?: string;
+      };
+      if (mailRes.status === 409 || mailBody.code === "already_registered") {
+        throw new Error(t("register.alert_email_taken"));
+      }
+      const userId = typeof mailBody.userId === "string" ? mailBody.userId : null;
+      if (!mailRes.ok && mailRes.status !== 502) {
+        throw new Error(mailBody.error || t("common.error"));
+      }
+      if (!userId) throw new Error(t("register.alerts.error_profile"));
 
       const isAdult = calculateAge(onboardingData.birthdate) >= 18;
-      const session = authData.session;
-      const needsEmailConfirmation = !session || confirmEmailIssue;
+      const mailFailed = mailRes.status === 502;
 
-      if (needsEmailConfirmation) {
-        const pending: PendingSignupProfilePayload = {
-          v: 1,
-          userId: user?.id ?? null,
-          emailLower,
-          displayName: formData.username,
-          fullName: `${formData.firstName} ${formData.lastName}`.trim(),
-          phone: formData.phone,
-          address: formData.address,
-          birthdate: onboardingData.birthdate,
-          isAdult,
-          legalConsent: onboardingData.hasConsent,
-          ...(onboardingData.language ? { language: onboardingData.language } : {}),
-          biasesIds: onboardingData.biasesIds,
-          selectedGroupIds: onboardingData.selectedGroupIds ?? [],
-        };
-        savePendingSignupProfile(pending);
-        sessionStorage.removeItem("register:draft");
-        if (!authError) {
-          showAlert(t("register.alert_title_verify_email"), t("register.alert_verify_email"), () => {
-            router.push("/login");
-          });
-        } else {
-          setShowGoToLoginAfterSignupIssue(true);
-          showAlert(
-            t("register.alert_title_verify_email"),
-            t("register.alert_verify_email_with_issue").replace("{error}", authErrorMsg || t("common.error")),
-            () => {
-              router.push("/login");
-            }
-          );
-        }
-        return;
-      }
-
-      if (!user) {
-        throw new Error(t("register.alerts.error_profile"));
-      }
-
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          display_name: formData.username,
-          full_name: `${formData.firstName} ${formData.lastName}`,
-          phone: formData.phone,
-          address: formData.address,
-          birthdate: onboardingData.birthdate,
-          is_adult: isAdult,
-          legal_consent: onboardingData.hasConsent,
-          avatar_url: DEFAULT_SITE_PROFILE_AVATAR_URL,
-          ...(onboardingData.language ? { language: onboardingData.language } : {}),
-        })
-        .eq("user_id", user.id);
-
-      if (profileError) {
-        console.error("Error guardando perfil:", profileError);
-        throw new Error(t("register.alerts.error_profile"));
-      }
-
-      if (onboardingData.biasesIds.length > 0) {
-        const biasRows = onboardingData.biasesIds.map((id) => ({ user_id: user.id, member_id: id }));
-        const { error: ubErr } = await supabase.from("user_biases").insert(biasRows);
-        if (ubErr) {
-          console.error("user_biases insert:", ubErr);
-          throw new Error(ubErr.message || String(ubErr));
-        }
-      }
-
-      const syncRes = await syncProfileBiasesAfterSignup(
-        supabase,
-        user.id,
-        onboardingData.biasesIds,
-        onboardingData.selectedGroupIds ?? [],
-      );
-      if (syncRes.error) {
-        console.error("syncProfileBiasesAfterSignup:", syncRes.error);
-      }
-
-      refreshGlobal();
+      const pending: PendingSignupProfilePayload = {
+        v: 1,
+        userId,
+        emailLower,
+        displayName: formData.username,
+        fullName: `${formData.firstName} ${formData.lastName}`.trim(),
+        phone: formData.phone,
+        address: formData.address,
+        birthdate: onboardingData.birthdate,
+        isAdult,
+        legalConsent: onboardingData.hasConsent,
+        ...(onboardingData.language ? { language: onboardingData.language } : {}),
+        biasesIds: onboardingData.biasesIds,
+        selectedGroupIds: onboardingData.selectedGroupIds ?? [],
+      };
+      savePendingSignupProfile(pending);
       sessionStorage.removeItem("register:draft");
-      showAlert(t("register.alert_title_success"), t("register.alert_success"), () => {
-        router.push("/me");
-      });
+      if (!mailFailed) {
+        showAlert(t("register.alert_title_verify_email"), t("register.alert_verify_email"), () => {
+          router.push("/login");
+        });
+      } else {
+        setShowGoToLoginAfterSignupIssue(true);
+        showAlert(
+          t("register.alert_title_verify_email"),
+          t("register.alert_verify_email_with_issue").replace("{error}", t("common.error")),
+          () => {
+            router.push("/login");
+          },
+        );
+      }
     } catch (err: any) {
       showAlert(t("common.error"), t("register.alert_error_prefix") + (err?.message || String(err)));
     } finally {

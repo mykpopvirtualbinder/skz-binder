@@ -1736,7 +1736,8 @@
     "alert_title_validation": "입력 내용을 확인해 주세요",
     "alert_title_verify_email": "이메일을 확인해 주세요",
     "alert_verify_email": "인증 링크를 보냈습니다. 인증 후 로그인하면 프로필이 자동으로 완료됩니다. 그전까지 계정은 활성화되지 않습니다.",
-    "alert_verify_email_with_issue": "계정은 생성되었지만 현재 인증 메일을 보낼 수 없었습니다 ({error}). 로그인을 시도하고 필요하면 \"인증 메일 다시 보내기\"를 이용해 주세요."
+    "alert_verify_email_with_issue": "계정은 생성되었지만 현재 인증 메일을 보낼 수 없었습니다 ({error}). 로그인을 시도하고 필요하면 \"인증 메일 다시 보내기\"를 이용해 주세요.",
+    "alert_email_taken": "이 이메일에는 이미 계정이 있습니다. 로그인하거나 비밀번호를 재설정하세요."
   },
   "report": {
     "title_part1": "신고",
