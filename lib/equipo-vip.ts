@@ -4,7 +4,7 @@ import { isAdminTeamEmail } from "@/lib/admin-emails";
 export const EQUIPO_VIP_EMAILS = [
   "info@mykpopbinder.com",
   "anabmtnez78@hotmail.com",
-  "paula.azules@gmail.com",
+  "pauvivi1999@gmail.com",
   "mysafekspace@gmail.com",
   "jimena.esteban.martinez@gmail.com",
 ] as const;

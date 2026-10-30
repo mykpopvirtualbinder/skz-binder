@@ -66,7 +66,7 @@ export function queueKey(queue: QueueKind, caseId: string) {
 
 export function actorFromEmail(email: string | null | undefined) {
   const n = (email || "").trim().toLowerCase();
-  if (n.includes("paula.azules")) return "Paula";
+  if (n.includes("pauvivi1999") || n.includes("paula.azules")) return "Paula";
   if (n.includes("mysafekspace") || n.includes("sfckern")) return "Silvia";
   if (n.includes("jimena")) return "Jimena";
   if (n.includes("anabmtnez") || n === "info@mykpopbinder.com") return "Ana";

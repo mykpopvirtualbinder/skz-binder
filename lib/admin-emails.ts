@@ -11,7 +11,7 @@ export const ADMIN_TEAM_EMAILS = [
   "info@mykpopbinder.com",
   "anabmtnez78@hotmail.com",
   "mysafekspace@gmail.com",
-  "paula.azules@gmail.com",
+  "pauvivi1999@gmail.com",
 ] as const;
 
 export function isAdminTeamEmail(email: string | null | undefined): boolean {
