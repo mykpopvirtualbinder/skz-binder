@@ -10,6 +10,7 @@ import UserTourHost from "./components/UserTourHost";
 import RequiredSignupGate from "./components/RequiredSignupGate";
 import { THEME_BOOT_SCRIPT, THEME_COOKIE, themeIdFromUnknown } from "@/lib/theme-persist";
 import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site-seo";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -100,6 +101,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             
           </div>
         </GlobalProvider>
+        <Analytics />
       </body>
     </html>
   );
