@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -7,6 +7,8 @@ import Footer from "../components/footer";
 import { savePendingSignupProfile, type PendingSignupProfilePayload } from "@/lib/pending-signup-profile";
 import { OnboardingForm } from "../me/ui/OnboardingForm";
 import { useGlobal } from "../context/GlobalContext";
+import { isEmailOk } from "@/lib/email-policy";
+import { isPasswordOk } from "@/lib/password-policy";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,6 +17,10 @@ export default function RegisterPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [emailInvalid, setEmailInvalid] = useState(false);
+  const [passwordInvalid, setPasswordInvalid] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [welcome, setWelcome] = useState<{ code: string; friend: number; referrer: number; mailFailed: boolean } | null>(null);
   
@@ -152,12 +158,40 @@ export default function RegisterPage() {
     }
   };
 
-  const handleNextStep = (e: React.FormEvent) => {
+  const handleNextStep = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-    if (!passwordRegex.test(formData.password)) {
-      showAlert(t("register.alert_title_validation"), t("register.alert_password"));
-      return;
+    const form = e.currentTarget;
+    const controls = Array.from(form.elements);
+    for (const field of controls) {
+      if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) continue;
+      if (field === emailRef.current) {
+        if (!isEmailOk(formData.email)) {
+          setEmailInvalid(true);
+          showAlert(t("register.alert_title_validation"), t("register.alert_email"), () => {
+            emailRef.current?.focus();
+            emailRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          });
+          return;
+        }
+        setEmailInvalid(false);
+        continue;
+      }
+      if (field === passwordRef.current) {
+        if (!isPasswordOk(formData.password)) {
+          setPasswordInvalid(true);
+          showAlert(t("register.alert_title_validation"), t("register.alert_password"), () => {
+            passwordRef.current?.focus();
+            passwordRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          });
+          return;
+        }
+        setPasswordInvalid(false);
+        continue;
+      }
+      if (field instanceof HTMLInputElement && field.required && field.type !== "checkbox" && !field.value.trim()) {
+        field.reportValidity();
+        return;
+      }
     }
     if (!formData.acceptTerms) {
       showAlert(t("register.alert_title_validation"), t("register.alert_terms"));
@@ -208,22 +242,70 @@ export default function RegisterPage() {
               {t("register.step1_subtitle")}
             </p>
 
-            <form onSubmit={handleNextStep} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <form noValidate onSubmit={handleNextStep} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
               <input value={formData.username} placeholder={t("register.placeholder_username")} required style={inputStyle} onChange={(e) => setFormData({...formData, username: e.target.value})} />
               <div style={{ display: "flex", gap: "10px" }}>
                 <input value={formData.firstName} placeholder={t("register.placeholder_firstname")} required style={{ ...inputStyle, flex: 1 }} onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
                 <input value={formData.lastName} placeholder={t("register.placeholder_lastname")} required style={{ ...inputStyle, flex: 1 }} onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
               </div>
-              <input type="email" value={formData.email} placeholder={t("register.placeholder_email")} required style={inputStyle} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+              <input
+                ref={emailRef}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={formData.email}
+                placeholder={t("register.placeholder_email")}
+                required
+                aria-invalid={emailInvalid}
+                style={{
+                  ...inputStyle,
+                  ...(emailInvalid
+                    ? {
+                        border: "2px solid #b4234a",
+                        background: "color-mix(in srgb, #b4234a 12%, var(--bg-main))",
+                      }
+                    : {}),
+                }}
+                onChange={(e) => {
+                  const email = e.target.value;
+                  setFormData({ ...formData, email });
+                  if (emailInvalid && isEmailOk(email)) setEmailInvalid(false);
+                }}
+                onBlur={() => {
+                  const email = emailRef.current?.value ?? "";
+                  if (email.trim() && !isEmailOk(email)) setEmailInvalid(true);
+                }}
+              />
+              {emailInvalid ? (
+                <p style={{ margin: "-8px 0 0", fontSize: "12px", lineHeight: 1.4, fontWeight: 600, textAlign: "center", color: "#b4234a" }}>
+                  {t("register.alert_email")}
+                </p>
+              ) : null}
               <div style={{ position: "relative", width: "100%" }}>
                 <input
+                  ref={passwordRef}
                   type={showPassword ? "text" : "password"}
                   placeholder={t("register.placeholder_password")}
                   required
                   autoComplete="new-password"
+                  aria-describedby="register-password-hint"
+                  aria-invalid={passwordInvalid}
                   value={formData.password}
-                  style={{ ...inputStyle, paddingRight: "44px" }}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  style={{
+                    ...inputStyle,
+                    paddingRight: "44px",
+                    ...(passwordInvalid
+                      ? {
+                          border: "2px solid #b4234a",
+                          background: "color-mix(in srgb, #b4234a 12%, var(--bg-main))",
+                        }
+                      : {}),
+                  }}
+                  onChange={(e) => {
+                    const password = e.target.value;
+                    setFormData({ ...formData, password });
+                    if (passwordInvalid && isPasswordOk(password)) setPasswordInvalid(false);
+                  }}
                 />
                 <button
                   type="button"
@@ -248,6 +330,19 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff size={20} strokeWidth={2.2} /> : <Eye size={20} strokeWidth={2.2} />}
                 </button>
               </div>
+              <p
+                id="register-password-hint"
+                style={{
+                  margin: "-8px 0 0",
+                  fontSize: "12px",
+                  lineHeight: 1.4,
+                  fontWeight: 600,
+                  textAlign: "center",
+                  color: passwordInvalid ? "#b4234a" : "var(--text-muted)",
+                }}
+              >
+                {t("register.password_hint")}
+              </p>
               
               <hr style={{ border: "0.5px solid var(--color-border)", margin: "10px 0" }} />
               <p style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 900, textAlign: "center", textTransform: "uppercase" }}>

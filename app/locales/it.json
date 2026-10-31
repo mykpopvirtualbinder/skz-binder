@@ -1815,6 +1815,7 @@
     "placeholder_lastname": "Cognome *",
     "placeholder_email": "Email *",
     "placeholder_password": "Password *",
+    "password_hint": "Almeno 8 caratteri, una maiuscola, una minuscola e un numero.",
     "shipping_data_title": "DATI PER LA SPEDIZIONE",
     "placeholder_phone": "Telefono",
     "placeholder_address": "Indirizzo completo",
@@ -1828,14 +1829,15 @@
       "btn_close": "CAPITO"
     },
     "alerts": {
-      "password_invalid": "La password deve avere almeno 8 caratteri, una lettera maiuscola e un numero.",
+      "password_invalid": "La password deve avere almeno 8 caratteri, una maiuscola, una minuscola e un numero.",
       "privacy_error": "Accetta l'informativa sulla privacy.",
       "success_msg": "Account creato! Controlla la tua email per confermare.",
       "error_profile": "Non è stato possibile aggiornare il profilo correttamente."
     },
     "alert_success": "Account creato! Controlla la tua email per confermare.",
     "alert_error_prefix": "Errore: ",
-    "alert_password": "La password deve avere almeno 8 caratteri, una lettera maiuscola e un numero.",
+    "alert_password": "La password deve avere almeno 8 caratteri, una maiuscola, una minuscola e un numero.",
+    "alert_email": "Questa non è un'email. Scrivila così: nome@dominio.com.",
     "alert_terms": "Accetta l'informativa sulla privacy.",
     "alert_title_success": "Benvenuto/a!",
     "alert_title_validation": "Controlla i dati",

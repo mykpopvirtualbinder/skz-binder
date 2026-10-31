@@ -1815,6 +1815,7 @@
     "placeholder_lastname": "Nom *",
     "placeholder_email": "Email *",
     "placeholder_password": "Mot de passe *",
+    "password_hint": "Au moins 8 caractères, une majuscule, une minuscule et un chiffre.",
     "shipping_data_title": "DONNÉES D'EXPÉDITION",
     "placeholder_phone": "Téléphone",
     "placeholder_address": "Adresse complète",
@@ -1828,14 +1829,15 @@
       "btn_close": "COMPRIS"
     },
     "alerts": {
-      "password_invalid": "Le mot de passe doit comporter au moins 8 caractères, une majuscule et un chiffre.",
+      "password_invalid": "Le mot de passe doit comporter au moins 8 caractères, une majuscule, une minuscule et un chiffre.",
       "privacy_error": "Accepte la politique de confidentialité.",
       "success_msg": "Compte créé ! Vérifie ton email pour confirmer.",
       "error_profile": "Le profil n'a pas pu être mis à jour correctement."
     },
     "alert_success": "Compte créé ! Vérifie ton email pour confirmer.",
     "alert_error_prefix": "Erreur : ",
-    "alert_password": "Le mot de passe doit comporter au moins 8 caractères, une majuscule et un chiffre.",
+    "alert_password": "Le mot de passe doit comporter au moins 8 caractères, une majuscule, une minuscule et un chiffre.",
+    "alert_email": "Ce n'est pas un e-mail. Écris-le ainsi : nom@domaine.com.",
     "alert_terms": "Accepte la politique de confidentialité.",
     "alert_title_success": "Bienvenue !",
     "alert_title_validation": "Vérifie tes informations",

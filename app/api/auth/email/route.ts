@@ -4,10 +4,9 @@ import { attachPendingInvite, ensureOwnInviteCode, findInviterByCode, INVITE_USE
 import { allowedAuthRedirect, buildAuthConfirmLink, sendAuthLinkEmail, type AuthMailKind } from "@/lib/auth-link-mail";
 import { countryFromRequest } from "@/lib/request-country";
 import { normalizeSiteLanguage } from "@/lib/site-language";
+import { isEmailOk } from "@/lib/email-policy";
+import { isPasswordOk } from "@/lib/password-policy";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
-
-const PASSWORD_OK = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function cleanEmail(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -40,7 +39,7 @@ export async function POST(req: Request) {
   }
 
   const email = cleanEmail(body.email);
-  if (!EMAIL_OK.test(email) || email.length > 200) {
+  if (!isEmailOk(email)) {
     return NextResponse.json({ error: "Email no válido." }, { status: 400 });
   }
 
@@ -54,7 +53,7 @@ export async function POST(req: Request) {
 
   if (action === "signup") {
     const password = typeof body.password === "string" ? body.password : "";
-    if (!PASSWORD_OK.test(password) || password.length > 200) {
+    if (!isPasswordOk(password)) {
       return NextResponse.json({ error: "Contraseña no válida." }, { status: 400 });
     }
 

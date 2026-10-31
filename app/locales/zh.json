@@ -1779,6 +1779,7 @@
     "placeholder_lastname": "姓 *",
     "placeholder_email": "邮箱 *",
     "placeholder_password": "密码 *",
+    "password_hint": "至少 8 个字符，并包含大写字母、小写字母和数字。",
     "shipping_data_title": "收货信息 (选填)",
     "placeholder_phone": "电话号码",
     "placeholder_address": "详细收货地址",
@@ -1792,14 +1793,15 @@
       "btn_close": "我了解了"
     },
     "alerts": {
-      "password_invalid": "密码必须至少包含 8 个字符，且必须包含大写字母和数字。",
+      "password_invalid": "密码至少 8 个字符，且必须包含大写字母、小写字母和数字。",
       "privacy_error": "请先同意隐私政策。",
       "success_msg": "账号创建成功！请查收邮件以确认激活。",
       "error_profile": "个人资料更新失败。"
     },
     "alert_success": "账号创建成功！请查收邮件以确认激活。",
     "alert_error_prefix": "错误：",
-    "alert_password": "密码必须至少包含 8 个字符，且必须包含大写字母和数字。",
+    "alert_password": "密码至少 8 个字符，且必须包含大写字母、小写字母和数字。",
+    "alert_email": "这不是有效邮箱。请按 name@domain.com 这样填写。",
     "alert_terms": "请先同意隐私政策。",
     "alert_title_success": "欢迎！",
     "alert_title_validation": "请检查填写内容",

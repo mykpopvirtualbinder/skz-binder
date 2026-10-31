@@ -2003,6 +2003,7 @@
     "placeholder_lastname": "Last Name *",
     "placeholder_email": "Email *",
     "placeholder_password": "Password *",
+    "password_hint": "At least 8 characters, one uppercase letter, one lowercase letter, and one number.",
     "shipping_data_title": "SHIPPING DATA",
     "placeholder_phone": "Phone",
     "placeholder_address": "Full address",
@@ -2016,14 +2017,15 @@
       "btn_close": "UNDERSTOOD"
     },
     "alerts": {
-      "password_invalid": "The password must have at least 8 characters, one uppercase letter, and one number.",
+      "password_invalid": "The password must have at least 8 characters, one uppercase letter, one lowercase letter, and one number.",
       "privacy_error": "Accept the privacy policy.",
       "success_msg": "Account created! Check your email to confirm.",
       "error_profile": "Profile could not be updated correctly."
     },
     "alert_success": "Account created! Check your email to confirm.",
     "alert_error_prefix": "Error: ",
-    "alert_password": "The password must have at least 8 characters, one uppercase letter, and one number.",
+    "alert_password": "The password must have at least 8 characters, one uppercase letter, one lowercase letter, and one number.",
+    "alert_email": "That is not an email. Use this format: name@domain.com.",
     "alert_terms": "Accept the privacy policy.",
     "alert_title_success": "Welcome!",
     "alert_title_validation": "Check your details",

@@ -1815,6 +1815,7 @@
     "placeholder_lastname": "姓 *",
     "placeholder_email": "メールアドレス *",
     "placeholder_password": "パスワード *",
+    "password_hint": "8文字以上。大文字・小文字・数字をそれぞれ1つ以上。",
     "shipping_data_title": "発送先データ",
     "placeholder_phone": "電話番号",
     "placeholder_address": "完全な住所",
@@ -1828,14 +1829,15 @@
       "btn_close": "了解"
     },
     "alerts": {
-      "password_invalid": "パスワードは8文字以上で、大文字と数字を少なくとも1つ含む必要があります。",
+      "password_invalid": "パスワードは8文字以上で、大文字・小文字・数字をそれぞれ1つ以上含む必要があります。",
       "privacy_error": "プライバシーポリシーに同意してください。",
       "success_msg": "アカウントが作成されました！確認のためメールをチェックしてください。",
       "error_profile": "プロフィールを正しく更新できませんでした。"
     },
     "alert_success": "アカウントが作成されました！確認のためメールをチェックしてください。",
     "alert_error_prefix": "エラー：",
-    "alert_password": "パスワードは8文字以上で、大文字と数字を少なくとも1つ含む必要があります。",
+    "alert_password": "パスワードは8文字以上で、大文字・小文字・数字をそれぞれ1つ以上含む必要があります。",
+    "alert_email": "これはメールアドレスではありません。name@domain.com の形で入力してください。",
     "alert_terms": "プライバシーポリシーに同意してください。",
     "alert_title_success": "ようこそ！",
     "alert_title_validation": "内容をご確認ください",

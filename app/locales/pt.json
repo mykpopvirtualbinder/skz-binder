@@ -1779,6 +1779,7 @@
     "placeholder_lastname": "Apelidos *",
     "placeholder_email": "Email *",
     "placeholder_password": "Senha *",
+    "password_hint": "Pelo menos 8 caracteres, uma maiúscula, uma minúscula e um número.",
     "shipping_data_title": "DADOS PARA ENVIOS",
     "placeholder_phone": "Telefone",
     "placeholder_address": "Morada completa",
@@ -1792,14 +1793,15 @@
       "btn_close": "ENTENDIDO"
     },
     "alerts": {
-      "password_invalid": "A senha deve ter pelo menos 8 caracteres, uma maiúscula e um número.",
+      "password_invalid": "A senha deve ter pelo menos 8 caracteres, uma maiúscula, uma minúscula e um número.",
       "privacy_error": "Por favor, aceita a política de privacidade.",
       "success_msg": "Conta criada! Verifica o teu email para confirmar.",
       "error_profile": "Não foi possível atualizar o perfil corretamente."
     },
     "alert_success": "Conta criada! Verifica o teu email para confirmar.",
     "alert_error_prefix": "Erro: ",
-    "alert_password": "A senha deve ter pelo menos 8 caracteres, uma maiúscula e um número.",
+    "alert_password": "A senha deve ter pelo menos 8 caracteres, uma maiúscula, uma minúscula e um número.",
+    "alert_email": "Isso não é um email. Escreve assim: nome@dominio.com.",
     "alert_terms": "Por favor, aceita a política de privacidade.",
     "alert_title_success": "Bem-vindo/a!",
     "alert_title_validation": "Verifica os dados",

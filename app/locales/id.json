@@ -1815,6 +1815,7 @@
     "placeholder_lastname": "Nama Belakang *",
     "placeholder_email": "Email *",
     "placeholder_password": "Kata sandi *",
+    "password_hint": "Minimal 8 karakter, satu huruf besar, satu huruf kecil, dan satu angka.",
     "shipping_data_title": "DATA UNTUK PENGIRIMAN",
     "placeholder_phone": "Telepon",
     "placeholder_address": "Alamat lengkap",
@@ -1828,14 +1829,15 @@
       "btn_close": "MENGERTI"
     },
     "alerts": {
-      "password_invalid": "Kata sandi harus minimal 8 karakter, ada huruf besar dan angka.",
+      "password_invalid": "Kata sandi harus minimal 8 karakter, dengan huruf besar, huruf kecil, dan angka.",
       "privacy_error": "Terima kebijakan privasi.",
       "success_msg": "Akun dibuat! Periksa emailmu untuk mengonfirmasi.",
       "error_profile": "Profil tidak dapat diperbarui dengan benar."
     },
     "alert_success": "Akun dibuat! Periksa emailmu untuk mengonfirmasi.",
     "alert_error_prefix": "Kesalahan: ",
-    "alert_password": "Kata sandi harus minimal 8 karakter, ada huruf besar dan angka.",
+    "alert_password": "Kata sandi harus minimal 8 karakter, dengan huruf besar, huruf kecil, dan angka.",
+    "alert_email": "Ini bukan email. Tulis seperti ini: nama@domain.com.",
     "alert_terms": "Terima kebijakan privasi.",
     "alert_title_success": "Selamat datang!",
     "alert_title_validation": "Periksa data kamu",

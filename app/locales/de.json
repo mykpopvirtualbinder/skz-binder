@@ -1815,6 +1815,7 @@
     "placeholder_lastname": "Nachname *",
     "placeholder_email": "E-Mail *",
     "placeholder_password": "Passwort *",
+    "password_hint": "Mindestens 8 Zeichen, ein Großbuchstabe, ein Kleinbuchstabe und eine Zahl.",
     "shipping_data_title": "DATEN FÜR DEN VERSAND",
     "placeholder_phone": "Telefonnummer",
     "placeholder_address": "Vollständige Adresse",
@@ -1828,14 +1829,15 @@
       "btn_close": "VERSTANDEN"
     },
     "alerts": {
-      "password_invalid": "Das Passwort muss mindestens 8 Zeichen, einen Großbuchstaben und eine Zahl enthalten.",
+      "password_invalid": "Das Passwort muss mindestens 8 Zeichen, einen Großbuchstaben, einen Kleinbuchstaben und eine Zahl enthalten.",
       "privacy_error": "Bitte akzeptiere die Datenschutzerklärung.",
       "success_msg": "Konto erstellt! Überprüfe deine E-Mail zur Bestätigung.",
       "error_profile": "Das Profil konnte nicht richtig aktualisiert werden."
     },
     "alert_success": "Konto erstellt! Überprüfe deine E-Mail zur Bestätigung.",
     "alert_error_prefix": "Fehler: ",
-    "alert_password": "Das Passwort muss mindestens 8 Zeichen, einen Großbuchstaben und eine Zahl enthalten.",
+    "alert_password": "Das Passwort muss mindestens 8 Zeichen, einen Großbuchstaben, einen Kleinbuchstaben und eine Zahl enthalten.",
+    "alert_email": "Das ist keine E-Mail. Schreib sie so: name@domain.com.",
     "alert_terms": "Bitte akzeptiere die Datenschutzerklärung.",
     "alert_title_success": "Willkommen!",
     "alert_title_validation": "Bitte Angaben prüfen",
