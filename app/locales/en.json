@@ -2026,6 +2026,8 @@
     "alert_error_prefix": "Error: ",
     "alert_password": "The password must have at least 8 characters, one uppercase letter, one lowercase letter, and one number.",
     "alert_email": "That is not an email. Use this format: name@domain.com.",
+    "alert_username": "That username is already taken. Choose another.",
+    "alert_username_check": "The username could not be checked. Try again.",
     "alert_terms": "Accept the privacy policy.",
     "alert_title_success": "Welcome!",
     "alert_title_validation": "Check your details",

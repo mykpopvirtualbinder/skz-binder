@@ -1802,6 +1802,8 @@
     "alert_error_prefix": "错误：",
     "alert_password": "密码至少 8 个字符，且必须包含大写字母、小写字母和数字。",
     "alert_email": "这不是有效邮箱。请按 name@domain.com 这样填写。",
+    "alert_username": "这个用户名已经有人用了。请换一个。",
+    "alert_username_check": "暂时无法检查用户名。请再试一次。",
     "alert_terms": "请先同意隐私政策。",
     "alert_title_success": "欢迎！",
     "alert_title_validation": "请检查填写内容",

@@ -9,6 +9,7 @@ import { OnboardingForm } from "../me/ui/OnboardingForm";
 import { useGlobal } from "../context/GlobalContext";
 import { isEmailOk } from "@/lib/email-policy";
 import { isPasswordOk } from "@/lib/password-policy";
+import { isUsernameShapeOk, normalizeUsername } from "@/lib/username";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,8 +20,11 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailInvalid, setEmailInvalid] = useState(false);
   const [passwordInvalid, setPasswordInvalid] = useState(false);
+  const [usernameInvalid, setUsernameInvalid] = useState(false);
+  const [checkingStep, setCheckingStep] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const usernameRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [welcome, setWelcome] = useState<{ code: string; friend: number; referrer: number; mailFailed: boolean } | null>(null);
   
@@ -97,6 +101,7 @@ export default function RegisterPage() {
           action: "signup",
           email: formData.email.trim(),
           password: formData.password,
+          username: normalizeUsername(formData.username),
           redirectTo: `${window.location.origin}/login`,
           language: onboardingData.language || uiLanguage,
           inviteCode: formData.inviteCode,
@@ -110,6 +115,15 @@ export default function RegisterPage() {
         friendKoins?: number;
         referrerKoins?: number;
       };
+      if (mailBody.code === "username_taken") {
+        setStep(1);
+        setUsernameInvalid(true);
+        showAlert(t("register.alert_title_validation"), t("register.alert_username"), () => {
+          usernameRef.current?.focus();
+          usernameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        return;
+      }
       if (mailRes.status === 409 || mailBody.code === "already_registered") {
         throw new Error(t("register.alert_email_taken"));
       }
@@ -132,7 +146,7 @@ export default function RegisterPage() {
         v: 1,
         userId,
         emailLower,
-        displayName: formData.username,
+        displayName: normalizeUsername(formData.username),
         fullName: `${formData.firstName} ${formData.lastName}`.trim(),
         phone: formData.phone,
         address: formData.address,
@@ -158,12 +172,51 @@ export default function RegisterPage() {
     }
   };
 
-  const handleNextStep = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleNextStep = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (checkingStep) return;
     const form = e.currentTarget;
     const controls = Array.from(form.elements);
     for (const field of controls) {
       if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) continue;
+      if (field === usernameRef.current) {
+        const username = normalizeUsername(field.value);
+        if (!isUsernameShapeOk(username)) {
+          field.setCustomValidity(t("register.placeholder_username"));
+          field.reportValidity();
+          field.setCustomValidity("");
+          return;
+        }
+        setCheckingStep(true);
+        try {
+          const res = await fetch("/api/auth/username", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username }),
+          });
+          const body = (await res.json().catch(() => ({}))) as { code?: string; available?: boolean };
+          if (res.status === 409 || body.code === "username_taken") {
+            setUsernameInvalid(true);
+            showAlert(t("register.alert_title_validation"), t("register.alert_username"), () => {
+              usernameRef.current?.focus();
+              usernameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
+            return;
+          }
+          if (!res.ok || body.available !== true) {
+            showAlert(t("common.error"), t("register.alert_username_check"));
+            return;
+          }
+          setUsernameInvalid(false);
+          setFormData((prev) => ({ ...prev, username }));
+        } catch {
+          showAlert(t("common.error"), t("register.alert_username_check"));
+          return;
+        } finally {
+          setCheckingStep(false);
+        }
+        continue;
+      }
       if (field === emailRef.current) {
         if (!isEmailOk(formData.email)) {
           setEmailInvalid(true);
@@ -243,7 +296,23 @@ export default function RegisterPage() {
             </p>
 
             <form noValidate onSubmit={handleNextStep} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-              <input value={formData.username} placeholder={t("register.placeholder_username")} required style={inputStyle} onChange={(e) => setFormData({...formData, username: e.target.value})} />
+              <input
+                ref={usernameRef}
+                value={formData.username}
+                placeholder={t("register.placeholder_username")}
+                required
+                autoComplete="username"
+                aria-invalid={usernameInvalid}
+                style={{ ...inputStyle, ...(usernameInvalid ? invalidFieldStyle : {}) }}
+                onChange={(e) => {
+                  const username = e.target.value;
+                  setFormData({ ...formData, username });
+                  if (usernameInvalid) setUsernameInvalid(false);
+                }}
+              />
+              {usernameInvalid ? (
+                <p style={invalidHintStyle}>{t("register.alert_username")}</p>
+              ) : null}
               <div style={{ display: "flex", gap: "10px" }}>
                 <input value={formData.firstName} placeholder={t("register.placeholder_firstname")} required style={{ ...inputStyle, flex: 1 }} onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
                 <input value={formData.lastName} placeholder={t("register.placeholder_lastname")} required style={{ ...inputStyle, flex: 1 }} onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
@@ -257,15 +326,7 @@ export default function RegisterPage() {
                 placeholder={t("register.placeholder_email")}
                 required
                 aria-invalid={emailInvalid}
-                style={{
-                  ...inputStyle,
-                  ...(emailInvalid
-                    ? {
-                        border: "2px solid #b4234a",
-                        background: "color-mix(in srgb, #b4234a 12%, var(--bg-main))",
-                      }
-                    : {}),
-                }}
+                style={{ ...inputStyle, ...(emailInvalid ? invalidFieldStyle : {}) }}
                 onChange={(e) => {
                   const email = e.target.value;
                   setFormData({ ...formData, email });
@@ -294,12 +355,7 @@ export default function RegisterPage() {
                   style={{
                     ...inputStyle,
                     paddingRight: "44px",
-                    ...(passwordInvalid
-                      ? {
-                          border: "2px solid #b4234a",
-                          background: "color-mix(in srgb, #b4234a 12%, var(--bg-main))",
-                        }
-                      : {}),
+                    ...(passwordInvalid ? invalidFieldStyle : {}),
                   }}
                   onChange={(e) => {
                     const password = e.target.value;
@@ -361,7 +417,7 @@ export default function RegisterPage() {
                 </span>
               </label>
 
-              <button type="submit" className="tan-font" style={buttonStyle(isMobile)}>
+              <button type="submit" className="tan-font" disabled={checkingStep} style={{ ...buttonStyle(isMobile), opacity: checkingStep ? 0.7 : 1 }}>
                 {t("register.btn_next")}
               </button>
             </form>
@@ -405,6 +461,8 @@ const formContainerStyle = (isMobile: boolean) => ({
   width: "100%", maxWidth: "500px", transition: "all 0.3s ease"
 });
 const inputStyle = { width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid var(--color-border)", background: "var(--bg-main)", color: "var(--text-main)", textAlign: "center" as const, outline: "none" };
+const invalidFieldStyle = { border: "2px solid #b4234a", background: "color-mix(in srgb, #b4234a 12%, var(--bg-main))" };
+const invalidHintStyle = { margin: "-8px 0 0", fontSize: "12px", lineHeight: 1.4, fontWeight: 600, textAlign: "center" as const, color: "#b4234a" };
 const buttonStyle = (isMobile: boolean) => ({ background: "var(--color-primary)", color: "white", border: "none", padding: isMobile ? "12px" : "16px", borderRadius: "14px", marginTop: "10px", fontWeight: 900, cursor: "pointer", width: "100%", boxShadow: "0 4px 10px var(--shadow-card)" });
 const btnBackStyle = { background: "none", border: "none", color: "var(--text-muted)", textDecoration: "underline" as const, cursor: "pointer", marginTop: "20px", width: "100%", fontWeight: 800 };
 const modalOverlayStyle = { position: "fixed" as const, inset: 0, backgroundColor: "var(--overlay-strong)", backdropFilter: "blur(4px)", zIndex: 3000, display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" };

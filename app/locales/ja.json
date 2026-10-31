@@ -1838,6 +1838,8 @@
     "alert_error_prefix": "エラー：",
     "alert_password": "パスワードは8文字以上で、大文字・小文字・数字をそれぞれ1つ以上含む必要があります。",
     "alert_email": "これはメールアドレスではありません。name@domain.com の形で入力してください。",
+    "alert_username": "このユーザー名はすでに使われています。別の名前にしてください。",
+    "alert_username_check": "ユーザー名を確認できませんでした。もう一度試してください。",
     "alert_terms": "プライバシーポリシーに同意してください。",
     "alert_title_success": "ようこそ！",
     "alert_title_validation": "内容をご確認ください",

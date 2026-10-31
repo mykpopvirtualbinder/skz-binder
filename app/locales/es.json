@@ -2026,6 +2026,8 @@
     "alert_error_prefix": "Error: ",
     "alert_password": "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.",
     "alert_email": "Eso no es un correo. Escríbelo así: nombre@dominio.com.",
+    "alert_username": "Ese nombre de usuario ya está en uso. Elige otro.",
+    "alert_username_check": "No se pudo comprobar el nombre de usuario. Inténtalo otra vez.",
     "alert_terms": "Acepta la política de privacidad.",
     "alert_title_success": "¡Bienvenido/a!",
     "alert_title_validation": "Revisa el formulario",

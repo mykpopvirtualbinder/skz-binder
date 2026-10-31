@@ -7,6 +7,8 @@ import { normalizeSiteLanguage } from "@/lib/site-language";
 import { isEmailOk } from "@/lib/email-policy";
 import { isPasswordOk } from "@/lib/password-policy";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
+import { isUsernameShapeOk, normalizeUsername } from "@/lib/username";
+import { claimUsername, usernameOwnerId } from "@/lib/username-availability";
 
 function cleanEmail(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -26,7 +28,7 @@ function confirmLink(
 }
 
 export async function POST(req: Request) {
-  let body: { action?: string; email?: string; password?: string; redirectTo?: string; language?: string; inviteCode?: string };
+  let body: { action?: string; email?: string; password?: string; redirectTo?: string; language?: string; inviteCode?: string; username?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -55,6 +57,18 @@ export async function POST(req: Request) {
     const password = typeof body.password === "string" ? body.password : "";
     if (!isPasswordOk(password)) {
       return NextResponse.json({ error: "Contraseña no válida." }, { status: 400 });
+    }
+
+    const username = normalizeUsername(typeof body.username === "string" ? body.username : "");
+    if (!isUsernameShapeOk(username)) {
+      return NextResponse.json({ code: "username_invalid" }, { status: 400 });
+    }
+    try {
+      if (await usernameOwnerId(admin, username)) {
+        return NextResponse.json({ code: "username_taken" }, { status: 409 });
+      }
+    } catch {
+      return NextResponse.json({ error: "No se pudo comprobar el nombre de usuario." }, { status: 500 });
     }
 
     const inviteCode = normalizeInviteCode(body.inviteCode);
@@ -86,6 +100,14 @@ export async function POST(req: Request) {
         return NextResponse.json({ code: "already_registered" }, { status: 409 });
       }
       return NextResponse.json({ error: message || "No se pudo crear la cuenta." }, { status: 500 });
+    }
+
+    const claimed = await claimUsername(admin, userId, username, { language: normalizeSiteLanguage(language) });
+    if (!claimed.ok) {
+      await admin.from("profiles").delete().eq("user_id", userId);
+      await admin.auth.admin.deleteUser(userId);
+      if (claimed.taken) return NextResponse.json({ code: "username_taken" }, { status: 409 });
+      return NextResponse.json({ error: "No se pudo reservar el nombre de usuario." }, { status: 500 });
     }
 
     const country = countryFromRequest(req);

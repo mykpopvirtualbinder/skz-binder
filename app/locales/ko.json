@@ -1802,6 +1802,8 @@
     "alert_error_prefix": "오류: ",
     "alert_password": "비밀번호는 8자 이상이어야 하며, 영문 대문자·소문자·숫자를 각각 하나 이상 포함해야 합니다.",
     "alert_email": "올바른 이메일이 아닙니다. name@domain.com 형식으로 입력하세요.",
+    "alert_username": "이미 사용 중인 사용자 이름입니다. 다른 이름을 골라 주세요.",
+    "alert_username_check": "사용자 이름을 확인하지 못했습니다. 다시 시도해 주세요.",
     "alert_terms": "개인정보 처리방침에 동의해 주세요.",
     "alert_title_success": "환영합니다!",
     "alert_title_validation": "입력 내용을 확인해 주세요",

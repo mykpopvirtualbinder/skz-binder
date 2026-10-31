@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useGlobal } from "../context/GlobalContext";
+import { normalizeUsername } from "@/lib/username";
 import CatalogLoadingFun from "../components/CatalogLoadingFun";
 import { offerItems, offerKoinsAmount, offerPreviewText, parseChatOffer, type ChatOfferPayload } from "@/lib/chat-offer-payload";
 import { parseChatDeal, serializeChatDeal, newDealId, offerFromTerms, dealPreviewText, type ChatDealPayload, type DealAction, type DealTerms } from "@/lib/chat-deal-payload";
@@ -1743,7 +1744,29 @@ function MePageContent() {
     }
     
     const mergedFull = [formData.given_name, formData.family_name].filter(Boolean).join(" ").trim() || null;
-    const next = { ...profile, ...formData, full_name: mergedFull, is_adult: isAdult } as Profile;
+    const displayName = normalizeUsername(formData.display_name || "");
+    if (displayName) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const nameRes = await fetch("/api/auth/username", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ username: displayName }),
+      });
+      const nameBody = (await nameRes.json().catch(() => ({}))) as { code?: string };
+      if (nameRes.status === 409 || nameBody.code === "username_taken") {
+        showAlert(t("register.alert_title_validation"), t("register.alert_username"));
+        return;
+      }
+      if (!nameRes.ok) {
+        showAlert(t("common.error"), t("register.alert_username_check"));
+        return;
+      }
+    }
+    const next = { ...profile, ...formData, display_name: displayName, full_name: mergedFull, is_adult: isAdult } as Profile;
     setProfile(next);
     setFormData(next);
     setIsSettingsOpen(false);

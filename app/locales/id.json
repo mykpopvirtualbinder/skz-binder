@@ -1838,6 +1838,8 @@
     "alert_error_prefix": "Kesalahan: ",
     "alert_password": "Kata sandi harus minimal 8 karakter, dengan huruf besar, huruf kecil, dan angka.",
     "alert_email": "Ini bukan email. Tulis seperti ini: nama@domain.com.",
+    "alert_username": "Nama pengguna ini sudah dipakai. Pilih yang lain.",
+    "alert_username_check": "Nama pengguna tidak bisa diperiksa. Coba lagi.",
     "alert_terms": "Terima kebijakan privasi.",
     "alert_title_success": "Selamat datang!",
     "alert_title_validation": "Periksa data kamu",

@@ -1802,6 +1802,8 @@
     "alert_error_prefix": "Erro: ",
     "alert_password": "A senha deve ter pelo menos 8 caracteres, uma maiúscula, uma minúscula e um número.",
     "alert_email": "Isso não é um email. Escreve assim: nome@dominio.com.",
+    "alert_username": "Esse nome de utilizador já está a ser usado. Escolhe outro.",
+    "alert_username_check": "Não foi possível verificar o nome de utilizador. Tenta outra vez.",
     "alert_terms": "Por favor, aceita a política de privacidade.",
     "alert_title_success": "Bem-vindo/a!",
     "alert_title_validation": "Verifica os dados",
