@@ -302,7 +302,7 @@ function stepsFor(id: string, handlers: AdminTourHandlers): TourStep[] {
     {
       selector: "[data-tour='usr-acceso']",
       title: tr("La sesión"),
-      text: tr("Restablecer contraseña, bloquear el login o cerrar sesiones en todos los dispositivos si creen que les han entrado en la cuenta."),
+      text: tr("Recordatorio de contraseña, confirmación de correo, bloquear el login o cerrar sesiones en todos los dispositivos si creen que les han entrado en la cuenta."),
       side: "bottom",
       tab: "usuarios",
       before: handlers.showUserCard,

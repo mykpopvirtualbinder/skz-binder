@@ -100,7 +100,12 @@ type AdminOverviewUser = {
   invite_referrer_koins?: number;
   invite_friend_koins?: number;
   invite_signups?: number;
+  confirm_reminder_24_at?: string | null;
+  confirm_reminder_48_at?: string | null;
+  confirm_reminder_72_at?: string | null;
 };
+
+type UserAuthAction = "reset_password" | "unlock_login" | "lock_login" | "confirm_email" | "send_confirmation" | "sign_out_all" | "enter_profile";
 
 function deriveUserBucket(u: AdminOverviewUser): AdminAccountBucket {
   if (u.is_banned || u.is_deleted) return "baja";
@@ -1631,7 +1636,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
 
   const runUserAuthAction = async (
     p: AdminOverviewUser,
-    action: "reset_password" | "unlock_login" | "lock_login" | "confirm_email" | "sign_out_all" | "enter_profile",
+    action: UserAuthAction,
   ) => {
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
@@ -1645,6 +1650,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       error?: string;
       message?: string;
       recovery_link?: string | null;
+      confirmation_link?: string | null;
       is_banned?: boolean;
       email_confirmed?: boolean;
     };
@@ -1652,24 +1658,25 @@ const levantarSancion = async (userId: string, ticketId: string) => {
     if (action === "unlock_login") sincronizarCambioUsuario(p.user_id, { is_banned: false });
     if (action === "lock_login") sincronizarCambioUsuario(p.user_id, { is_banned: true });
     if (action === "confirm_email") sincronizarCambioUsuario(p.user_id, { email_confirmed: true });
-    if (json.recovery_link && typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    const mailedLink = json.recovery_link || json.confirmation_link || "";
+    if (mailedLink && typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
       try {
-        await navigator.clipboard.writeText(json.recovery_link);
+        await navigator.clipboard.writeText(mailedLink);
       } catch {
         /* ignore clipboard failures */
       }
     }
     showAlert(
       tr("Listo"),
-      json.recovery_link
-        ? `${json.message || tr("Acción completada.")}\n\nEnlace (también copiado si el navegador lo permite):\n${json.recovery_link}`
+      mailedLink
+        ? `${json.message || tr("Acción completada.")}\n\nEnlace (también copiado si el navegador lo permite):\n${mailedLink}`
         : json.message || tr("Acción completada."),
     );
   };
 
   const confirmUserAuthAction = (
     p: AdminOverviewUser,
-    action: "reset_password" | "unlock_login" | "lock_login" | "confirm_email" | "sign_out_all" | "enter_profile",
+    action: UserAuthAction,
     title: string,
     message: string,
     e: React.MouseEvent,
@@ -1684,6 +1691,57 @@ const levantarSancion = async (userId: string, ticketId: string) => {
           await runUserAuthAction(p, action);
         } catch (err: any) {
           showAlert(tr("Error"), err?.message || tr("No se pudo completar la acción."));
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
+
+  const revisarConfirmacionesPendientes = () => {
+    setConfirmDialog({
+      title: tr("Revisar confirmaciones"),
+      confirmLabel: tr("Revisar ahora"),
+      message: tr("Envía el aviso de confirmación que toque (24, 48 o 72 h) y anula las altas que lleven 96 h sin confirmar. El usuario elegido queda libre. También anula las que ya superaron ese plazo."),
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+          if (!accessToken) throw new Error(tr("Sesión no válida. Vuelve a iniciar sesión."));
+          const res = await fetch("/api/auth/confirm-reminders", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const json = (await res.json().catch(() => ({}))) as {
+            error?: string;
+            reminded?: { email?: string; hours?: number }[];
+            cancelled?: { email?: string; username?: string | null }[];
+            errors?: string[];
+            pending?: number;
+          };
+          if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+          const reminded = json.reminded?.length || 0;
+          const cancelled = json.cancelled?.length || 0;
+          const errors = json.errors?.length || 0;
+          const pending = Number(json.pending) || 0;
+          const names = (json.cancelled || [])
+            .map((row) => row.username || row.email)
+            .filter((value): value is string => Boolean(value))
+            .slice(0, 8)
+            .join(", ");
+          showAlert(
+            tr("Revisión hecha"),
+            [
+              tr("Avisos enviados: {n}.", { n: reminded }),
+              tr("Altas anuladas: {n}.", { n: cancelled }),
+              names ? tr("Usuarios liberados: {names}.", { names }) : "",
+              errors ? tr("Con error: {n}.", { n: errors }) : "",
+              pending ? tr("Quedan {n} para la siguiente pasada.", { n: pending }) : "",
+            ].filter(Boolean).join("\n"),
+          );
+          await cargarResumenUsuarios();
+        } catch (err: any) {
+          showAlert(tr("Error"), err?.message || tr("No se pudo revisar."));
         } finally {
           setLoading(false);
         }
@@ -3146,6 +3204,25 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               {` · ${siteLanguageLabel(p.language) ? tr("Idioma: {name}", { name: siteLanguageLabel(p.language) || "" }) : tr("Idioma sin elegir")}`}
               {p.invite_code ? ` · ${tr("Código {code}", { code: p.invite_code })} · ${tr("{n} de 10 usos", { n: p.invite_signups || 0 })}` : ""}
             </div>
+            {!p.email_confirmed && !p.is_deleted && (
+              <div style={{ fontSize: "11px", color: "var(--state-warning-fg)", fontWeight: 800, marginTop: "4px" }}>
+                {tr("Avisos de confirmación a las 24, 48 y 72 h. Si no confirma, a las 96 h se anula el alta y se libera el usuario.")}
+                {(() => {
+                  const sent = [
+                    p.confirm_reminder_24_at ? "24" : "",
+                    p.confirm_reminder_48_at ? "48" : "",
+                    p.confirm_reminder_72_at ? "72" : "",
+                  ].filter(Boolean);
+                  const created = p.created_at ? new Date(p.created_at).getTime() : NaN;
+                  const ageH = Number.isFinite(created) ? (Date.now() - created) / 3_600_000 : 0;
+                  const bits = [
+                    sent.length ? tr("Ya enviados: {hours} h.", { hours: sent.join(", ") }) : "",
+                    ageH >= 96 ? tr("Plazo vencido: la próxima revisión anula el alta.") : "",
+                  ].filter(Boolean);
+                  return bits.length ? ` ${bits.join(" ")}` : "";
+                })()}
+              </div>
+            )}
           </div>
           <button
             type="button"
@@ -3168,14 +3245,30 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                   confirmUserAuthAction(
                     p,
                     "reset_password",
-                    tr("Restablecer contraseña"),
-                    `Se enviará un email a ${p.email || who} para que elija una nueva contraseña.`,
+                    tr("Recordatorio de contraseña"),
+                    tr("Se enviará a {email} un enlace para elegir una contraseña nueva.", { email: p.email || who }),
                     e,
                   )
                 }
                 style={compactActionStyle()}
               >
-                <KeyRound size={12} />{tr("Restablecer contraseña")}</button>
+                <KeyRound size={12} />{tr("Recordatorio de contraseña")}</button>
+              {!p.email_confirmed && (
+                <button
+                  type="button"
+                  onClick={(e) =>
+                    confirmUserAuthAction(
+                      p,
+                      "send_confirmation",
+                      tr("Enviar confirmación de correo"),
+                      tr("Se enviará a {email} un enlace para confirmar el correo. El enlace anterior deja de valer.", { email: p.email || who }),
+                      e,
+                    )
+                  }
+                  style={compactActionStyle()}
+                >
+                  <Mail size={12} />{tr("Enviar confirmación")}</button>
+              )}
               {p.is_banned ? (
                 <button
                   type="button"
@@ -3759,13 +3852,23 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 <>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
                     <p style={{ color: "var(--text-muted)", fontSize: "14px", fontWeight: 700, margin: 0 }}>{tr("Resumen de altas, bajas y cuentas pendientes de confirmar. Entra en cada tipo para ver el listado y actuar.")}</p>
-                    <button
-                      type="button"
-                      onClick={() => void cargarResumenUsuarios()}
-                      disabled={usersOverviewLoading}
-                      style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", cursor: usersOverviewLoading ? "wait" : "pointer", fontWeight: 800, display: "flex", alignItems: "center", gap: "6px" }}
-                    >
-                      {usersOverviewLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}{tr("Actualizar")}</button>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={revisarConfirmacionesPendientes}
+                        style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", cursor: "pointer", fontWeight: 800, display: "flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <Mail size={14} />{tr("Revisar confirmaciones")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void cargarResumenUsuarios()}
+                        disabled={usersOverviewLoading}
+                        style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", cursor: usersOverviewLoading ? "wait" : "pointer", fontWeight: 800, display: "flex", alignItems: "center", gap: "6px" }}
+                      >
+                        {usersOverviewLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}{tr("Actualizar")}
+                      </button>
+                    </div>
                   </div>
 
                   <CountryStats users={usersOverview} loading={usersOverviewLoading} />
@@ -3802,7 +3905,7 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                     {[
                       { id: "todos" as AdminUsersFilter, label: tr("Total"), count: usersSummary.total, hint: tr("Todas las cuentas") },
                       { id: "alta" as AdminUsersFilter, label: tr("Dados de alta"), count: usersSummary.alta, hint: tr("Email confirmado y activos") },
-                      { id: "pendiente" as AdminUsersFilter, label: tr("Pendientes"), count: usersSummary.pendiente, hint: tr("Sin confirmar el email") },
+                      { id: "pendiente" as AdminUsersFilter, label: tr("Pendientes"), count: usersSummary.pendiente, hint: tr("Sin confirmar. Avisos a las 24, 48 y 72 h; a las 96 h se anula") },
                       { id: "baja" as AdminUsersFilter, label: tr("Dados de baja"), count: usersSummary.baja, hint: tr("Eliminados o suspendidos") },
                       { id: "restringido" as AdminUsersFilter, label: tr("Restringidos"), count: usersSummary.restringido, hint: tr("Cuentas con sanción") },
                       { id: "premium" as AdminUsersFilter, label: tr("Premium"), count: usersSummary.premium, hint: tr("Plan de pago") },
@@ -3840,13 +3943,23 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                     >
                       <ChevronLeft size={16} /> {tr("Volver al resumen")}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void cargarResumenUsuarios()}
-                      disabled={usersOverviewLoading}
-                      style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", cursor: usersOverviewLoading ? "wait" : "pointer", fontWeight: 800, display: "flex", alignItems: "center", gap: "6px" }}
-                    >
-                      {usersOverviewLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}{tr("Actualizar")}</button>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={revisarConfirmacionesPendientes}
+                        style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", cursor: "pointer", fontWeight: 800, display: "flex", alignItems: "center", gap: "6px" }}
+                      >
+                        <Mail size={14} />{tr("Revisar confirmaciones")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void cargarResumenUsuarios()}
+                        disabled={usersOverviewLoading}
+                        style={{ background: "var(--bg-main)", color: "var(--color-primary)", border: "1px solid var(--color-border)", padding: "8px 12px", borderRadius: "10px", cursor: usersOverviewLoading ? "wait" : "pointer", fontWeight: 800, display: "flex", alignItems: "center", gap: "6px" }}
+                      >
+                        {usersOverviewLoading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}{tr("Actualizar")}
+                      </button>
+                    </div>
                   </div>
                   <h3 style={{ margin: 0, color: "var(--color-primary)", fontSize: "18px", fontWeight: 900 }}>
                     {usersFilterTitle[usersOverviewFilter]} ({usersOverviewFiltered.length})

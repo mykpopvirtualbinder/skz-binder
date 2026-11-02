@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
+import { REMINDER_STAMP } from "@/lib/signup-confirm-schedule";
 import { adminRemoveContent, type AdminRemovalBody } from "@/lib/admin-moderate-content";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
@@ -31,6 +32,9 @@ export type OverviewUser = {
   invite_referrer_koins: number;
   invite_friend_koins: number;
   invite_signups: number;
+  confirm_reminder_24_at: string | null;
+  confirm_reminder_48_at: string | null;
+  confirm_reminder_72_at: string | null;
 };
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -154,6 +158,9 @@ export async function GET(req: Request) {
         invite_referrer_koins: appMeta.invite_referrer_koins == null ? 100 : Math.max(0, asNumber(appMeta.invite_referrer_koins)),
         invite_friend_koins: appMeta.invite_friend_koins == null ? 100 : Math.max(0, asNumber(appMeta.invite_friend_koins)),
         invite_signups: Math.max(0, asNumber(appMeta.invite_signups)),
+        confirm_reminder_24_at: asString(appMeta[REMINDER_STAMP[24]]),
+        confirm_reminder_48_at: asString(appMeta[REMINDER_STAMP[48]]),
+        confirm_reminder_72_at: asString(appMeta[REMINDER_STAMP[72]]),
       };
     });
 

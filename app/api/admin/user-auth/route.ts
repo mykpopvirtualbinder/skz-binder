@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminTeamEmail } from "@/lib/admin-emails";
 import { requireAdminFromRequest } from "@/lib/admin-bearer-auth";
 import { buildAuthConfirmLink, sendAuthLinkEmail } from "@/lib/auth-link-mail";
+import { sendSignupConfirmEmail } from "@/lib/signup-confirm-schedule";
 import { saveUserInviteCode } from "@/lib/invite-code";
 import { createServiceRoleClient } from "@/lib/supabase-admin";
 
@@ -10,6 +11,7 @@ const ACTIONS = [
   "unlock_login",
   "lock_login",
   "confirm_email",
+  "send_confirmation",
   "sign_out_all",
   "enter_profile",
   "set_invite",
@@ -196,6 +198,28 @@ export async function POST(req: Request) {
         const message = err instanceof Error ? err.message : "No se pudo guardar el código.";
         return NextResponse.json({ error: message }, { status: 400 });
       }
+    }
+
+    if (action === "send_confirmation") {
+      if (!email) return NextResponse.json({ error: "Este usuario no tiene email." }, { status: 400 });
+      if (authUser.email_confirmed_at || authUser.confirmed_at) {
+        return NextResponse.json({ error: "Este correo ya está confirmado." }, { status: 409 });
+      }
+      const sent = await sendSignupConfirmEmail(admin, { userId, email, kind: "signup" });
+      if (!sent.ok && sent.link) {
+        return NextResponse.json({
+          ok: true,
+          emailed: false,
+          confirmation_link: sent.link,
+          message: `No se pudo enviar el email (${sent.error}). Copia el enlace de confirmación y envíaselo al usuario.`,
+        });
+      }
+      if (!sent.ok) return NextResponse.json({ error: sent.error }, { status: 500 });
+      return NextResponse.json({
+        ok: true,
+        emailed: true,
+        message: `Hemos enviado el enlace de confirmación a ${email}.`,
+      });
     }
 
     if (action === "confirm_email") {

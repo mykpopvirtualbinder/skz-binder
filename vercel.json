@@ -3,6 +3,10 @@
     {
       "path": "/api/catalog-removals/run",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/auth/confirm-reminders",
+      "schedule": "0 * * * *"
     }
   ]
 }
