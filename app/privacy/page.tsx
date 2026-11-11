@@ -1,13 +1,20 @@
 "use client";
 
-import React from "react";
-import { ShieldCheck, Lock, Eye, Cookie, Mail } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { ShieldCheck, Lock, Eye, Cookie, Mail, Scale } from "lucide-react";
 import { useGlobal } from "../context/GlobalContext";
+import { markPrivacyRead } from "@/lib/privacy-read";
 
 import Footer from "../components/footer";
 
 export default function PrivacyPolicy() {
-  const { t } = useGlobal(); // 👈 Añadimos el traductor
+  const { t } = useGlobal();
+  const [fromRegister, setFromRegister] = useState(false);
+
+  useEffect(() => {
+    markPrivacyRead();
+    setFromRegister(new URLSearchParams(window.location.search).get("from") === "register");
+  }, []);
 
   return (
     <div style={{ 
@@ -21,6 +28,12 @@ export default function PrivacyPolicy() {
       
       <main className="legal-page" data-nav="fanart" style={{ width: "100%", maxWidth: "900px", margin: "24px auto", padding: "0 40px", flex: 1 }}>
         
+        {fromRegister ? (
+          <a href="/register" style={{ display: "inline-block", marginBottom: "24px", color: "var(--color-primary)", fontWeight: 800, fontSize: "13px" }}>
+            {t("privacy.back_register")}
+          </a>
+        ) : null}
+
         {/* TITULAR EDITORIAL */}
         <div style={{ marginBottom: "60px" }}>
           <h1 className="tan-font" style={{ color: "var(--color-primary)", fontSize: "64px", lineHeight: "0.8", margin: 0 }}>
@@ -38,6 +51,15 @@ export default function PrivacyPolicy() {
         {/* SECCIONES DE POLÍTICA */}
         <div style={{ display: "flex", flexDirection: "column", gap: "50px" }}>
           
+          <section>
+            <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <Scale size={20}/> {t("privacy.controller_title")}
+            </h2>
+            <p style={{ fontSize: "15px", lineHeight: "1.8", color: "var(--text-main)" }}>
+              {t("privacy.controller_desc")}
+            </p>
+          </section>
+
           <section>
             <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
               <ShieldCheck size={20}/> {t("privacy.data_title")}
@@ -65,7 +87,7 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
-          <section style={{ backgroundColor: "var(--bg-soft)", padding: "30px", borderRadius: "24px", border: "1px solid var(--color-border)" }}>
+          <section id="cookies" style={{ backgroundColor: "var(--bg-soft)", padding: "30px", borderRadius: "24px", border: "1px solid var(--color-border)", scrollMarginTop: "96px" }}>
             <h2 style={{ color: "var(--color-primary)", fontWeight: 900, fontSize: "18px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "10px" }}>
               <Cookie size={20}/> {t("privacy.cookies_title")}
             </h2>

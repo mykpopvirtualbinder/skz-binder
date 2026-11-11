@@ -1969,7 +1969,7 @@
     "title_part1": "PRIVACY",
     "title_part2": "AND COOKIES",
     "subtitle": "Protecting the privacy of all collectors",
-    "last_updated": "Last updated: 3/17/2026",
+    "last_updated": "Last updated: 11/11/2026",
     "section1_title": "1. DATA PROCESSING",
     "section1_text": "At My Kpop Binder, we take your privacy very seriously. The data we collect (such as your email and username) is used exclusively to manage your account and improve your experience on the platform. Your data is stored encrypted and securely through Supabase.",
     "section2_title": "2. SECURITY",
@@ -1977,23 +1977,26 @@
     "section3_title": "3. USE OF INFORMATION",
     "section3_text": "We use the information to personalize your collection, allow you to interact in the Marketplace, and send you important notifications about the service. We will never share your personal data with third parties for commercial purposes without your explicit consent.",
     "cookies_title": "COOKIE POLICY",
-    "cookies_text": "My Kpop Binder uses technical cookies and local storage to remember your preferences, such as your selected \"Biases\" and your session status. These tools are necessary for the interface to function correctly and to offer you smooth browsing.",
+    "cookies_text": "My Kpop Binder uses technical cookies and local storage to remember your preferences, such as your selected \"Biases\" and your session status. These tools are necessary for the interface to function correctly and to offer you smooth browsing. Analytics cookies, which measure visits and performance, load only if you accept them. You can accept all of them, keep only the technical ones, or change that choice at any time from Cookie settings.",
     "gdpr_title": "GDPR COMPLIANCE",
-    "gdpr_text": "We comply with the General Data Protection Regulation (GDPR). You have the right to access, rectify, or request the deletion of your personal data at any time.",
+    "gdpr_text": "We comply with the General Data Protection Regulation (GDPR). You have the right to access, rectify, or request the deletion of your personal data at any time. You can do so by writing to info@mykpopbinder.com.",
     "contact_question": "Do you have questions about your data?",
     "title_1": "PRIVACY",
     "title_2": "AND COOKIES",
-    "last_update": "Last updated: 3/17/2026",
+    "last_update": "Last updated: 11/11/2026",
     "data_title": "1. DATA PROCESSING",
     "data_desc": "At My Kpop Binder, we take your privacy very seriously. The data we collect (such as your email and username) is used exclusively to manage your account and improve your experience on the platform. Your data is stored encrypted and securely through Supabase.",
     "security_title": "2. SECURITY",
     "security_desc": "We implement technical measures to protect your information against unauthorized access. Access to your account is personal and non-transferable, and each user is responsible for maintaining the confidentiality of their password.",
     "use_title": "3. USE OF INFORMATION",
     "use_desc": "We use the information to personalize your collection, allow you to interact in the Marketplace, and send you important notifications about the service. We will never share your personal data with third parties for commercial purposes without your explicit consent.",
-    "cookies_desc": "My Kpop Binder uses technical cookies and local storage to remember your preferences, such as your selected \"Biases\" and your session status. These tools are necessary for the interface to function correctly and to offer you smooth browsing.",
+    "cookies_desc": "My Kpop Binder uses technical cookies and local storage to remember your preferences, such as your selected \"Biases\" and your session status. These tools are necessary for the interface to function correctly and to offer you smooth browsing. Analytics cookies, which measure visits and performance, load only if you accept them. You can accept all of them, keep only the technical ones, or change that choice at any time from Cookie settings.",
     "rgpd_title": "GDPR COMPLIANCE",
-    "rgpd_desc": "We comply with the General Data Protection Regulation (GDPR). You have the right to access, rectify, or request the deletion of your personal data at any time.",
-    "doubts": "Do you have questions about your data?"
+    "rgpd_desc": "We comply with the General Data Protection Regulation (GDPR). You have the right to access, rectify, or request the deletion of your personal data at any time. You can do so by writing to info@mykpopbinder.com.",
+    "doubts": "Do you have questions about your data?",
+    "controller_title": "CONTROLLER, PURPOSE AND RIGHTS",
+    "controller_desc": "Controller: MKPB, S.L. Purpose: managing your account and providing the My Kpop Binder services. Rights: you can exercise your data protection rights at info@mykpopbinder.com.",
+    "back_register": "Back to sign-up"
   },
   "register": {
     "step1_title": "Join the Fandom!",
@@ -2041,7 +2044,11 @@
     "alert_your_code": "Thanks for signing up. Here is your code: {code}. It is unique and can be used 10 times at most. Each person who registers with it receives {friend} K-oins, and you receive {referrer} K-oins per person.",
     "confirm_code_label": "Your code",
     "confirm_code_hint": "It is unique and can be used 10 times at most. Each person who registers with it receives {friend} K-oins, and you receive {referrer} K-oins per person.",
-    "confirm_go_login": "Go to log in"
+    "confirm_go_login": "Go to log in",
+    "privacy_check": "I accept",
+    "privacy_notice_before": "Controller: MKPB, S.L. Purpose: managing your account and providing the My Kpop Binder services. Rights: you can exercise your data protection rights at info@mykpopbinder.com. More information in the ",
+    "privacy_notice_after": ".",
+    "privacy_read_first": "Open the privacy policy before you can accept it."
   },
   "report": {
     "title_part1": "REPORTING",
@@ -2664,5 +2671,18 @@
     "unlock_theme_need": "You need {cost} K-oins to unlock this theme.",
     "unlock_theme_confirm": "Unlock \"{name}\" for {cost} K-oins?",
     "unlock_theme_done": "Theme unlocked for {cost} K-oins."
+  },
+  "cookies_banner": {
+    "lead_before": "We use technical cookies, which the site needs to work, and analytics cookies to understand how it is used. You can accept them all or choose. More information in the ",
+    "policy_link": "Cookie policy",
+    "lead_after": ".",
+    "accept": "Accept all",
+    "setup": "Settings",
+    "save": "Save preferences",
+    "tech": "Technical and strictly necessary",
+    "tech_help": "Always on. They keep your session, language, theme and preferences.",
+    "measure": "Analytics",
+    "measure_help": "They count visits and performance. They only load if you accept them.",
+    "manage": "Cookie settings"
   }
 }

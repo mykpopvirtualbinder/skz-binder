@@ -1969,7 +1969,7 @@
     "title_part1": "PRIVACIDAD",
     "title_part2": "Y COOKIES",
     "subtitle": "Protegiendo la privacidad de tod@s l@s coleccionistas",
-    "last_updated": "Última actualización: 17/3/2026",
+    "last_updated": "Última actualización: 11/11/2026",
     "section1_title": "1. TRATAMIENTO DE DATOS",
     "section1_text": "En My Kpop Binder nos tomamos muy en serio tu privacidad. Los datos que recopilamos (como tu correo electrónico y nombre de usuario) se utilizan exclusivamente para gestionar tu cuenta y mejorar tu experiencia en la plataforma. Tus datos se almacenan de forma cifrada y segura a través de Supabase.",
     "section2_title": "2. SEGURIDAD",
@@ -1977,23 +1977,26 @@
     "section3_title": "3. USO DE LA INFORMACIÓN",
     "section3_text": "Utilizamos la información para personalizar tu colección, permitirte interactuar en el Marketplace y enviarte notificaciones importantes sobre el servicio. Nunca compartiremos tus datos personales con terceros con fines comerciales sin tu consentimiento explícito.",
     "cookies_title": "POLÍTICA DE COOKIES",
-    "cookies_text": "My Kpop Binder utiliza cookies técnicas y almacenamiento local para recordar tus preferencias, como tus \"Bias\" seleccionad@s y tu estado de sesión. Estas herramientas son necesarias para el correcto funcionamiento de la interfaz y para ofrecerte una navegación fluida y estética.",
+    "cookies_text": "My Kpop Binder utiliza cookies técnicas y almacenamiento local para recordar tus preferencias, como tus \"Bias\" seleccionad@s y tu estado de sesión. Estas herramientas son necesarias para el correcto funcionamiento de la interfaz y para ofrecerte una navegación fluida y estética. Las cookies de analítica, que miden visitas y rendimiento, solo se activan si las aceptas. Puedes aceptarlas todas, quedarte con las técnicas o cambiar esa elección cuando quieras desde Configurar cookies.",
     "gdpr_title": "CUMPLIMIENTO RGPD",
-    "gdpr_text": "Cumplimos con el Reglamento General de Protección de Datos (RGPD). Tienes derecho a acceder, rectificar o solicitar la eliminación de tus datos personales en cualquier momento.",
+    "gdpr_text": "Cumplimos con el Reglamento General de Protección de Datos (RGPD). Tienes derecho a acceder, rectificar o solicitar la eliminación de tus datos personales en cualquier momento. Puedes hacerlo escribiendo a info@mykpopbinder.com.",
     "contact_question": "¿Tienes dudas sobre tus datos?",
     "title_1": "PRIVACIDAD",
     "title_2": "Y COOKIES",
-    "last_update": "Última actualización: 17/3/2026",
+    "last_update": "Última actualización: 11/11/2026",
     "data_title": "1. TRATAMIENTO DE DATOS",
     "data_desc": "En My Kpop Binder nos tomamos muy en serio tu privacidad. Los datos que recopilamos (como tu correo electrónico y nombre de usuario) se utilizan exclusivamente para gestionar tu cuenta y mejorar tu experiencia en la plataforma. Tus datos se almacenan de forma cifrada y segura a través de Supabase.",
     "security_title": "2. SEGURIDAD",
     "security_desc": "Implementamos medidas técnicas para proteger tu información contra accesos no autorizados. El acceso a tu cuenta es personal e intransferible, y cada usuari@ es responsable de mantener la confidencialidad de su contraseña.",
     "use_title": "3. USO DE LA INFORMACIÓN",
     "use_desc": "Utilizamos la información para personalizar tu colección, permitirte interactuar en el Marketplace y enviarte notificaciones importantes sobre el servicio. Nunca compartiremos tus datos personales con terceros con fines comerciales sin tu consentimiento explícito.",
-    "cookies_desc": "My Kpop Binder utiliza cookies técnicas y almacenamiento local para recordar tus preferencias, como tus \"Bias\" seleccionad@s y tu estado de sesión. Estas herramientas son necesarias para el correcto funcionamiento de la interfaz y para ofrecerte una navegación fluida y estética.",
+    "cookies_desc": "My Kpop Binder utiliza cookies técnicas y almacenamiento local para recordar tus preferencias, como tus \"Bias\" seleccionad@s y tu estado de sesión. Estas herramientas son necesarias para el correcto funcionamiento de la interfaz y para ofrecerte una navegación fluida y estética. Las cookies de analítica, que miden visitas y rendimiento, solo se activan si las aceptas. Puedes aceptarlas todas, quedarte con las técnicas o cambiar esa elección cuando quieras desde Configurar cookies.",
     "rgpd_title": "CUMPLIMIENTO RGPD",
-    "rgpd_desc": "Cumplimos con el Reglamento General de Protección de Datos (RGPD). Tienes derecho a acceder, rectificar o solicitar la eliminación de tus datos personales en cualquier momento.",
-    "doubts": "¿Tienes dudas sobre tus datos?"
+    "rgpd_desc": "Cumplimos con el Reglamento General de Protección de Datos (RGPD). Tienes derecho a acceder, rectificar o solicitar la eliminación de tus datos personales en cualquier momento. Puedes hacerlo escribiendo a info@mykpopbinder.com.",
+    "doubts": "¿Tienes dudas sobre tus datos?",
+    "controller_title": "RESPONSABLE, FINALIDAD Y DERECHOS",
+    "controller_desc": "Responsable: MKPB, S.L. Finalidad: Gestión de tu cuenta y prestación de los servicios de My Kpop Binder. Derechos: Puedes ejercer tus derechos de protección de datos en info@mykpopbinder.com.",
+    "back_register": "Volver al registro"
   },
   "register": {
     "step1_title": "¡Únete al Fandom!",
@@ -2041,7 +2044,11 @@
     "alert_your_code": "Gracias por darte de alta. Te facilitamos tu código: {code}. Es único y se puede usar 10 veces como máximo. Quien se registre con él recibe {friend} K-oins, y tú recibes {referrer} K-oins por cada persona.",
     "confirm_code_label": "Tu código",
     "confirm_code_hint": "Es único y se puede usar 10 veces como máximo. Quien se registre con él recibe {friend} K-oins, y tú recibes {referrer} K-oins por cada persona.",
-    "confirm_go_login": "Ir a entrar"
+    "confirm_go_login": "Ir a entrar",
+    "privacy_check": "Acepto",
+    "privacy_notice_before": "Responsable: MKPB, S.L. Finalidad: Gestión de tu cuenta y prestación de los servicios de My Kpop Binder. Derechos: Puedes ejercer tus derechos de protección de datos en info@mykpopbinder.com. Más información en la ",
+    "privacy_notice_after": ".",
+    "privacy_read_first": "Abre la política de privacidad para poder aceptarla."
   },
   "report": {
     "title_part1": "REPORTAR",
@@ -2664,5 +2671,18 @@
     "unlock_theme_need": "Necesitas {cost} K-oins para desbloquear este tema.",
     "unlock_theme_confirm": "¿Desbloquear \"{name}\" por {cost} K-oins?",
     "unlock_theme_done": "Tema desbloqueado por {cost} K-oins."
+  },
+  "cookies_banner": {
+    "lead_before": "Usamos cookies técnicas, necesarias para que la web funcione, y cookies de analítica para saber cómo se usa. Puedes aceptarlas todas o elegir. Más información en la ",
+    "policy_link": "Política de cookies",
+    "lead_after": ".",
+    "accept": "Aceptar todas",
+    "setup": "Configurar",
+    "save": "Guardar preferencias",
+    "tech": "Técnicas y estrictamente necesarias",
+    "tech_help": "Siempre activas. Guardan la sesión, el idioma, el tema y tus preferencias.",
+    "measure": "Analíticas",
+    "measure_help": "Cuentan las visitas y el rendimiento. Solo se activan si las aceptas.",
+    "manage": "Configurar cookies"
   }
 }

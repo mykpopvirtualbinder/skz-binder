@@ -1745,7 +1745,7 @@
     "title_part1": "隐私",
     "title_part2": "政策",
     "subtitle": "保护所有收藏家的隐私安全",
-    "last_updated": "最后更新时间：2026/03/17",
+    "last_updated": "最后更新时间：2026/11/11",
     "section1_title": "1. 数据处理",
     "section1_text": "在 My Kpop Binder，我们非常重视您的隐私。我们收集的数据（如您的电子邮件和用户名）专用于管理您的账户并提升您在平台上的体验。您的数据将通过 Supabase 加密并安全存储。",
     "section2_title": "2. 数据安全",
@@ -1753,23 +1753,26 @@
     "section3_title": "3. 信息使用",
     "section3_text": "我们使用该信息来个性化您的收藏、允许您在交易市场中进行互动，并向您发送有关服务的重要通知。未经您的明确同意，我们绝不会出于商业目的与第三方共享您的个人数据。",
     "cookies_title": "COOKIE 政策",
-    "cookies_text": "My Kpop Binder 使用技术 Cookie 和本地存储来记住您的偏好，例如您选择的“本命”和您的会话状态。这些工具对于确保界面正常工作并为您提供流畅美观的浏览体验是必要的。",
+    "cookies_text": "My Kpop Binder 使用技术 Cookie 和本地存储来记住您的偏好，例如您选择的“本命”和您的会话状态。这些工具对于确保界面正常工作并为您提供流畅美观的浏览体验是必要的。 用于统计访问和性能的分析 Cookie 只有在你接受后才会启用。你可以全部接受、只保留技术 Cookie，或随时在 Cookie 设置中更改。",
     "gdpr_title": "遵守 GDPR / 数据保护",
-    "gdpr_text": "我们遵守相关的个人信息保护法规（包括 GDPR）。您有权随时访问、修改或要求删除您的个人数据。",
+    "gdpr_text": "我们遵守相关的个人信息保护法规（包括 GDPR）。您有权随时访问、修改或要求删除您的个人数据。 请写信至 info@mykpopbinder.com。",
     "contact_question": "对您的数据处理有疑问？",
     "title_1": "隐私",
     "title_2": "政策",
-    "last_update": "最后更新时间：2026/03/17",
+    "last_update": "最后更新时间：2026/11/11",
     "data_title": "1. 数据处理",
     "data_desc": "在 My Kpop Binder，我们非常重视您的隐私。我们收集的数据（如您的电子邮件和用户名）专用于管理您的账户并提升您在平台上的体验。您的数据将通过 Supabase 加密并安全存储。",
     "security_title": "2. 数据安全",
     "security_desc": "我们实施技术措施以保护您的信息免受未经授权的访问。您对账户的访问是个人且不可转让的，每位用户都有责任对自己的密码保密。",
     "use_title": "3. 信息使用",
     "use_desc": "我们使用该信息来个性化您的收藏、允许您在交易市场中进行互动，并向您发送有关服务的重要通知。未经您的明确同意，我们绝不会出于商业目的与第三方共享您的个人数据。",
-    "cookies_desc": "My Kpop Binder 使用技术 Cookie 和本地存储来记住您的偏好，例如您选择的“本命”和您的会话状态。这些工具对于确保界面正常工作并为您提供流畅美观的浏览体验是必要的。",
+    "cookies_desc": "My Kpop Binder 使用技术 Cookie 和本地存储来记住您的偏好，例如您选择的“本命”和您的会话状态。这些工具对于确保界面正常工作并为您提供流畅美观的浏览体验是必要的。 用于统计访问和性能的分析 Cookie 只有在你接受后才会启用。你可以全部接受、只保留技术 Cookie，或随时在 Cookie 设置中更改。",
     "rgpd_title": "遵守 GDPR / 数据保护",
-    "rgpd_desc": "我们遵守相关的个人信息保护法规（包括 GDPR）。您有权随时访问、修改或要求删除您的个人数据。",
-    "doubts": "对您的数据处理有疑问？"
+    "rgpd_desc": "我们遵守相关的个人信息保护法规（包括 GDPR）。您有权随时访问、修改或要求删除您的个人数据。 请写信至 info@mykpopbinder.com。",
+    "doubts": "对您的数据处理有疑问？",
+    "controller_title": "负责人、目的与权利",
+    "controller_desc": "负责人：MKPB, S.L.。目的：管理你的账户并提供 My Kpop Binder 的服务。权利：你可以在 info@mykpopbinder.com 行使数据保护权利。",
+    "back_register": "返回注册"
   },
   "register": {
     "step1_title": "加入饭圈！",
@@ -1817,7 +1820,11 @@
     "alert_your_code": "感谢注册。你的邀请码是 {code}。它不会重复，最多使用 10 次。用它注册的人获得 {friend} 个 K-oins，你每带来一人获得 {referrer} 个 K-oins。",
     "confirm_code_label": "你的邀请码",
     "confirm_code_hint": "它不会重复，最多使用 10 次。用它注册的人获得 {friend} 个 K-oins，你每带来一人获得 {referrer} 个 K-oins。",
-    "confirm_go_login": "去登录"
+    "confirm_go_login": "去登录",
+    "privacy_check": "我接受",
+    "privacy_notice_before": "负责人：MKPB, S.L.。目的：管理你的账户并提供 My Kpop Binder 的服务。权利：你可以在 info@mykpopbinder.com 行使数据保护权利。更多信息见",
+    "privacy_notice_after": "。",
+    "privacy_read_first": "请先打开隐私政策，然后才能接受。"
   },
   "report": {
     "title_part1": "举报",
@@ -2457,5 +2464,18 @@
     "unlock_theme_need": "解锁该主题需要 {cost} K-oins。",
     "unlock_theme_confirm": "用 {cost} K-oins 解锁“{name}”？",
     "unlock_theme_done": "已用 {cost} K-oins 解锁主题。"
+  },
+  "cookies_banner": {
+    "lead_before": "我们使用网站运行所必需的技术 Cookie，以及用于了解使用情况的分析 Cookie。你可以全部接受或自行选择。更多信息见",
+    "policy_link": "Cookie 政策",
+    "lead_after": "。",
+    "accept": "全部接受",
+    "setup": "设置",
+    "save": "保存偏好",
+    "tech": "技术性且严格必要",
+    "tech_help": "始终开启。用于保存会话、语言、主题和偏好。",
+    "measure": "分析",
+    "measure_help": "统计访问和性能。只有接受后才会启用。",
+    "manage": "Cookie 设置"
   }
 }

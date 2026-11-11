@@ -10,13 +10,15 @@ import { useGlobal } from "../context/GlobalContext";
 import { isEmailOk } from "@/lib/email-policy";
 import { isPasswordOk } from "@/lib/password-policy";
 import { isUsernameShapeOk, normalizeUsername } from "@/lib/username";
+import { privacyWasRead } from "@/lib/privacy-read";
 
 export default function RegisterPage() {
   const router = useRouter();
   const { t, showAlert, uiLanguage } = useGlobal();
   const [step, setStep] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [privacySeen, setPrivacySeen] = useState(false);
+  const [privacyHint, setPrivacyHint] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailInvalid, setEmailInvalid] = useState(false);
   const [passwordInvalid, setPasswordInvalid] = useState(false);
@@ -68,6 +70,17 @@ export default function RegisterPage() {
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  useEffect(() => {
+    const read = () => setPrivacySeen(privacyWasRead());
+    read();
+    window.addEventListener("focus", read);
+    window.addEventListener("pageshow", read);
+    return () => {
+      window.removeEventListener("focus", read);
+      window.removeEventListener("pageshow", read);
+    };
   }, []);
 
   // 1. Función que calcula la edad
@@ -246,6 +259,11 @@ export default function RegisterPage() {
         return;
       }
     }
+    if (!privacySeen) {
+      setPrivacyHint(true);
+      showAlert(t("register.alert_title_validation"), t("register.privacy_read_first"));
+      return;
+    }
     if (!formData.acceptTerms) {
       showAlert(t("register.alert_title_validation"), t("register.alert_terms"));
       return;
@@ -409,13 +427,43 @@ export default function RegisterPage() {
               <textarea value={formData.address} placeholder={t("register.placeholder_address")} style={{ ...inputStyle, height: "60px", resize: "none" }} onChange={(e) => setFormData({...formData, address: e.target.value})} />
               <input value={formData.inviteCode} placeholder={t("register.placeholder_invite")} autoComplete="off" style={inputStyle} onChange={(e) => setFormData({...formData, inviteCode: e.target.value})} />
 
-              <label style={{ display: "flex", gap: "10px", alignItems: "start", cursor: "pointer", marginTop: "10px" }}>
-                <input type="checkbox" checked={formData.acceptTerms} required onChange={(e) => setFormData({...formData, acceptTerms: e.target.checked})} />
-                <span style={{ fontSize: "12px", color: "var(--text-main)", textAlign: "left" }}>
-                  {t("register.privacy_accept")}{" "}
-                  <b onClick={(e) => { e.preventDefault(); setShowPrivacy(true); }} style={{ textDecoration: "underline", color: "var(--color-primary)" }}>{t("register.privacy_link")}</b>. *
-                </span>
-              </label>
+              <div
+                onClick={(e) => {
+                  if (privacySeen) return;
+                  if ((e.target as HTMLElement).closest("a")) return;
+                  setPrivacyHint(true);
+                }}
+              >
+                <label style={{ display: "flex", gap: "10px", alignItems: "flex-start", cursor: privacySeen ? "pointer" : "not-allowed", marginTop: "10px", opacity: privacySeen ? 1 : 0.55 }}>
+                  <input
+                    type="checkbox"
+                    checked={privacySeen && formData.acceptTerms}
+                    disabled={!privacySeen}
+                    onChange={(e) => {
+                      if (!privacySeen) {
+                        setPrivacyHint(true);
+                        return;
+                      }
+                      setFormData({ ...formData, acceptTerms: e.target.checked });
+                    }}
+                  />
+                  <span style={{ fontSize: "12px", color: "var(--text-main)", textAlign: "left", fontWeight: 800 }}>
+                    {t("register.privacy_check")} *
+                  </span>
+                </label>
+                <p style={{ fontSize: "12px", color: "var(--text-main)", textAlign: "left", lineHeight: 1.55, margin: "8px 0 0" }}>
+                  {t("register.privacy_notice_before")}
+                  <a href="/privacy?from=register" style={{ color: "var(--color-primary)", fontWeight: 800 }}>
+                    {t("register.privacy_link")}
+                  </a>
+                  {t("register.privacy_notice_after")}
+                </p>
+                {!privacySeen && privacyHint ? (
+                  <p style={{ fontSize: "12px", color: "#b4234a", fontWeight: 700, textAlign: "left", margin: "6px 0 0" }}>
+                    {t("register.privacy_read_first")}
+                  </p>
+                ) : null}
+              </div>
 
               <button type="submit" className="tan-font" disabled={checkingStep} style={{ ...buttonStyle(isMobile), opacity: checkingStep ? 0.7 : 1 }}>
                 {t("register.btn_next")}
@@ -433,21 +481,6 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {showPrivacy && (
-          <div style={modalOverlayStyle}>
-            <div style={modalContentStyle}>
-              <h3 className="tan-font" style={{ color: "var(--color-primary)" }}>
-                {t("register.privacy_modal.title")}
-              </h3>
-              <p style={{ fontSize: "13px", color: "var(--text-main)", lineHeight: "1.5" }}>
-                {t("register.privacy_modal.text")}
-              </p>
-              <button onClick={() => setShowPrivacy(false)} style={btnModalStyle}>
-                {t("register.privacy_modal.btn_close")}
-              </button>
-            </div>
-          </div>
-        )}
       </main>
       <Footer />
     </div>
@@ -465,6 +498,3 @@ const invalidFieldStyle = { border: "2px solid #b4234a", background: "color-mix(
 const invalidHintStyle = { margin: "-8px 0 0", fontSize: "12px", lineHeight: 1.4, fontWeight: 600, textAlign: "center" as const, color: "#b4234a" };
 const buttonStyle = (isMobile: boolean) => ({ background: "var(--color-primary)", color: "white", border: "none", padding: isMobile ? "12px" : "16px", borderRadius: "14px", marginTop: "10px", fontWeight: 900, cursor: "pointer", width: "100%", boxShadow: "0 4px 10px var(--shadow-card)" });
 const btnBackStyle = { background: "none", border: "none", color: "var(--text-muted)", textDecoration: "underline" as const, cursor: "pointer", marginTop: "20px", width: "100%", fontWeight: 800 };
-const modalOverlayStyle = { position: "fixed" as const, inset: 0, backgroundColor: "var(--overlay-strong)", backdropFilter: "blur(4px)", zIndex: 3000, display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" };
-const modalContentStyle = { background: "var(--bg-card)", padding: "30px", borderRadius: "24px", maxWidth: "450px", border: "1px solid var(--color-border)", textAlign: "center" as const, boxShadow: "0 20px 50px var(--shadow-card)" };
-const btnModalStyle = { background: "var(--color-primary)", color: "white", border: "none", padding: "12px", borderRadius: "12px", marginTop: "20px", fontWeight: 900, cursor: "pointer", width: "100%" };

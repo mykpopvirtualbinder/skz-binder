@@ -1781,7 +1781,7 @@
     "title_part1": "PRIVASI",
     "title_part2": "DAN COOKIE",
     "subtitle": "Melindungi privasi semua kolektor",
-    "last_updated": "Terakhir diperbarui: 17/3/2026",
+    "last_updated": "Terakhir diperbarui: 11/11/2026",
     "section1_title": "1. PEMROSESAN DATA",
     "section1_text": "Di My Kpop Binder, kami menangani privasi kamu dengan sangat serius. Data yang kami kumpulkan (seperti email dan nama penggunamu) digunakan semata-mata untuk mengelola akunmu dan meningkatkan pengalamanmu di platform. Data kamu disimpan terenkripsi dan aman melalui Supabase.",
     "section2_title": "2. KEAMANAN",
@@ -1789,23 +1789,26 @@
     "section3_title": "3. PENGGUNAAN INFORMASI",
     "section3_text": "Kami menggunakan informasi tersebut untuk mempersonalisasi koleksimu, memungkinkan kamu berinteraksi di Marketplace, dan mengirimi kamu notifikasi penting mengenai layanan ini. Kami tidak akan pernah membagikan data pribadimu dengan pihak ketiga untuk tujuan komersial tanpa persetujuan eksplisit darimu.",
     "cookies_title": "KEBIJAKAN COOKIE",
-    "cookies_text": "My Kpop Binder menggunakan cookie teknis dan penyimpanan lokal untuk mengingat preferensimu, seperti \"Bias\" yang kamu pilih dan status sesimu. Alat-alat ini diperlukan agar antarmuka berfungsi dengan baik dan menawarkan navigasi yang lancar untukmu.",
+    "cookies_text": "My Kpop Binder menggunakan cookie teknis dan penyimpanan lokal untuk mengingat preferensimu, seperti \"Bias\" yang kamu pilih dan status sesimu. Alat-alat ini diperlukan agar antarmuka berfungsi dengan baik dan menawarkan navigasi yang lancar untukmu. Cookie analitik, yang mengukur kunjungan dan kinerja, hanya dimuat jika kamu menerimanya. Kamu dapat menerima semuanya, hanya menyimpan yang teknis, atau mengubah pilihan itu kapan saja dari Pengaturan cookie.",
     "gdpr_title": "KEPATUHAN GDPR",
-    "gdpr_text": "Kami mematuhi Regulasi Perlindungan Data Umum (GDPR). Kamu memiliki hak untuk mengakses, memperbaiki, atau meminta penghapusan data pribadimu kapan saja.",
+    "gdpr_text": "Kami mematuhi Regulasi Perlindungan Data Umum (GDPR). Kamu memiliki hak untuk mengakses, memperbaiki, atau meminta penghapusan data pribadimu kapan saja. Kamu dapat melakukannya dengan menulis ke info@mykpopbinder.com.",
     "contact_question": "Ada keraguan tentang datamu?",
     "title_1": "PRIVASI",
     "title_2": "DAN COOKIE",
-    "last_update": "Terakhir diperbarui: 17/3/2026",
+    "last_update": "Terakhir diperbarui: 11/11/2026",
     "data_title": "1. PEMROSESAN DATA",
     "data_desc": "Di My Kpop Binder, kami menangani privasi kamu dengan sangat serius. Data yang kami kumpulkan (seperti email dan nama penggunamu) digunakan semata-mata untuk mengelola akunmu dan meningkatkan pengalamanmu di platform. Data kamu disimpan terenkripsi dan aman melalui Supabase.",
     "security_title": "2. KEAMANAN",
     "security_desc": "Kami menerapkan langkah-langkah teknis untuk melindungi informasimu dari akses tidak sah. Akses ke akunmu bersifat pribadi dan tidak dapat dipindahtangankan, dan setiap pengguna bertanggung jawab untuk menjaga kerahasiaan kata sandi mereka.",
     "use_title": "3. PENGGUNAAN INFORMASI",
     "use_desc": "Kami menggunakan informasi tersebut untuk mempersonalisasi koleksimu, memungkinkan kamu berinteraksi di Marketplace, dan mengirimi kamu notifikasi penting mengenai layanan ini. Kami tidak akan pernah membagikan data pribadimu dengan pihak ketiga untuk tujuan komersial tanpa persetujuan eksplisit darimu.",
-    "cookies_desc": "My Kpop Binder menggunakan cookie teknis dan penyimpanan lokal untuk mengingat preferensimu, seperti \"Bias\" yang kamu pilih dan status sesimu. Alat-alat ini diperlukan agar antarmuka berfungsi dengan baik dan menawarkan navigasi yang lancar untukmu.",
+    "cookies_desc": "My Kpop Binder menggunakan cookie teknis dan penyimpanan lokal untuk mengingat preferensimu, seperti \"Bias\" yang kamu pilih dan status sesimu. Alat-alat ini diperlukan agar antarmuka berfungsi dengan baik dan menawarkan navigasi yang lancar untukmu. Cookie analitik, yang mengukur kunjungan dan kinerja, hanya dimuat jika kamu menerimanya. Kamu dapat menerima semuanya, hanya menyimpan yang teknis, atau mengubah pilihan itu kapan saja dari Pengaturan cookie.",
     "rgpd_title": "KEPATUHAN GDPR",
-    "rgpd_desc": "Kami mematuhi Regulasi Perlindungan Data Umum (GDPR). Kamu memiliki hak untuk mengakses, memperbaiki, atau meminta penghapusan data pribadimu kapan saja.",
-    "doubts": "Ada keraguan tentang datamu?"
+    "rgpd_desc": "Kami mematuhi Regulasi Perlindungan Data Umum (GDPR). Kamu memiliki hak untuk mengakses, memperbaiki, atau meminta penghapusan data pribadimu kapan saja. Kamu dapat melakukannya dengan menulis ke info@mykpopbinder.com.",
+    "doubts": "Ada keraguan tentang datamu?",
+    "controller_title": "PENANGGUNG JAWAB, TUJUAN, DAN HAK",
+    "controller_desc": "Penanggung jawab: MKPB, S.L. Tujuan: mengelola akunmu dan menyediakan layanan My Kpop Binder. Hak: kamu dapat menggunakan hak perlindungan datamu di info@mykpopbinder.com.",
+    "back_register": "Kembali ke pendaftaran"
   },
   "register": {
     "step1_title": "Bergabunglah dengan Fandom!",
@@ -1853,7 +1856,11 @@
     "alert_your_code": "Terima kasih sudah mendaftar. Kodemu adalah {code}. Kode ini unik dan paling banyak dipakai 10 kali. Setiap orang yang mendaftar dengannya menerima {friend} K-oins, dan kamu menerima {referrer} K-oins per orang.",
     "confirm_code_label": "Kodemu",
     "confirm_code_hint": "Kode ini unik dan paling banyak dipakai 10 kali. Setiap orang yang mendaftar dengannya menerima {friend} K-oins, dan kamu menerima {referrer} K-oins per orang.",
-    "confirm_go_login": "Ke halaman masuk"
+    "confirm_go_login": "Ke halaman masuk",
+    "privacy_check": "Saya setuju",
+    "privacy_notice_before": "Penanggung jawab: MKPB, S.L. Tujuan: mengelola akunmu dan menyediakan layanan My Kpop Binder. Hak: kamu dapat menggunakan hak perlindungan datamu di info@mykpopbinder.com. Informasi selengkapnya di ",
+    "privacy_notice_after": ".",
+    "privacy_read_first": "Buka kebijakan privasi sebelum kamu dapat menyetujuinya."
   },
   "report": {
     "title_part1": "LAPORKAN",
@@ -2456,5 +2463,18 @@
     "unlock_theme_need": "Kamu butuh {cost} K-oins untuk membuka tema ini.",
     "unlock_theme_confirm": "Buka \"{name}\" seharga {cost} K-oins?",
     "unlock_theme_done": "Tema dibuka seharga {cost} K-oins."
+  },
+  "cookies_banner": {
+    "lead_before": "Kami memakai cookie teknis, yang dibutuhkan situs untuk bekerja, dan cookie analitik untuk memahami penggunaannya. Kamu dapat menerima semuanya atau memilih. Informasi selengkapnya di ",
+    "policy_link": "Kebijakan cookie",
+    "lead_after": ".",
+    "accept": "Terima semua",
+    "setup": "Atur",
+    "save": "Simpan preferensi",
+    "tech": "Teknis dan sangat diperlukan",
+    "tech_help": "Selalu aktif. Cookie ini menyimpan sesi, bahasa, tema, dan preferensimu.",
+    "measure": "Analitik",
+    "measure_help": "Cookie ini menghitung kunjungan dan kinerja. Hanya dimuat jika kamu menerimanya.",
+    "manage": "Pengaturan cookie"
   }
 }

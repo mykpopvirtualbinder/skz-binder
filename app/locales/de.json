@@ -1781,7 +1781,7 @@
     "title_part1": "DATENSCHUTZ",
     "title_part2": "UND COOKIES",
     "subtitle": "Schutz der Privatsphäre aller Sammler",
-    "last_updated": "Letzte Aktualisierung: 17.03.2026",
+    "last_updated": "Letzte Aktualisierung: 11.11.2026",
     "section1_title": "1. DATENVERARBEITUNG",
     "section1_text": "Bei My Kpop Binder nehmen wir deine Privatsphäre sehr ernst. Die Daten, die wir sammeln (wie deine E-Mail und dein Benutzername), werden ausschließlich zur Verwaltung deines Kontos und zur Verbesserung deiner Erfahrung auf der Plattform verwendet. Deine Daten werden verschlüsselt und sicher über Supabase gespeichert.",
     "section2_title": "2. SICHERHEIT",
@@ -1789,23 +1789,26 @@
     "section3_title": "3. VERWENDUNG VON INFORMATIONEN",
     "section3_text": "Wir verwenden die Informationen, um deine Sammlung zu personalisieren, dir die Interaktion auf dem Marktplatz zu ermöglichen und dir wichtige Benachrichtigungen über den Service zu senden. Wir werden deine persönlichen Daten niemals ohne deine ausdrückliche Zustimmung für kommerzielle Zwecke an Dritte weitergeben.",
     "cookies_title": "COOKIE-RICHTLINIE",
-    "cookies_text": "My Kpop Binder verwendet technische Cookies und lokalen Speicher, um sich an deine Präferenzen zu erinnern, wie z.B. deine ausgewählten \"Bias\" und deinen Anmeldestatus. Diese Tools sind notwendig, damit die Benutzeroberfläche richtig funktioniert und dir eine flüssige Navigation geboten wird.",
+    "cookies_text": "My Kpop Binder verwendet technische Cookies und lokalen Speicher, um sich an deine Präferenzen zu erinnern, wie z.B. deine ausgewählten \"Bias\" und deinen Anmeldestatus. Diese Tools sind notwendig, damit die Benutzeroberfläche richtig funktioniert und dir eine flüssige Navigation geboten wird. Analyse-Cookies, die Besuche und Leistung messen, werden nur geladen, wenn du sie akzeptierst. Du kannst alle akzeptieren, nur die technischen behalten oder diese Wahl jederzeit unter Cookie-Einstellungen ändern.",
     "gdpr_title": "DSGVO KONFORMITÄT",
-    "gdpr_text": "Wir halten uns an die Datenschutz-Grundverordnung (DSGVO). Du hast das Recht, jederzeit auf deine personenbezogenen Daten zuzugreifen, sie zu berichtigen oder ihre Löschung zu verlangen.",
+    "gdpr_text": "Wir halten uns an die Datenschutz-Grundverordnung (DSGVO). Du hast das Recht, jederzeit auf deine personenbezogenen Daten zuzugreifen, sie zu berichtigen oder ihre Löschung zu verlangen. Das geht per E-Mail an info@mykpopbinder.com.",
     "contact_question": "Hast du Fragen zu deinen Daten?",
     "title_1": "DATENSCHUTZ",
     "title_2": "UND COOKIES",
-    "last_update": "Letzte Aktualisierung: 17.03.2026",
+    "last_update": "Letzte Aktualisierung: 11.11.2026",
     "data_title": "1. DATENVERARBEITUNG",
     "data_desc": "Bei My Kpop Binder nehmen wir deine Privatsphäre sehr ernst. Die Daten, die wir sammeln (wie deine E-Mail und dein Benutzername), werden ausschließlich zur Verwaltung deines Kontos und zur Verbesserung deiner Erfahrung auf der Plattform verwendet. Deine Daten werden verschlüsselt und sicher über Supabase gespeichert.",
     "security_title": "2. SICHERHEIT",
     "security_desc": "Wir setzen technische Maßnahmen ein, um deine Informationen vor unbefugtem Zugriff zu schützen. Der Zugang zu deinem Konto ist persönlich und nicht übertragbar, und jeder Benutzer ist dafür verantwortlich, die Vertraulichkeit seines Passworts zu wahren.",
     "use_title": "3. VERWENDUNG VON INFORMATIONEN",
     "use_desc": "Wir verwenden die Informationen, um deine Sammlung zu personalisieren, dir die Interaktion auf dem Marktplatz zu ermöglichen und dir wichtige Benachrichtigungen über den Service zu senden. Wir werden deine persönlichen Daten niemals ohne deine ausdrückliche Zustimmung für kommerzielle Zwecke an Dritte weitergeben.",
-    "cookies_desc": "My Kpop Binder verwendet technische Cookies und lokalen Speicher, um sich an deine Präferenzen zu erinnern, wie z.B. deine ausgewählten \"Bias\" und deinen Anmeldestatus. Diese Tools sind notwendig, damit die Benutzeroberfläche richtig funktioniert und dir eine flüssige Navigation geboten wird.",
+    "cookies_desc": "My Kpop Binder verwendet technische Cookies und lokalen Speicher, um sich an deine Präferenzen zu erinnern, wie z.B. deine ausgewählten \"Bias\" und deinen Anmeldestatus. Diese Tools sind notwendig, damit die Benutzeroberfläche richtig funktioniert und dir eine flüssige Navigation geboten wird. Analyse-Cookies, die Besuche und Leistung messen, werden nur geladen, wenn du sie akzeptierst. Du kannst alle akzeptieren, nur die technischen behalten oder diese Wahl jederzeit unter Cookie-Einstellungen ändern.",
     "rgpd_title": "DSGVO KONFORMITÄT",
-    "rgpd_desc": "Wir halten uns an die Datenschutz-Grundverordnung (DSGVO). Du hast das Recht, jederzeit auf deine personenbezogenen Daten zuzugreifen, sie zu berichtigen oder ihre Löschung zu verlangen.",
-    "doubts": "Hast du Fragen zu deinen Daten?"
+    "rgpd_desc": "Wir halten uns an die Datenschutz-Grundverordnung (DSGVO). Du hast das Recht, jederzeit auf deine personenbezogenen Daten zuzugreifen, sie zu berichtigen oder ihre Löschung zu verlangen. Das geht per E-Mail an info@mykpopbinder.com.",
+    "doubts": "Hast du Fragen zu deinen Daten?",
+    "controller_title": "VERANTWORTLICHER, ZWECK UND RECHTE",
+    "controller_desc": "Verantwortlicher: MKPB, S.L. Zweck: Verwaltung deines Kontos und Bereitstellung der Dienste von My Kpop Binder. Rechte: Du kannst deine Datenschutzrechte unter info@mykpopbinder.com ausüben.",
+    "back_register": "Zurück zur Registrierung"
   },
   "register": {
     "step1_title": "Trete dem Fandom bei!",
@@ -1853,7 +1856,11 @@
     "alert_your_code": "Danke für deine Anmeldung. Dein Code lautet {code}. Er ist einzigartig und gilt höchstens 10-mal. Wer sich damit anmeldet, erhält {friend} K-oins, und du erhältst {referrer} K-oins pro Person.",
     "confirm_code_label": "Dein Code",
     "confirm_code_hint": "Er ist einzigartig und gilt höchstens 10-mal. Wer sich damit anmeldet, erhält {friend} K-oins, und du erhältst {referrer} K-oins pro Person.",
-    "confirm_go_login": "Zum Login"
+    "confirm_go_login": "Zum Login",
+    "privacy_check": "Ich akzeptiere",
+    "privacy_notice_before": "Verantwortlicher: MKPB, S.L. Zweck: Verwaltung deines Kontos und Bereitstellung der Dienste von My Kpop Binder. Rechte: Du kannst deine Datenschutzrechte unter info@mykpopbinder.com ausüben. Mehr Informationen in der ",
+    "privacy_notice_after": ".",
+    "privacy_read_first": "Öffne die Datenschutzerklärung, bevor du sie akzeptieren kannst."
   },
   "report": {
     "title_part1": "MISSBRAUCH",
@@ -2456,5 +2463,18 @@
     "unlock_theme_need": "Du brauchst {cost} K-oins, um dieses Theme freizuschalten.",
     "unlock_theme_confirm": "„{name}“ für {cost} K-oins freischalten?",
     "unlock_theme_done": "Theme für {cost} K-oins freigeschaltet."
+  },
+  "cookies_banner": {
+    "lead_before": "Wir verwenden technische Cookies, die die Website braucht, und Analyse-Cookies, um zu verstehen, wie sie genutzt wird. Du kannst alle akzeptieren oder auswählen. Mehr Informationen in der ",
+    "policy_link": "Cookie-Richtlinie",
+    "lead_after": ".",
+    "accept": "Alle akzeptieren",
+    "setup": "Einstellungen",
+    "save": "Einstellungen speichern",
+    "tech": "Technisch und unbedingt erforderlich",
+    "tech_help": "Immer aktiv. Sie speichern Sitzung, Sprache, Design und deine Einstellungen.",
+    "measure": "Analyse",
+    "measure_help": "Sie zählen Besuche und Leistung. Sie werden nur geladen, wenn du sie akzeptierst.",
+    "manage": "Cookie-Einstellungen"
   }
 }
