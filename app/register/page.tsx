@@ -18,7 +18,6 @@ export default function RegisterPage() {
   const [step, setStep] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [privacySeen, setPrivacySeen] = useState(false);
-  const [privacyHint, setPrivacyHint] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [emailInvalid, setEmailInvalid] = useState(false);
   const [passwordInvalid, setPasswordInvalid] = useState(false);
@@ -260,7 +259,6 @@ export default function RegisterPage() {
       }
     }
     if (!privacySeen) {
-      setPrivacyHint(true);
       showAlert(t("register.alert_title_validation"), t("register.privacy_read_first"));
       return;
     }
@@ -427,39 +425,35 @@ export default function RegisterPage() {
               <textarea value={formData.address} placeholder={t("register.placeholder_address")} style={{ ...inputStyle, height: "60px", resize: "none" }} onChange={(e) => setFormData({...formData, address: e.target.value})} />
               <input value={formData.inviteCode} placeholder={t("register.placeholder_invite")} autoComplete="off" style={inputStyle} onChange={(e) => setFormData({...formData, inviteCode: e.target.value})} />
 
-              <div
-                onClick={(e) => {
-                  if (privacySeen) return;
-                  if ((e.target as HTMLElement).closest("a")) return;
-                  setPrivacyHint(true);
-                }}
-              >
-                <label style={{ display: "flex", gap: "10px", alignItems: "flex-start", cursor: privacySeen ? "pointer" : "not-allowed", marginTop: "10px", opacity: privacySeen ? 1 : 0.55 }}>
+              <div style={{ display: "grid", gap: "6px", marginTop: "10px" }}>
+                <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                   <input
+                    id="register-privacy"
                     type="checkbox"
                     checked={privacySeen && formData.acceptTerms}
                     disabled={!privacySeen}
+                    aria-label={`${t("register.privacy_accept")} ${t("register.privacy_link")}`}
+                    tabIndex={privacySeen ? 0 : -1}
                     onChange={(e) => {
-                      if (!privacySeen) {
-                        setPrivacyHint(true);
-                        return;
-                      }
+                      if (!privacySeen) return;
                       setFormData({ ...formData, acceptTerms: e.target.checked });
                     }}
+                    style={{ width: "18px", height: "18px", margin: "1px 0 0", flex: "none", pointerEvents: privacySeen ? "auto" : "none" }}
                   />
-                  <span style={{ fontSize: "12px", color: "var(--text-main)", textAlign: "left", fontWeight: 800 }}>
-                    {t("register.privacy_check")} *
+                  <span style={{ fontSize: "12px", color: "var(--text-main)", textAlign: "left", lineHeight: 1.45 }}>
+                    {privacySeen ? (
+                      <label htmlFor="register-privacy" style={{ cursor: "pointer" }}>{t("register.privacy_accept")} </label>
+                    ) : (
+                      t("register.privacy_accept") + " "
+                    )}
+                    <a href="/privacy?from=register" style={{ color: "var(--color-primary)", textDecoration: "underline" }}>
+                      {t("register.privacy_link")}
+                    </a>
+                    .
                   </span>
-                </label>
-                <p style={{ fontSize: "12px", color: "var(--text-main)", textAlign: "left", lineHeight: 1.55, margin: "8px 0 0" }}>
-                  {t("register.privacy_notice_before")}
-                  <a href="/privacy?from=register" style={{ color: "var(--color-primary)", fontWeight: 800 }}>
-                    {t("register.privacy_link")}
-                  </a>
-                  {t("register.privacy_notice_after")}
-                </p>
-                {!privacySeen && privacyHint ? (
-                  <p style={{ fontSize: "12px", color: "#b4234a", fontWeight: 700, textAlign: "left", margin: "6px 0 0" }}>
+                </div>
+                {!privacySeen ? (
+                  <p role="status" style={{ margin: 0, fontSize: "12px", lineHeight: 1.4, textAlign: "left", color: "var(--text-muted)", fontWeight: 600 }}>
                     {t("register.privacy_read_first")}
                   </p>
                 ) : null}

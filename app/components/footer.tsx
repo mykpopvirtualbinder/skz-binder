@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { useGlobal } from "../context/GlobalContext";
 import { normalizeThemeId } from "@/lib/theme-unlocks";
-import { openCookieSettings } from "@/lib/cookie-consent";
 
 const FOOTER_LOGO: Record<string, string> = {
   pastel: "soft pastel.png",
@@ -90,9 +89,6 @@ export default function Footer() {
           <a href="/market-rules" className="site-footer-link" data-nav="market" style={footerLinkStyle}>{t('footer.market_rules')}</a>
           <a href="/anti-scam" className="site-footer-link" data-nav="merch" style={footerLinkStyle}>{t('footer.anti_scam')}</a>
           <a href="/privacy" className="site-footer-link" data-nav="fanart" style={footerLinkStyle}>{t('footer.privacy')}</a>
-          <button type="button" onClick={() => openCookieSettings()} className="site-footer-link" style={{ ...footerLinkStyle, background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer", color: "inherit", font: "inherit" }}>
-            {t("cookies_banner.manage")}
-          </button>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column" }}>

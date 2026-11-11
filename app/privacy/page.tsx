@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { ShieldCheck, Lock, Eye, Cookie, Mail, Scale } from "lucide-react";
 import { useGlobal } from "../context/GlobalContext";
 import { markPrivacyRead } from "@/lib/privacy-read";
+import { openCookieSettings } from "@/lib/cookie-consent";
 
 import Footer from "../components/footer";
 
@@ -94,6 +95,13 @@ export default function PrivacyPolicy() {
             <p style={{ fontSize: "15px", lineHeight: "1.8", color: "var(--text-main)" }}>
               {t('privacy.cookies_desc')}
             </p>
+            <button
+              type="button"
+              onClick={() => openCookieSettings()}
+              style={{ marginTop: "18px", background: "transparent", color: "var(--color-primary)", border: "1px solid var(--color-border)", borderRadius: "999px", padding: "10px 16px", fontWeight: 800, cursor: "pointer" }}
+            >
+              {t("cookies_banner.manage")}
+            </button>
           </section>
 
           <section>
