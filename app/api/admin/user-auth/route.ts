@@ -188,6 +188,7 @@ export async function POST(req: Request) {
           typeof body.invite_code === "string" ? body.invite_code : "",
           body.referrer_koins,
           body.friend_koins,
+          body.invite_unlimited,
         );
         return NextResponse.json({
           ok: true,

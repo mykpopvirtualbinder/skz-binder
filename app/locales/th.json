@@ -1824,7 +1824,9 @@
     "privacy_check": "ยอมรับ",
     "privacy_notice_before": "ผู้รับผิดชอบ: MKPB, S.L. วัตถุประสงค์: จัดการบัญชีของคุณและให้บริการของ My Kpop Binder สิทธิ: คุณใช้สิทธิคุ้มครองข้อมูลได้ที่ info@mykpopbinder.com ข้อมูลเพิ่มเติมใน",
     "privacy_notice_after": ".",
-    "privacy_read_first": "เปิดนโยบายความเป็นส่วนตัวก่อน จึงจะยอมรับได้"
+    "privacy_read_first": "เปิดนโยบายความเป็นส่วนตัวก่อน จึงจะยอมรับได้",
+    "invite_locked_label": "รหัสบนการ์ด",
+    "invite_locked_benefit": "ด้วยรหัสนี้คุณจะได้ {n} K-oins หลังยืนยันอีเมล"
   },
   "report": {
     "title_part1": "รายงาน",

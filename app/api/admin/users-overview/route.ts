@@ -32,6 +32,7 @@ export type OverviewUser = {
   invite_referrer_koins: number;
   invite_friend_koins: number;
   invite_signups: number;
+  invite_unlimited: boolean;
   confirm_reminder_24_at: string | null;
   confirm_reminder_48_at: string | null;
   confirm_reminder_72_at: string | null;
@@ -158,6 +159,7 @@ export async function GET(req: Request) {
         invite_referrer_koins: appMeta.invite_referrer_koins == null ? 100 : Math.max(0, asNumber(appMeta.invite_referrer_koins)),
         invite_friend_koins: appMeta.invite_friend_koins == null ? 100 : Math.max(0, asNumber(appMeta.invite_friend_koins)),
         invite_signups: Math.max(0, asNumber(appMeta.invite_signups)),
+        invite_unlimited: appMeta.invite_unlimited === true,
         confirm_reminder_24_at: asString(appMeta[REMINDER_STAMP[24]]),
         confirm_reminder_48_at: asString(appMeta[REMINDER_STAMP[48]]),
         confirm_reminder_72_at: asString(appMeta[REMINDER_STAMP[72]]),

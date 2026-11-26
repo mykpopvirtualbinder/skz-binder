@@ -100,6 +100,7 @@ type AdminOverviewUser = {
   invite_referrer_koins?: number;
   invite_friend_koins?: number;
   invite_signups?: number;
+  invite_unlimited?: boolean;
   confirm_reminder_24_at?: string | null;
   confirm_reminder_48_at?: string | null;
   confirm_reminder_72_at?: string | null;
@@ -1563,6 +1564,7 @@ const levantarSancion = async (userId: string, ticketId: string) => {
       const code = (document.getElementById(`invite-${p.user_id}`) as HTMLInputElement | null)?.value || "";
       const referrer = parseInt((document.getElementById(`invite-ref-${p.user_id}`) as HTMLInputElement | null)?.value || "100", 10);
       const friend = parseInt((document.getElementById(`invite-friend-${p.user_id}`) as HTMLInputElement | null)?.value || "100", 10);
+      const unlimited = Boolean((document.getElementById(`invite-unlimited-${p.user_id}`) as HTMLInputElement | null)?.checked);
       const res = await fetch("/api/admin/user-auth", {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -1572,15 +1574,24 @@ const levantarSancion = async (userId: string, ticketId: string) => {
           invite_code: code,
           referrer_koins: referrer,
           friend_koins: friend,
+          invite_unlimited: unlimited,
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; code?: string | null; referrerKoins?: number; friendKoins?: number; signups?: number };
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string | null;
+        referrerKoins?: number;
+        friendKoins?: number;
+        signups?: number;
+        unlimited?: boolean;
+      };
       if (!res.ok) throw new Error(json.error || tr("No se pudo guardar el código."));
       sincronizarCambioUsuario(p.user_id, {
         invite_code: json.code || null,
         invite_referrer_koins: json.referrerKoins,
         invite_friend_koins: json.friendKoins,
         invite_signups: json.signups || 0,
+        invite_unlimited: Boolean(json.unlimited),
       });
       showAlert(tr("Código guardado"), json.code ? tr("El código {code} ya se puede usar en el alta.", { code: json.code }) : tr("Esta cuenta ya no tiene código de invitación."));
     } catch (err: any) {
@@ -3202,7 +3213,13 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               {countryLabel(p.signup_country) ? ` · Alta en ${countryLabel(p.signup_country)}` : ""}
               {countryLabel(p.last_seen_country) ? ` · Entra desde ${countryLabel(p.last_seen_country)}` : ""}
               {` · ${siteLanguageLabel(p.language) ? tr("Idioma: {name}", { name: siteLanguageLabel(p.language) || "" }) : tr("Idioma sin elegir")}`}
-              {p.invite_code ? ` · ${tr("Código {code}", { code: p.invite_code })} · ${tr("{n} de 10 usos", { n: p.invite_signups || 0 })}` : ""}
+              {p.invite_code
+                ? ` · ${tr("Código {code}", { code: p.invite_code })} · ${
+                    p.invite_unlimited
+                      ? tr("{n} usos · ilimitado", { n: p.invite_signups || 0 })
+                      : tr("{n} de 10 usos", { n: p.invite_signups || 0 })
+                  }`
+                : ""}
             </div>
             {!p.email_confirmed && !p.is_deleted && (
               <div style={{ fontSize: "11px", color: "var(--state-warning-fg)", fontWeight: 800, marginTop: "4px" }}>
@@ -3411,6 +3428,19 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
                 style={{ width: "52px", textAlign: "center", fontWeight: 800, border: "1px solid var(--color-border)", borderRadius: "4px", padding: "4px 6px", fontSize: "11px" }}
                 onClick={(e) => e.stopPropagation()}
               />
+              <label
+                htmlFor={`invite-unlimited-${p.user_id}`}
+                style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10px", fontWeight: 800, color: "var(--text-muted)", cursor: "pointer" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  id={`invite-unlimited-${p.user_id}`}
+                  type="checkbox"
+                  defaultChecked={Boolean(p.invite_unlimited)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {tr("Ilimitado")}
+              </label>
               <button
                 type="button"
                 data-kbd="confirm"
@@ -3419,7 +3449,11 @@ const aplicarSuspension = async (tipo: '1_mes' | '6_meses' | 'definitivo') => {
               >
                 {tr("Guardar código")}
               </button>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)" }}>{tr("{n} de 10 usos", { n: p.invite_signups || 0 })}</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-muted)" }}>
+                {p.invite_unlimited
+                  ? tr("{n} usos · ilimitado", { n: p.invite_signups || 0 })
+                  : tr("{n} de 10 usos", { n: p.invite_signups || 0 })}
+              </span>
             </div>
           </AdminUserActionGroup>
 

@@ -3,6 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { SITE_ADMIN_USER_ID } from "@/lib/site-admin-stock";
 import { normalizeSiteLanguage } from "@/lib/site-language";
 
+export {
+  CARD_WELCOME_FRIEND_KOINS,
+  CARD_WELCOME_INVITE_CODE,
+  CARD_WELCOME_REFERRER_KOINS,
+} from "@/lib/invite-campaign";
+
 export const DEFAULT_INVITE_REFERRER_KOINS = 100;
 export const DEFAULT_INVITE_FRIEND_KOINS = 100;
 export const INVITE_USE_LIMIT = 10;
@@ -41,6 +47,17 @@ function metaNumber(meta: Record<string, unknown>, key: string, fallback: number
 
 function inviteUses(meta: Record<string, unknown>): number {
   return Math.max(0, Number(meta.invite_signups) || 0);
+}
+
+export function inviteIsUnlimited(meta: Record<string, unknown> | null | undefined): boolean {
+  return Boolean(meta && meta.invite_unlimited === true);
+}
+
+/** true si el código del invitador ya no admite más altas (tope 10, salvo ilimitado). */
+export function inviteAtCap(meta: Record<string, unknown> | null | undefined): boolean {
+  if (!meta) return true;
+  if (inviteIsUnlimited(meta)) return false;
+  return inviteUses(meta) >= INVITE_USE_LIMIT;
 }
 
 function randomInviteCode(): string {
@@ -239,7 +256,7 @@ export async function redeemInviteIfReady(admin: SupabaseClient, userId: string)
 
   const fresh = await admin.auth.admin.getUserById(inviter.id);
   const inviterMeta = asRecord(fresh.data?.user?.app_metadata ?? inviter.app_metadata);
-  if (inviteUses(inviterMeta) >= INVITE_USE_LIMIT) {
+  if (inviteAtCap(inviterMeta)) {
     await admin.auth.admin.updateUserById(userId, {
       app_metadata: { ...prev, invite_pending_code: null, invite_redeemed_code: pending },
     });
@@ -289,7 +306,14 @@ export async function saveUserInviteCode(
   rawCode: string,
   referrerKoins: unknown,
   friendKoins: unknown,
-): Promise<{ code: string | null; referrerKoins: number; friendKoins: number; signups: number }> {
+  unlimited?: unknown,
+): Promise<{
+  code: string | null;
+  referrerKoins: number;
+  friendKoins: number;
+  signups: number;
+  unlimited: boolean;
+}> {
   const code = rawCode.trim() ? normalizeInviteCode(rawCode) : null;
   if (rawCode.trim() && !code) {
     throw new Error("Código no válido. Usa de 4 a 16 letras o números.");
@@ -305,12 +329,15 @@ export async function saveUserInviteCode(
   const next: Record<string, unknown> = { ...prev };
   const referrer = clampInviteKoins(referrerKoins, DEFAULT_INVITE_REFERRER_KOINS);
   const friend = clampInviteKoins(friendKoins, DEFAULT_INVITE_FRIEND_KOINS);
+  const wantUnlimited = unlimited === undefined ? inviteIsUnlimited(prev) : Boolean(unlimited);
   if (!code) {
     delete next.invite_code;
+    delete next.invite_unlimited;
   } else {
     next.invite_code = code;
     next.invite_referrer_koins = referrer;
     next.invite_friend_koins = friend;
+    next.invite_unlimited = wantUnlimited;
   }
   const saved = await admin.auth.admin.updateUserById(userId, { app_metadata: next });
   if (saved.error) throw new Error(saved.error.message);
@@ -319,5 +346,6 @@ export async function saveUserInviteCode(
     referrerKoins: referrer,
     friendKoins: friend,
     signups: Math.max(0, Number(prev.invite_signups) || 0),
+    unlimited: Boolean(code && wantUnlimited),
   };
 }

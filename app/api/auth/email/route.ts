@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { rememberAccountCountry } from "@/lib/account-country";
-import { attachPendingInvite, ensureOwnInviteCode, findInviterByCode, INVITE_USE_LIMIT, normalizeInviteCode } from "@/lib/invite-code";
+import { attachPendingInvite, ensureOwnInviteCode, findInviterByCode, inviteAtCap, normalizeInviteCode } from "@/lib/invite-code";
 import { allowedAuthRedirect, buildAuthConfirmLink, sendAuthLinkEmail, type AuthMailKind } from "@/lib/auth-link-mail";
 import { countryFromRequest } from "@/lib/request-country";
 import { normalizeSiteLanguage } from "@/lib/site-language";
@@ -78,11 +78,14 @@ export async function POST(req: Request) {
     if (inviteCode) {
       const inviter = await findInviterByCode(admin, inviteCode);
       const inviterEmail = (inviter?.email || "").trim().toLowerCase();
-      const used = Math.max(0, Number(inviter?.app_metadata?.invite_signups) || 0);
+      const inviterMeta =
+        inviter?.app_metadata && typeof inviter.app_metadata === "object"
+          ? (inviter.app_metadata as Record<string, unknown>)
+          : {};
       if (!inviter || inviterEmail === email) {
         return NextResponse.json({ code: "invite_invalid" }, { status: 400 });
       }
-      if (used >= INVITE_USE_LIMIT) {
+      if (inviteAtCap(inviterMeta)) {
         return NextResponse.json({ code: "invite_full" }, { status: 400 });
       }
     }

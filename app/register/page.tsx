@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
 import Footer from "../components/footer";
@@ -11,9 +11,18 @@ import { isEmailOk } from "@/lib/email-policy";
 import { isPasswordOk } from "@/lib/password-policy";
 import { isUsernameShapeOk, normalizeUsername } from "@/lib/username";
 import { privacyWasRead } from "@/lib/privacy-read";
+import { CARD_WELCOME_FRIEND_KOINS, CARD_WELCOME_INVITE_CODE } from "@/lib/invite-campaign";
+
+function inviteFromQuery(value: string | null): string {
+  if (!value) return "";
+  const code = value.trim().toUpperCase().replace(/\s+/g, "");
+  if (!/^[A-Z0-9][A-Z0-9-]{2,14}[A-Z0-9]$/.test(code)) return "";
+  return code;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t, showAlert, uiLanguage } = useGlobal();
   const [step, setStep] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
@@ -28,6 +37,7 @@ export default function RegisterPage() {
   const usernameRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [welcome, setWelcome] = useState<{ code: string; friend: number; referrer: number; mailFailed: boolean } | null>(null);
+  const [inviteLocked, setInviteLocked] = useState(false);
   
   const [formData, setFormData] = useState({
     username: "", firstName: "", lastName: "", email: "",
@@ -35,10 +45,26 @@ export default function RegisterPage() {
   });
 
   useEffect(() => {
+    const fromUrl = inviteFromQuery(searchParams.get("invite") || searchParams.get("code"));
+    let lockedFromDraft = false;
+    try {
+      lockedFromDraft = sessionStorage.getItem("register:inviteLocked") === "1";
+    } catch {
+      // no-op
+    }
+    const lock = Boolean(fromUrl) || lockedFromDraft;
+    if (fromUrl) {
+      try {
+        sessionStorage.setItem("register:inviteLocked", "1");
+      } catch {
+        // no-op
+      }
+    }
+    setInviteLocked(lock);
     try {
       const raw = sessionStorage.getItem("register:draft");
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
+      const parsed = raw ? JSON.parse(raw) : null;
+      const draftCode = String(parsed?.inviteCode ?? "");
       setFormData((prev) => ({
         ...prev,
         username: String(parsed?.username ?? prev.username),
@@ -48,13 +74,13 @@ export default function RegisterPage() {
         password: String(parsed?.password ?? prev.password),
         phone: String(parsed?.phone ?? prev.phone),
         address: String(parsed?.address ?? prev.address),
-        inviteCode: String(parsed?.inviteCode ?? prev.inviteCode),
+        inviteCode: fromUrl || (lock ? draftCode || prev.inviteCode : draftCode || prev.inviteCode),
         acceptTerms: Boolean(parsed?.acceptTerms ?? prev.acceptTerms),
       }));
     } catch {
-      // no-op
+      if (fromUrl) setFormData((prev) => ({ ...prev, inviteCode: fromUrl }));
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     try {
@@ -171,6 +197,11 @@ export default function RegisterPage() {
       };
       savePendingSignupProfile(pending);
       sessionStorage.removeItem("register:draft");
+      try {
+        sessionStorage.removeItem("register:inviteLocked");
+      } catch {
+        // no-op
+      }
       setWelcome({
         code: typeof mailBody.inviteCode === "string" ? mailBody.inviteCode : "",
         friend: mailBody.friendKoins || 100,
@@ -423,7 +454,45 @@ export default function RegisterPage() {
               
               <input value={formData.phone} placeholder={t("register.placeholder_phone")} style={inputStyle} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
               <textarea value={formData.address} placeholder={t("register.placeholder_address")} style={{ ...inputStyle, height: "60px", resize: "none" }} onChange={(e) => setFormData({...formData, address: e.target.value})} />
-              <input value={formData.inviteCode} placeholder={t("register.placeholder_invite")} autoComplete="off" style={inputStyle} onChange={(e) => setFormData({...formData, inviteCode: e.target.value})} />
+              {inviteLocked ? (
+                <div style={{ display: "grid", gap: "6px" }}>
+                  <label htmlFor="register-invite-locked" style={{ fontSize: "11px", fontWeight: 900, color: "var(--color-primary)", textTransform: "uppercase", textAlign: "center" }}>
+                    {t("register.invite_locked_label")}
+                  </label>
+                  <input
+                    id="register-invite-locked"
+                    value={formData.inviteCode}
+                    readOnly
+                    autoComplete="off"
+                    aria-readonly="true"
+                    style={{
+                      ...inputStyle,
+                      background: "var(--bg-soft)",
+                      color: "var(--text-main)",
+                      fontWeight: 900,
+                      letterSpacing: "0.04em",
+                      cursor: "default",
+                      opacity: 0.95,
+                    }}
+                  />
+                  <p style={{ margin: 0, fontSize: "12px", lineHeight: 1.4, fontWeight: 700, textAlign: "center", color: "var(--text-muted)" }}>
+                    {t("register.invite_locked_benefit", {
+                      n:
+                        formData.inviteCode.trim().toUpperCase() === CARD_WELCOME_INVITE_CODE
+                          ? CARD_WELCOME_FRIEND_KOINS
+                          : 100,
+                    })}
+                  </p>
+                </div>
+              ) : (
+                <input
+                  value={formData.inviteCode}
+                  placeholder={t("register.placeholder_invite")}
+                  autoComplete="off"
+                  style={inputStyle}
+                  onChange={(e) => setFormData({ ...formData, inviteCode: e.target.value })}
+                />
+              )}
 
               <div style={{ display: "grid", gap: "6px", marginTop: "10px" }}>
                 <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>

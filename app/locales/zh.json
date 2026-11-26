@@ -1824,7 +1824,9 @@
     "privacy_check": "我接受",
     "privacy_notice_before": "负责人：MKPB, S.L.。目的：管理你的账户并提供 My Kpop Binder 的服务。权利：你可以在 info@mykpopbinder.com 行使数据保护权利。更多信息见",
     "privacy_notice_after": "。",
-    "privacy_read_first": "请先打开隐私政策，然后才能接受。"
+    "privacy_read_first": "请先打开隐私政策，然后才能接受。",
+    "invite_locked_label": "卡片邀请码",
+    "invite_locked_benefit": "使用此邀请码，确认邮箱后可获得 {n} 个 K-oins。"
   },
   "report": {
     "title_part1": "举报",

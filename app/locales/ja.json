@@ -1860,7 +1860,9 @@
     "privacy_check": "同意します",
     "privacy_notice_before": "管理者：MKPB, S.L. 利用目的：アカウントの管理と My Kpop Binder のサービス提供。権利：個人情報保護の権利は info@mykpopbinder.com で行使できます。詳しくは",
     "privacy_notice_after": "をご覧ください。",
-    "privacy_read_first": "同意する前にプライバシーポリシーを開いてください。"
+    "privacy_read_first": "同意する前にプライバシーポリシーを開いてください。",
+    "invite_locked_label": "カードのコード",
+    "invite_locked_benefit": "このコードでメール確認後に {n} K-oins をもらえます。"
   },
   "report": {
     "title_part1": "通報",

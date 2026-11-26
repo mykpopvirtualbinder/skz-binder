@@ -1860,7 +1860,9 @@
     "privacy_check": "Saya setuju",
     "privacy_notice_before": "Penanggung jawab: MKPB, S.L. Tujuan: mengelola akunmu dan menyediakan layanan My Kpop Binder. Hak: kamu dapat menggunakan hak perlindungan datamu di info@mykpopbinder.com. Informasi selengkapnya di ",
     "privacy_notice_after": ".",
-    "privacy_read_first": "Buka kebijakan privasi sebelum kamu dapat menyetujuinya."
+    "privacy_read_first": "Buka kebijakan privasi sebelum kamu dapat menyetujuinya.",
+    "invite_locked_label": "Kode kartu",
+    "invite_locked_benefit": "Dengan kode ini kamu mendapat {n} K-oins setelah mengonfirmasi email."
   },
   "report": {
     "title_part1": "LAPORKAN",

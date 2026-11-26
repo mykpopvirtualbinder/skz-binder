@@ -2048,7 +2048,9 @@
     "privacy_check": "I accept",
     "privacy_notice_before": "Controller: MKPB, S.L. Purpose: managing your account and providing the My Kpop Binder services. Rights: you can exercise your data protection rights at info@mykpopbinder.com. More information in the ",
     "privacy_notice_after": ".",
-    "privacy_read_first": "Open the privacy policy before you can accept it."
+    "privacy_read_first": "Open the privacy policy before you can accept it.",
+    "invite_locked_label": "Card code",
+    "invite_locked_benefit": "With this code you get {n} K-oins after confirming your email."
   },
   "report": {
     "title_part1": "REPORTING",

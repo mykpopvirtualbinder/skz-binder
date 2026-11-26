@@ -1824,7 +1824,9 @@
     "privacy_check": "Aceito",
     "privacy_notice_before": "Responsável: MKPB, S.L. Finalidade: gestão da tua conta e prestação dos serviços de My Kpop Binder. Direitos: podes exercer os teus direitos de proteção de dados em info@mykpopbinder.com. Mais informação na ",
     "privacy_notice_after": ".",
-    "privacy_read_first": "Abre a política de privacidade para a poderes aceitar."
+    "privacy_read_first": "Abre a política de privacidade para a poderes aceitar.",
+    "invite_locked_label": "Código do cartão",
+    "invite_locked_benefit": "Com este código recebes {n} K-oins após confirmares o e-mail."
   },
   "report": {
     "title_part1": "DENUNCIAR",
