@@ -69,7 +69,14 @@ export async function POST(req: Request) {
   const gate = await requireAdminFromRequest(req);
   if (gate instanceof NextResponse) return gate;
 
-  let body: { user_id?: string; action?: string; invite_code?: string; referrer_koins?: number; friend_koins?: number };
+  let body: {
+    user_id?: string;
+    action?: string;
+    invite_code?: string;
+    referrer_koins?: number;
+    friend_koins?: number;
+    invite_unlimited?: boolean;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
